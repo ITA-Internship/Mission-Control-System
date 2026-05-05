@@ -186,6 +186,46 @@ python manage.py collectstatic
 python manage.py runserver
 ```
 
+### 🐳 Docker Services Overview
+
+After running `docker-compose up`, the following services will be available:
+
+| Service | URL / Port | Description |
+|---------|-----------|-------------|
+| **Django App** | [http://localhost:8000](http://localhost:8000) | Main application (Gunicorn) |
+| **PostgreSQL** | `localhost:5432` | Database (user: `postgres`, db: `mission_control_db`) |
+| **Redis** | `localhost:6379` | Cache and message broker for Celery |
+| **pgAdmin** | [http://localhost:5050](http://localhost:5050) | DB admin panel (login: `admin@admin.com` / `admin`) |
+
+### Docker Commands Reference
+
+```bash
+# Build and start all services
+docker-compose up --build
+
+# Start in background
+docker-compose up --build -d
+
+# Stop all services
+docker-compose down
+
+# Full reset (remove containers and volumes)
+docker-compose down -v
+
+# View logs
+docker-compose logs -f
+docker-compose logs -f web
+
+# Show running containers
+docker-compose ps
+
+# Run Django management commands
+docker-compose exec web python manage.py <command>
+
+# Rebuild Django image
+docker-compose build web
+```
+
 ## ⚙️ Configuration
 
 ### Environment Variables
