@@ -12,8 +12,12 @@ A comprehensive web-based application designed to support military units in mana
 - [Features](#features)
 - [Technology Stack](#technology-stack)
 - [System Architecture](#system-architecture)
-- [Installation](#installation)
-- [Configuration](#configuration)
+- [Getting Started](#getting-started)
+- [Environment Variables](#environment-variables)
+- [Running with Docker](#running-with-docker)
+- [Running Locally](#running-locally)
+- [Django Admin](#django-admin)
+- [Troubleshooting](#troubleshooting)
 - [User Roles](#user-roles)
 - [API Documentation](#api-documentation)
 - [Development](#development)
@@ -122,140 +126,410 @@ mission_control/
 
 This modular structure enables future evolution into microservices architecture if needed.
 
-## 🚀 Installation
+## 🚀 Getting Started
 
-### Prerequisites
-- Python 3.10+
-- PostgreSQL 13+
-- Docker & Docker Compose (optional)
+This section explains how to set up and run the project from scratch.
+
+The project can be started in two ways:
+
+- with Docker, which is recommended for most developers;
+- locally, using Python and a local database setup.
+
+## ✅ Prerequisites
+
+Before starting, make sure you have the following tools installed:
+
 - Git
+- Python 3.10+
+- pip
+- Docker Desktop
+- Docker Compose
 
-### Quick Start with Docker
+If you want to run the project locally without Docker, you also need PostgreSQL installed on your machine.
+
+## 📥 Clone the Repository
+
+First, clone the project from GitHub:
 
 ```bash
-# Clone the repository
-git clone https://github.com/mehalyna/Mission-Control-System.git
+git clone https://github.com/ITA-Internship/Mission-Control-System.git
 cd Mission-Control-System
-
-# Copy environment configuration
-cp .env.example .env
-
-# Edit .env with your configuration
-nano .env
-
-# Build and start containers
-docker-compose up -d
-
-# Run migrations
-docker-compose exec web python manage.py migrate
-
-# Create superuser
-docker-compose exec web python manage.py createsuperuser
-
-# Access the application at http://localhost:8000
 ```
 
-### Manual Installation
+## ⚙️ Environment Variables
+
+The project uses environment variables to store configuration values.
+
+Create a `.env` file from the example file:
 
 ```bash
-# Clone the repository
-git clone https://github.com/mehalyna/Mission-Control-System.git
-cd Mission-Control-System
-
-# Create virtual environment
-python -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
-
-# Install dependencies
-pip install -r requirements.txt
-
-# Configure database in .env
 cp .env.example .env
-nano .env
+```
 
-# Run migrations
+For Windows PowerShell, use:
+
+```bash
+copy .env.example .env
+```
+
+After that, open the `.env` file and update the values if needed.
+
+Example `.env` configuration:
+
+```env
+# Django settings
+SECRET_KEY=your-secret-key-here
+DEBUG=True
+ALLOWED_HOSTS=localhost,127.0.0.1
+
+# Database settings
+DB_NAME=mission_control
+DB_USER=postgres
+DB_PASSWORD=postgres
+DB_HOST=db
+DB_PORT=5432
+
+# Redis
+REDIS_URL=redis://redis:6379/0
+```
+
+For Docker-based development, `DB_HOST` is usually set to `db`, because this is the name of the PostgreSQL service inside Docker Compose.
+
+For local development without Docker, `DB_HOST` should usually be set to `localhost`.
+
+## 🐳 Running with Docker
+
+Docker is the easiest way to start the project because it runs the application and required services in containers.
+
+Build and start the containers:
+
+```bash
+docker compose up --build
+```
+
+If your system uses the older Docker Compose command, use:
+
+```bash
+docker-compose up --build
+```
+
+After the containers are running, open a new terminal window and apply database migrations:
+
+```bash
+docker compose exec web python manage.py migrate
+```
+
+Create an admin user:
+
+```bash
+docker compose exec web python manage.py createsuperuser
+```
+
+The application should be available at:
+
+```text
+http://localhost:8000/
+```
+
+The Django admin panel should be available at:
+
+```text
+http://localhost:8000/admin/
+```
+
+If pgAdmin is enabled in Docker Compose, it should be available at:
+
+```text
+http://localhost:5050/
+```
+
+## 💻 Running Locally
+
+Use this option if you want to run the Django project directly on your machine without Docker.
+
+Create a virtual environment:
+
+```bash
+python -m venv venv
+```
+
+Activate the virtual environment.
+
+For Linux or macOS:
+
+```bash
+source venv/bin/activate
+```
+
+For Windows PowerShell:
+
+```bash
+venv\Scripts\activate
+```
+
+For Git Bash on Windows:
+
+```bash
+source venv/Scripts/activate
+```
+
+Install project dependencies:
+
+```bash
+pip install -r requirements.txt
+```
+
+Create the `.env` file:
+
+```bash
+cp .env.example .env
+```
+
+For Windows PowerShell:
+
+```bash
+copy .env.example .env
+```
+
+Make sure the database settings in `.env` are correct.
+
+Apply database migrations:
+
+```bash
 python manage.py migrate
+```
 
-# Create superuser
+Create an admin user:
+
+```bash
 python manage.py createsuperuser
+```
 
-# Collect static files
-python manage.py collectstatic
+Start the development server:
 
-# Run development server
+```bash
 python manage.py runserver
 ```
 
-### 🐳 Docker Services Overview
+The application should be available at:
 
-After running `docker-compose up`, the following services will be available:
-
-| Service | URL / Port | Description |
-|---------|-----------|-------------|
-| **Django App** | [http://localhost:8000](http://localhost:8000) | Main application (Gunicorn) |
-| **PostgreSQL** | `localhost:5432` | Database (user: `postgres`, db: `mission_control_db`) |
-| **Redis** | `localhost:6379` | Cache and message broker for Celery |
-| **pgAdmin** | [http://localhost:5050](http://localhost:5050) | DB admin panel (login: `admin@admin.com` / `admin`) |
-
-### Docker Commands Reference
-
-```bash
-# Build and start all services
-docker-compose up --build
-
-# Start in background
-docker-compose up --build -d
-
-# Stop all services
-docker-compose down
-
-# Full reset (remove containers and volumes)
-docker-compose down -v
-
-# View logs
-docker-compose logs -f
-docker-compose logs -f web
-
-# Show running containers
-docker-compose ps
-
-# Run Django management commands
-docker-compose exec web python manage.py <command>
-
-# Rebuild Django image
-docker-compose build web
+```text
+http://127.0.0.1:8000/
 ```
 
-## ⚙️ Configuration
+## 🛠 Database Migrations
 
-### Environment Variables
+Migrations are used to create and update database tables.
 
-Create a `.env` file in the project root:
+Create new migrations after changing Django models:
+
+```bash
+python manage.py makemigrations
+```
+
+Apply migrations to the database:
+
+```bash
+python manage.py migrate
+```
+
+Check migration status:
+
+```bash
+python manage.py showmigrations
+```
+
+## 🔐 Django Admin
+
+To access the Django admin panel, first create a superuser:
+
+```bash
+python manage.py createsuperuser
+```
+
+Then start the server and open:
+
+```text
+http://127.0.0.1:8000/admin/
+```
+
+Log in with the username and password created in the previous step.
+
+## 🧯 Troubleshooting
+
+### Docker command does not work
+
+Make sure Docker Desktop is installed and running.
+
+Check Docker version:
+
+```bash
+docker --version
+```
+
+Check Docker Compose version:
+
+```bash
+docker compose version
+```
+
+If `docker compose` does not work, try:
+
+```bash
+docker-compose --version
+```
+
+### Port 8000 is already in use
+
+Another process may already be using port `8000`.
+
+Run the Django server on another port:
+
+```bash
+python manage.py runserver 8001
+```
+
+Then open:
+
+```text
+http://127.0.0.1:8001/
+```
+
+### Database connection error
+
+Check that the database is running.
+
+For Docker:
+
+```bash
+docker compose ps
+```
+
+Check container logs:
+
+```bash
+docker compose logs db
+docker compose logs web
+```
+
+Also make sure that database values in `.env` are correct.
+
+For Docker, `DB_HOST` should usually be:
 
 ```env
-# Django Settings
-SECRET_KEY=your-secret-key-here
-DEBUG=False
-ALLOWED_HOSTS=localhost,127.0.0.1
+DB_HOST=db
+```
 
-# Database
-DB_NAME=drone_management
-DB_USER=postgres
-DB_PASSWORD=your_password
+For local development, `DB_HOST` should usually be:
+
+```env
 DB_HOST=localhost
-DB_PORT=5432
+```
 
-# External Storage (AWS S3 Example)
-AWS_ACCESS_KEY_ID=your_access_key
-AWS_SECRET_ACCESS_KEY=your_secret_key
-AWS_STORAGE_BUCKET_NAME=drone-videos
-AWS_S3_REGION_NAME=us-east-1
+### ModuleNotFoundError or missing package error
 
-# Redis (Optional)
-REDIS_URL=redis://localhost:6379/0
+Make sure the virtual environment is activated and dependencies are installed:
 
-# Security
-CSRF_TRUSTED_ORIGINS=https://yourdomain.com
+```bash
+pip install -r requirements.txt
+```
+
+### manage.py not found
+
+Make sure you are in the project root directory.
+
+You should see `manage.py` in the current folder.
+
+Check current files:
+
+```bash
+ls
+```
+
+### Migrations do not work
+
+Check migration status:
+
+```bash
+python manage.py showmigrations
+```
+
+Then try applying migrations again:
+
+```bash
+python manage.py migrate
+```
+
+### Environment variables are not loaded
+
+Make sure the `.env` file exists in the project root directory.
+
+Check files:
+
+```bash
+ls -a
+```
+
+If `.env` does not exist, create it from the example file:
+
+```bash
+cp .env.example .env
+```
+
+For Windows PowerShell:
+
+```bash
+copy .env.example .env
+```
+
+## 📌 Useful Commands
+
+Start Docker containers:
+
+```bash
+docker compose up --build
+```
+
+Stop Docker containers:
+
+```bash
+docker compose down
+```
+
+Stop Docker containers and remove volumes:
+
+```bash
+docker compose down -v
+```
+
+View logs:
+
+```bash
+docker compose logs
+```
+
+View logs for the web container:
+
+```bash
+docker compose logs web
+```
+
+Run Django migrations in Docker:
+
+```bash
+docker compose exec web python manage.py migrate
+```
+
+Create a Django superuser in Docker:
+
+```bash
+docker compose exec web python manage.py createsuperuser
+```
+
+Run tests locally:
+
+```bash
+python manage.py test
 ```
 
 ## 👥 User Roles
@@ -400,7 +674,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 **Project Maintainer**: mehalyna
 
 - GitHub: [@mehalyna](https://github.com/mehalyna)
-- Repository: [Mission-Control-System](https://github.com/mehalyna/Mission-Control-System)
+- Repository: [Mission-Control-System](https://github.com/ITA-Internship/Mission-Control-System)
 
 ## 🙏 Acknowledgments
 
