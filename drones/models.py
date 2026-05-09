@@ -1,3 +1,39 @@
 from django.db import models
 
-# Create your models here.
+
+class Drone(models.Model):
+
+    STATUS_CHOICES = [
+        ("ACTIVE", "Active"),
+        ("DAMAGED", "Damaged"),
+        ("LOST", "Lost"),
+        ("MAINTENANCE", "Maintenance"),
+    ]
+
+    serial_number = models.CharField(max_length=100, unique=True)
+    inventory_number = models.CharField(max_length=100, unique=True)
+    name = models.CharField(max_length=100)
+    model = models.CharField(max_length=255)
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='ACTIVE')
+    acquired_at = models.DateField()
+    notes = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+
+class DroneSpec(models.Model):
+    drone = models.OneToOneField(Drone, on_delete=models.CASCADE, related_name="spec")
+    frame_type = models.CharField(max_length=255)
+    motor_model = models.CharField(max_length=255)
+    battery_type = models.CharField(max_length=255)
+    battery_capacity_mah = models.PositiveIntegerField()
+    camera_model = models.CharField(max_length=255)
+    vtx_model = models.CharField(max_length=255, blank=True)
+    flight_controller = models.CharField(max_length=255)
+    firmware_version = models.CharField(max_length=255, blank=True)
+    max_speed_kmh = models.DecimalField(max_digits=6, decimal_places=2)
+    max_range_km = models.DecimalField(max_digits=6, decimal_places=2)
+    max_flight_time = models.DecimalField(max_digits=6, decimal_places=2)
+    frequency_mhz = models.PositiveIntegerField()
+    payload_capacity_g = models.PositiveIntegerField(blank=True)
+    updated_at = models.DateTimeField(auto_now=True)

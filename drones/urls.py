@@ -1,8 +1,8 @@
 from django.urls import path
-from . import views
+from .views import DroneCreateView
 
 app_name = 'drones'
 
 urlpatterns = [
-    # Now is empty
+    path("", DroneCreateView.as_view(), name="drone-create"),
 ]
