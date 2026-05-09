@@ -23,11 +23,17 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
         )
         read_only_fields = ('id',)
 
-
-    """def validate_username(self, value):
+    @staticmethod
+    def validate_username(self, value):
         if User.objects.filter(username__iexact=value).exists():
             raise serializers.ValidationError("A user with that username already exists.")
-        return value"""
+        return value
+
+    @staticmethod
+    def validate_email(self, value):
+        if User.objects.filter(email__iexact=value).exists():
+            raise serializers.ValidationError("A user with that email already exists.")
+        return value
 
     def create(self, validated_data):
         rank = validated_data.pop("rank", "")
