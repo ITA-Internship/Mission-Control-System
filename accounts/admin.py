@@ -16,12 +16,25 @@ class CustomUserAdmin(UserAdmin):
                     "role",
                     "unit",
                     "created_by",
-                    "created_at",
-                    "updated_at",
                 )
             },
         ),
     )
+
+    add_fieldsets = UserAdmin.add_fieldsets + (
+        (
+            "Assignments",
+            {
+                "fields": (
+                    "email",
+                    "role",
+                    "unit",
+                    "created_by"
+                )
+            }
+        ),
+    )
+
     readonly_fields = ("created_at", "updated_at")
 
 

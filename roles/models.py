@@ -1,11 +1,17 @@
 from django.db import models
 
+ADMIN_CODE = "ADMIN"
+COMMANDER_CODE = "COMMANDER"
+OPERATOR_CODE = "OPERATOR"
+TECHNICIAN_CODE = "TECHNICIAN"
+VIEWER_CODE = "VIEWER"
+
 ROLE_CODES = (
-    ("ADMIN", "Admin"),
-    ("COMMANDER", "Commander"),
-    ("OPERATOR", "Operator"),
-    ("TECHNICIAN", "Technician"),
-    ("VIEWER", "Viewer"),
+    (ADMIN_CODE, "Admin"),
+    (COMMANDER_CODE, "Commander"),
+    (OPERATOR_CODE, "Operator"),
+    (TECHNICIAN_CODE, "Technician"),
+    (VIEWER_CODE, "Viewer"),
 )
 
 class Role(models.Model):
