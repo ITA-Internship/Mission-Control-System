@@ -33,6 +33,7 @@ class DroneCreateTests(APITestCase):
             }
         }
 
+
     def test_create_drone_with_spec(self):
         response = self.client.post(self.create_url, self.base_payload, format="json")
 
@@ -70,6 +71,8 @@ class DroneCreateTests(APITestCase):
         response = self.client.post(self.create_url, self.base_payload, format="json")
 
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('serial_number', response.data)
+        self.assertEqual(response.data['serial_number'][0].code, 'unique')
 
 
     def test_create_spec_with_optional_fields_omitted(self):
