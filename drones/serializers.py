@@ -1,5 +1,6 @@
 from rest_framework import serializers
 from .models import Drone, DroneSpec
+from .services import create_drone_with_spec
 
 
 class DroneSpecSerializer(serializers.ModelSerializer):
@@ -18,7 +19,5 @@ class DroneSerializer(serializers.ModelSerializer):
 
     def create(self, validated_data):
         spec_data = validated_data.pop("spec")
-        drone = Drone.objects.create(**validated_data)
-        DroneSpec.objects.create(drone=drone, **spec_data)
 
-        return drone
+        return create_drone_with_spec(drone_data=validated_data, spec_data=spec_data)

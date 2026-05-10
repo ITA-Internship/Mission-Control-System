@@ -13,12 +13,15 @@ class Drone(models.Model):
     serial_number = models.CharField(max_length=100, unique=True)
     inventory_number = models.CharField(max_length=100, unique=True)
     name = models.CharField(max_length=100)
-    model = models.CharField(max_length=255)
+    drone_model = models.CharField(max_length=255)
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='ACTIVE')
     acquired_at = models.DateField()
     notes = models.TextField(blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self) -> str:
+        return f"{self.name} {self.drone_model} - {self.serial_number}"
 
 
 class DroneSpec(models.Model):
@@ -35,5 +38,8 @@ class DroneSpec(models.Model):
     max_range_km = models.DecimalField(max_digits=6, decimal_places=2)
     max_flight_time = models.DecimalField(max_digits=6, decimal_places=2)
     frequency_mhz = models.PositiveIntegerField()
-    payload_capacity_g = models.PositiveIntegerField(blank=True)
+    payload_capacity_g = models.PositiveIntegerField(blank=True, null=True)
     updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self) -> str:
+        return f"Specification for {self.drone}"
