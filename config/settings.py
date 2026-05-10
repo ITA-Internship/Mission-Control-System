@@ -46,6 +46,7 @@ INSTALLED_APPS = [
     'accounts',
     'drones',
     'roles',
+    'missions',
 ]
 
 MIDDLEWARE = [
