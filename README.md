@@ -625,16 +625,26 @@ coverage html
 
 ### Code Quality
 
+This project uses `pre-commit` to automatically enforce code quality standards. We use **Black** (formatting), **isort** (import sorting), and **Flake8** (linting).
+
+***Local Setup:***
+
+To run checks automatically before each commit, run:
 ```bash
-# Format code with Black
-black .
-
-# Lint with flake8
-flake8 .
-
-# Type checking with mypy
-mypy .
+pip install pre-commit
+pre-commit install
 ```
+
+***Manual Run:***
+
+To check all files without making a commit:
+```bash
+pre-commit run --all-files
+```
+
+***Continuous Integration (CI):***
+
+GitHub Actions are configured to automatically run these checks on all Pull Requests and pushes to the develop and main branches.
 
 ### Database Migrations
 
