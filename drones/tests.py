@@ -1,9 +1,11 @@
 from django.urls import reverse
 from rest_framework import status
 from rest_framework.test import APITestCase
+from django.contrib.auth import get_user_model
 import copy
 from drones.models import Drone, DroneSpec
 
+User = get_user_model()
 
 class DroneCreateTests(APITestCase):
     def setUp(self):
@@ -27,11 +29,18 @@ class DroneCreateTests(APITestCase):
                 "firmware_version": "Test Firmware Version",
                 "max_speed_kmh": "12.5",
                 "max_range_km": "130",
-                "max_flight_time": "20",
+                "max_flight_time_min": "20",
                 "frequency_mhz": "1000",
                 "payload_capacity_g": "100"
             }
         }
+        self.user = User.objects.create_user(
+            username="admin",
+            password="12345",
+            is_staff=True,
+        )
+
+        self.client.force_authenticate(self.user)
 
 
     def test_create_drone_with_spec(self):

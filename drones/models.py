@@ -36,7 +36,7 @@ class DroneSpec(models.Model):
     firmware_version = models.CharField(max_length=255, blank=True)
     max_speed_kmh = models.DecimalField(max_digits=6, decimal_places=2)
     max_range_km = models.DecimalField(max_digits=6, decimal_places=2)
-    max_flight_time = models.DecimalField(max_digits=6, decimal_places=2)
+    max_flight_time_min = models.DecimalField(max_digits=6, decimal_places=2)
     frequency_mhz = models.PositiveIntegerField()
     payload_capacity_g = models.PositiveIntegerField(blank=True, null=True)
     updated_at = models.DateTimeField(auto_now=True)
