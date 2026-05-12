@@ -14,7 +14,7 @@ class Drone(models.Model):
     inventory_number = models.CharField(max_length=100, unique=True)
     name = models.CharField(max_length=100)
     drone_model = models.CharField(max_length=255)
-    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='ACTIVE')
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="ACTIVE")
     acquired_at = models.DateField()
     notes = models.TextField(blank=True)
     created_at = models.DateTimeField(auto_now_add=True)

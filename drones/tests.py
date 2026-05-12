@@ -1,11 +1,14 @@
+import copy
+
+from django.contrib.auth import get_user_model
 from django.urls import reverse
 from rest_framework import status
 from rest_framework.test import APITestCase
-from django.contrib.auth import get_user_model
-import copy
+
 from drones.models import Drone, DroneSpec
 
 User = get_user_model()
+
 
 class DroneCreateTests(APITestCase):
     def setUp(self):
@@ -17,7 +20,6 @@ class DroneCreateTests(APITestCase):
             "drone_model": "Test Model",
             "status": "ACTIVE",
             "acquired_at": "2026-05-09",
-
             "spec": {
                 "frame_type": "Test Frame",
                 "motor_model": "Test Motor Model",
@@ -31,8 +33,8 @@ class DroneCreateTests(APITestCase):
                 "max_range_km": "130",
                 "max_flight_time_min": "20",
                 "frequency_mhz": "1000",
-                "payload_capacity_g": "100"
-            }
+                "payload_capacity_g": "100",
+            },
         }
         self.user = User.objects.create_user(
             username="admin",
@@ -42,19 +44,17 @@ class DroneCreateTests(APITestCase):
 
         self.client.force_authenticate(self.user)
 
-
     def test_create_drone_with_spec(self):
         response = self.client.post(self.create_url, self.base_payload, format="json")
 
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
-        self.assertEqual(Drone.objects.count(),1)
-        self.assertEqual(DroneSpec.objects.count(),1)
+        self.assertEqual(Drone.objects.count(), 1)
+        self.assertEqual(DroneSpec.objects.count(), 1)
 
         drone = Drone.objects.first()
 
         self.assertEqual(drone.drone_model, "Test Model")
-        self.assertEqual(drone.spec.frame_type,"Test Frame")
-
+        self.assertEqual(drone.spec.frame_type, "Test Frame")
 
     def test_create_drone_missing_required_field(self):
         payload = copy.deepcopy(self.base_payload)
@@ -63,9 +63,8 @@ class DroneCreateTests(APITestCase):
         response = self.client.post(self.create_url, payload, format="json")
 
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertIn('serial_number', response.data)
-        self.assertEqual(response.data['serial_number'][0].code, 'required')
-
+        self.assertIn("serial_number", response.data)
+        self.assertEqual(response.data["serial_number"][0].code, "required")
 
     def test_create_drone_duplicate_serial_number(self):
         Drone.objects.create(
@@ -80,9 +79,8 @@ class DroneCreateTests(APITestCase):
         response = self.client.post(self.create_url, self.base_payload, format="json")
 
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertIn('serial_number', response.data)
-        self.assertEqual(response.data['serial_number'][0].code, 'unique')
-
+        self.assertIn("serial_number", response.data)
+        self.assertEqual(response.data["serial_number"][0].code, "unique")
 
     def test_create_spec_with_optional_fields_omitted(self):
         payload = copy.deepcopy(self.base_payload)
