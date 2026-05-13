@@ -13,6 +13,11 @@ class Result(models.TextChoices):
     FAILURE = 'failure', 'Failure'
 
 
+class MissionQuerySet(models.QuerySet):
+    def with_related(self):
+        return self.select_related('commander', 'created_by')
+
+
 class Mission(models.Model):
     title = models.CharField(max_length=255)
 
@@ -54,6 +59,8 @@ class Mission(models.Model):
 
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+
+    objects = MissionQuerySet.as_manager()
 
     class Meta:
         db_table = 'missions'

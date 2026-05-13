@@ -11,20 +11,6 @@ from .models import Mission
 User = get_user_model()
 
 
-#we will need smth like this function from accoints team
-def _user_has_role(user, *codes):
-    """Check whether `user` has any of the given role codes."""
-
-    if not user or not getattr(user, 'is_authenticated', False):
-        return False
-    
-    role = getattr(user, 'role', None)
-    if role is not None and getattr(role, 'code', None) in codes:
-        return True
-    
-    return False
-
-
 class MissionSerializer(serializers.ModelSerializer):
     commander_id = serializers.PrimaryKeyRelatedField(
         source='commander',
@@ -70,7 +56,8 @@ class MissionSerializer(serializers.ModelSerializer):
     def validate_commander_id(self, user):
         if user is None:
             return user
-        if not _user_has_role(user, COMMANDER_CODE):
+        role_code = getattr(getattr(user, 'role', None), 'code', None)
+        if role_code != COMMANDER_CODE:
             raise serializers.ValidationError(
                 'Selected user does not have the Commander role.'
             )
