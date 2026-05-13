@@ -1,6 +1,8 @@
 from rest_framework import serializers
-from .models import User, UserProfile
-from .services import send_activation_email, create_user_account
+
+from .models import User
+from .services import create_user_account
+
 
 class UserRegistrationSerializer(serializers.ModelSerializer):
     rank = serializers.CharField(required=False, allow_blank=True)
@@ -10,22 +12,24 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
         fields = (
-            'id',
-            'username',
-            'email',
-            'first_name',
-            'last_name',
-            'role',
-            'unit',
-            'rank',
-            'contact',
-            'profile_picture',
+            "id",
+            "username",
+            "email",
+            "first_name",
+            "last_name",
+            "role",
+            "unit",
+            "rank",
+            "contact",
+            "profile_picture",
         )
-        read_only_fields = ('id',)
+        read_only_fields = ("id",)
 
     def validate_username(self, value):
         if User.objects.filter(username__iexact=value).exists():
-            raise serializers.ValidationError("A user with that username already exists.")
+            raise serializers.ValidationError(
+                "A user with that username already exists."
+            )
         return value
 
     def validate_email(self, value):
@@ -34,7 +38,7 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
         return value
 
     def create(self, validated_data):
-        request = self.context.get('request')
-        created_by = request.user if request and hasattr(request, 'user') else None
+        request = self.context.get("request")
+        created_by = request.user if request and hasattr(request, "user") else None
 
         return create_user_account(validated_data, created_by)

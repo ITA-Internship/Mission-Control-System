@@ -7,19 +7,39 @@ class Migration(migrations.Migration):
 
     initial = True
 
-    dependencies = [
-    ]
+    dependencies = []
 
     operations = [
         migrations.CreateModel(
-            name='Role',
+            name="Role",
             fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('code', models.CharField(choices=[('ADMIN', 'Admin'), ('COMMANDER', 'Commander'), ('OPERATOR', 'Operator'), ('TECHNICIAN', 'Technician'), ('VIEWER', 'Viewer')], max_length=50, unique=True)),
-                ('name', models.CharField(max_length=150)),
-                ('description', models.TextField(blank=True)),
-                ('created_at', models.DateTimeField(auto_now_add=True)),
-                ('updated_at', models.DateTimeField(auto_now=True)),
+                (
+                    "id",
+                    models.BigAutoField(
+                        auto_created=True,
+                        primary_key=True,
+                        serialize=False,
+                        verbose_name="ID",
+                    ),
+                ),
+                (
+                    "code",
+                    models.CharField(
+                        choices=[
+                            ("ADMIN", "Admin"),
+                            ("COMMANDER", "Commander"),
+                            ("OPERATOR", "Operator"),
+                            ("TECHNICIAN", "Technician"),
+                            ("VIEWER", "Viewer"),
+                        ],
+                        max_length=50,
+                        unique=True,
+                    ),
+                ),
+                ("name", models.CharField(max_length=150)),
+                ("description", models.TextField(blank=True)),
+                ("created_at", models.DateTimeField(auto_now_add=True)),
+                ("updated_at", models.DateTimeField(auto_now=True)),
             ],
         ),
     ]

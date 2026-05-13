@@ -1,9 +1,10 @@
-from django.core.mail import send_mail
 from django.conf import settings
 from django.contrib.auth.tokens import default_token_generator
-from django.urls import reverse
+from django.core.mail import send_mail
 from django.db import transaction
+
 from .models import User, UserProfile
+
 
 @transaction.atomic
 def create_user_account(validated_data: dict, created_by: User = None) -> User:
@@ -34,7 +35,7 @@ def create_user_account(validated_data: dict, created_by: User = None) -> User:
 def send_activation_email(user) -> None:
     token = default_token_generator.make_token(user)
 
-    frontend_url = getattr(settings, 'FRONTEND_URL', 'http://localhost:3000')
+    frontend_url = getattr(settings, "FRONTEND_URL", "http://localhost:3000")
 
     activation_url = f"{frontend_url}/activate/{user.pk}/{token}/"
 
@@ -43,7 +44,8 @@ def send_activation_email(user) -> None:
         f"Welcome, {user.first_name}!\n\n"
         f"Your account in the system has been created.\n"
         f"Login: {user.username}\n\n"
-        f"Please click the link below to set your password and activate your account:\n"
+        f"Please click the link below to set your password "
+        "and activate your account:\n"
         f"{activation_url}\n\n"
         f"For security reasons, this link is for one-time use only."
     )

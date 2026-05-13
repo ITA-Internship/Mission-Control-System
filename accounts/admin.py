@@ -1,6 +1,7 @@
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin
-from .models import User, MilitaryUnit, UserProfile
+
+from .models import MilitaryUnit, User, UserProfile
 
 
 @admin.register(User)
@@ -22,17 +23,7 @@ class CustomUserAdmin(UserAdmin):
     )
 
     add_fieldsets = UserAdmin.add_fieldsets + (
-        (
-            "Assignments",
-            {
-                "fields": (
-                    "email",
-                    "role",
-                    "unit",
-                    "created_by"
-                )
-            }
-        ),
+        ("Assignments", {"fields": ("email", "role", "unit", "created_by")}),
     )
 
     readonly_fields = ("created_at", "updated_at")
