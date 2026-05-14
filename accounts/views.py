@@ -7,8 +7,8 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from .models import User
-from .permissions import HasRBACPermission, IsSystemAdmin
-from .rbac import PERMISSION_USERS_MANAGE_ROLES
+from .permissions import HasRBACPermission
+from .rbac import PERMISSION_USERS_CREATE, PERMISSION_USERS_MANAGE_ROLES
 from .serializers import (
     UserRegistrationSerializer,
     UserRoleUpdateResponseSerializer,
@@ -20,7 +20,8 @@ from .services import update_user_role
 class UserRegistrationView(generics.CreateAPIView):
     queryset = User.objects.all()
     serializer_class = UserRegistrationSerializer
-    permission_classes = [IsSystemAdmin]
+    permission_classes = [HasRBACPermission]
+    required_permission = PERMISSION_USERS_CREATE
 
 
 class UserRoleUpdateAPIView(APIView):
