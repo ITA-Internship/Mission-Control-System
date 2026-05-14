@@ -92,62 +92,82 @@ def admin_permissions():
 
 
 def commander_permissions():
-    return profile_permissions() | own_audit_log_permissions() | {
-        PERMISSION_DRONES_VIEW,
-        PERMISSION_SPECIFICATIONS_VIEW,
-        PERMISSION_MISSIONS_VIEW,
-        PERMISSION_MISSIONS_ASSIGN,
-        PERMISSION_MISSIONS_UPDATE_STATUS,
-        PERMISSION_MEDIA_VIEW,
-        PERMISSION_MAINTENANCE_VIEW,
-        PERMISSION_WRITEOFF_VIEW,
-        PERMISSION_WRITEOFF_AUTHORIZE,
-    }
+    return (
+        profile_permissions()
+        | own_audit_log_permissions()
+        | {
+            PERMISSION_DRONES_VIEW,
+            PERMISSION_SPECIFICATIONS_VIEW,
+            PERMISSION_MISSIONS_VIEW,
+            PERMISSION_MISSIONS_ASSIGN,
+            PERMISSION_MISSIONS_UPDATE_STATUS,
+            PERMISSION_MEDIA_VIEW,
+            PERMISSION_MAINTENANCE_VIEW,
+            PERMISSION_WRITEOFF_VIEW,
+            PERMISSION_WRITEOFF_AUTHORIZE,
+        }
+    )
 
 
 def dispatcher_permissions():
-    return profile_permissions() | own_audit_log_permissions() | {
-        PERMISSION_DRONES_VIEW,
-        PERMISSION_SPECIFICATIONS_VIEW,
-        PERMISSION_MISSIONS_VIEW,
-        PERMISSION_MISSIONS_CREATE,
-        PERMISSION_MISSIONS_ASSIGN,
-        PERMISSION_MEDIA_VIEW,
-    }
+    return (
+        profile_permissions()
+        | own_audit_log_permissions()
+        | {
+            PERMISSION_DRONES_VIEW,
+            PERMISSION_SPECIFICATIONS_VIEW,
+            PERMISSION_MISSIONS_VIEW,
+            PERMISSION_MISSIONS_CREATE,
+            PERMISSION_MISSIONS_ASSIGN,
+            PERMISSION_MEDIA_VIEW,
+        }
+    )
 
 
 def operator_permissions():
-    return profile_permissions() | own_audit_log_permissions() | {
-        PERMISSION_DRONES_VIEW,
-        PERMISSION_SPECIFICATIONS_VIEW,
-        PERMISSION_MISSIONS_VIEW,
-        PERMISSION_MISSIONS_UPDATE_STATUS,
-        PERMISSION_MEDIA_UPLOAD,
-        PERMISSION_MEDIA_VIEW,
-    }
+    return (
+        profile_permissions()
+        | own_audit_log_permissions()
+        | {
+            PERMISSION_DRONES_VIEW,
+            PERMISSION_SPECIFICATIONS_VIEW,
+            PERMISSION_MISSIONS_VIEW,
+            PERMISSION_MISSIONS_UPDATE_STATUS,
+            PERMISSION_MEDIA_UPLOAD,
+            PERMISSION_MEDIA_VIEW,
+        }
+    )
 
 
 def technician_permissions():
-    return profile_permissions() | own_audit_log_permissions() | {
-        PERMISSION_DRONES_VIEW,
-        PERMISSION_SPECIFICATIONS_VIEW,
-        PERMISSION_SPECIFICATIONS_MANAGE,
-        PERMISSION_MAINTENANCE_VIEW,
-        PERMISSION_MAINTENANCE_MANAGE,
-        PERMISSION_WRITEOFF_VIEW,
-        PERMISSION_WRITEOFF_CREATE,
-    }
+    return (
+        profile_permissions()
+        | own_audit_log_permissions()
+        | {
+            PERMISSION_DRONES_VIEW,
+            PERMISSION_SPECIFICATIONS_VIEW,
+            PERMISSION_SPECIFICATIONS_MANAGE,
+            PERMISSION_MAINTENANCE_VIEW,
+            PERMISSION_MAINTENANCE_MANAGE,
+            PERMISSION_WRITEOFF_VIEW,
+            PERMISSION_WRITEOFF_CREATE,
+        }
+    )
 
 
 def viewer_permissions():
-    return profile_permissions() | own_audit_log_permissions() | {
-        PERMISSION_DRONES_VIEW,
-        PERMISSION_SPECIFICATIONS_VIEW,
-        PERMISSION_MISSIONS_VIEW,
-        PERMISSION_MAINTENANCE_VIEW,
-        PERMISSION_WRITEOFF_VIEW,
-        PERMISSION_MEDIA_VIEW,
-    }
+    return (
+        profile_permissions()
+        | own_audit_log_permissions()
+        | {
+            PERMISSION_DRONES_VIEW,
+            PERMISSION_SPECIFICATIONS_VIEW,
+            PERMISSION_MISSIONS_VIEW,
+            PERMISSION_MAINTENANCE_VIEW,
+            PERMISSION_WRITEOFF_VIEW,
+            PERMISSION_MEDIA_VIEW,
+        }
+    )
 
 
 ROLE_PERMISSION_MATRIX = {
