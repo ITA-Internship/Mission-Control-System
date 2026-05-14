@@ -6,6 +6,7 @@ from rest_framework import status
 from rest_framework.test import APITestCase
 
 from drones.models import Drone, DroneSpec
+from roles.models import ADMIN_CODE, Role
 
 User = get_user_model()
 
@@ -36,11 +37,9 @@ class DroneCreateTests(APITestCase):
                 "payload_capacity_g": "100",
             },
         }
-        self.user = User.objects.create_user(
-            username="admin",
-            password="12345",
-            is_staff=True,
-        )
+        self.user = User.objects.create_user(username="admin", password="12345")
+
+        self.user.role = Role.objects.create(code=ADMIN_CODE, name="Admin")
 
         self.client.force_authenticate(self.user)
 
