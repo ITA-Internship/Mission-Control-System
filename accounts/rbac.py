@@ -51,8 +51,21 @@ PERMISSION_PROFILE_VIEW_OWN = "profile.view_own"
 PERMISSION_PROFILE_UPDATE_OWN = "profile.update_own"
 PERMISSION_PROFILE_RESET_PASSWORD_OWN = "profile.reset_password_own"
 
-ROLE_PERMISSION_MATRIX = {
-    ADMIN_CODE: {
+
+def profile_permissions():
+    return {
+        PERMISSION_PROFILE_VIEW_OWN,
+        PERMISSION_PROFILE_UPDATE_OWN,
+        PERMISSION_PROFILE_RESET_PASSWORD_OWN,
+    }
+
+
+def own_audit_log_permissions():
+    return {PERMISSION_AUDIT_LOGS_VIEW_OWN}
+
+
+def admin_permissions():
+    return profile_permissions() | {
         PERMISSION_USERS_MANAGE_ROLES,
         PERMISSION_USERS_CREATE,
         PERMISSION_USERS_ACTIVATE_DEACTIVATE,
@@ -75,11 +88,11 @@ ROLE_PERMISSION_MATRIX = {
         PERMISSION_WRITEOFF_CREATE,
         PERMISSION_WRITEOFF_AUTHORIZE,
         PERMISSION_AUDIT_LOGS_VIEW_ALL,
-        PERMISSION_PROFILE_VIEW_OWN,
-        PERMISSION_PROFILE_UPDATE_OWN,
-        PERMISSION_PROFILE_RESET_PASSWORD_OWN,
-    },
-    COMMANDER_CODE: {
+    }
+
+
+def commander_permissions():
+    return profile_permissions() | own_audit_log_permissions() | {
         PERMISSION_DRONES_VIEW,
         PERMISSION_SPECIFICATIONS_VIEW,
         PERMISSION_MISSIONS_VIEW,
@@ -89,36 +102,33 @@ ROLE_PERMISSION_MATRIX = {
         PERMISSION_MAINTENANCE_VIEW,
         PERMISSION_WRITEOFF_VIEW,
         PERMISSION_WRITEOFF_AUTHORIZE,
-        PERMISSION_AUDIT_LOGS_VIEW_OWN,
-        PERMISSION_PROFILE_VIEW_OWN,
-        PERMISSION_PROFILE_UPDATE_OWN,
-        PERMISSION_PROFILE_RESET_PASSWORD_OWN,
-    },
-    DISPATCHER_CODE: {
+    }
+
+
+def dispatcher_permissions():
+    return profile_permissions() | own_audit_log_permissions() | {
         PERMISSION_DRONES_VIEW,
         PERMISSION_SPECIFICATIONS_VIEW,
         PERMISSION_MISSIONS_VIEW,
         PERMISSION_MISSIONS_CREATE,
         PERMISSION_MISSIONS_ASSIGN,
         PERMISSION_MEDIA_VIEW,
-        PERMISSION_AUDIT_LOGS_VIEW_OWN,
-        PERMISSION_PROFILE_VIEW_OWN,
-        PERMISSION_PROFILE_UPDATE_OWN,
-        PERMISSION_PROFILE_RESET_PASSWORD_OWN,
-    },
-    OPERATOR_CODE: {
+    }
+
+
+def operator_permissions():
+    return profile_permissions() | own_audit_log_permissions() | {
         PERMISSION_DRONES_VIEW,
         PERMISSION_SPECIFICATIONS_VIEW,
         PERMISSION_MISSIONS_VIEW,
         PERMISSION_MISSIONS_UPDATE_STATUS,
         PERMISSION_MEDIA_UPLOAD,
         PERMISSION_MEDIA_VIEW,
-        PERMISSION_AUDIT_LOGS_VIEW_OWN,
-        PERMISSION_PROFILE_VIEW_OWN,
-        PERMISSION_PROFILE_UPDATE_OWN,
-        PERMISSION_PROFILE_RESET_PASSWORD_OWN,
-    },
-    TECHNICIAN_CODE: {
+    }
+
+
+def technician_permissions():
+    return profile_permissions() | own_audit_log_permissions() | {
         PERMISSION_DRONES_VIEW,
         PERMISSION_SPECIFICATIONS_VIEW,
         PERMISSION_SPECIFICATIONS_MANAGE,
@@ -126,21 +136,25 @@ ROLE_PERMISSION_MATRIX = {
         PERMISSION_MAINTENANCE_MANAGE,
         PERMISSION_WRITEOFF_VIEW,
         PERMISSION_WRITEOFF_CREATE,
-        PERMISSION_AUDIT_LOGS_VIEW_OWN,
-        PERMISSION_PROFILE_VIEW_OWN,
-        PERMISSION_PROFILE_UPDATE_OWN,
-        PERMISSION_PROFILE_RESET_PASSWORD_OWN,
-    },
-    VIEWER_CODE: {
+    }
+
+
+def viewer_permissions():
+    return profile_permissions() | own_audit_log_permissions() | {
         PERMISSION_DRONES_VIEW,
         PERMISSION_SPECIFICATIONS_VIEW,
         PERMISSION_MISSIONS_VIEW,
         PERMISSION_MAINTENANCE_VIEW,
         PERMISSION_WRITEOFF_VIEW,
         PERMISSION_MEDIA_VIEW,
-        PERMISSION_AUDIT_LOGS_VIEW_OWN,
-        PERMISSION_PROFILE_VIEW_OWN,
-        PERMISSION_PROFILE_UPDATE_OWN,
-        PERMISSION_PROFILE_RESET_PASSWORD_OWN,
-    },
+    }
+
+
+ROLE_PERMISSION_MATRIX = {
+    ADMIN_CODE: admin_permissions(),
+    COMMANDER_CODE: commander_permissions(),
+    DISPATCHER_CODE: dispatcher_permissions(),
+    OPERATOR_CODE: operator_permissions(),
+    TECHNICIAN_CODE: technician_permissions(),
+    VIEWER_CODE: viewer_permissions(),
 }

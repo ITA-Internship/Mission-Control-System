@@ -93,11 +93,9 @@ class UserRoleAuditLogAdmin(admin.ModelAdmin):
     date_hierarchy = "changed_at"
     list_select_related = ("target_user", "previous_role", "new_role", "changed_by")
 
-    def has_add_permission(self, request):
+    def _read_only_permission(self, request, obj=None):
         return False
 
-    def has_change_permission(self, request, obj=None):
-        return False
-
-    def has_delete_permission(self, request, obj=None):
-        return False
+    has_add_permission = _read_only_permission
+    has_change_permission = _read_only_permission
+    has_delete_permission = _read_only_permission

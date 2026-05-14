@@ -1,5 +1,6 @@
 import logging
 
+from django.core.exceptions import ImproperlyConfigured
 from rest_framework.permissions import BasePermission
 
 from roles.models import ADMIN_CODE
@@ -77,12 +78,10 @@ class HasRBACPermission(BasePermission):
         )
 
         if not permission_code:
-            log_permission_denied(
-                request,
-                permission_code,
-                reason="required_permission_not_configured",
+            raise ImproperlyConfigured(
+                "HasRBACPermission requires 'required_permission' "
+                "to be set on the permission class or view."
             )
-            return False
 
         allowed = user_has_permission(request.user, permission_code)
         if not allowed:
@@ -105,12 +104,10 @@ class HasAnyRBACPermission(BasePermission):
         )
 
         if not permission_codes:
-            log_permission_denied(
-                request,
-                None,
-                reason="required_permissions_not_configured",
+            raise ImproperlyConfigured(
+                "HasAnyRBACPermission requires 'required_permissions' "
+                "to be set on the permission class or view."
             )
-            return False
 
         for permission_code in permission_codes:
             if user_has_permission(request.user, permission_code):

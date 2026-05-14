@@ -70,6 +70,10 @@ def count_admin_users() -> int:
     return User.objects.filter(role__code=ADMIN_CODE).count()
 
 
+def count_admin_users_locked() -> int:
+    return User.objects.select_for_update().filter(role__code=ADMIN_CODE).count()
+
+
 @transaction.atomic
 def update_user_role(*, target_user: User, new_role_id: int, changed_by: User) -> User:
     if not new_role_id:
@@ -85,8 +89,19 @@ def update_user_role(*, target_user: User, new_role_id: int, changed_by: User) -
     )
     previous_role = locked_user.role
 
+    if not locked_user.is_active:
+        raise ValidationError(
+            {"role_id": ["Cannot change the role of an inactive user."]}
+        )
+
     if previous_role_id := getattr(previous_role, "id", None):
         if previous_role_id == new_role.id:
+            UserRoleAuditLog.objects.create(
+                changed_by=changed_by,
+                target_user=locked_user,
+                previous_role=previous_role,
+                new_role=new_role,
+            )
             return locked_user
 
     was_admin = is_admin_role(previous_role)
@@ -102,7 +117,7 @@ def update_user_role(*, target_user: User, new_role_id: int, changed_by: User) -
             {"role_id": ["Cannot remove the admin role from the root account."]}
         )
 
-    if was_admin and not will_be_admin and count_admin_users() <= 1:
+    if was_admin and not will_be_admin and count_admin_users_locked() <= 1:
         raise ValidationError(
             {"role_id": ["Cannot change the last admin to a non-admin role."]}
         )

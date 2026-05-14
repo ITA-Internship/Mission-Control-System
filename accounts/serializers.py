@@ -45,7 +45,7 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
 
 
 class UserRoleUpdateSerializer(serializers.Serializer):
-    role_id = serializers.IntegerField(required=True)
+    role_id = serializers.IntegerField(required=True, min_value=1)
 
 
 class UserRoleUpdateResponseSerializer(serializers.ModelSerializer):

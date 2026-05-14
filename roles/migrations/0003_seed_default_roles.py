@@ -48,17 +48,8 @@ def seed_default_roles(apps, schema_editor):
 
 
 def remove_default_roles(apps, schema_editor):
-    Role = apps.get_model("roles", "Role")
-    Role.objects.filter(
-        code__in=[
-            "ADMIN",
-            "COMMANDER",
-            "OPERATOR",
-            "TECHNICIAN",
-            "VIEWER",
-            "DISPATCHER",
-        ]
-    ).delete()
+    # No-op on reverse to avoid deleting role records during rollback.
+    pass
 
 
 class Migration(migrations.Migration):

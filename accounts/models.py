@@ -95,8 +95,10 @@ class UserRoleAuditLog(models.Model):
         ordering = ("-changed_at",)
 
     def __str__(self) -> str:
-        previous_code = self.previous_role.code if self.previous_role else "None"
-        new_code = self.new_role.code if self.new_role else "None"
+        target_username = self.target_user.username if self.target_user else "Unknown user"
+        previous_role_name = self.previous_role.name if self.previous_role else "No role"
+        new_role_name = self.new_role.name if self.new_role else "No role"
         return (
-            f"Role change for {self.target_user_id}: " f"{previous_code} -> {new_code}"
+            f"Role change for {target_username}: "
+            f"{previous_role_name} -> {new_role_name}"
         )
