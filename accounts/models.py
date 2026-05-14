@@ -98,6 +98,5 @@ class UserRoleAuditLog(models.Model):
         previous_code = self.previous_role.code if self.previous_role else "None"
         new_code = self.new_role.code if self.new_role else "None"
         return (
-            f"Role change for {self.target_user_id}: "
-            f"{previous_code} -> {new_code}"
+            f"Role change for {self.target_user_id}: " f"{previous_code} -> {new_code}"
         )

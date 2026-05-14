@@ -2,8 +2,9 @@ import logging
 
 from rest_framework.permissions import BasePermission
 
-from .rbac import ROLE_PERMISSION_MATRIX
 from roles.models import ADMIN_CODE
+
+from .rbac import ROLE_PERMISSION_MATRIX
 
 logger = logging.getLogger(__name__)
 
@@ -29,7 +30,10 @@ def log_permission_denied(request, permission_code, reason=None):
     user = getattr(request, "user", None)
 
     logger.warning(
-        "Permission denied: user_id=%s username=%s role=%s permission=%s path=%s method=%s reason=%s",
+        (
+            "Permission denied: user_id=%s username=%s role=%s "
+            "permission=%s path=%s method=%s reason=%s"
+        ),
         getattr(user, "id", None),
         getattr(user, "username", None),
         get_user_role_code(user),
