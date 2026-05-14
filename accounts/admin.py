@@ -1,7 +1,7 @@
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin
 
-from .models import MilitaryUnit, User, UserProfile
+from .models import MilitaryUnit, User, UserProfile, UserRoleAuditLog
 
 
 @admin.register(User)
@@ -42,3 +42,29 @@ class UserProfileAdmin(admin.ModelAdmin):
     list_display = ("id", "user", "rank", "contact", "created_at", "updated_at")
     search_fields = ("user__username", "user__email", "rank", "contact")
     readonly_fields = ("created_at", "updated_at")
+
+
+@admin.register(UserRoleAuditLog)
+class UserRoleAuditLogAdmin(admin.ModelAdmin):
+    list_display = (
+        "id",
+        "target_user",
+        "previous_role",
+        "new_role",
+        "changed_by",
+        "changed_at",
+    )
+    list_filter = ("previous_role", "new_role", "changed_at")
+    search_fields = (
+        "target_user__username",
+        "target_user__email",
+        "changed_by__username",
+        "changed_by__email",
+    )
+    readonly_fields = (
+        "target_user",
+        "previous_role",
+        "new_role",
+        "changed_by",
+        "changed_at",
+    )
