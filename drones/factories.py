@@ -1,11 +1,12 @@
 import factory
+
 from roles.models import ADMIN_CODE
 
 
 class AdminRoleFactory(factory.django.DjangoModelFactory):
     class Meta:
         model = "roles.Role"
-        django_get_or_create = ('code',)
+        django_get_or_create = ("code",)
 
     code = ADMIN_CODE
     name = "Admin"
