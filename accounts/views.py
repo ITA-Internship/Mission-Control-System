@@ -7,7 +7,7 @@ from rest_framework.views import APIView
 
 from .models import User
 from .permissions import IsSystemAdmin
-from .serializers import UserRegistrationSerializer
+from .serializers import UserRegistrationSerializer, UserStatusUpdateSerializer
 
 
 class UserRegistrationView(generics.CreateAPIView):
@@ -40,5 +40,41 @@ class ActivateAccountAPIView(APIView):
 
         return Response(
             {"detail": "Your account has been activated. You can now log in."},
+            status=status.HTTP_200_OK,
+        )
+
+
+class UserStatusUpdateView(APIView):
+    permission_classes = [IsSystemAdmin]
+
+    def patch(self, request, pk):
+        target_user = get_object_or_404(User, pk=pk)
+        serializer = UserStatusUpdateSerializer(data=request.data)
+
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        new_status = serializer.validated_data["is_active"]
+        # reason = serializer.validated_data.get("reason", "")
+        previous_status = target_user.is_active
+
+        if new_status == previous_status:
+            status_str = "active" if new_status else "inactive"
+            return Response(
+                {"detail": f"User is already {status_str}."},
+                status=status.HTTP_200_OK,
+            )
+
+        if not new_status and request.user.id == target_user.id:
+            return Response(
+                {"detail": "You cannot deactivate your own account."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        target_user.is_active = new_status
+        target_user.save()
+
+        return Response(
+            {"detail": "User status updated successfully.", "is_active": new_status},
             status=status.HTTP_200_OK,
         )

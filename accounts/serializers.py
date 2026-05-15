@@ -42,3 +42,8 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
         created_by = request.user if request and hasattr(request, "user") else None
 
         return create_user_account(validated_data, created_by)
+
+
+class UserStatusUpdateSerializer(serializers.Serializer):
+    is_active = serializers.BooleanField(required=True)
+    reason = serializers.CharField(required=False, allow_blank=True, max_length=255)

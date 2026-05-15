@@ -1,6 +1,6 @@
 from django.urls import path
 
-from .views import ActivateAccountAPIView, UserRegistrationView
+from .views import ActivateAccountAPIView, UserRegistrationView, UserStatusUpdateView
 
 app_name = "accounts"
 
@@ -10,5 +10,10 @@ urlpatterns = [
         "activate/<int:user_id>/<str:token>/",
         ActivateAccountAPIView.as_view(),
         name="account-activate",
+    ),
+    path(
+        "users/<int:pk>/status",
+        UserStatusUpdateView.as_view(),
+        name="user-status-update",
     ),
 ]
