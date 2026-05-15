@@ -3,19 +3,19 @@ from django.db import models
 
 
 class Status(models.TextChoices):
-    PLANNED = 'planned', 'Planned'
-    ACTIVE = 'active', 'Active'
-    COMPLETED = 'completed', 'Completed'
+    PLANNED = "planned", "Planned"
+    ACTIVE = "active", "Active"
+    COMPLETED = "completed", "Completed"
 
 
 class Result(models.TextChoices):
-    SUCCESS = 'success', 'Success'
-    FAILURE = 'failure', 'Failure'
+    SUCCESS = "success", "Success"
+    FAILURE = "failure", "Failure"
 
 
 class MissionQuerySet(models.QuerySet):
     def with_related(self):
-        return self.select_related('commander', 'created_by')
+        return self.select_related("commander", "created_by")
 
 
 class Mission(models.Model):
@@ -25,7 +25,7 @@ class Mission(models.Model):
         settings.AUTH_USER_MODEL,
         on_delete=models.SET_NULL,
         null=True,
-        related_name='commanded_missions',
+        related_name="commanded_missions",
     )
 
     status = models.CharField(
@@ -42,8 +42,12 @@ class Mission(models.Model):
     )
 
     location_description = models.TextField(null=True, blank=True)
-    latitude = models.DecimalField(max_digits=9, decimal_places=6, null=True, blank=True)
-    longitude = models.DecimalField(max_digits=9, decimal_places=6, null=True, blank=True)
+    latitude = models.DecimalField(
+        max_digits=9, decimal_places=6, null=True, blank=True
+    )
+    longitude = models.DecimalField(
+        max_digits=9, decimal_places=6, null=True, blank=True
+    )
 
     started_at = models.DateTimeField()
     ended_at = models.DateTimeField(null=True, blank=True)
@@ -54,7 +58,7 @@ class Mission(models.Model):
         settings.AUTH_USER_MODEL,
         on_delete=models.SET_NULL,
         null=True,
-        related_name='created_missions',
+        related_name="created_missions",
     )
 
     created_at = models.DateTimeField(auto_now_add=True)
@@ -63,11 +67,11 @@ class Mission(models.Model):
     objects = MissionQuerySet.as_manager()
 
     class Meta:
-        db_table = 'missions'
-        ordering = ['-created_at']
+        db_table = "missions"
+        ordering = ["-created_at"]
         indexes = [
-            models.Index(fields=['status']),
-            models.Index(fields=['started_at']),
+            models.Index(fields=["status"]),
+            models.Index(fields=["started_at"]),
         ]
 
     def __str__(self):

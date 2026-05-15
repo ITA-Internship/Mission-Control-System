@@ -11,7 +11,7 @@ class MissionListCreateView(generics.ListCreateAPIView):
 
     def get_queryset(self):
         queryset = Mission.objects.with_related()
-        status = self.request.query_params.get('status')
+        status = self.request.query_params.get("status")
         if status:
             queryset = queryset.filter(status=status)
         return queryset
