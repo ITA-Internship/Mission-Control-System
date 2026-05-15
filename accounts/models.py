@@ -60,3 +60,49 @@ class UserProfile(models.Model):
 
     def __str__(self) -> str:
         return f"Profile for {self.user_id}"
+
+
+class UserRoleAuditLog(models.Model):
+    changed_by = models.ForeignKey(
+        "accounts.User",
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="role_changes_made",
+    )
+    target_user = models.ForeignKey(
+        "accounts.User",
+        on_delete=models.CASCADE,
+        related_name="role_change_logs",
+    )
+    previous_role = models.ForeignKey(
+        "roles.Role",
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="previous_role_audit_logs",
+    )
+    new_role = models.ForeignKey(
+        "roles.Role",
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="new_role_audit_logs",
+    )
+    changed_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ("-changed_at",)
+
+    def __str__(self) -> str:
+        target_username = (
+            self.target_user.username if self.target_user else "Unknown user"
+        )
+        previous_role_name = (
+            self.previous_role.name if self.previous_role else "No role"
+        )
+        new_role_name = self.new_role.name if self.new_role else "No role"
+        return (
+            f"Role change for {target_username}: "
+            f"{previous_role_name} -> {new_role_name}"
+        )
