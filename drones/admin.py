@@ -21,7 +21,7 @@ class DroneAdmin(admin.ModelAdmin):
         "military_unit__name",
         "military_unit__code",
     )
-    list_filter = ("status", "created_at", "military_unit__name")
+    list_filter = ("status", "created_at", "military_unit")
 
 
 @admin.register(DroneSpec)

@@ -1,7 +1,5 @@
 from django.db import models
 
-from accounts.models import MilitaryUnit
-
 
 class Drone(models.Model):
 
@@ -18,11 +16,9 @@ class Drone(models.Model):
     drone_model = models.CharField(max_length=255)
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="ACTIVE")
     military_unit = models.ForeignKey(
-        MilitaryUnit,
+        "accounts.MilitaryUnit",
         on_delete=models.PROTECT,
         related_name="drones",
-        null=True,
-        blank=True,
     )
     acquired_at = models.DateField()
     notes = models.TextField(blank=True)
