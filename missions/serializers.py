@@ -69,7 +69,7 @@ class MissionSerializer(serializers.ModelSerializer):
 
         if not location and not has_coordinates:
             raise serializers.ValidationError(
-                'Either location_description or both latitude and longitude must be provided.'
+                'Either location or latitude and longitude must be provided.'
             )
 
         if (latitude is None) ^ (longitude is None):
