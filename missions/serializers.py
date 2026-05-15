@@ -2,9 +2,7 @@ from django.contrib.auth import get_user_model
 from django.utils import timezone
 from rest_framework import serializers
 
-#? Pulls the canonical role codes from the roles app.
 from roles.models import COMMANDER_CODE
-
 from .models import Mission
 
 

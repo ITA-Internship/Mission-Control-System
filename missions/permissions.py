@@ -1,10 +1,6 @@
 from rest_framework import permissions
 
-from roles.models import ADMIN_CODE
-
-
-#? dispatcher is in the task specifications, so it'll be here till further clarifications
-DISPATCHER_CODE = "DISPATCHER"
+from roles.models import ADMIN_CODE, DISPATCHER_CODE
 
 
 class IsDispatcherOrAdmin(permissions.BasePermission):
