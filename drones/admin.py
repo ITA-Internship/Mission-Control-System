@@ -11,10 +11,17 @@ class DroneAdmin(admin.ModelAdmin):
         "inventory_number",
         "name",
         "drone_model",
+        "military_unit__name",
         "status",
     )
-    search_fields = ("serial_number", "inventory_number", "name")
-    list_filter = ("status", "created_at")
+    search_fields = (
+        "serial_number",
+        "inventory_number",
+        "name",
+        "military_unit__name",
+        "military_unit__code",
+    )
+    list_filter = ("status", "created_at", "military_unit")
 
 
 @admin.register(DroneSpec)
