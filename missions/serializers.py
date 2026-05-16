@@ -163,12 +163,10 @@ class MissionDroneSerializer(serializers.ModelSerializer):
         with transaction.atomic():
             Drone = apps.get_model('drones', 'Drone')
             
-            # Lock the drone to prevent concurrent assignments
             locked_drone = Drone.objects.select_for_update().get(id=validated_data['drone'].id)
             if locked_drone.status != 'ACTIVE':
                 raise serializers.ValidationError({"drone": "Drone is no longer active."})
             
-            # Lock the operator to prevent concurrent assignments overlapping
             locked_operator = User.objects.select_for_update().get(id=operator.id)
             if self._check_operator_overlap(locked_operator, mission):
                 raise serializers.ValidationError({"operator": "Operator was just assigned to an overlapping mission."})

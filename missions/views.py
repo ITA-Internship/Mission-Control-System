@@ -75,7 +75,6 @@ class MissionAssignmentDetailView(generics.DestroyAPIView):
         
         with transaction.atomic():
             Drone = apps.get_model('drones', 'Drone')
-            # Using instance.drone_id directly to avoid an extra DB query for the Drone object
             drone = Drone.objects.select_for_update().get(id=instance.drone_id)
             if drone.status == 'IN_MISSION':
                 drone.status = 'ACTIVE'
