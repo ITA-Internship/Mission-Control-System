@@ -60,3 +60,22 @@ class UserProfile(models.Model):
 
     def __str__(self) -> str:
         return f"Profile for {self.user_id}"
+
+
+class UserStatusLog(models.Model):
+    target_user = models.ForeignKey(
+        User, on_delete=models.CASCADE, related_name="status_logs"
+    )
+    changed_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        related_name="performed_status_changes",
+    )
+    old_status = models.BooleanField()
+    new_status = models.BooleanField()
+    reason = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"Change for {self.target_user} by {self.changed_by}"
