@@ -113,7 +113,11 @@ class MissionSerializer(serializers.ModelSerializer):
 class MissionDroneSerializer(serializers.ModelSerializer):
     class Meta:
         model = MissionDrone
-        fields = ['id', 'mission', 'drone', 'operator', 'created_at']
+        fields = [
+            'id', 'mission', 'drone', 'operator',
+            'condition_after', 'condition_description',
+            'flight_started_at', 'flight_ended_at', 'created_at'
+        ]
         read_only_fields = ['id', 'mission', 'created_at']
 
     def _check_operator_overlap(self, operator, mission):

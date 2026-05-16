@@ -91,6 +91,10 @@ class MissionDrone(models.Model):
     mission = models.ForeignKey(Mission, on_delete=models.CASCADE, related_name='assignments')
     drone = models.ForeignKey('drones.Drone', on_delete=models.PROTECT, related_name='mission_assignments')
     operator = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name='drone_assignments')
+    condition_after = models.CharField(max_length=255, null=True, blank=True)
+    condition_description = models.TextField(null=True, blank=True)
+    flight_started_at = models.DateTimeField(null=True, blank=True)
+    flight_ended_at = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
