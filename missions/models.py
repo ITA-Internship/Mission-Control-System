@@ -85,3 +85,29 @@ class Mission(models.Model):
 
     def __str__(self):
         return self.title
+
+
+class MissionDrone(models.Model):
+    mission = models.ForeignKey(Mission, on_delete=models.CASCADE, related_name='assignments')
+    drone = models.ForeignKey('drones.Drone', on_delete=models.PROTECT, related_name='mission_assignments')
+    operator = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name='drone_assignments')
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = 'mission_drones'
+        constraints = [
+            models.UniqueConstraint(fields=['mission', 'drone'], name='unique_mission_drone'),
+            models.UniqueConstraint(fields=['mission', 'operator'], name='unique_mission_operator')
+        ]
+
+
+class AuditLog(models.Model):
+    action = models.CharField(max_length=255)
+    target_model = models.CharField(max_length=255)
+    changes = models.JSONField()
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = 'audit_logs'
+

@@ -1,13 +1,15 @@
 from datetime import timedelta
 
 from django.contrib.auth import get_user_model
+from django.db import transaction
+from django.db.models import Q
 from django.utils import timezone
 from rest_framework import serializers
 
 from accounts.permissions import get_user_role_code
-from roles.models import COMMANDER_CODE
+from roles.models import COMMANDER_CODE, OPERATOR_CODE
 
-from .models import Mission
+from .models import Mission, MissionDrone, Status, AuditLog
 
 User = get_user_model()
 
@@ -106,3 +108,65 @@ class MissionSerializer(serializers.ModelSerializer):
             )
 
         return attrs
+
+class MissionDroneSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = MissionDrone
+        fields = ['id', 'mission', 'drone', 'operator', 'created_at']
+        read_only_fields = ['id', 'mission', 'created_at']
+
+    def validate(self, attrs):
+        drone = attrs.get('drone')
+        operator = attrs.get('operator')
+        mission = self.context.get('mission')
+
+        if drone and drone.status != "ACTIVE":
+            raise serializers.ValidationError({"drone": "Drone must be active."})
+
+        if operator:
+            if get_user_role_code(operator) != OPERATOR_CODE:
+                raise serializers.ValidationError({"operator": "Selected user does not have the Operator role."})
+
+        if operator and mission:
+            overlapping = MissionDrone.objects.filter(
+                operator=operator,
+                mission__status__in=[Status.ACTIVE, Status.PLANNED]
+            ).exclude(mission=mission)
+
+            m_start = mission.started_at
+            m_end = mission.ended_at
+
+            q_objects = Q()
+            if m_end:
+                q_objects &= Q(mission__started_at__lt=m_end)
+            q_objects &= (Q(mission__ended_at__isnull=True) | Q(mission__ended_at__gt=m_start))
+
+            if overlapping.filter(q_objects).exists():
+                raise serializers.ValidationError({"operator": "Operator is busy during this time."})
+
+        return attrs
+
+    def create(self, validated_data):
+        action_user = validated_data.pop('action_user', None)
+        with transaction.atomic():
+            from drones.models import Drone
+            locked_drone = Drone.objects.select_for_update().get(id=validated_data['drone'].id)
+            if locked_drone.status != "ACTIVE":
+                raise serializers.ValidationError({"drone": "Drone is no longer active."})
+
+            validated_data['drone'] = locked_drone
+            instance = super().create(validated_data)
+            
+            locked_drone.status = "IN_MISSION"
+            locked_drone.save(update_fields=['status'])
+
+            AuditLog.objects.create(
+                action="assignment_created",
+                target_model="MissionDrone",
+                user=action_user,
+                changes={
+                    "drone_id": instance.drone_id,
+                    "operator_id": instance.operator_id,
+                }
+            )
+            return instance
