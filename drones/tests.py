@@ -1,24 +1,24 @@
 import copy
 
-from django.contrib.auth import get_user_model
 from django.urls import reverse
 from rest_framework import status
 from rest_framework.test import APITestCase
 
+from drones.factories import AdminUserFactory, MilitaryUnitFactory
 from drones.models import Drone, DroneSpec
-
-User = get_user_model()
 
 
 class DroneCreateTests(APITestCase):
     def setUp(self):
         self.create_url = reverse("drones:drone-create")
+        self.military_unit = MilitaryUnitFactory()
         self.base_payload = {
             "serial_number": "Test Serial Number",
             "inventory_number": "Test Inventory Number",
             "name": "Test Name",
             "drone_model": "Test Model",
             "status": "ACTIVE",
+            "military_unit": self.military_unit.id,
             "acquired_at": "2026-05-09",
             "spec": {
                 "frame_type": "Test Frame",
@@ -36,12 +36,7 @@ class DroneCreateTests(APITestCase):
                 "payload_capacity_g": "100",
             },
         }
-        self.user = User.objects.create_user(
-            username="admin",
-            password="12345",
-            is_staff=True,
-        )
-
+        self.user = AdminUserFactory()
         self.client.force_authenticate(self.user)
 
     def test_create_drone_with_spec(self):
@@ -73,6 +68,7 @@ class DroneCreateTests(APITestCase):
             name="Drone",
             drone_model="Test Model",
             status="ACTIVE",
+            military_unit=self.military_unit,
             acquired_at="2026-05-09",
         )
 

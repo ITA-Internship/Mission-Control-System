@@ -47,3 +47,25 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
 class UserStatusUpdateSerializer(serializers.Serializer):
     is_active = serializers.BooleanField(required=True)
     reason = serializers.CharField(required=False, allow_blank=True, max_length=255)
+
+
+class UserRoleUpdateSerializer(serializers.Serializer):
+    role_id = serializers.IntegerField(required=True, min_value=1)
+
+
+class UserRoleUpdateResponseSerializer(serializers.ModelSerializer):
+    role = serializers.SerializerMethodField()
+
+    class Meta:
+        model = User
+        fields = ("id", "username", "email", "role")
+
+    def get_role(self, obj):
+        if not obj.role:
+            return None
+
+        return {
+            "id": obj.role.id,
+            "code": obj.role.code,
+            "name": obj.role.name,
+        }
