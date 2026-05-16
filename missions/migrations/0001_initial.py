@@ -11,7 +11,7 @@ class Migration(migrations.Migration):
     initial = True
 
     dependencies = [
-        ('drones', '0003_alter_drone_status'),
+        ('drones', '0002_drone_military_unit'),
         migrations.swappable_dependency(settings.AUTH_USER_MODEL),
     ]
 

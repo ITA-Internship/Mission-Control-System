@@ -8,7 +8,6 @@ class Drone(models.Model):
         ("DAMAGED", "Damaged"),
         ("LOST", "Lost"),
         ("MAINTENANCE", "Maintenance"),
-        ("IN_MISSION", "In Mission"),
     ]
 
     serial_number = models.CharField(max_length=100, unique=True)

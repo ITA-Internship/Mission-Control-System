@@ -1,3 +1,4 @@
+from django.apps import apps
 from django.db import transaction
 from rest_framework import generics, permissions
 from rest_framework.exceptions import ValidationError
@@ -58,7 +59,7 @@ class MissionAssignmentListCreateView(generics.ListCreateAPIView):
 
     def perform_create(self, serializer):
         mission = self.get_mission()
-        serializer.save(mission=mission, action_user=self.request.user)
+        serializer.save(mission=mission)
 
 
 class MissionAssignmentDetailView(generics.DestroyAPIView):
@@ -73,11 +74,11 @@ class MissionAssignmentDetailView(generics.DestroyAPIView):
             raise ValidationError("Cannot delete assignment unless mission is planned.")
         
         with transaction.atomic():
-            from drones.models import Drone
+            Drone = apps.get_model('drones', 'Drone')
             # Using instance.drone_id directly to avoid an extra DB query for the Drone object
             drone = Drone.objects.select_for_update().get(id=instance.drone_id)
-            if drone.status == "IN_MISSION":
-                drone.status = "ACTIVE"
+            if drone.status == 'IN_MISSION':
+                drone.status = 'ACTIVE'
                 drone.save(update_fields=['status'])
 
             AuditLog.objects.create(

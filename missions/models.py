@@ -100,6 +100,9 @@ class MissionDrone(models.Model):
             models.UniqueConstraint(fields=['mission', 'operator'], name='unique_mission_operator')
         ]
 
+    def __str__(self):
+        return f"{self.mission.title} - {self.drone} (Operator: {self.operator})"
+
 
 class AuditLog(models.Model):
     action = models.CharField(max_length=255)
