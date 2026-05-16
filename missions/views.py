@@ -74,12 +74,6 @@ class MissionAssignmentDetailView(generics.DestroyAPIView):
             raise ValidationError("Cannot delete assignment unless mission is planned.")
         
         with transaction.atomic():
-            Drone = apps.get_model('drones', 'Drone')
-            drone = Drone.objects.select_for_update().get(id=instance.drone_id)
-            if drone.status == 'IN_MISSION':
-                drone.status = 'ACTIVE'
-                drone.save(update_fields=['status'])
-
             AuditLog.objects.create(
                 action="assignment_deleted",
                 target_model="MissionDrone",
