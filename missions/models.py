@@ -6,6 +6,14 @@ class Status(models.TextChoices):
     PLANNED = "planned", "Planned"
     ACTIVE = "active", "Active"
     COMPLETED = "completed", "Completed"
+    ABORTED = "aborted", "Aborted"
+
+MISSION_STATUS_TRANSITIONS = {
+    Status.PLANNED: [Status.ACTIVE, Status.ABORTED],
+    Status.ACTIVE: [Status.COMPLETED, Status.ABORTED],
+    Status.COMPLETED: [],
+    Status.ABORTED: [],
+}
 
 
 class Result(models.TextChoices):
