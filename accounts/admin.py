@@ -1,7 +1,7 @@
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin
 
-from .models import MilitaryUnit, User, UserProfile, UserRoleAuditLog
+from .models import AuditLog, MilitaryUnit, User, UserProfile, UserRoleAuditLog
 
 
 @admin.register(User)
@@ -99,3 +99,32 @@ class UserRoleAuditLogAdmin(admin.ModelAdmin):
     has_add_permission = _read_only_permission
     has_change_permission = _read_only_permission
     has_delete_permission = _read_only_permission
+
+
+@admin.register(AuditLog)
+class AuditLogAdmin(admin.ModelAdmin):
+    list_display = (
+        "created_at",
+        "actor",
+        "action_type",
+        "target_user",
+        "result",
+        "ip_address",
+    )
+    list_filter = ("action_type", "result", "created_at", "ip_address")
+    search_fields = (
+        "actor__username",
+        "target_user__username",
+        "description",
+        "ip_address",
+    )
+    readonly_fields = [f.name for f in AuditLog._meta.fields]
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False

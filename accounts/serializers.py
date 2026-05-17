@@ -1,6 +1,6 @@
 from rest_framework import serializers
 
-from .models import User
+from .models import AuditLog, User
 from .services import create_user_account
 
 
@@ -64,3 +64,27 @@ class UserRoleUpdateResponseSerializer(serializers.ModelSerializer):
             "code": obj.role.code,
             "name": obj.role.name,
         }
+
+
+class AuditLogSerializer(serializers.ModelSerializer):
+    actor_username = serializers.CharField(source="actor.username", read_only=True)
+    target_user_username = serializers.CharField(
+        source="target_user.username", read_only=True
+    )
+
+    class Meta:
+        model = AuditLog
+
+        fields = [
+            "id",
+            "actor",
+            "actor_username",
+            "target_user",
+            "target_user_username",
+            "action_type",
+            "result",
+            "description",
+            "ip_address",
+            "user_agent",
+            "created_at",
+        ]

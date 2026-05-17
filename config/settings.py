@@ -49,6 +49,7 @@ INSTALLED_APPS = [
     "drones",
     "roles",
     "rest_framework",
+    "django_filters",
 ]
 
 MIDDLEWARE = [
