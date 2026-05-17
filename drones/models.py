@@ -15,6 +15,11 @@ class Drone(models.Model):
     name = models.CharField(max_length=100)
     drone_model = models.CharField(max_length=255)
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="ACTIVE")
+    military_unit = models.ForeignKey(
+        "accounts.MilitaryUnit",
+        on_delete=models.PROTECT,
+        related_name="drones",
+    )
     acquired_at = models.DateField()
     notes = models.TextField(blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
