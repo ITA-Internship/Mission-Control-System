@@ -1,9 +1,10 @@
 from rest_framework import generics, permissions
 from rest_framework.pagination import PageNumberPagination
 
-from .models import Mission
+from .models import Mission, Status
 from .permissions import IsDispatcherOrAdmin
 from .serializers import MissionSerializer, MissionStatusUpdateSerializer
+from drones.models import Drone
 
 class MissionPagination(PageNumberPagination):
     page_size = 10
@@ -43,4 +44,10 @@ class MissionStatusUpdateView(generics.UpdateAPIView):
     permission_classes = [permissions.IsAuthenticated, IsDispatcherOrAdmin]
     queryset = Mission.objects.all()
 
-    
+    def perform_update(self, serializer):
+        mission = serializer.save()
+        if mission.status == Status.ACTIVE:
+            assigned_drones_ids = mission.mission_drones.values_list('drone_id', flat=True)
+
+            if assigned_drones_ids:
+                Drone.objects.filter(id__in=assigned_drones_ids).update(status='IN_MISSION')
