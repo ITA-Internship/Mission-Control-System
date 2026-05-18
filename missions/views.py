@@ -51,3 +51,16 @@ class MissionStatusUpdateView(generics.UpdateAPIView):
 
             if assigned_drones_ids:
                 Drone.objects.filter(id__in=assigned_drones_ids).update(status='IN_MISSION')
+        
+        elif mission.status in [Status.COMPLETED, Status.ABORTED]:
+            mission_drones = mission.mission_drones.all()
+
+            for link in mission_drones:
+                drone = link.drone
+
+                if link.condition_after:
+                    drone.status = link.condition_after
+                else:
+                    drone.status = "ACTIVE"
+
+                drone.save()

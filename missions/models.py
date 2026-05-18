@@ -1,6 +1,8 @@
 from django.conf import settings
 from django.db import models
 
+from drones.models import Drone
+
 
 class Status(models.TextChoices):
     PLANNED = "planned", "Planned"
@@ -105,11 +107,7 @@ class MissionDrone(models.Model):
         related_name="operated_mission_drones"
     )
     
-    condition_after = models.CharField(
-        max_length=50, 
-        blank=True, 
-        null=True
-    )
+    condition_after = models.CharField(max_length=20, choices=Drone.STATUS_CHOICES, default="ACTIVE")
     
     created_at = models.DateTimeField(auto_now_add=True)
 
