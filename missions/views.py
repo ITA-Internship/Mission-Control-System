@@ -2,7 +2,7 @@ from rest_framework import generics, permissions
 from rest_framework.pagination import PageNumberPagination
 
 from .models import Mission, Status, MissionAuditLog
-from .permissions import IsDispatcherOrAdmin
+from .permissions import IsDispatcherOrAdmin, CanUpdateMissionStatus
 from .serializers import MissionSerializer, MissionStatusUpdateSerializer
 from drones.models import Drone
 
@@ -39,9 +39,9 @@ class MissionDetailView(generics.RetrieveAPIView):
     queryset = Mission.objects.with_related()
 
 
-class MissionStatusUpdateView(generics.UpdateAPIView):
+class MissionStatusUpdateView(generics.RetrieveUpdateAPIView):
     serializer_class = MissionStatusUpdateSerializer
-    permission_classes = [permissions.IsAuthenticated, IsDispatcherOrAdmin]
+    permission_classes = [permissions.IsAuthenticated, CanUpdateMissionStatus]
     queryset = Mission.objects.all()
 
     def perform_update(self, serializer):

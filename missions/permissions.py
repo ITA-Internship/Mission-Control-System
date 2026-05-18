@@ -18,3 +18,22 @@ class IsDispatcherOrAdmin(permissions.BasePermission):
         ]:
             return True
         return False
+    
+from rest_framework import permissions
+
+class CanUpdateMissionStatus(permissions.BasePermission):
+    def has_object_permission(self, request, view, obj):
+        if not request.user or not request.user.is_authenticated or not request.user.role:
+            return False
+
+        role_name = request.user.role.name.upper()
+
+        if role_name in ['ADMIN', 'COMMANDER']:
+            return True
+
+        if role_name == 'OPERATOR':
+            is_assigned = obj.mission_drones.filter(operator=request.user).exists()
+            
+            return is_assigned
+
+        return False
