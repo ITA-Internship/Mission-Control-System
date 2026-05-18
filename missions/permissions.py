@@ -19,8 +19,6 @@ class IsDispatcherOrAdmin(permissions.BasePermission):
             return True
         return False
     
-from rest_framework import permissions
-
 class CanUpdateMissionStatus(permissions.BasePermission):
     def has_object_permission(self, request, view, obj):
         if not request.user or not request.user.is_authenticated or not request.user.role:
