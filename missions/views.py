@@ -3,7 +3,7 @@ from rest_framework.pagination import PageNumberPagination
 
 from .models import Mission
 from .permissions import IsDispatcherOrAdmin
-from .serializers import MissionSerializer
+from .serializers import MissionSerializer, MissionStatusUpdateSerializer
 
 class MissionPagination(PageNumberPagination):
     page_size = 10
@@ -36,3 +36,11 @@ class MissionDetailView(generics.RetrieveAPIView):
     serializer_class = MissionSerializer
     permission_classes = [permissions.IsAuthenticated, IsDispatcherOrAdmin]
     queryset = Mission.objects.with_related()
+
+
+class MissionStatusUpdateView(generics.UpdateAPIView):
+    serializer_class = MissionStatusUpdateSerializer
+    permission_classes = [permissions.IsAuthenticated, IsDispatcherOrAdmin]
+    queryset = Mission.objects.all()
+
+    

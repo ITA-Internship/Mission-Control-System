@@ -6,7 +6,7 @@ from roles.models import COMMANDER_CODE, OPERATOR_CODE
 
 from drones.models import Drone
 
-from .models import Mission, MissionDrone
+from .models import Mission, MissionDrone, MISSION_STATUS_TRANSITIONS
 
 User = get_user_model()
 
@@ -137,3 +137,17 @@ class MissionSerializer(serializers.ModelSerializer):
 
         return attrs
 
+class MissionStatusUpdateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Mission
+        fields = ['status']
+
+    def validate_status(self, value):
+        current_status = self.instance.status
+        allowed_transions = MISSION_STATUS_TRANSITIONS.get(current_status, [])
+
+        if value not in allowed_transions:
+            raise serializers.ValidationError(
+                f"Cannot change status from '{current_status}' to '{value}'."
+            )
+        return value
