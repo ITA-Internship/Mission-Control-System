@@ -1,12 +1,12 @@
 import uuid
 
-from django.db import models
 from django.conf import settings
+from django.db import models
 from django.utils import timezone
 
 
 class Drone(models.Model):
-    
+
     STATUS_ACTIVE = "ACTIVE"
     STATUS_DAMAGED = "DAMAGED"
     STATUS_LOST = "LOST"
@@ -72,15 +72,24 @@ class DroneSpec(models.Model):
 
     def __str__(self) -> str:
         return f"Specification for {self.drone}"
-    
-    
+
+
 class WriteOffRecord(models.Model):
-    drone = models.OneToOneField(Drone, on_delete=models.PROTECT, related_name="writeoff_record")
+    drone = models.OneToOneField(
+        Drone, on_delete=models.PROTECT, related_name="writeoff_record"
+    )
     reason = models.CharField(max_length=255)
     reason_description = models.TextField(blank=True)
-    authorized_by = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True,
-        on_delete=models.SET_NULL, related_name="authorized_writeoff_records",)
-    related_mission_id = models.PositiveIntegerField(null=True, blank=True) #temporary stub
+    authorized_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="authorized_writeoff_records",
+    )
+    related_mission_id = models.PositiveIntegerField(
+        null=True, blank=True
+    )  # temporary stub
     document_number = models.CharField(max_length=100, blank=True)
     written_off_at = models.DateField(default=timezone.localdate)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -91,16 +100,32 @@ class WriteOffRecord(models.Model):
 
 class DroneStatusHistory(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    drone = models.ForeignKey(Drone, on_delete=models.PROTECT, related_name="status_history")
+    drone = models.ForeignKey(
+        Drone, on_delete=models.PROTECT, related_name="status_history"
+    )
     from_status = models.CharField(max_length=20, blank=True)
     to_status = models.CharField(max_length=20)
-    changed_by = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True,
-        on_delete=models.SET_NULL, related_name="drone_status_changes")
+    changed_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="drone_status_changes",
+    )
     reason = models.TextField(blank=True)
-    related_mission_id = models.PositiveIntegerField(null=True, blank=True) #temporary stub
-    related_repair_order_id = models.PositiveIntegerField(null=True, blank=True) #temporary stub
-    related_writeoff = models.ForeignKey(WriteOffRecord, null=True, blank=True,
-        on_delete=models.SET_NULL, related_name="status_history_records")
+    related_mission_id = models.PositiveIntegerField(
+        null=True, blank=True
+    )  # temporary stub
+    related_repair_order_id = models.PositiveIntegerField(
+        null=True, blank=True
+    )  # temporary stub
+    related_writeoff = models.ForeignKey(
+        WriteOffRecord,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="status_history_records",
+    )
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self) -> str:

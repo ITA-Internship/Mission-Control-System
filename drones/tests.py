@@ -100,8 +100,8 @@ class DroneCreateTests(APITestCase):
         self.assertEqual(spec.vtx_model, "")
         self.assertEqual(spec.firmware_version, "")
         self.assertIsNone(spec.payload_capacity_g)
-        
-        
+
+
 class DroneUpdateAndDecommissionTests(APITestCase):
     def setUp(self):
         self.admin_user = AdminUserFactory()

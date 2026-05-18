@@ -42,7 +42,7 @@ class DroneSpecAdmin(admin.ModelAdmin):
         "motor_model",
         "camera_model",
     )
-    
+
 
 @admin.register(WriteOffRecord)
 class WriteOffRecordAdmin(admin.ModelAdmin):

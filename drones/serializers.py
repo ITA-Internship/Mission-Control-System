@@ -9,10 +9,10 @@ class DroneSpecSerializer(serializers.ModelSerializer):
     class Meta:
         model = DroneSpec
         exclude = ("drone",)
-        
-        
+
+
 class DroneSpecUpdateSerializer(serializers.ModelSerializer):
-    
+
     class Meta:
         model = DroneSpec
         exclude = ("drone",)
@@ -31,10 +31,10 @@ class DroneSpecUpdateSerializer(serializers.ModelSerializer):
             "frequency_mhz": {"required": False},
             "payload_capacity_g": {"required": False},
         }
-        
+
 
 class WriteOffRecordSerializer(serializers.ModelSerializer):
-    
+
     class Meta:
         model = WriteOffRecord
         fields = (
@@ -42,7 +42,7 @@ class WriteOffRecordSerializer(serializers.ModelSerializer):
             "reason",
             "reason_description",
             "authorized_by",
-            "related_mission_id", #must be changed when 'missions' are created
+            "related_mission_id",  # must be changed when 'missions' are created
             "document_number",
             "written_off_at",
             "created_at",
@@ -51,7 +51,7 @@ class WriteOffRecordSerializer(serializers.ModelSerializer):
 
 
 class DroneStatusHistorySerializer(serializers.ModelSerializer):
-    
+
     class Meta:
         model = DroneStatusHistory
         fields = (
@@ -60,8 +60,8 @@ class DroneStatusHistorySerializer(serializers.ModelSerializer):
             "to_status",
             "changed_by",
             "reason",
-            "related_mission_id", #must be changed when 'missions' are created
-            "related_repair_order_id", #must be changed 
+            "related_mission_id",  # must be changed when 'missions' are created
+            "related_repair_order_id",  # must be changed
             "related_writeoff",
             "created_at",
         )
@@ -81,7 +81,7 @@ class DroneSerializer(serializers.ModelSerializer):
         spec_data = validated_data.pop("spec")
 
         return create_drone_with_spec(drone_data=validated_data, spec_data=spec_data)
-    
+
 
 class DroneUpdateSerializer(serializers.ModelSerializer):
     spec = DroneSpecUpdateSerializer(required=False)
@@ -124,7 +124,7 @@ class DroneUpdateSerializer(serializers.ModelSerializer):
             "writeoff_reason_description",
             "document_number",
             "written_off_at",
-            "related_mission_id", #must be changed when 'missions' are created
+            "related_mission_id",  # must be changed when 'missions' are created
         )
         extra_kwargs = {
             "serial_number": {"required": False},
@@ -177,7 +177,8 @@ class DroneUpdateSerializer(serializers.ModelSerializer):
             writeoff_reason_description=writeoff_reason_description,
             document_number=document_number,
             written_off_at=written_off_at,
-            related_mission_id=related_mission_id, #must be changed when 'missions' are created
+            # TODO: must be changed when 'missions' are created
+            related_mission_id=related_mission_id,
         )
 
     def to_representation(self, instance):

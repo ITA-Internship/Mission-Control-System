@@ -42,7 +42,8 @@ def update_drone(
     writeoff_reason_description="",
     document_number="",
     written_off_at=None,
-    related_mission_id=None): #must be changed when 'missions' are created
+    related_mission_id=None,
+):  # must be changed when 'missions' are created
     user = _get_authenticated_user(user)
 
     old_status = drone.status
@@ -76,7 +77,8 @@ def update_drone(
                 "reason": writeoff_reason,
                 "reason_description": writeoff_reason_description,
                 "authorized_by": user,
-                "related_mission_id": related_mission_id, #must be changed when 'missions' are created
+                # TODO: replace with ForeignKey when missions app is created.
+                "related_mission_id": related_mission_id,
                 "document_number": document_number,
                 "written_off_at": written_off_at or timezone.localdate(),
             },
@@ -88,8 +90,10 @@ def update_drone(
             from_status=old_status,
             to_status=drone.status,
             changed_by=user,
-            reason=writeoff_reason or f"Status changed from {old_status} to {drone.status}",
-            related_mission_id=related_mission_id, #must be changed when 'missions' are created
+            reason=writeoff_reason
+            or f"Status changed from {old_status} to {drone.status}",
+            # TODO: must be changed when 'missions' are created
+            related_mission_id=related_mission_id,
             related_writeoff=writeoff_record,
         )
 

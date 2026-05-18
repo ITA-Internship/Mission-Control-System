@@ -16,8 +16,8 @@ class DroneCreateView(generics.ListCreateAPIView):
             .exclude(status__in=Drone.INACTIVE_STATUSES)
             .order_by("id")
         )
-        
-        
+
+
 class DroneDetailView(generics.RetrieveUpdateAPIView):
     queryset = (
         Drone.objects.select_related("military_unit")

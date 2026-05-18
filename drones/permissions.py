@@ -1,4 +1,4 @@
-from rest_framework.permissions import BasePermission, SAFE_METHODS
+from rest_framework.permissions import SAFE_METHODS, BasePermission
 
 from accounts.permissions import user_has_permission
 from accounts.rbac import (
@@ -34,12 +34,11 @@ class DronePermission(BasePermission):
             requested_status = request.data.get("status")
 
             if requested_status in Drone.INACTIVE_STATUSES:
-                return (
-                    self._has_permission(request.user, PERMISSION_DRONES_UPDATE)
-                    and self._has_permission(
-                        request.user,
-                        PERMISSION_DRONES_DECOMMISSION,
-                    )
+                return self._has_permission(
+                    request.user, PERMISSION_DRONES_UPDATE
+                ) and self._has_permission(
+                    request.user,
+                    PERMISSION_DRONES_DECOMMISSION,
                 )
 
             return self._has_permission(request.user, PERMISSION_DRONES_UPDATE)

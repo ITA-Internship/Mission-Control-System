@@ -1,5 +1,6 @@
-import factory
 import datetime
+
+import factory
 
 from roles.models import ADMIN_CODE, VIEWER_CODE
 
@@ -21,8 +22,8 @@ class AdminUserFactory(factory.django.DjangoModelFactory):
     email = factory.Sequence(lambda n: f"admin_user_{n}@example.com")
     password = factory.Sequence(lambda n: f"password_{n}")
     role = factory.SubFactory(AdminRoleFactory)
-    
-    
+
+
 class ViewerRoleFactory(factory.django.DjangoModelFactory):
     class Meta:
         model = "roles.Role"
@@ -48,8 +49,8 @@ class MilitaryUnitFactory(factory.django.DjangoModelFactory):
 
     name = factory.Sequence(lambda n: f"military_unit_{n}")
     code = factory.Sequence(lambda n: f"UNIT_{n}")
-    
-    
+
+
 class DroneFactory(factory.django.DjangoModelFactory):
     class Meta:
         model = "drones.Drone"
