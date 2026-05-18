@@ -42,3 +42,25 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
         created_by = request.user if request and hasattr(request, "user") else None
 
         return create_user_account(validated_data, created_by)
+
+
+class UserRoleUpdateSerializer(serializers.Serializer):
+    role_id = serializers.IntegerField(required=True, min_value=1)
+
+
+class UserRoleUpdateResponseSerializer(serializers.ModelSerializer):
+    role = serializers.SerializerMethodField()
+
+    class Meta:
+        model = User
+        fields = ("id", "username", "email", "role")
+
+    def get_role(self, obj):
+        if not obj.role:
+            return None
+
+        return {
+            "id": obj.role.id,
+            "code": obj.role.code,
+            "name": obj.role.name,
+        }
