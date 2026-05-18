@@ -9,4 +9,3 @@ urlpatterns = [
     path("<int:pk>/", MissionDetailView.as_view(), name="mission-detail"),
     path("<int:pk>/status/", MissionStatusUpdateView.as_view(), name='mission-status-update'),
 ]
-
