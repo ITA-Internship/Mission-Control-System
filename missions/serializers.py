@@ -2,14 +2,50 @@ from django.contrib.auth import get_user_model
 from django.utils import timezone
 from rest_framework import serializers
 
-from roles.models import COMMANDER_CODE
+from roles.models import COMMANDER_CODE, OPERATOR_CODE
 
-from .models import Mission
+from drones.models import Drone
+
+from .models import Mission, MissionDrone
 
 User = get_user_model()
 
 
+class MissionDroneInputSerializer(serializers.ModelSerializer):
+    drone_id = serializers.PrimaryKeyRelatedField(
+        queryset=Drone.objects.all(), source='drone'
+    )
+    operator_id = serializers.PrimaryKeyRelatedField(
+        queryset=User.objects.all(), 
+        source='operator', 
+        required=False, 
+        allow_null=True
+    )
+    class Meta:
+        model = MissionDrone
+        fields = ['drone_id', 'operator_id']
+    
+    def validate_operator_id(self, user):
+        if user is None:
+            return user
+            
+        role_code = getattr(getattr(user, "role", None), "code", None)
+        
+        if role_code != OPERATOR_CODE:
+            raise serializers.ValidationError(
+                "Selected user does not have the Operator role."
+            )
+        return user
+
+
 class MissionSerializer(serializers.ModelSerializer):
+
+    drones = MissionDroneInputSerializer(
+        source='mission_drones',
+        many=True, 
+        required=False
+    )
+
     commander_id = serializers.PrimaryKeyRelatedField(
         source="commander",
         queryset=User.objects.all(),
@@ -35,6 +71,7 @@ class MissionSerializer(serializers.ModelSerializer):
             "created_by",
             "created_at",
             "updated_at",
+            "drones",
         ]
         read_only_fields = [
             "id",
@@ -44,6 +81,20 @@ class MissionSerializer(serializers.ModelSerializer):
             "created_at",
             "updated_at",
         ]
+
+    def create(self, validated_data):
+        drones_data = validated_data.pop('mission_drones', [])
+
+        mission = Mission.objects.create(**validated_data)
+
+        for drone_item in drones_data:
+            MissionDrone.objects.create(
+                mission=mission,
+                drone=drone_item['drone'],
+                operator=drone_item.get('operator')
+            )
+
+        return mission
 
     def validate_title(self, value):
         value = (value or "").strip()
@@ -85,3 +136,4 @@ class MissionSerializer(serializers.ModelSerializer):
             )
 
         return attrs
+
