@@ -1,6 +1,7 @@
 from rest_framework import generics, permissions
+from rest_framework.exceptions import ValidationError
 
-from .models import Mission
+from .models import Mission, Status
 from .permissions import IsDispatcherOrAdmin
 from .serializers import MissionSerializer
 
@@ -13,6 +14,15 @@ class MissionListCreateView(generics.ListCreateAPIView):
         queryset = Mission.objects.with_related()
         status = self.request.query_params.get("status")
         if status:
+            if status not in Status.values:
+                raise ValidationError(
+                    {
+                        "status": (
+                            f"Invalid status '{status}'. "
+                            f"Must be one of: {', '.join(Status.values)}."
+                        )
+                    }
+                )
             queryset = queryset.filter(status=status)
         return queryset
 
@@ -22,5 +32,5 @@ class MissionListCreateView(generics.ListCreateAPIView):
 
 class MissionDetailView(generics.RetrieveAPIView):
     serializer_class = MissionSerializer
-    permission_classes = [permissions.IsAuthenticated, IsDispatcherOrAdmin]
+    permission_classes = [permissions.IsAuthenticated]
     queryset = Mission.objects.with_related()

@@ -1,4 +1,5 @@
 from django.conf import settings
+from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
 
 
@@ -43,13 +44,21 @@ class Mission(models.Model):
 
     location_description = models.TextField(null=True, blank=True)
     latitude = models.DecimalField(
-        max_digits=9, decimal_places=6, null=True, blank=True
+        max_digits=9,
+        decimal_places=6,
+        null=True,
+        blank=True,
+        validators=[MinValueValidator(-90), MaxValueValidator(90)],
     )
     longitude = models.DecimalField(
-        max_digits=9, decimal_places=6, null=True, blank=True
+        max_digits=9,
+        decimal_places=6,
+        null=True,
+        blank=True,
+        validators=[MinValueValidator(-180), MaxValueValidator(180)],
     )
 
-    started_at = models.DateTimeField()
+    started_at = models.DateTimeField(null=True, blank=True)
     ended_at = models.DateTimeField(null=True, blank=True)
 
     notes = models.TextField(blank=True)
