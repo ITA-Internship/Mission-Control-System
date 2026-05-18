@@ -1,7 +1,7 @@
 from rest_framework import generics, permissions
 from rest_framework.pagination import PageNumberPagination
 
-from .models import Mission, Status
+from .models import Mission, Status, MissionAuditLog
 from .permissions import IsDispatcherOrAdmin
 from .serializers import MissionSerializer, MissionStatusUpdateSerializer
 from drones.models import Drone
@@ -45,7 +45,20 @@ class MissionStatusUpdateView(generics.UpdateAPIView):
     queryset = Mission.objects.all()
 
     def perform_update(self, serializer):
+        old_status = self.get_object().status
         mission = serializer.save()
+
+        MissionAuditLog.objects.create(
+            user=self.request.user,
+            action="mission_status_changed",
+            target_model="Mission",
+            target_id=mission.id,
+            changes={
+                "previous": old_status,
+                "new": mission.status
+            }
+        )
+
         if mission.status == Status.ACTIVE:
             assigned_drones_ids = mission.mission_drones.values_list('drone_id', flat=True)
 
