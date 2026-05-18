@@ -4,8 +4,14 @@ from django.urls import reverse
 from rest_framework import status
 from rest_framework.test import APITestCase
 
-from drones.factories import AdminUserFactory, MilitaryUnitFactory
-from drones.models import Drone, DroneSpec
+from drones.factories import (
+    AdminUserFactory,
+    DroneFactory,
+    DroneSpecFactory,
+    MilitaryUnitFactory,
+    ViewerUserFactory,
+)
+from drones.models import Drone, DroneSpec, DroneStatusHistory, WriteOffRecord
 
 
 class DroneCreateTests(APITestCase):
@@ -94,3 +100,159 @@ class DroneCreateTests(APITestCase):
         self.assertEqual(spec.vtx_model, "")
         self.assertEqual(spec.firmware_version, "")
         self.assertIsNone(spec.payload_capacity_g)
+        
+        
+class DroneUpdateAndDecommissionTests(APITestCase):
+    def setUp(self):
+        self.admin_user = AdminUserFactory()
+        self.viewer_user = ViewerUserFactory()
+
+        self.drone = DroneFactory(status="ACTIVE")
+        DroneSpecFactory(drone=self.drone)
+
+        self.list_url = reverse("drones:drone-create")
+        self.detail_url = reverse("drones:drone-detail", kwargs={"pk": self.drone.pk})
+
+    def test_get_drone_detail_as_admin(self):
+        self.client.force_authenticate(self.admin_user)
+
+        response = self.client.get(self.detail_url)
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["id"], self.drone.id)
+        self.assertEqual(response.data["status"], "ACTIVE")
+
+    def test_patch_drone_notes(self):
+        self.client.force_authenticate(self.admin_user)
+
+        response = self.client.patch(
+            self.detail_url,
+            {"notes": "Updated notes"},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        self.drone.refresh_from_db()
+
+        self.assertEqual(self.drone.notes, "Updated notes")
+
+    def test_patch_drone_spec(self):
+        self.client.force_authenticate(self.admin_user)
+
+        response = self.client.patch(
+            self.detail_url,
+            {
+                "spec": {
+                    "frame_type": "Updated frame",
+                    "max_speed_kmh": "155.50",
+                }
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        self.drone.spec.refresh_from_db()
+
+        self.assertEqual(self.drone.spec.frame_type, "Updated frame")
+        self.assertEqual(str(self.drone.spec.max_speed_kmh), "155.50")
+
+    def test_decommission_requires_reason(self):
+        self.client.force_authenticate(self.admin_user)
+
+        response = self.client.patch(
+            self.detail_url,
+            {"status": "WRITTEN_OFF"},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("writeoff_reason", response.data)
+
+    def test_decommission_creates_writeoff_record_and_status_history(self):
+        self.client.force_authenticate(self.admin_user)
+
+        response = self.client.patch(
+            self.detail_url,
+            {
+                "status": "WRITTEN_OFF",
+                "writeoff_reason": "Destroyed during mission",
+                "writeoff_reason_description": "The drone cannot be repaired.",
+                "document_number": "WO-2026-001",
+                "written_off_at": "2026-05-17",
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        self.drone.refresh_from_db()
+
+        self.assertEqual(self.drone.status, "WRITTEN_OFF")
+        self.assertTrue(Drone.objects.filter(id=self.drone.id).exists())
+        self.assertEqual(WriteOffRecord.objects.count(), 1)
+        self.assertEqual(DroneStatusHistory.objects.count(), 1)
+
+        writeoff_record = WriteOffRecord.objects.get(drone=self.drone)
+        status_history = DroneStatusHistory.objects.get(drone=self.drone)
+
+        self.assertEqual(writeoff_record.reason, "Destroyed during mission")
+        self.assertEqual(writeoff_record.document_number, "WO-2026-001")
+        self.assertEqual(status_history.from_status, "ACTIVE")
+        self.assertEqual(status_history.to_status, "WRITTEN_OFF")
+        self.assertEqual(status_history.related_writeoff, writeoff_record)
+
+    def test_decommissioned_drone_is_not_returned_in_active_list(self):
+        self.client.force_authenticate(self.admin_user)
+
+        inactive_drone = DroneFactory(status="WRITTEN_OFF")
+        DroneSpecFactory(drone=inactive_drone)
+
+        response = self.client.get(self.list_url)
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        returned_ids = [drone["id"] for drone in response.data]
+
+        self.assertIn(self.drone.id, returned_ids)
+        self.assertNotIn(inactive_drone.id, returned_ids)
+
+    def test_viewer_can_get_drone_detail(self):
+        self.client.force_authenticate(self.viewer_user)
+
+        response = self.client.get(self.detail_url)
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+    def test_viewer_cannot_patch_drone(self):
+        self.client.force_authenticate(self.viewer_user)
+
+        response = self.client.patch(
+            self.detail_url,
+            {"notes": "Viewer update attempt"},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_status_change_creates_status_history(self):
+        self.client.force_authenticate(self.admin_user)
+
+        response = self.client.patch(
+            self.detail_url,
+            {"status": "DAMAGED"},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        self.drone.refresh_from_db()
+
+        self.assertEqual(self.drone.status, "DAMAGED")
+        self.assertEqual(DroneStatusHistory.objects.count(), 1)
+
+        history = DroneStatusHistory.objects.get()
+
+        self.assertEqual(history.from_status, "ACTIVE")
+        self.assertEqual(history.to_status, "DAMAGED")
