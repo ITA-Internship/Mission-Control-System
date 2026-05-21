@@ -111,6 +111,8 @@ class AuditLogViewSet(viewsets.ReadOnlyModelViewSet):
     filter_backends = [filters.DjangoFilterBackend]
     filterset_class = AuditLogFilter
 
+    throttle_scope = "audit_export"
+
     def get_queryset(self):
         user = self.request.user
         if user.is_staff or user.is_superuser:
@@ -124,7 +126,6 @@ class AuditLogViewSet(viewsets.ReadOnlyModelViewSet):
         detail=False,
         methods=["get"],
         throttle_classes=[ScopedRateThrottle],
-        throttle_scope="audit_export",
     )
     def export(self, request):
         MAX_EXPORT_LIMIT = 10000
