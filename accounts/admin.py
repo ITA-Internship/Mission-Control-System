@@ -1,7 +1,14 @@
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin
 
-from .models import AuditLog, MilitaryUnit, User, UserProfile, UserRoleAuditLog, UserStatusLog
+from .models import (
+    AuditLog,
+    MilitaryUnit,
+    User,
+    UserProfile,
+    UserRoleAuditLog,
+    UserStatusLog,
+)
 
 
 @admin.register(User)

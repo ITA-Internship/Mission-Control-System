@@ -6,18 +6,18 @@ from django.core.exceptions import ValidationError as DjangoValidationError
 from django.db.models import Q
 from django.http import StreamingHttpResponse
 from django.shortcuts import get_object_or_404
+from django.utils import timezone
 from django_filters import rest_framework as filters
 from rest_framework import generics, permissions, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.pagination import PageNumberPagination
-from django.utils import timezone
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework.throttling import ScopedRateThrottle
 from rest_framework.views import APIView
 
 from .models import AuditLog, User, UserStatusLog
-from .permissions import HasRBACPermission,IsSystemAdmin
+from .permissions import HasRBACPermission, IsSystemAdmin
 from .rbac import PERMISSION_USERS_CREATE, PERMISSION_USERS_MANAGE_ROLES
 from .serializers import (
     AuditLogSerializer,
@@ -169,6 +169,8 @@ class AuditLogViewSet(viewsets.ReadOnlyModelViewSet):
         response["Content-Disposition"] = 'attachment; filename="audit_logs.csv"'
 
         return response
+
+
 class UserStatusUpdateView(APIView):
     permission_classes = [IsSystemAdmin]
 
