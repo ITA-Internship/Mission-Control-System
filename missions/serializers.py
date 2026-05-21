@@ -213,7 +213,9 @@ class MissionDroneSerializer(serializers.ModelSerializer):
             locked_operator = User.objects.select_for_update().get(id=operator.id)
             if self._check_overlap(mission=mission, operator=locked_operator):
                 raise serializers.ValidationError(
-                    {"operator": "Operator was just assigned to an overlapping mission."}
+                    {
+                        "operator": "Operator was just assigned to an overlapping mission."  # noqa: E501
+                    }
                 )
 
             if self._check_overlap(mission=mission, drone=locked_drone):

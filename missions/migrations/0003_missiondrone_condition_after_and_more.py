@@ -6,28 +6,28 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('missions', '0002_missiondrone_unique_mission_operator'),
+        ("missions", "0002_missiondrone_unique_mission_operator"),
     ]
 
     operations = [
         migrations.AddField(
-            model_name='missiondrone',
-            name='condition_after',
+            model_name="missiondrone",
+            name="condition_after",
             field=models.CharField(blank=True, max_length=255, null=True),
         ),
         migrations.AddField(
-            model_name='missiondrone',
-            name='condition_description',
+            model_name="missiondrone",
+            name="condition_description",
             field=models.TextField(blank=True, null=True),
         ),
         migrations.AddField(
-            model_name='missiondrone',
-            name='flight_ended_at',
+            model_name="missiondrone",
+            name="flight_ended_at",
             field=models.DateTimeField(blank=True, null=True),
         ),
         migrations.AddField(
-            model_name='missiondrone',
-            name='flight_started_at',
+            model_name="missiondrone",
+            name="flight_started_at",
             field=models.DateTimeField(blank=True, null=True),
         ),
     ]

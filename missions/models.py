@@ -140,4 +140,6 @@ class AuditLog(models.Model):
         ]
 
     def __str__(self):
-        return f"[{self.action}] {self.target_model} by {self.user} at {self.created_at}"
+        return (
+            f"[{self.action}] {self.target_model} by {self.user} at {self.created_at}"
+        )

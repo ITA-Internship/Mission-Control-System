@@ -7,17 +7,21 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('missions', '0003_missiondrone_condition_after_and_more'),
+        ("missions", "0003_missiondrone_condition_after_and_more"),
         migrations.swappable_dependency(settings.AUTH_USER_MODEL),
     ]
 
     operations = [
         migrations.AddIndex(
-            model_name='auditlog',
-            index=models.Index(fields=['action', 'target_model'], name='audit_logs_action_781a8f_idx'),
+            model_name="auditlog",
+            index=models.Index(
+                fields=["action", "target_model"], name="audit_logs_action_781a8f_idx"
+            ),
         ),
         migrations.AddIndex(
-            model_name='auditlog',
-            index=models.Index(fields=['created_at'], name='audit_logs_created_262184_idx'),
+            model_name="auditlog",
+            index=models.Index(
+                fields=["created_at"], name="audit_logs_created_262184_idx"
+            ),
         ),
     ]

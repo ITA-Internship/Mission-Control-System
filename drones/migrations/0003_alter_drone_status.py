@@ -6,13 +6,23 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('drones', '0002_drone_military_unit'),
+        ("drones", "0002_drone_military_unit"),
     ]
 
     operations = [
         migrations.AlterField(
-            model_name='drone',
-            name='status',
-            field=models.CharField(choices=[('ACTIVE', 'Active'), ('DAMAGED', 'Damaged'), ('LOST', 'Lost'), ('MAINTENANCE', 'Maintenance'), ('IN_MISSION', 'In Mission')], default='ACTIVE', max_length=20),
+            model_name="drone",
+            name="status",
+            field=models.CharField(
+                choices=[
+                    ("ACTIVE", "Active"),
+                    ("DAMAGED", "Damaged"),
+                    ("LOST", "Lost"),
+                    ("MAINTENANCE", "Maintenance"),
+                    ("IN_MISSION", "In Mission"),
+                ],
+                default="ACTIVE",
+                max_length=20,
+            ),
         ),
     ]

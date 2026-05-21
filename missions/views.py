@@ -78,9 +78,7 @@ class MissionAssignmentDetailView(generics.DestroyAPIView):
 
     def perform_destroy(self, instance):
         with transaction.atomic():
-            mission = Mission.objects.select_for_update().get(
-                id=instance.mission_id
-            )
+            mission = Mission.objects.select_for_update().get(id=instance.mission_id)
             if mission.status != Status.PLANNED:
                 raise ValidationError(
                     "Cannot delete assignment unless mission is planned."

@@ -7,14 +7,16 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('drones', '0002_drone_military_unit'),
-        ('missions', '0001_initial'),
+        ("drones", "0002_drone_military_unit"),
+        ("missions", "0001_initial"),
         migrations.swappable_dependency(settings.AUTH_USER_MODEL),
     ]
 
     operations = [
         migrations.AddConstraint(
-            model_name='missiondrone',
-            constraint=models.UniqueConstraint(fields=('mission', 'operator'), name='unique_mission_operator'),
+            model_name="missiondrone",
+            constraint=models.UniqueConstraint(
+                fields=("mission", "operator"), name="unique_mission_operator"
+            ),
         ),
     ]

@@ -11,7 +11,7 @@ class Migration(migrations.Migration):
     initial = True
 
     dependencies = [
-        ('drones', '0002_drone_military_unit'),
+        ("drones", "0002_drone_military_unit"),
         migrations.swappable_dependency(settings.AUTH_USER_MODEL),
     ]
 
@@ -107,42 +107,91 @@ class Migration(migrations.Migration):
             },
         ),
         migrations.CreateModel(
-            name='AuditLog',
+            name="AuditLog",
             fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('action', models.CharField(max_length=255)),
-                ('target_model', models.CharField(max_length=255)),
-                ('changes', models.JSONField()),
-                ('created_at', models.DateTimeField(auto_now_add=True)),
-                ('user', models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.SET_NULL, to=settings.AUTH_USER_MODEL)),
+                (
+                    "id",
+                    models.BigAutoField(
+                        auto_created=True,
+                        primary_key=True,
+                        serialize=False,
+                        verbose_name="ID",
+                    ),
+                ),
+                ("action", models.CharField(max_length=255)),
+                ("target_model", models.CharField(max_length=255)),
+                ("changes", models.JSONField()),
+                ("created_at", models.DateTimeField(auto_now_add=True)),
+                (
+                    "user",
+                    models.ForeignKey(
+                        blank=True,
+                        null=True,
+                        on_delete=django.db.models.deletion.SET_NULL,
+                        to=settings.AUTH_USER_MODEL,
+                    ),
+                ),
             ],
             options={
-                'db_table': 'audit_logs',
+                "db_table": "audit_logs",
             },
         ),
         migrations.CreateModel(
-            name='MissionDrone',
+            name="MissionDrone",
             fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('created_at', models.DateTimeField(auto_now_add=True)),
-                ('drone', models.ForeignKey(on_delete=django.db.models.deletion.PROTECT, related_name='mission_assignments', to='drones.drone')),
-                ('mission', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='assignments', to='missions.mission')),
-                ('operator', models.ForeignKey(on_delete=django.db.models.deletion.PROTECT, related_name='drone_assignments', to=settings.AUTH_USER_MODEL)),
+                (
+                    "id",
+                    models.BigAutoField(
+                        auto_created=True,
+                        primary_key=True,
+                        serialize=False,
+                        verbose_name="ID",
+                    ),
+                ),
+                ("created_at", models.DateTimeField(auto_now_add=True)),
+                (
+                    "drone",
+                    models.ForeignKey(
+                        on_delete=django.db.models.deletion.PROTECT,
+                        related_name="mission_assignments",
+                        to="drones.drone",
+                    ),
+                ),
+                (
+                    "mission",
+                    models.ForeignKey(
+                        on_delete=django.db.models.deletion.CASCADE,
+                        related_name="assignments",
+                        to="missions.mission",
+                    ),
+                ),
+                (
+                    "operator",
+                    models.ForeignKey(
+                        on_delete=django.db.models.deletion.PROTECT,
+                        related_name="drone_assignments",
+                        to=settings.AUTH_USER_MODEL,
+                    ),
+                ),
             ],
             options={
-                'db_table': 'mission_drones',
+                "db_table": "mission_drones",
             },
         ),
         migrations.AddIndex(
-            model_name='mission',
-            index=models.Index(fields=['status'], name='missions_status_e455e3_idx'),
+            model_name="mission",
+            index=models.Index(fields=["status"], name="missions_status_e455e3_idx"),
         ),
         migrations.AddIndex(
-            model_name='mission',
-            index=models.Index(fields=['started_at'], name='missions_started_f5fb4e_idx'),
+            model_name="mission",
+            index=models.Index(
+                fields=["started_at"], name="missions_started_f5fb4e_idx"
+            ),
         ),
         migrations.AddConstraint(
-            model_name='missiondrone',
-            constraint=models.UniqueConstraint(fields=('mission', 'drone'), name='unique_mission_drone'),
+            model_name="missiondrone",
+            constraint=models.UniqueConstraint(
+                fields=("mission", "drone"), name="unique_mission_drone"
+            ),
         ),
     ]
