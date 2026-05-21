@@ -48,6 +48,7 @@ INSTALLED_APPS = [
     "accounts",
     "drones",
     "roles",
+    "missions",
     "rest_framework",
     "django_filters",
 ]

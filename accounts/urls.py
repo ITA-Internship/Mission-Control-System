@@ -6,6 +6,7 @@ from .views import (
     AuditLogViewSet,
     UserRegistrationView,
     UserRoleUpdateAPIView,
+    UserStatusUpdateView,
 )
 
 app_name = "accounts"
@@ -26,4 +27,9 @@ urlpatterns = [
         name="account-activate",
     ),
     path("", include(router.urls)),
+    path(
+        "users/<int:pk>/status",
+        UserStatusUpdateView.as_view(),
+        name="user-status-update",
+    ),
 ]

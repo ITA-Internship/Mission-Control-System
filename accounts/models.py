@@ -62,6 +62,30 @@ class UserProfile(models.Model):
         return f"Profile for {self.user_id}"
 
 
+class UserStatusLog(models.Model):
+    target_user = models.ForeignKey(
+        User, on_delete=models.CASCADE, related_name="status_logs"
+    )
+    changed_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        related_name="performed_status_changes",
+    )
+    old_status = models.BooleanField()
+    new_status = models.BooleanField()
+    reason = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        action = "activated" if self.new_status else "deactivated"
+        date_str = (
+            self.created_at.strftime("%Y-%m-%d") if self.created_at else "pending date"
+        )
+
+        return f"User {self.target_user} {action} by {self.changed_by} on {date_str}"
+
+
 class UserRoleAuditLog(models.Model):
     changed_by = models.ForeignKey(
         "accounts.User",
