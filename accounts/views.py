@@ -2,7 +2,8 @@ import csv
 
 from django.contrib.auth.tokens import default_token_generator
 from django.core.exceptions import ValidationError as DjangoValidationError
-from django.http import HttpResponse
+from django.db.models import Q
+from django.http import StreamingHttpResponse
 from django.shortcuts import get_object_or_404
 from django_filters import rest_framework as filters
 from rest_framework import generics, permissions, status, viewsets
@@ -10,6 +11,7 @@ from rest_framework.decorators import action
 from rest_framework.pagination import PageNumberPagination
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
+from rest_framework.throttling import ScopedRateThrottle
 from rest_framework.views import APIView
 
 from .models import AuditLog, User
@@ -97,6 +99,11 @@ class AuditLogFilter(filters.FilterSet):
         fields = ["actor", "target_user", "action_type", "result"]
 
 
+class Echo:
+    def write(self, value):
+        return value
+
+
 class AuditLogViewSet(viewsets.ReadOnlyModelViewSet):
     serializer_class = AuditLogSerializer
     permission_classes = [permissions.IsAuthenticated]
@@ -109,43 +116,52 @@ class AuditLogViewSet(viewsets.ReadOnlyModelViewSet):
         if user.is_staff or user.is_superuser:
             return AuditLog.objects.all().select_related("actor", "target_user")
 
-        return AuditLog.objects.filter(actor=user) | AuditLog.objects.filter(
-            target_user=user
+        return AuditLog.objects.filter(
+            Q(actor=user) | Q(target_user=user)
         ).select_related("actor", "target_user")
 
-    @action(detail=False, methods=["get"])
+    @action(
+        detail=False,
+        methods=["get"],
+        throttle_classes=[ScopedRateThrottle],
+        throttle_scope="audit_export",
+    )
     def export(self, request):
-        queryset = self.filter_queryset(self.get_queryset())
+        MAX_EXPORT_LIMIT = 10000
 
-        response = HttpResponse(content_type="text/csv")
-        response["Content-Disposition"] = 'attachment; filename="audit_logs.csv"'
+        queryset = self.filter_queryset(self.get_queryset())[:MAX_EXPORT_LIMIT]
 
-        writer = csv.writer(response)
-        writer.writerow(
-            [
-                "ID",
-                "Date/Time",
-                "Actor",
-                "Target User",
-                "Action Type",
-                "Result",
-                "IP Address",
-                "Description",
-            ]
-        )
+        def generate_csv():
+            writer = csv.writer(Echo())
 
-        for log in queryset:
-            writer.writerow(
+            yield writer.writerow(
                 [
-                    log.id,
-                    log.created_at.strftime("%Y-%m-%d %H:%M:%S"),
-                    log.actor.username if log.actor else "System",
-                    log.target_user.username if log.target_user else "N/A",
-                    log.action_type,
-                    log.result,
-                    log.ip_address or "N/A",
-                    log.description,
+                    "ID",
+                    "Date/Time",
+                    "Actor",
+                    "Target User",
+                    "Action Type",
+                    "Result",
+                    "IP Address",
+                    "Description",
                 ]
             )
+
+            for log in queryset.iterator(chunk_size=2000):
+                yield writer.writerow(
+                    [
+                        log.id,
+                        log.created_at.strftime("%Y-%m-%d %H:%M:%S"),
+                        log.actor.username if log.actor else "System",
+                        log.target_user.username if log.target_user else "N/A",
+                        log.action_type,
+                        log.result,
+                        log.ip_address or "N/A",
+                        log.description,
+                    ]
+                )
+
+        response = StreamingHttpResponse(generate_csv(), content_type="text/csv")
+        response["Content-Disposition"] = 'attachment; filename="audit_logs.csv"'
 
         return response

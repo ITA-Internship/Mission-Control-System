@@ -108,6 +108,19 @@ class UserRoleAuditLog(models.Model):
         )
 
 
+class AuditLogQuerySet(models.QuerySet):
+    def delete(self):
+        raise ValueError("AuditLog entries are immutable and cannot be deleted.")
+
+    def update(self, **kwargs):
+        raise ValueError("AuditLog entries are immutable and cannot be updated.")
+
+
+class AuditLogManager(models.Manager):
+    def get_queryset(self):
+        return AuditLogQuerySet(self.model, using=self._db)
+
+
 class AuditLog(models.Model):
     class ActionType(models.TextChoices):
         LOGIN_SUCCESS = "LOGIN_SUCCESS", "Login Success"
@@ -156,6 +169,8 @@ class AuditLog(models.Model):
     user_agent = models.TextField(blank=True)
     created_at = models.DateTimeField(auto_now_add=True, db_index=True)
 
+    objects = AuditLogManager()
+
     class Meta:
         ordering = ("-created_at",)
         verbose_name = "Audit Log"
@@ -169,7 +184,7 @@ class AuditLog(models.Model):
         )
 
     def save(self, *args, **kwargs):
-        if self.pk is not None:
+        if not self._state.adding:
             raise ValueError("AuditLog entries are immutable and cannot be updated.")
         super().save(*args, **kwargs)
 
