@@ -78,7 +78,12 @@ class UserStatusLog(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
-        return f"Change for {self.target_user} by {self.changed_by}"
+        action = "activated" if self.new_status else "deactivated"
+        date_str = (
+            self.created_at.strftime("%Y-%m-%d") if self.created_at else "pending date"
+        )
+
+        return f"User {self.target_user} {action} by {self.changed_by} on {date_str}"
 
 
 class UserRoleAuditLog(models.Model):
