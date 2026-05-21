@@ -88,9 +88,17 @@ class Mission(models.Model):
 
 
 class MissionDrone(models.Model):
-    mission = models.ForeignKey(Mission, on_delete=models.CASCADE, related_name='assignments')
-    drone = models.ForeignKey('drones.Drone', on_delete=models.PROTECT, related_name='mission_assignments')
-    operator = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name='drone_assignments')
+    mission = models.ForeignKey(
+        Mission, on_delete=models.CASCADE, related_name="assignments"
+    )
+    drone = models.ForeignKey(
+        "drones.Drone", on_delete=models.PROTECT, related_name="mission_assignments"
+    )
+    operator = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.PROTECT,
+        related_name="drone_assignments",
+    )
     condition_after = models.CharField(max_length=255, null=True, blank=True)
     condition_description = models.TextField(null=True, blank=True)
     flight_started_at = models.DateTimeField(null=True, blank=True)
@@ -98,10 +106,14 @@ class MissionDrone(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        db_table = 'mission_drones'
+        db_table = "mission_drones"
         constraints = [
-            models.UniqueConstraint(fields=['mission', 'drone'], name='unique_mission_drone'),
-            models.UniqueConstraint(fields=['mission', 'operator'], name='unique_mission_operator')
+            models.UniqueConstraint(
+                fields=["mission", "drone"], name="unique_mission_drone"
+            ),
+            models.UniqueConstraint(
+                fields=["mission", "operator"], name="unique_mission_operator"
+            ),
         ]
 
     def __str__(self):
@@ -112,9 +124,20 @@ class AuditLog(models.Model):
     action = models.CharField(max_length=255)
     target_model = models.CharField(max_length=255)
     changes = models.JSONField()
-    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True)
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+    )
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        db_table = 'audit_logs'
+        db_table = "audit_logs"
+        indexes = [
+            models.Index(fields=["action", "target_model"]),
+            models.Index(fields=["created_at"]),
+        ]
 
+    def __str__(self):
+        return f"[{self.action}] {self.target_model} by {self.user} at {self.created_at}"

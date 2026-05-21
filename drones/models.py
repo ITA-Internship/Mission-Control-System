@@ -1,20 +1,23 @@
 from django.db import models
 
 
-class Drone(models.Model):
+class DroneStatus(models.TextChoices):
+    ACTIVE = "ACTIVE", "Active"
+    DAMAGED = "DAMAGED", "Damaged"
+    LOST = "LOST", "Lost"
+    MAINTENANCE = "MAINTENANCE", "Maintenance"
+    IN_MISSION = "IN_MISSION", "In Mission"
 
-    STATUS_CHOICES = [
-        ("ACTIVE", "Active"),
-        ("DAMAGED", "Damaged"),
-        ("LOST", "Lost"),
-        ("MAINTENANCE", "Maintenance"),
-    ]
+
+class Drone(models.Model):
 
     serial_number = models.CharField(max_length=100, unique=True)
     inventory_number = models.CharField(max_length=100, unique=True)
     name = models.CharField(max_length=100)
     drone_model = models.CharField(max_length=255)
-    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="ACTIVE")
+    status = models.CharField(
+        max_length=20, choices=DroneStatus.choices, default=DroneStatus.ACTIVE
+    )
     military_unit = models.ForeignKey(
         "accounts.MilitaryUnit",
         on_delete=models.PROTECT,

@@ -1,6 +1,5 @@
 from datetime import timedelta
 
-from django.apps import apps
 from django.contrib.auth import get_user_model
 from django.db import transaction
 from django.db.models import Q
@@ -8,9 +7,10 @@ from django.utils import timezone
 from rest_framework import serializers
 
 from accounts.permissions import get_user_role_code
+from drones.models import Drone, DroneStatus
 from roles.models import COMMANDER_CODE, OPERATOR_CODE
 
-from .models import Mission, MissionDrone, Status, AuditLog
+from .models import AuditLog, Mission, MissionDrone, Status
 
 User = get_user_model()
 
@@ -42,6 +42,7 @@ class MissionSerializer(serializers.ModelSerializer):
         fields = [
             "id",
             "title",
+            "commander",
             "commander_id",
             "status",
             "result",
@@ -110,15 +111,22 @@ class MissionSerializer(serializers.ModelSerializer):
 
         return attrs
 
+
 class MissionDroneSerializer(serializers.ModelSerializer):
     class Meta:
         model = MissionDrone
         fields = [
-            'id', 'mission', 'drone', 'operator',
-            'condition_after', 'condition_description',
-            'flight_started_at', 'flight_ended_at', 'created_at'
+            "id",
+            "mission",
+            "drone",
+            "operator",
+            "condition_after",
+            "condition_description",
+            "flight_started_at",
+            "flight_ended_at",
+            "created_at",
         ]
-        read_only_fields = ['id', 'mission', 'created_at']
+        read_only_fields = ["id", "mission", "created_at"]
 
     def _check_overlap(self, mission, operator=None, drone=None):
         if not operator and not drone:
@@ -136,69 +144,97 @@ class MissionDroneSerializer(serializers.ModelSerializer):
         m_start = mission.started_at
         m_end = mission.ended_at
 
+        if not m_start:
+            return overlapping.exists()
+
         q_objects = Q()
         if m_end:
             q_objects &= Q(mission__started_at__lt=m_end)
-        q_objects &= (Q(mission__ended_at__isnull=True) | Q(mission__ended_at__gt=m_start))
+        q_objects &= Q(mission__ended_at__isnull=True) | Q(
+            mission__ended_at__gt=m_start
+        )
 
         return overlapping.filter(q_objects).exists()
 
     def validate(self, attrs):
-        drone = attrs.get('drone')
-        operator = attrs.get('operator')
-        mission = self.context.get('mission')
+        drone = attrs.get("drone")
+        operator = attrs.get("operator")
+        mission = self.context.get("mission")
 
-        if mission and mission.status != Status.PLANNED:
-            raise serializers.ValidationError({"mission": "Assignments can only be added to planned missions."})
+        if not mission:
+            raise serializers.ValidationError(
+                {"mission": "Mission context is required for assignment validation."}
+            )
 
-        if drone and drone.status != 'ACTIVE':
+        if mission.status != Status.PLANNED:
+            raise serializers.ValidationError(
+                {"mission": "Assignments can only be added to planned missions."}
+            )
+
+        if drone and drone.status != DroneStatus.ACTIVE:
             raise serializers.ValidationError({"drone": "Drone must be active."})
 
         if operator:
             if get_user_role_code(operator) != OPERATOR_CODE:
-                raise serializers.ValidationError({"operator": "Selected user does not have the Operator role."})
+                raise serializers.ValidationError(
+                    {"operator": "Selected user does not have the Operator role."}
+                )
 
         if operator and mission:
             if self._check_overlap(mission=mission, operator=operator):
-                raise serializers.ValidationError({"operator": "Operator is busy during this time."})
-                
+                raise serializers.ValidationError(
+                    {"operator": "Operator is busy during this time."}
+                )
+
         if drone and mission:
             if self._check_overlap(mission=mission, drone=drone):
-                raise serializers.ValidationError({"drone": "Drone is assigned to another mission during this time."})
+                raise serializers.ValidationError(
+                    {"drone": "Drone is assigned to another mission during this time."}
+                )
 
         return attrs
 
     def create(self, validated_data):
-        request = self.context.get('request')
+        request = self.context.get("request")
         action_user = request.user if request else None
-        
-        mission = validated_data.get('mission')
-        operator = validated_data.get('operator')
+
+        mission = validated_data.get("mission")
+        operator = validated_data.get("operator")
 
         with transaction.atomic():
-            Drone = apps.get_model('drones', 'Drone')
-            
-            locked_drone = Drone.objects.select_for_update().get(id=validated_data['drone'].id)
-            if locked_drone.status != 'ACTIVE':
-                raise serializers.ValidationError({"drone": "Drone is no longer active."})
-            
+            locked_drone = Drone.objects.select_for_update().get(
+                id=validated_data["drone"].id
+            )
+            if locked_drone.status != DroneStatus.ACTIVE:
+                raise serializers.ValidationError(
+                    {"drone": "Drone is no longer active."}
+                )
+
             locked_operator = User.objects.select_for_update().get(id=operator.id)
             if self._check_overlap(mission=mission, operator=locked_operator):
-                raise serializers.ValidationError({"operator": "Operator was just assigned to an overlapping mission."})
+                raise serializers.ValidationError(
+                    {"operator": "Operator was just assigned to an overlapping mission."}
+                )
 
             if self._check_overlap(mission=mission, drone=locked_drone):
-                raise serializers.ValidationError({"drone": "Drone was just assigned to an overlapping mission."})
+                raise serializers.ValidationError(
+                    {"drone": "Drone was just assigned to an overlapping mission."}
+                )
 
-            validated_data['drone'] = locked_drone
+            validated_data["drone"] = locked_drone
             instance = super().create(validated_data)
+
+            locked_drone.status = DroneStatus.IN_MISSION
+            locked_drone.save(update_fields=["status"])
 
             AuditLog.objects.create(
                 action="assignment_created",
                 target_model="MissionDrone",
                 user=action_user,
                 changes={
+                    "mission_id": instance.mission_id,
                     "drone_id": instance.drone_id,
                     "operator_id": instance.operator_id,
-                }
+                },
             )
             return instance

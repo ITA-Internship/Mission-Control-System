@@ -1,11 +1,12 @@
-from django.apps import apps
 from django.db import transaction
 from rest_framework import generics, permissions
 from rest_framework.exceptions import ValidationError
 
-from .models import Mission, Status, MissionDrone, AuditLog
+from drones.models import Drone, DroneStatus
+
+from .models import AuditLog, Mission, MissionDrone, Status
 from .permissions import IsDispatcherOrAdmin
-from .serializers import MissionSerializer, MissionDroneSerializer
+from .serializers import MissionDroneSerializer, MissionSerializer
 
 
 class MissionListCreateView(generics.ListCreateAPIView):
@@ -43,18 +44,22 @@ class MissionAssignmentListCreateView(generics.ListCreateAPIView):
     permission_classes = [permissions.IsAuthenticated, IsDispatcherOrAdmin]
 
     def get_mission(self):
-        if not hasattr(self, '_mission'):
-            self._mission = generics.get_object_or_404(Mission, id=self.kwargs['id'])
+        if not hasattr(self, "_mission"):
+            self._mission = generics.get_object_or_404(
+                Mission, id=self.kwargs["mission_pk"]
+            )
         return self._mission
 
     def get_queryset(self):
         mission = self.get_mission()
-        return MissionDrone.objects.filter(mission=mission).select_related('drone', 'operator')
+        return MissionDrone.objects.filter(mission=mission).select_related(
+            "drone", "operator"
+        )
 
     def get_serializer_context(self):
         context = super().get_serializer_context()
-        if self.request.method in ['POST', 'PUT', 'PATCH']:
-            context['mission'] = self.get_mission()
+        if self.request.method in ["POST", "PUT", "PATCH"]:
+            context["mission"] = self.get_mission()
         return context
 
     def perform_create(self, serializer):
@@ -64,23 +69,40 @@ class MissionAssignmentListCreateView(generics.ListCreateAPIView):
 
 class MissionAssignmentDetailView(generics.DestroyAPIView):
     permission_classes = [permissions.IsAuthenticated, IsDispatcherOrAdmin]
-    lookup_url_kwarg = 'assignment_id'
+    lookup_url_kwarg = "pk"
 
     def get_queryset(self):
-        return MissionDrone.objects.filter(mission_id=self.kwargs['id']).select_related('mission')
+        return MissionDrone.objects.filter(
+            mission_id=self.kwargs["mission_pk"]
+        ).select_related("mission", "drone")
 
     def perform_destroy(self, instance):
-        if instance.mission.status != Status.PLANNED:
-            raise ValidationError("Cannot delete assignment unless mission is planned.")
-        
         with transaction.atomic():
+            mission = Mission.objects.select_for_update().get(
+                id=instance.mission_id
+            )
+            if mission.status != Status.PLANNED:
+                raise ValidationError(
+                    "Cannot delete assignment unless mission is planned."
+                )
+
+            drone_id = instance.drone_id
+            operator_id = instance.operator_id
+            mission_id = instance.mission_id
+
+            drone = Drone.objects.select_for_update().get(id=drone_id)
+            if drone.status == DroneStatus.IN_MISSION:
+                drone.status = DroneStatus.ACTIVE
+                drone.save(update_fields=["status"])
+
             AuditLog.objects.create(
                 action="assignment_deleted",
                 target_model="MissionDrone",
                 user=self.request.user,
                 changes={
-                    "drone_id": instance.drone_id,
-                    "operator_id": instance.operator_id,
-                }
+                    "mission_id": mission_id,
+                    "drone_id": drone_id,
+                    "operator_id": operator_id,
+                },
             )
             instance.delete()
