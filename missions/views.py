@@ -86,8 +86,6 @@ class MissionAssignmentDetailView(generics.DestroyAPIView):
             operator_id = instance.operator_id
             mission_id = instance.mission_id
 
-
-
             AuditLog.objects.create(
                 action="assignment_deleted",
                 target_model="MissionDrone",
