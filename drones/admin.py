@@ -11,6 +11,7 @@ class DroneAdmin(admin.ModelAdmin):
         "inventory_number",
         "name",
         "drone_model",
+        "classification",
         "military_unit__name",
         "status",
     )

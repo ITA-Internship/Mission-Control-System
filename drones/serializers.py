@@ -121,6 +121,7 @@ class DroneUpdateSerializer(serializers.ModelSerializer):
             "inventory_number",
             "name",
             "drone_model",
+            "classification",
             "status",
             "military_unit",
             "acquired_at",

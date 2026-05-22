@@ -34,10 +34,19 @@ class Drone(models.Model):
         STATUS_WRITTEN_OFF,
     )
 
+    CLASSIFICATION_CHOICES = [
+        ("CLASS_1", "Class 1"),
+        ("CLASS_2", "Class 2"),
+        ("CLASS_3", "Class 3"),
+    ]
+
     serial_number = models.CharField(max_length=100, unique=True)
     inventory_number = models.CharField(max_length=100, unique=True)
     name = models.CharField(max_length=100)
     drone_model = models.CharField(max_length=255)
+    classification = models.CharField(
+        max_length=20, choices=CLASSIFICATION_CHOICES, default="CLASS_1"
+    )
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="ACTIVE")
     military_unit = models.ForeignKey(
         "accounts.MilitaryUnit",

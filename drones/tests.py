@@ -12,6 +12,7 @@ from drones.factories import (
     ViewerUserFactory,
 )
 from drones.models import Drone, DroneSpec, DroneStatusHistory, WriteOffRecord
+from drones.pagination import StandardResultsSetPagination
 
 
 class DroneCreateTests(APITestCase):
@@ -213,7 +214,7 @@ class DroneUpdateAndDecommissionTests(APITestCase):
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
 
-        returned_ids = [drone["id"] for drone in response.data]
+        returned_ids = [drone["id"] for drone in response.data["results"]]
 
         self.assertIn(self.drone.id, returned_ids)
         self.assertNotIn(inactive_drone.id, returned_ids)
@@ -303,3 +304,94 @@ class DroneUpdateAndDecommissionTests(APITestCase):
         self.assertEqual(writeoff_record.reason, "Original reason")
         self.assertEqual(writeoff_record.document_number, "WO-2026-001")
         self.assertEqual(str(writeoff_record.written_off_at), "2026-05-17")
+
+
+class DroneSearchTests(APITestCase):
+    def setUp(self):
+        self.create_url = reverse("drones:drone-create")
+        self.military_unit = MilitaryUnitFactory()
+        self.page_size = StandardResultsSetPagination.page_size
+        self.drones = []
+        for i in range(self.page_size + 1):
+            if i % 2 == 0:
+                self.drones.append(DroneFactory(military_unit=self.military_unit))
+            else:
+                self.drones.append(
+                    DroneFactory(military_unit=self.military_unit, status="LOST")
+                )
+
+        self.user = ViewerUserFactory()
+        self.client.force_authenticate(self.user)
+
+    def test_get_drone_list(self):
+        response = self.client.get(self.create_url)
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+    def test_pagination_get_first_page(self):
+        response = self.client.get(self.create_url)
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["count"], self.page_size + 1)
+        self.assertEqual(
+            len(response.data["results"]),
+            self.page_size,
+        )
+        self.assertIsNotNone(response.data["next"])
+        self.assertIsNone(response.data["previous"])
+
+    def test_pagination_get_second_page(self):
+        response = self.client.get(self.create_url, {"page": 2})
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(
+            len(response.data["results"]),
+            1,
+        )
+        self.assertIsNotNone(response.data["previous"])
+
+    def test_pagination_get_non_existing_page(self):
+        response = self.client.get(self.create_url, {"page": 10})
+
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+
+    def test_search_valid_query(self):
+        target_drone = self.drones[1]
+        response = self.client.get(
+            self.create_url, {"search": target_drone.serial_number}
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(
+            response.data["results"][0]["serial_number"], target_drone.serial_number
+        )
+
+    def test_search_no_results(self):
+        response = self.client.get(self.create_url, {"search": "NON_EXISTENT_QUERY"})
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["count"], 0)
+
+    def test_filtering_exact_field(self):
+        response = self.client.get(self.create_url, {"status": "LOST"})
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        for item in response.data["results"]:
+            self.assertEqual(item["status"], "LOST")
+
+    def test_filtering_icontains_field(self):
+        response = self.client.get(
+            self.create_url, {"drone_model__icontains": "model_4"}
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        for item in response.data["results"]:
+            self.assertIn("model_4", item["drone_model"])
+
+    def test_ordering(self):
+        response = self.client.get(self.create_url, {"ordering": "name"})
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        results = response.data["results"]
+        names = [d["name"] for d in results]
+        self.assertEqual(names, sorted(names))
