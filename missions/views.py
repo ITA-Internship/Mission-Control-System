@@ -1,10 +1,10 @@
-from django.db import transaction
 from rest_framework import generics, permissions
 from rest_framework.exceptions import ValidationError
 
-from .models import AuditLog, Mission, MissionDrone, Status
+from .models import Mission, MissionDrone, Status
 from .permissions import IsDispatcherOrAdmin
 from .serializers import MissionDroneSerializer, MissionSerializer
+from .services import unassign_drone_from_mission
 
 
 class MissionListCreateView(generics.ListCreateAPIView):
@@ -75,25 +75,7 @@ class MissionAssignmentDetailView(generics.DestroyAPIView):
         ).select_related("mission", "drone")
 
     def perform_destroy(self, instance):
-        with transaction.atomic():
-            mission = Mission.objects.select_for_update().get(id=instance.mission_id)
-            if mission.status != Status.PLANNED:
-                raise ValidationError(
-                    "Cannot delete assignment unless mission is planned."
-                )
-
-            drone_id = instance.drone_id
-            operator_id = instance.operator_id
-            mission_id = instance.mission_id
-
-            AuditLog.objects.create(
-                action="assignment_deleted",
-                target_model="MissionDrone",
-                user=self.request.user,
-                changes={
-                    "mission_id": mission_id,
-                    "drone_id": drone_id,
-                    "operator_id": operator_id,
-                },
-            )
-            instance.delete()
+        unassign_drone_from_mission(
+            assignment=instance,
+            action_user=self.request.user,
+        )
