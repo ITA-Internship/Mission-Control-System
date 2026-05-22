@@ -214,7 +214,7 @@ class MissionDroneSerializer(serializers.ModelSerializer):
             if self._check_overlap(mission=mission, operator=locked_operator):
                 raise serializers.ValidationError(
                     {
-                        "operator": "Operator was just assigned to an overlapping mission."  # noqa: E501
+                        "operator": "Operator was just assigned to an overlapping mission." 
                     }
                 )
 
@@ -225,9 +225,6 @@ class MissionDroneSerializer(serializers.ModelSerializer):
 
             validated_data["drone"] = locked_drone
             instance = super().create(validated_data)
-
-            locked_drone.status = DroneStatus.IN_MISSION
-            locked_drone.save(update_fields=["status"])
 
             AuditLog.objects.create(
                 action="assignment_created",

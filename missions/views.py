@@ -88,10 +88,7 @@ class MissionAssignmentDetailView(generics.DestroyAPIView):
             operator_id = instance.operator_id
             mission_id = instance.mission_id
 
-            drone = Drone.objects.select_for_update().get(id=drone_id)
-            if drone.status == DroneStatus.IN_MISSION:
-                drone.status = DroneStatus.ACTIVE
-                drone.save(update_fields=["status"])
+
 
             AuditLog.objects.create(
                 action="assignment_deleted",
