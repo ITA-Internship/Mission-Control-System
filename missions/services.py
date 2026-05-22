@@ -92,8 +92,7 @@ def assign_drone_to_mission(
             raise serializers.ValidationError(
                 {
                     "operator": (
-                        "Operator was just assigned to an "
-                        "overlapping mission."
+                        "Operator was just assigned to an " "overlapping mission."
                     ),
                 },
             )
