@@ -1,16 +1,19 @@
 from rest_framework import generics, permissions
+from rest_framework.exceptions import ValidationError
 from rest_framework.pagination import PageNumberPagination
 
-from .models import Mission, Status, MissionAuditLog
-from .permissions import IsDispatcherOrAdmin, CanUpdateMissionStatus
-from .serializers import MissionSerializer, MissionStatusUpdateSerializer
 from drones.models import Drone
-from rest_framework.exceptions import ValidationError
+
+from .models import Mission, MissionAuditLog, Status
+from .permissions import CanUpdateMissionStatus, IsDispatcherOrAdmin
+from .serializers import MissionSerializer, MissionStatusUpdateSerializer
+
 
 class MissionPagination(PageNumberPagination):
     page_size = 10
-    page_size_query_param = 'page_size'
+    page_size_query_param = "page_size"
     max_page_size = 50
+
 
 class MissionListCreateView(generics.ListCreateAPIView):
     serializer_class = MissionSerializer
@@ -31,7 +34,7 @@ class MissionListCreateView(generics.ListCreateAPIView):
                     }
                 )
             queryset = queryset.filter(status=status)
-    
+
         assigned_to = self.request.query_params.get("assigned_to")
         if assigned_to == "me":
             user = self.request.user
@@ -63,18 +66,19 @@ class MissionStatusUpdateView(generics.RetrieveUpdateAPIView):
             action="mission_status_changed",
             target_model="Mission",
             target_id=mission.id,
-            changes={
-                "previous": old_status,
-                "new": mission.status
-            }
+            changes={"previous": old_status, "new": mission.status},
         )
 
         if mission.status == Status.ACTIVE:
-            assigned_drones_ids = mission.mission_drones.values_list('drone_id', flat=True)
+            assigned_drones_ids = mission.mission_drones.values_list(
+                "drone_id", flat=True
+            )
 
             if assigned_drones_ids:
-                Drone.objects.filter(id__in=assigned_drones_ids).update(status='IN_MISSION')
-        
+                Drone.objects.filter(id__in=assigned_drones_ids).update(
+                    status="IN_MISSION"
+                )
+
         elif mission.status in [Status.COMPLETED, Status.ABORTED]:
             mission_drones = mission.mission_drones.all()
 

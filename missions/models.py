@@ -11,6 +11,7 @@ class Status(models.TextChoices):
     COMPLETED = "completed", "Completed"
     ABORTED = "aborted", "Aborted"
 
+
 MISSION_STATUS_TRANSITIONS = {
     Status.PLANNED: [Status.ACTIVE, Status.ABORTED],
     Status.ACTIVE: [Status.COMPLETED, Status.ABORTED],
@@ -95,34 +96,33 @@ class Mission(models.Model):
 
     def __str__(self):
         return self.title
-    
+
+
 class MissionDrone(models.Model):
     mission = models.ForeignKey(
-        Mission, 
-        on_delete=models.CASCADE, 
-        related_name="mission_drones"
+        Mission, on_delete=models.CASCADE, related_name="mission_drones"
     )
-    
+
     drone = models.ForeignKey(
-        "drones.Drone",
-        on_delete=models.CASCADE,
-        related_name="mission_participations"
+        "drones.Drone", on_delete=models.CASCADE, related_name="mission_participations"
     )
-    
+
     operator = models.ForeignKey(
-        settings.AUTH_USER_MODEL, 
-        on_delete=models.SET_NULL, 
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
         null=True,
-        related_name="operated_mission_drones"
+        related_name="operated_mission_drones",
     )
-    
-    condition_after = models.CharField(max_length=20, choices=Drone.STATUS_CHOICES, default="ACTIVE")
-    
+
+    condition_after = models.CharField(
+        max_length=20, choices=Drone.STATUS_CHOICES, default="ACTIVE"
+    )
+
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
         db_table = "mission_drones"
-        unique_together = ("mission", "drone") 
+        unique_together = ("mission", "drone")
 
     def __str__(self):
         return f"{self.drone} in {self.mission}"

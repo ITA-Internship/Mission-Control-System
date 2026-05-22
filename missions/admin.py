@@ -1,13 +1,12 @@
 from django.contrib import admin
 
-from .models import Mission, MissionDrone, MissionAuditLog
+from .models import Mission, MissionAuditLog, MissionDrone
 
 
 class MissionDroneInline(admin.TabularInline):
     model = MissionDrone
     extra = 0
     fields = ("drone", "condition_after")
-
 
 
 @admin.register(Mission)
@@ -27,7 +26,8 @@ class MissionAdmin(admin.ModelAdmin):
 
     inlines = [MissionDroneInline]
 
+
 @admin.register(MissionAuditLog)
 class MissionAuditLogAdmin(admin.ModelAdmin):
-    list_display = ('id', 'action', 'target_model', 'target_id', 'created_at', 'user')
-    readonly_fields = ('changes',)
+    list_display = ("id", "action", "target_model", "target_id", "created_at", "user")
+    readonly_fields = ("changes",)

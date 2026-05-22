@@ -4,12 +4,11 @@ from django.contrib.auth import get_user_model
 from django.utils import timezone
 from rest_framework import serializers
 
-from roles.models import COMMANDER_CODE, OPERATOR_CODE
 from accounts.permissions import get_user_role_code
-
 from drones.models import Drone
+from roles.models import COMMANDER_CODE, OPERATOR_CODE
 
-from .models import Mission, MissionDrone, MISSION_STATUS_TRANSITIONS
+from .models import MISSION_STATUS_TRANSITIONS, Mission, MissionDrone
 
 User = get_user_model()
 
@@ -27,24 +26,22 @@ class UserBriefSerializer(serializers.ModelSerializer):
 
 class MissionDroneInputSerializer(serializers.ModelSerializer):
     drone_id = serializers.PrimaryKeyRelatedField(
-        queryset=Drone.objects.all(), source='drone'
+        queryset=Drone.objects.all(), source="drone"
     )
     operator_id = serializers.PrimaryKeyRelatedField(
-        queryset=User.objects.all(), 
-        source='operator', 
-        required=False, 
-        allow_null=True
+        queryset=User.objects.all(), source="operator", required=False, allow_null=True
     )
+
     class Meta:
         model = MissionDrone
-        fields = ['drone_id', 'operator_id']
-    
+        fields = ["drone_id", "operator_id"]
+
     def validate_operator_id(self, user):
         if user is None:
             return user
-            
+
         role_code = getattr(getattr(user, "role", None), "code", None)
-        
+
         if role_code != OPERATOR_CODE:
             raise serializers.ValidationError(
                 "Selected user does not have the Operator role."
@@ -55,9 +52,7 @@ class MissionDroneInputSerializer(serializers.ModelSerializer):
 class MissionSerializer(serializers.ModelSerializer):
 
     drones = MissionDroneInputSerializer(
-        source='mission_drones',
-        many=True, 
-        required=False
+        source="mission_drones", many=True, required=False
     )
 
     commander = UserBriefSerializer(read_only=True)
@@ -99,15 +94,15 @@ class MissionSerializer(serializers.ModelSerializer):
         ]
 
     def create(self, validated_data):
-        drones_data = validated_data.pop('mission_drones', [])
+        drones_data = validated_data.pop("mission_drones", [])
 
         mission = Mission.objects.create(**validated_data)
 
         for drone_item in drones_data:
             MissionDrone.objects.create(
                 mission=mission,
-                drone=drone_item['drone'],
-                operator=drone_item.get('operator')
+                drone=drone_item["drone"],
+                operator=drone_item.get("operator"),
             )
 
         return mission
@@ -158,10 +153,11 @@ class MissionSerializer(serializers.ModelSerializer):
 
         return attrs
 
+
 class MissionStatusUpdateSerializer(serializers.ModelSerializer):
     class Meta:
         model = Mission
-        fields = ['status']
+        fields = ["status"]
 
     def validate_status(self, value):
         current_status = self.instance.status
