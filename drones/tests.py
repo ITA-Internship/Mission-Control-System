@@ -256,3 +256,50 @@ class DroneUpdateAndDecommissionTests(APITestCase):
 
         self.assertEqual(history.from_status, "ACTIVE")
         self.assertEqual(history.to_status, "DAMAGED")
+        
+    def test_decommission_requires_written_off_at(self):
+        self.client.force_authenticate(self.admin_user)
+
+        response = self.client.patch(
+            self.detail_url,
+            {
+                "status": "WRITTEN_OFF",
+                "writeoff_reason": "Destroyed during mission",
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("written_off_at", response.data)
+
+    def test_existing_writeoff_record_is_not_overwritten(self):
+        self.client.force_authenticate(self.admin_user)
+
+        self.client.patch(
+            self.detail_url,
+            {
+                "status": "WRITTEN_OFF",
+                "writeoff_reason": "Original reason",
+                "document_number": "WO-2026-001",
+                "written_off_at": "2026-05-17",
+            },
+            format="json",
+        )
+
+        response = self.client.patch(
+            self.detail_url,
+            {
+                "status": "WRITTEN_OFF",
+                "writeoff_reason": "Changed reason",
+                "document_number": "WO-2026-999",
+                "written_off_at": "2026-05-18",
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        writeoff_record = WriteOffRecord.objects.get(drone=self.drone)
+        self.assertEqual(writeoff_record.reason, "Original reason")
+        self.assertEqual(writeoff_record.document_number, "WO-2026-001")
+        self.assertEqual(str(writeoff_record.written_off_at), "2026-05-17")

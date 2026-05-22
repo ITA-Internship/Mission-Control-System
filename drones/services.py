@@ -18,15 +18,34 @@ def _get_authenticated_user(user):
     return None
 
 
+def _get_prepared_field_value(field, value):
+    if field.is_relation and field.many_to_one:
+        value = getattr(value, "pk", value)
+
+    return field.get_prep_value(value)
+
+
+def _field_value_changed(instance, field_name, new_value):
+    field = instance._meta.get_field(field_name)
+
+    if field.is_relation and field.many_to_one:
+        old_value = getattr(instance, field.attname)
+    else:
+        old_value = getattr(instance, field_name)
+
+    old_prepared_value = _get_prepared_field_value(field, old_value)
+    new_prepared_value = _get_prepared_field_value(field, new_value)
+
+    return old_prepared_value != new_prepared_value
+
+
 def _update_instance_fields(instance, data):
     changed_fields = []
 
-    for field, new_value in data.items():
-        old_value = getattr(instance, field)
-
-        if old_value != new_value:
-            changed_fields.append(field)
-            setattr(instance, field, new_value)
+    for field_name, new_value in data.items():
+        if _field_value_changed(instance, field_name, new_value):
+            changed_fields.append(field_name)
+            setattr(instance, field_name, new_value)
 
     return changed_fields
 
@@ -71,7 +90,7 @@ def update_drone(
     writeoff_record = None
 
     if is_decommission_flow:
-        writeoff_record, _ = WriteOffRecord.objects.update_or_create(
+        writeoff_record, _ = WriteOffRecord.objects.get_or_create(
             drone=drone,
             defaults={
                 "reason": writeoff_reason,
@@ -80,7 +99,7 @@ def update_drone(
                 # TODO: replace with ForeignKey when missions app is created.
                 "related_mission_id": related_mission_id,
                 "document_number": document_number,
-                "written_off_at": written_off_at or timezone.localdate(),
+                "written_off_at": written_off_at,
             },
         )
 

@@ -23,6 +23,14 @@ class DronePermission(BasePermission):
 
         return user_has_permission(user, permission_code)
 
+    def _get_requested_status(self, request):
+        requested_status = request.data.get("status")
+
+        if isinstance(requested_status, str):
+            return requested_status.upper()
+
+        return requested_status
+
     def has_permission(self, request, view):
         if request.method in SAFE_METHODS:
             return self._has_permission(request.user, PERMISSION_DRONES_VIEW)
@@ -31,16 +39,36 @@ class DronePermission(BasePermission):
             return self._has_permission(request.user, PERMISSION_DRONES_CREATE)
 
         if request.method == "PATCH":
-            requested_status = request.data.get("status")
+            return self._has_permission(request.user, PERMISSION_DRONES_UPDATE)
 
-            if requested_status in Drone.INACTIVE_STATUSES:
+        return False
+
+    def has_object_permission(self, request, view, obj):
+        if request.method in SAFE_METHODS:
+            return self._has_permission(request.user, PERMISSION_DRONES_VIEW)
+
+        if request.method == "PATCH":
+            has_update_permission = self._has_permission(
+                request.user,
+                PERMISSION_DRONES_UPDATE,
+            )
+
+            if not has_update_permission:
+                return False
+
+            requested_status = self._get_requested_status(request)
+
+            current_status_is_inactive = obj.status in Drone.INACTIVE_STATUSES
+            requested_status_is_inactive = (
+                requested_status in Drone.INACTIVE_STATUSES
+            )
+
+            if current_status_is_inactive or requested_status_is_inactive:
                 return self._has_permission(
-                    request.user, PERMISSION_DRONES_UPDATE
-                ) and self._has_permission(
                     request.user,
                     PERMISSION_DRONES_DECOMMISSION,
                 )
 
-            return self._has_permission(request.user, PERMISSION_DRONES_UPDATE)
+            return True
 
         return False

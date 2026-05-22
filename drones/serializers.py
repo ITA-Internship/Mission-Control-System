@@ -139,17 +139,33 @@ class DroneUpdateSerializer(serializers.ModelSerializer):
 
     def validate(self, attrs):
         requested_status = attrs.get("status")
-        writeoff_reason = attrs.get("writeoff_reason", "")
 
-        if requested_status in Drone.INACTIVE_STATUSES and not writeoff_reason.strip():
-            raise serializers.ValidationError(
-                {
-                    "writeoff_reason": (
-                        "This field is required when drone is decommissioned, "
-                        "sold, transferred, or written off."
-                    )
-                }
-            )
+        if requested_status not in Drone.INACTIVE_STATUSES:
+            return attrs
+
+        required_fields = {
+            "writeoff_reason": attrs.get("writeoff_reason"),
+            "written_off_at": attrs.get("written_off_at"),
+        }
+
+        errors = {}
+
+        for field_name, value in required_fields.items():
+            if value is None:
+                errors[field_name] = (
+                    "This field is required when drone is decommissioned, "
+                    "sold, transferred, or written off."
+                )
+                continue
+
+            if isinstance(value, str) and not value.strip():
+                errors[field_name] = (
+                    "This field is required when drone is decommissioned, "
+                    "sold, transferred, or written off."
+                )
+
+        if errors:
+            raise serializers.ValidationError(errors)
 
         return attrs
 
