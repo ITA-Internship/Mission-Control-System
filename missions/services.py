@@ -140,12 +140,6 @@ def unassign_drone_from_mission(*, assignment, action_user=None):
                 "Cannot delete assignment unless mission is planned.",
             )
 
-        locked_drone = Drone.objects.select_for_update().get(
-            id=assignment.drone_id,
-        )
-        locked_drone.status = Drone.STATUS_ACTIVE
-        locked_drone.save(update_fields=["status"])
-
         AuditLog.objects.create(
             action="assignment_deleted",
             target_model="MissionDrone",
