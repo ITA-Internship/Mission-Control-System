@@ -1,5 +1,6 @@
 from rest_framework import permissions
 
+from accounts.permissions import get_user_role_code
 from roles.models import ADMIN_CODE, DISPATCHER_CODE
 
 
@@ -11,13 +12,8 @@ class IsDispatcherOrAdmin(permissions.BasePermission):
             return False
         if request.method in permissions.SAFE_METHODS:
             return True
-        role = getattr(request.user, "role", None)
-        if role is not None and getattr(role, "code", None) in [
-            DISPATCHER_CODE,
-            ADMIN_CODE,
-        ]:
-            return True
-        return False
+        return get_user_role_code(request.user) in (DISPATCHER_CODE, ADMIN_CODE)
+        
     
 class CanUpdateMissionStatus(permissions.BasePermission):
     def has_object_permission(self, request, view, obj):

@@ -44,6 +44,11 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
         return create_user_account(validated_data, created_by)
 
 
+class UserStatusUpdateSerializer(serializers.Serializer):
+    is_active = serializers.BooleanField(required=True)
+    reason = serializers.CharField(required=False, allow_blank=True, max_length=255)
+
+
 class UserRoleUpdateSerializer(serializers.Serializer):
     role_id = serializers.IntegerField(required=True, min_value=1)
 

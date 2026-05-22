@@ -1,7 +1,7 @@
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin
 
-from .models import MilitaryUnit, User, UserProfile, UserRoleAuditLog
+from .models import MilitaryUnit, User, UserProfile, UserRoleAuditLog, UserStatusLog
 
 
 @admin.register(User)
@@ -15,6 +15,7 @@ class CustomUserAdmin(UserAdmin):
         "is_staff",
         "is_active",
     )
+    list_editable = ("is_active",)
     list_filter = ("is_staff", "is_superuser", "is_active", "role", "unit")
     search_fields = ("username", "email", "first_name", "last_name")
     ordering = ("id",)
@@ -63,6 +64,31 @@ class UserProfileAdmin(admin.ModelAdmin):
     search_fields = ("user__username", "user__email", "rank", "contact")
     readonly_fields = ("created_at", "updated_at")
     ordering = ("id",)
+
+
+@admin.register(UserStatusLog)
+class UserStatusLogAdmin(admin.ModelAdmin):
+    list_display = (
+        "target_user",
+        "changed_by",
+        "old_status",
+        "new_status",
+        "created_at",
+    )
+    readonly_fields = (
+        "created_at",
+        "target_user",
+        "changed_by",
+        "old_status",
+        "new_status",
+        "reason",
+    )
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
 
 
 @admin.register(UserRoleAuditLog)

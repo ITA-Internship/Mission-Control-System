@@ -5,6 +5,7 @@ from .models import Mission, Status, MissionAuditLog
 from .permissions import IsDispatcherOrAdmin, CanUpdateMissionStatus
 from .serializers import MissionSerializer, MissionStatusUpdateSerializer
 from drones.models import Drone
+from rest_framework.exceptions import ValidationError
 
 class MissionPagination(PageNumberPagination):
     page_size = 10
@@ -20,6 +21,15 @@ class MissionListCreateView(generics.ListCreateAPIView):
         queryset = Mission.objects.with_related()
         status = self.request.query_params.get("status")
         if status:
+            if status not in Status.values:
+                raise ValidationError(
+                    {
+                        "status": (
+                            f"Invalid status '{status}'. "
+                            f"Must be one of: {', '.join(Status.values)}."
+                        )
+                    }
+                )
             queryset = queryset.filter(status=status)
     
         assigned_to = self.request.query_params.get("assigned_to")
@@ -35,7 +45,7 @@ class MissionListCreateView(generics.ListCreateAPIView):
 
 class MissionDetailView(generics.RetrieveAPIView):
     serializer_class = MissionSerializer
-    permission_classes = [permissions.IsAuthenticated, IsDispatcherOrAdmin]
+    permission_classes = [permissions.IsAuthenticated]
     queryset = Mission.objects.with_related()
 
 
