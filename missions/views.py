@@ -2,8 +2,6 @@ from django.db import transaction
 from rest_framework import generics, permissions
 from rest_framework.exceptions import ValidationError
 
-from drones.models import Drone, DroneStatus
-
 from .models import AuditLog, Mission, MissionDrone, Status
 from .permissions import IsDispatcherOrAdmin
 from .serializers import MissionDroneSerializer, MissionSerializer
