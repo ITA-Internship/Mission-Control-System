@@ -17,13 +17,6 @@ class Drone(models.Model):
     STATUS_WRITTEN_OFF = "WRITTEN_OFF"
 
     STATUS_CHOICES = [
-<<<<<<< HEAD
-        ("ACTIVE", "Active"),
-        ("DAMAGED", "Damaged"),
-        ("LOST", "Lost"),
-        ("MAINTENANCE", "Maintenance"),
-        ("IN_MISSION", "in_mission"),
-=======
         (STATUS_ACTIVE, "Active"),
         (STATUS_DAMAGED, "Damaged"),
         (STATUS_LOST, "Lost"),
@@ -32,7 +25,6 @@ class Drone(models.Model):
         (STATUS_SOLD, "Sold"),
         (STATUS_TRANSFERRED, "Transferred"),
         (STATUS_WRITTEN_OFF, "Written off"),
->>>>>>> develop
     ]
 
     INACTIVE_STATUSES = (
