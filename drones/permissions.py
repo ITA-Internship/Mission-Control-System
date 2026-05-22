@@ -59,9 +59,7 @@ class DronePermission(BasePermission):
             requested_status = self._get_requested_status(request)
 
             current_status_is_inactive = obj.status in Drone.INACTIVE_STATUSES
-            requested_status_is_inactive = (
-                requested_status in Drone.INACTIVE_STATUSES
-            )
+            requested_status_is_inactive = requested_status in Drone.INACTIVE_STATUSES
 
             if current_status_is_inactive or requested_status_is_inactive:
                 return self._has_permission(

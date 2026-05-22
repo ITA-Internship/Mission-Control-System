@@ -1,5 +1,4 @@
 from django.db import transaction
-from django.utils import timezone
 
 from .models import Drone, DroneSpec, DroneStatusHistory, WriteOffRecord
 
@@ -61,8 +60,8 @@ def update_drone(
     writeoff_reason_description="",
     document_number="",
     written_off_at=None,
-    related_mission_id=None,
-):  # must be changed when 'missions' are created
+    related_mission=None,
+):
     user = _get_authenticated_user(user)
 
     old_status = drone.status
@@ -96,8 +95,7 @@ def update_drone(
                 "reason": writeoff_reason,
                 "reason_description": writeoff_reason_description,
                 "authorized_by": user,
-                # TODO: replace with ForeignKey when missions app is created.
-                "related_mission_id": related_mission_id,
+                "related_mission": related_mission,
                 "document_number": document_number,
                 "written_off_at": written_off_at,
             },
@@ -111,8 +109,7 @@ def update_drone(
             changed_by=user,
             reason=writeoff_reason
             or f"Status changed from {old_status} to {drone.status}",
-            # TODO: must be changed when 'missions' are created
-            related_mission_id=related_mission_id,
+            related_mission=related_mission,
             related_writeoff=writeoff_record,
         )
 

@@ -87,9 +87,13 @@ class WriteOffRecord(models.Model):
         on_delete=models.SET_NULL,
         related_name="authorized_writeoff_records",
     )
-    related_mission_id = models.PositiveIntegerField(
-        null=True, blank=True
-    )  # temporary stub
+    related_mission = models.ForeignKey(
+        "missions.Mission",
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="writeoff_records",
+    )
     document_number = models.CharField(max_length=100, blank=True)
     written_off_at = models.DateField(default=timezone.localdate)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -113,9 +117,13 @@ class DroneStatusHistory(models.Model):
         related_name="drone_status_changes",
     )
     reason = models.TextField(blank=True)
-    related_mission_id = models.PositiveIntegerField(
-        null=True, blank=True
-    )  # temporary stub
+    related_mission = models.ForeignKey(
+        "missions.Mission",
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="drone_status_history_records",
+    )
     related_repair_order_id = models.PositiveIntegerField(
         null=True, blank=True
     )  # temporary stub

@@ -1,5 +1,7 @@
 from rest_framework import serializers
 
+from missions.models import Mission
+
 from .models import Drone, DroneSpec, DroneStatusHistory, WriteOffRecord
 from .services import create_drone_with_spec, update_drone
 
@@ -34,6 +36,7 @@ class DroneSpecUpdateSerializer(serializers.ModelSerializer):
 
 
 class WriteOffRecordSerializer(serializers.ModelSerializer):
+    related_mission_id = serializers.IntegerField(read_only=True)
 
     class Meta:
         model = WriteOffRecord
@@ -42,7 +45,7 @@ class WriteOffRecordSerializer(serializers.ModelSerializer):
             "reason",
             "reason_description",
             "authorized_by",
-            "related_mission_id",  # must be changed when 'missions' are created
+            "related_mission_id",
             "document_number",
             "written_off_at",
             "created_at",
@@ -51,6 +54,7 @@ class WriteOffRecordSerializer(serializers.ModelSerializer):
 
 
 class DroneStatusHistorySerializer(serializers.ModelSerializer):
+    related_mission_id = serializers.IntegerField(read_only=True)
 
     class Meta:
         model = DroneStatusHistory
@@ -60,7 +64,7 @@ class DroneStatusHistorySerializer(serializers.ModelSerializer):
             "to_status",
             "changed_by",
             "reason",
-            "related_mission_id",  # must be changed when 'missions' are created
+            "related_mission_id",
             "related_repair_order_id",  # must be changed
             "related_writeoff",
             "created_at",
@@ -102,10 +106,12 @@ class DroneUpdateSerializer(serializers.ModelSerializer):
         allow_blank=True,
     )
     written_off_at = serializers.DateField(write_only=True, required=False)
-    related_mission_id = serializers.IntegerField(
+    related_mission_id = serializers.PrimaryKeyRelatedField(
+        source="related_mission",
+        queryset=Mission.objects.all(),
         write_only=True,
         required=False,
-        min_value=1,
+        allow_null=True,
     )
 
     class Meta:
@@ -124,7 +130,7 @@ class DroneUpdateSerializer(serializers.ModelSerializer):
             "writeoff_reason_description",
             "document_number",
             "written_off_at",
-            "related_mission_id",  # must be changed when 'missions' are created
+            "related_mission_id",
         )
         extra_kwargs = {
             "serial_number": {"required": False},
@@ -179,7 +185,7 @@ class DroneUpdateSerializer(serializers.ModelSerializer):
         )
         document_number = validated_data.pop("document_number", "")
         written_off_at = validated_data.pop("written_off_at", None)
-        related_mission_id = validated_data.pop("related_mission_id", None)
+        related_mission = validated_data.pop("related_mission", None)
 
         request = self.context.get("request")
         user = getattr(request, "user", None)
@@ -194,7 +200,7 @@ class DroneUpdateSerializer(serializers.ModelSerializer):
             document_number=document_number,
             written_off_at=written_off_at,
             # TODO: must be changed when 'missions' are created
-            related_mission_id=related_mission_id,
+            related_mission=related_mission,
         )
 
     def to_representation(self, instance):

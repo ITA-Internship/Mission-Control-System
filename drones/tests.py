@@ -256,7 +256,7 @@ class DroneUpdateAndDecommissionTests(APITestCase):
 
         self.assertEqual(history.from_status, "ACTIVE")
         self.assertEqual(history.to_status, "DAMAGED")
-        
+
     def test_decommission_requires_written_off_at(self):
         self.client.force_authenticate(self.admin_user)
 
