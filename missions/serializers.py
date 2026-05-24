@@ -75,6 +75,7 @@ class MissionSerializer(serializers.ModelSerializer):
         fields = [
             "id",
             "title",
+            "commander",
             "commander_id",
             "status",
             "result",
