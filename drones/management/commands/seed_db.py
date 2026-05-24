@@ -1,7 +1,13 @@
 from django.core.management.base import BaseCommand
 from django.db import transaction
 
-from accounts.models import MilitaryUnit, User, UserProfile, UserRoleAuditLog, UserStatusLog
+from accounts.models import (
+    MilitaryUnit,
+    User,
+    UserProfile,
+    UserRoleAuditLog,
+    UserStatusLog,
+)
 from drones.models import Drone, DroneSpec, DroneStatusHistory, WriteOffRecord
 from missions.models import Mission
 from seed_data.drones import DRONES, seed_drones
@@ -57,7 +63,9 @@ class Command(BaseCommand):
         unit_codes = [unit_seed.code for unit_seed in UNITS]
 
         Mission.objects.filter(title__in=mission_titles).delete()
-        DroneStatusHistory.objects.filter(drone__serial_number__in=drone_serials).delete()
+        DroneStatusHistory.objects.filter(
+            drone__serial_number__in=drone_serials
+        ).delete()
         WriteOffRecord.objects.filter(drone__serial_number__in=drone_serials).delete()
         DroneSpec.objects.filter(drone__serial_number__in=drone_serials).delete()
         Drone.objects.filter(serial_number__in=drone_serials).delete()
