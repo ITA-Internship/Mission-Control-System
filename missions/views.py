@@ -4,6 +4,8 @@ from rest_framework.pagination import PageNumberPagination
 
 from drones.models import Drone
 
+from django.db import transaction
+
 from .models import Mission, MissionAuditLog, Status
 from .permissions import CanUpdateMissionStatus, IsDispatcherOrAdmin
 from .serializers import MissionSerializer, MissionStatusUpdateSerializer
@@ -58,36 +60,39 @@ class MissionStatusUpdateView(generics.RetrieveUpdateAPIView):
     queryset = Mission.objects.all()
 
     def perform_update(self, serializer):
-        old_status = self.get_object().status
-        mission = serializer.save()
+        with transaction.atomic():
+            old_status = serializer.instance.status
+            mission = serializer.save()
 
-        MissionAuditLog.objects.create(
-            user=self.request.user,
-            action="mission_status_changed",
-            target_model="Mission",
-            target_id=mission.id,
-            changes={"previous": old_status, "new": mission.status},
-        )
-
-        if mission.status == Status.ACTIVE:
-            assigned_drones_ids = mission.mission_drones.values_list(
-                "drone_id", flat=True
+            MissionAuditLog.objects.create(
+                user=self.request.user,
+                action="mission_status_changed",    
+                target_model="Mission",
+                target_id=mission.id,
+                changes={"previous": old_status, "new": mission.status},
             )
 
-            if assigned_drones_ids:
-                Drone.objects.filter(id__in=assigned_drones_ids).update(
-                    status="IN_MISSION"
+            if mission.status == Status.ACTIVE:
+                assigned_drones_ids = mission.mission_drones.values_list(
+                    "drone_id", flat=True
                 )
 
-        elif mission.status in [Status.COMPLETED, Status.ABORTED]:
-            mission_drones = mission.mission_drones.all()
+                if assigned_drones_ids:
+                    Drone.objects.filter(id__in=assigned_drones_ids).update(
+                        status="ACTIVE"
+                    )
 
-            for link in mission_drones:
-                drone = link.drone
+            elif mission.status in [Status.COMPLETED, Status.ABORTED]:
+                mission_drones = mission.mission_drones.select_related('drone').all()
 
-                if link.condition_after:
-                    drone.status = link.condition_after
-                else:
-                    drone.status = "ACTIVE"
+                drones_to_update = []
+                for link in mission_drones:
+                    drone = link.drone
+                    new_status = link.condition_after if link.condition_after else "ACTIVE"
+                    
+                    if drone.status != new_status:
+                        drone.status = new_status
+                        drones_to_update.append(drone)
 
-                drone.save()
+                if drones_to_update:
+                    Drone.objects.bulk_update(drones_to_update, ["status"])
