@@ -5,6 +5,10 @@ from django.db import models
 from drones.models import Drone
 
 
+def get_default_changes():
+    return {}
+
+
 class Status(models.TextChoices):
     PLANNED = "planned", "Planned"
     ACTIVE = "active", "Active"
@@ -137,7 +141,7 @@ class MissionAuditLog(models.Model):
     action = models.CharField(max_length=255)
     target_model = models.CharField(max_length=100)
     target_id = models.IntegerField()
-    changes = models.JSONField(default=dict)
+    changes = models.JSONField(default=get_default_changes)
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
