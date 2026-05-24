@@ -209,9 +209,9 @@ class MissionStatusUpdateSerializer(serializers.ModelSerializer):
 
     def validate_status(self, value):
         current_status = self.instance.status
-        allowed_transions = MISSION_STATUS_TRANSITIONS.get(current_status, [])
+        allowed_transitions = MISSION_STATUS_TRANSITIONS.get(current_status, [])
 
-        if value not in allowed_transions:
+        if value not in allowed_transitions:
             raise serializers.ValidationError(
                 f"Cannot change status from '{current_status}' to '{value}'."
             )
