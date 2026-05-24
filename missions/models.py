@@ -104,7 +104,7 @@ class MissionDrone(models.Model):
     )
 
     drone = models.ForeignKey(
-        "drones.Drone", on_delete=models.CASCADE, related_name="mission_participations"
+        "drones.Drone", on_delete=models.PROTECT, related_name="mission_participations"
     )
 
     operator = models.ForeignKey(
