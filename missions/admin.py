@@ -6,7 +6,7 @@ from .models import Mission, MissionAuditLog, MissionDrone
 class MissionDroneInline(admin.TabularInline):
     model = MissionDrone
     extra = 0
-    fields = ("drone", "condition_after")
+    fields = ("drone", "operator", "condition_after")
 
 
 @admin.register(Mission)
