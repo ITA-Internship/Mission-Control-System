@@ -402,6 +402,65 @@ Or in Docker:
 docker compose exec web python manage.py createsuperuser
 ```
 
+## Seed Demo Data
+
+The project includes a Django management command for loading representative demo data for the existing user, drone, and mission models.
+
+Run the full seed:
+
+```bash
+python manage.py seed_db
+```
+
+Clear only the managed seed records and recreate them:
+
+```bash
+python manage.py seed_db --clear
+```
+
+Seed a single module:
+
+```bash
+python manage.py seed_db --module users
+python manage.py seed_db --module missions
+python manage.py seed_db --module drones
+```
+
+Docker usage:
+
+```bash
+docker compose exec web python manage.py seed_db
+docker compose exec web python manage.py seed_db --clear
+```
+
+Default seeded password for all demo accounts:
+
+```text
+Test@1234
+```
+
+Seeded demo accounts:
+
+| Role | Username |
+|------|----------|
+| Admin | `root.admin` |
+| Admin | `admin.ops` |
+| Commander | `commander.north` |
+| Commander | `commander.south` |
+| Operator | `operator.alpha` |
+| Operator | `operator.bravo` |
+| Operator | `operator.charlie` |
+| Technician | `tech.airframe` |
+| Technician | `tech.electro` |
+| Viewer | `viewer.ops` |
+| Viewer | `viewer.audit` |
+
+Notes about the seeded dataset:
+
+- The command is idempotent and updates existing seed records instead of duplicating them.
+- Only existing models and existing status choices are used.
+- Mission operator and drone assignment details are stored in mission notes because the current schema does not yet contain dedicated assignment tables.
+
 ## 🔐 Django Admin
 
 To access the Django admin panel, first create a superuser:
