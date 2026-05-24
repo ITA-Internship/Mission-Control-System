@@ -40,9 +40,13 @@ class MissionDroneInputSerializer(serializers.ModelSerializer):
         if user is None:
             return user
 
-        role_code = getattr(getattr(user, "role", None), "code", None)
+        role = getattr(user, "role", None)
+        if not role:
+            raise serializers.ValidationError(
+                "Selected user does not have any role assigned."
+            )
 
-        if role_code != OPERATOR_CODE:
+        if role.code != OPERATOR_CODE:
             raise serializers.ValidationError(
                 "Selected user does not have the Operator role."
             )
