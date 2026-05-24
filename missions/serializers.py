@@ -1,6 +1,7 @@
 from datetime import timedelta
 
 from django.contrib.auth import get_user_model
+from django.db.models import Q
 from django.utils import timezone
 from rest_framework import serializers
 
@@ -8,7 +9,7 @@ from accounts.permissions import get_user_role_code
 from drones.models import Drone
 from roles.models import COMMANDER_CODE, OPERATOR_CODE
 
-from .models import MISSION_STATUS_TRANSITIONS, Mission, MissionDrone
+from .models import MISSION_STATUS_TRANSITIONS, Mission, MissionDrone, Status
 
 User = get_user_model()
 
@@ -154,6 +155,49 @@ class MissionSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError(
                 "latitude and longitude must be provided together."
             )
+
+        drones_data = attrs.get("mission_drones", [])
+        started_at = attrs.get("started_at")
+        ended_at = attrs.get("ended_at")
+
+        drone_ids = [item["drone"].id for item in drones_data if "drone" in item]
+        operator_ids = [
+            item["operator"].id for item in drones_data if item.get("operator")
+        ]
+
+        if drone_ids or operator_ids:
+            time_overlap = Q(mission__started_at__lte=ended_at) if ended_at else Q()
+            time_overlap &= Q(mission__ended_at__gte=started_at) | Q(
+                mission__ended_at__isnull=True
+            )
+
+            conflicting_links = MissionDrone.objects.filter(
+                mission__status__in=[Status.PLANNED, Status.ACTIVE]
+            ).filter(time_overlap)
+
+            busy_drones = (
+                conflicting_links.filter(drone_id__in=drone_ids)
+                .values_list("drone__name", flat=True)
+                .distinct()
+            )
+
+            if busy_drones:
+                raise serializers.ValidationError(
+                    "The following drones are already booked for"
+                    f"overlapping missions: {', '.join(busy_drones)}."
+                )
+
+            busy_operators = (
+                conflicting_links.filter(operator_id__in=operator_ids)
+                .values_list("operator__username", flat=True)
+                .distinct()
+            )
+
+            if busy_operators:
+                raise serializers.ValidationError(
+                    f"The following operators are already assigned to "
+                    f"overlapping missions: {', '.join(busy_operators)}."
+                )
 
         return attrs
 
