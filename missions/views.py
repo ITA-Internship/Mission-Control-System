@@ -1,10 +1,9 @@
+from django.db import transaction
 from rest_framework import generics, permissions
 from rest_framework.exceptions import ValidationError
 from rest_framework.pagination import PageNumberPagination
 
 from drones.models import Drone
-
-from django.db import transaction
 
 from .models import Mission, MissionAuditLog, Status
 from .permissions import CanUpdateMissionStatus, IsDispatcherOrAdmin
@@ -38,7 +37,11 @@ class MissionListCreateView(generics.ListCreateAPIView):
             queryset = queryset.filter(status=status)
 
         assigned_to = self.request.query_params.get("assigned_to")
-        if assigned_to == "me":
+        if assigned_to:
+            if assigned_to != "me":
+                raise ValidationError(
+                    f"Invalid value '{assigned_to}'. The only allowed value is 'me'."
+                )
             user = self.request.user
             queryset = queryset.filter(mission_drones__operator_id=user.id).distinct()
 
@@ -66,7 +69,7 @@ class MissionStatusUpdateView(generics.RetrieveUpdateAPIView):
 
             MissionAuditLog.objects.create(
                 user=self.request.user,
-                action="mission_status_changed",    
+                action="mission_status_changed",
                 target_model="Mission",
                 target_id=mission.id,
                 changes={"previous": old_status, "new": mission.status},
@@ -83,13 +86,15 @@ class MissionStatusUpdateView(generics.RetrieveUpdateAPIView):
                     )
 
             elif mission.status in [Status.COMPLETED, Status.ABORTED]:
-                mission_drones = mission.mission_drones.select_related('drone').all()
+                mission_drones = mission.mission_drones.select_related("drone").all()
 
                 drones_to_update = []
                 for link in mission_drones:
                     drone = link.drone
-                    new_status = link.condition_after if link.condition_after else "ACTIVE"
-                    
+                    new_status = (
+                        link.condition_after if link.condition_after else "ACTIVE"
+                    )
+
                     if drone.status != new_status:
                         drone.status = new_status
                         drones_to_update.append(drone)
