@@ -1,7 +1,7 @@
 from rest_framework import permissions
 
 from accounts.permissions import get_user_role_code
-from roles.models import ADMIN_CODE, DISPATCHER_CODE
+from roles.models import ADMIN_CODE, COMMANDER_CODE, DISPATCHER_CODE
 
 
 class IsDispatcherOrAdmin(permissions.BasePermission):
@@ -26,7 +26,7 @@ class CanUpdateMissionStatus(permissions.BasePermission):
 
         role_name = request.user.role.name.upper()
 
-        if role_name in ["ADMIN", "COMMANDER"]:
+        if role_name in [ADMIN_CODE, COMMANDER_CODE]:
             return True
 
         if role_name == "OPERATOR":
