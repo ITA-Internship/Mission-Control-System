@@ -289,10 +289,10 @@ DRONES = (
         inventory_number="INV-SUP-010",
         name="Courier 1",
         drone_model="Atlas Relay 8",
-        status=Drone.STATUS_SOLD,
+        status=Drone.STATUS_LOST,
         unit_code="SUP-03",
         acquired_at=date(2024, 7, 30),
-        notes="Sold as surplus after communications equipment standardization.",
+        notes="Lost during relocation after telemetry dropped and recovery team could not secure the airframe.",
         spec=DroneSpecSeed(
             frame_type="8-inch endurance frame",
             motor_model="BrotherHobby 3110 900KV",
@@ -356,10 +356,10 @@ STATUS_HISTORY = (
     StatusHistorySeed(
         drone_serial="FPV-SUP-24010",
         from_status=Drone.STATUS_ACTIVE,
-        to_status=Drone.STATUS_SOLD,
+        to_status=Drone.STATUS_LOST,
         changed_by_username="admin.ops",
-        reason="Disposed through approved surplus sale process.",
-        related_mission_title=None,
+        reason="Telemetry link was lost during redeployment flight and the drone was not recovered.",
+        related_mission_title="Riverbank Signal Check",
     ),
 )
 

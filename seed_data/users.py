@@ -171,7 +171,7 @@ USERS = (
         last_name="Danylchuk",
         role_code=VIEWER_CODE,
         unit_code="AER-01",
-        rank="Analyst",
+        rank="Civilian Specialist",
         contact="+380500000010",
         is_active=True,
     ),
@@ -182,7 +182,7 @@ USERS = (
         last_name="Petrenko",
         role_code=VIEWER_CODE,
         unit_code="SUP-03",
-        rank="Auditor",
+        rank="Civilian Specialist",
         contact="+380500000011",
         is_active=True,
     ),
@@ -293,15 +293,15 @@ class UserSeeder:
 
     def _seed_role_audit_logs(self) -> None:
         root_admin = User.objects.get(username="root.admin")
-        technician = User.objects.get(username="tech.airframe")
+        operator = User.objects.get(username="operator.charlie")
         viewer_role = self.roles[VIEWER_CODE]
-        technician_role = self.roles[TECHNICIAN_CODE]
+        operator_role = self.roles[OPERATOR_CODE]
 
         UserRoleAuditLog.objects.update_or_create(
-            target_user=technician,
+            target_user=operator,
             changed_by=root_admin,
             previous_role=viewer_role,
-            new_role=technician_role,
+            new_role=operator_role,
         )
 
 
