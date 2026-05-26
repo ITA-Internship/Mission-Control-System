@@ -51,6 +51,7 @@ INSTALLED_APPS = [
     "roles",
     "missions",
     "rest_framework",
+    "django_filters",
 ]
 
 MIDDLEWARE = [
