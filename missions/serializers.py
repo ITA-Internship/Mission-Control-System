@@ -176,6 +176,9 @@ class MissionSerializer(serializers.ModelSerializer):
                 mission__status__in=[Status.PLANNED, Status.ACTIVE]
             ).filter(time_overlap)
 
+            if self.instance:
+                conflicting_links = conflicting_links.exclude(mission=self.instance)
+
             busy_drones = (
                 conflicting_links.filter(drone_id__in=drone_ids)
                 .values_list("drone__name", flat=True)
