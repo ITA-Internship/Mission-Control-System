@@ -26,7 +26,7 @@ from .serializers import (
     UserRoleUpdateSerializer,
     UserStatusUpdateSerializer,
 )
-from .services import update_user_role
+from .services import create_audit_log, update_user_role
 
 
 class UserRegistrationView(generics.CreateAPIView):
@@ -80,6 +80,15 @@ class ActivateAccountAPIView(APIView):
 
         user.set_password(new_password)
         user.save()
+
+        create_audit_log(
+            actor=user,
+            action_type=AuditLog.ActionType.ACCOUNT_ACTIVATED,
+            result=AuditLog.ResultStatus.SUCCESS,
+            target_user=user,
+            description="Account activated",
+            request=request,
+        )
 
         return Response(
             {"detail": "Your account has been activated. You can now log in."},
@@ -207,6 +216,22 @@ class UserStatusUpdateView(APIView):
             old_status=previous_status,
             new_status=new_status,
             reason=reason,
+        )
+
+        action = (
+            AuditLog.ActionType.ACCOUNT_ACTIVATED
+            if new_status
+            else AuditLog.ActionType.ACCOUNT_DEACTIVATED
+        )
+
+        create_audit_log(
+            actor=request.user,
+            action_type=action,
+            result=AuditLog.ResultStatus.SUCCESS,
+            target_user=target_user,
+            description=f"Account status changed to "
+            f"{'active' if new_status else 'inactive'}. Reason: {reason}",
+            request=request,
         )
 
         if not new_status:
