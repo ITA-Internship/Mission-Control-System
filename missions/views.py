@@ -1,10 +1,22 @@
 from rest_framework import generics, permissions
 from rest_framework.exceptions import ValidationError
 
+from accounts.permissions import HasRBACPermission
+from accounts.rbac import PERMISSION_MISSIONS_UPDATE_STATUS
+
 from .models import Mission, MissionDrone, Status
-from .permissions import IsDispatcherOrAdmin
-from .serializers import MissionDroneSerializer, MissionSerializer
+from .permissions import IsAssignedOperatorOrAdmin, IsDispatcherOrAdmin
+from .serializers import (
+    MissionDroneConditionSerializer,
+    MissionDroneSerializer,
+    MissionOutcomeSerializer,
+    MissionSerializer,
+)
 from .services import unassign_drone_from_mission
+
+
+class MissionsUpdateStatusRBAC(HasRBACPermission):
+    required_permission = PERMISSION_MISSIONS_UPDATE_STATUS
 
 
 class MissionListCreateView(generics.ListCreateAPIView):
@@ -35,6 +47,33 @@ class MissionDetailView(generics.RetrieveAPIView):
     serializer_class = MissionSerializer
     permission_classes = [permissions.IsAuthenticated]
     queryset = Mission.objects.with_related()
+
+
+class MissionOutcomeView(generics.UpdateAPIView):
+    serializer_class = MissionOutcomeSerializer
+    permission_classes = [
+        permissions.IsAuthenticated,
+        MissionsUpdateStatusRBAC,
+        IsAssignedOperatorOrAdmin,
+    ]
+    queryset = Mission.objects.with_related()
+    http_method_names = ["patch", "options", "head"]
+
+
+class MissionDroneConditionView(generics.UpdateAPIView):
+    serializer_class = MissionDroneConditionSerializer
+    permission_classes = [
+        permissions.IsAuthenticated,
+        MissionsUpdateStatusRBAC,
+        IsAssignedOperatorOrAdmin,
+    ]
+    lookup_url_kwarg = "assignment_id"
+    http_method_names = ["patch", "options", "head"]
+
+    def get_queryset(self):
+        return MissionDrone.objects.filter(
+            mission_id=self.kwargs["pk"],
+        ).select_related("mission", "drone", "operator")
 
 
 class MissionAssignmentListCreateView(generics.ListCreateAPIView):

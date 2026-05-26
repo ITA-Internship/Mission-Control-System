@@ -4,8 +4,15 @@ from django.db.models import Q
 from rest_framework import serializers
 
 from drones.models import Drone
+from drones.services import update_drone
 
-from .models import AuditLog, Mission, MissionDrone, Status
+from .models import AuditLog, Condition, Mission, MissionDrone, Status
+
+CONDITION_TO_DRONE_STATUS = {
+    Condition.OK: Drone.STATUS_ACTIVE,
+    Condition.DAMAGED: Drone.STATUS_DAMAGED,
+    Condition.LOST: Drone.STATUS_WRITTEN_OFF,
+}
 
 User = get_user_model()
 
@@ -123,6 +130,148 @@ def assign_drone_to_mission(
             },
         )
         return instance
+
+
+def record_mission_outcome(
+    *,
+    mission,
+    result,
+    notes=None,
+    incident_notes=None,
+    action_user=None,
+):
+    """Record outcome (result + notes) on a completed/aborted mission.
+
+    Locks the mission row to avoid races with status mutations, then writes
+    an ``AuditLog`` entry tagged ``mission_outcome_recorded``.
+    """
+    with transaction.atomic():
+        locked_mission = Mission.objects.select_for_update().get(id=mission.id)
+
+        if locked_mission.status not in (Status.COMPLETED, Status.ABORTED):
+            raise serializers.ValidationError(
+                {
+                    "status": (
+                        "Outcome can only be recorded for missions with "
+                        "status 'completed' or 'aborted'."
+                    ),
+                },
+            )
+
+        previous_result = locked_mission.result
+        update_fields = ["result", "updated_at"]
+        locked_mission.result = result
+
+        if notes is not None:
+            locked_mission.notes = notes
+            update_fields.append("notes")
+        if incident_notes is not None:
+            locked_mission.incident_notes = incident_notes
+            update_fields.append("incident_notes")
+
+        locked_mission.save(update_fields=update_fields)
+
+        AuditLog.objects.create(
+            action="mission_outcome_recorded",
+            target_model="Mission",
+            user=action_user,
+            changes={
+                "mission_id": locked_mission.id,
+                "previous_result": previous_result,
+                "new_result": locked_mission.result,
+                "notes": locked_mission.notes,
+                "incident_notes": locked_mission.incident_notes,
+            },
+        )
+        return locked_mission
+
+
+def record_drone_condition(
+    *,
+    assignment,
+    condition_after,
+    condition_description=None,
+    action_user=None,
+):
+    """Record drone condition after a mission and propagate it to the drone.
+
+    Locks the assignment, mission and drone rows. The mission must be in
+    ``completed`` or ``aborted`` state. Drone status is mapped via
+    ``CONDITION_TO_DRONE_STATUS`` and applied through ``drones.services
+    .update_drone`` so that ``DroneStatusHistory`` and (for write-off)
+    ``WriteOffRecord`` are created consistently with the rest of the system.
+    """
+    if condition_after not in CONDITION_TO_DRONE_STATUS:
+        raise serializers.ValidationError(
+            {"condition_after": "Invalid condition value."},
+        )
+
+    target_drone_status = CONDITION_TO_DRONE_STATUS[condition_after]
+
+    with transaction.atomic():
+        locked_assignment = (
+            MissionDrone.objects.select_for_update()
+            .select_related("drone", "mission")
+            .get(id=assignment.id)
+        )
+        locked_mission = Mission.objects.select_for_update().get(
+            id=locked_assignment.mission_id,
+        )
+
+        if locked_mission.status not in (Status.COMPLETED, Status.ABORTED):
+            raise serializers.ValidationError(
+                {
+                    "mission": (
+                        "Drone condition can only be recorded for missions "
+                        "with status 'completed' or 'aborted'."
+                    ),
+                },
+            )
+
+        previous_condition = locked_assignment.condition_after
+        previous_drone_status = locked_assignment.drone.status
+
+        locked_assignment.condition_after = condition_after
+        update_fields = ["condition_after"]
+        if condition_description is not None:
+            locked_assignment.condition_description = condition_description
+            update_fields.append("condition_description")
+        locked_assignment.save(update_fields=update_fields)
+
+        locked_drone = Drone.objects.select_for_update().get(
+            id=locked_assignment.drone_id,
+        )
+
+        writeoff_reason = (
+            "Mission outcome: drone marked as lost"
+            if condition_after == Condition.LOST
+            else f"Mission outcome: condition_after={condition_after}"
+        )
+
+        update_drone(
+            drone=locked_drone,
+            drone_data={"status": target_drone_status},
+            user=action_user,
+            related_mission=locked_mission,
+            writeoff_reason=writeoff_reason,
+        )
+
+        AuditLog.objects.create(
+            action="drone_condition_recorded",
+            target_model="MissionDrone",
+            user=action_user,
+            changes={
+                "assignment_id": locked_assignment.id,
+                "mission_id": locked_mission.id,
+                "drone_id": locked_drone.id,
+                "previous_condition": previous_condition,
+                "new_condition": condition_after,
+                "condition_description": locked_assignment.condition_description,
+                "previous_drone_status": previous_drone_status,
+                "new_drone_status": target_drone_status,
+            },
+        )
+        return locked_assignment
 
 
 def unassign_drone_from_mission(*, assignment, action_user=None):

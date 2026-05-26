@@ -7,11 +7,18 @@ class Status(models.TextChoices):
     PLANNED = "planned", "Planned"
     ACTIVE = "active", "Active"
     COMPLETED = "completed", "Completed"
+    ABORTED = "aborted", "Aborted"
 
 
 class Result(models.TextChoices):
     SUCCESS = "success", "Success"
     FAILURE = "failure", "Failure"
+
+
+class Condition(models.TextChoices):
+    OK = "ok", "Ok"
+    DAMAGED = "damaged", "Damaged"
+    LOST = "lost", "Lost"
 
 
 class MissionQuerySet(models.QuerySet):
@@ -62,6 +69,7 @@ class Mission(models.Model):
     ended_at = models.DateTimeField(null=True, blank=True)
 
     notes = models.TextField(blank=True)
+    incident_notes = models.TextField(blank=True)
 
     created_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
@@ -99,7 +107,12 @@ class MissionDrone(models.Model):
         on_delete=models.PROTECT,
         related_name="drone_assignments",
     )
-    condition_after = models.CharField(max_length=255, null=True, blank=True)
+    condition_after = models.CharField(
+        max_length=20,
+        choices=Condition.choices,
+        null=True,
+        blank=True,
+    )
     condition_description = models.TextField(null=True, blank=True)
     flight_started_at = models.DateTimeField(null=True, blank=True)
     flight_ended_at = models.DateTimeField(null=True, blank=True)

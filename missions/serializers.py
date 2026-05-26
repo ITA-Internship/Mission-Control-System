@@ -8,8 +8,13 @@ from accounts.permissions import get_user_role_code
 from drones.models import Drone
 from roles.models import COMMANDER_CODE, OPERATOR_CODE
 
-from .models import Mission, MissionDrone, Status
-from .services import _check_overlap, assign_drone_to_mission
+from .models import Condition, Mission, MissionDrone, Result, Status
+from .services import (
+    _check_overlap,
+    assign_drone_to_mission,
+    record_drone_condition,
+    record_mission_outcome,
+)
 
 User = get_user_model()
 
@@ -115,6 +120,79 @@ class MissionSerializer(serializers.ModelSerializer):
             )
 
         return attrs
+
+
+class MissionOutcomeSerializer(serializers.ModelSerializer):
+    result = serializers.ChoiceField(choices=Result.choices, required=True)
+
+    class Meta:
+        model = Mission
+        fields = ["id", "status", "result", "notes", "incident_notes"]
+        read_only_fields = ["id", "status"]
+
+    def validate(self, attrs):
+        instance = self.instance
+        if instance and instance.status not in (Status.COMPLETED, Status.ABORTED):
+            raise serializers.ValidationError(
+                {
+                    "status": (
+                        "Outcome can only be recorded for missions with "
+                        "status 'completed' or 'aborted'."
+                    ),
+                },
+            )
+        return attrs
+
+    def update(self, instance, validated_data):
+        request = self.context.get("request")
+        action_user = request.user if request else None
+
+        return record_mission_outcome(
+            mission=instance,
+            result=validated_data["result"],
+            notes=validated_data.get("notes"),
+            incident_notes=validated_data.get("incident_notes"),
+            action_user=action_user,
+        )
+
+
+class MissionDroneConditionSerializer(serializers.ModelSerializer):
+    condition_after = serializers.ChoiceField(
+        choices=Condition.choices,
+        required=True,
+    )
+
+    class Meta:
+        model = MissionDrone
+        fields = ["id", "condition_after", "condition_description"]
+        read_only_fields = ["id"]
+
+    def validate(self, attrs):
+        instance = self.instance
+        if instance and instance.mission.status not in (
+            Status.COMPLETED,
+            Status.ABORTED,
+        ):
+            raise serializers.ValidationError(
+                {
+                    "mission": (
+                        "Drone condition can only be recorded for missions "
+                        "with status 'completed' or 'aborted'."
+                    ),
+                },
+            )
+        return attrs
+
+    def update(self, instance, validated_data):
+        request = self.context.get("request")
+        action_user = request.user if request else None
+
+        return record_drone_condition(
+            assignment=instance,
+            condition_after=validated_data["condition_after"],
+            condition_description=validated_data.get("condition_description"),
+            action_user=action_user,
+        )
 
 
 class MissionDroneSerializer(serializers.ModelSerializer):
