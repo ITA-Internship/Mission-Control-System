@@ -1,7 +1,7 @@
 from rest_framework import permissions
 
 from accounts.permissions import get_user_role_code
-from roles.models import ADMIN_CODE, COMMANDER_CODE, DISPATCHER_CODE
+from roles.models import ADMIN_CODE, COMMANDER_CODE, DISPATCHER_CODE, OPERATOR_CODE
 
 
 class IsDispatcherOrAdmin(permissions.BasePermission):
@@ -24,12 +24,12 @@ class CanUpdateMissionStatus(permissions.BasePermission):
         ):
             return False
 
-        role_name = request.user.role.name.upper()
+        user_role = get_user_role_code(request.user)
 
-        if role_name in [ADMIN_CODE, COMMANDER_CODE]:
+        if user_role in [ADMIN_CODE, COMMANDER_CODE]:
             return True
 
-        if role_name == "OPERATOR":
+        if user_role == OPERATOR_CODE:
             is_assigned = obj.mission_drones.filter(operator=request.user).exists()
 
             return is_assigned
