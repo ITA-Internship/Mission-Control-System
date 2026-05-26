@@ -62,42 +62,49 @@ class MissionStatusUpdateView(generics.RetrieveUpdateAPIView):
     permission_classes = [permissions.IsAuthenticated, CanUpdateMissionStatus]
     queryset = Mission.objects.all()
 
-    def perform_update(self, serializer):
+    def update(self, request, *args, **kwargs):
         with transaction.atomic():
-            old_status = serializer.instance.status
-            mission = serializer.save()
+            return super().update(request, *args, **kwargs)
 
-            MissionAuditLog.objects.create(
-                user=self.request.user,
-                action="mission_status_changed",
-                target_model="Mission",
-                target_id=mission.id,
-                changes={"previous": old_status, "new": mission.status},
+    def get_object(self):
+        queryset = self.filter_queryset(self.get_queryset())
+
+        if self.request.method in ["PUT", "PATCH"]:
+            return queryset.select_for_update().get(pk=self.kwargs["pk"])
+
+        return super().get_object()
+
+    def perform_update(self, serializer):
+        old_status = serializer.instance.status
+        mission = serializer.save()
+
+        MissionAuditLog.objects.create(
+            user=self.request.user,
+            action="mission_status_changed",
+            target_model="Mission",
+            target_id=mission.id,
+            changes={"previous": old_status, "new": mission.status},
+        )
+
+        if mission.status == Status.ACTIVE:
+            assigned_drones_ids = mission.mission_drones.values_list(
+                "drone_id", flat=True
             )
 
-            if mission.status == Status.ACTIVE:
-                assigned_drones_ids = mission.mission_drones.values_list(
-                    "drone_id", flat=True
-                )
+            if assigned_drones_ids:
+                Drone.objects.filter(id__in=assigned_drones_ids).update(status="ACTIVE")
 
-                if assigned_drones_ids:
-                    Drone.objects.filter(id__in=assigned_drones_ids).update(
-                        status="ACTIVE"
-                    )
+        elif mission.status in [Status.COMPLETED, Status.ABORTED]:
+            mission_drones = mission.mission_drones.select_related("drone").all()
 
-            elif mission.status in [Status.COMPLETED, Status.ABORTED]:
-                mission_drones = mission.mission_drones.select_related("drone").all()
+            drones_to_update = []
+            for link in mission_drones:
+                drone = link.drone
+                new_status = link.condition_after if link.condition_after else "ACTIVE"
 
-                drones_to_update = []
-                for link in mission_drones:
-                    drone = link.drone
-                    new_status = (
-                        link.condition_after if link.condition_after else "ACTIVE"
-                    )
+                if drone.status != new_status:
+                    drone.status = new_status
+                    drones_to_update.append(drone)
 
-                    if drone.status != new_status:
-                        drone.status = new_status
-                        drones_to_update.append(drone)
-
-                if drones_to_update:
-                    Drone.objects.bulk_update(drones_to_update, ["status"])
+            if drones_to_update:
+                Drone.objects.bulk_update(drones_to_update, ["status"])
