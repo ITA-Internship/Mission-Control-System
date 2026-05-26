@@ -2,12 +2,14 @@
 asgiref==3.11.1
 Django==6.0.4
 djangorestframework==3.17.1
+django-filter==25.2
+factory-boy==3.3.3
+gunicorn
+psycopg2-binary
+python-decouple
 python-dotenv==1.2.2
 sqlparse==0.5.5
 tzdata==2026.2
-djangorestframework==3.17.1
-django-filter==25.2
-factory-boy==3.3.3
 
 # Development & Linting Tools
 pre-commit
