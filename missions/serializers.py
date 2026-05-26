@@ -113,6 +113,21 @@ class MissionSerializer(serializers.ModelSerializer):
 
         return mission
 
+    def update(self, instance, validated_data):
+        if "mission_drones" in validated_data:
+            drones_data = validated_data.pop("mission_drones")
+
+            instance.mission_drones.all().delete()
+
+            for drone_item in drones_data:
+                MissionDrone.objects.create(
+                    mission=instance,
+                    drone=drone_item["drone"],
+                    operator=drone_item.get("operator"),
+                )
+
+        return super().update(instance, validated_data)
+
     def validate_title(self, value):
         stripped = (value or "").strip()
         if not stripped:
