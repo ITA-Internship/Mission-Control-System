@@ -178,24 +178,38 @@ Example `.env` configuration:
 
 ```env
 # Django settings
-SECRET_KEY=your-secret-key-here
+DJANGO_SECRET_KEY=your-secret-key-here
 DEBUG=True
 ALLOWED_HOSTS=localhost,127.0.0.1
+RUN_MIGRATIONS=True
 
 # Database settings
-DB_NAME=mission_control
-DB_USER=postgres
-DB_PASSWORD=postgres
-DB_HOST=db
-DB_PORT=5432
+DB_NAME=drone_fleet_db
+DB_USER=drone_fleet_user
+DB_PASSWORD=change-me
+DB_HOST=localhost
+DB_PORT=5433
 
 # Redis
 REDIS_URL=redis://redis:6379/0
+
+# pgAdmin
+PGADMIN_DEFAULT_EMAIL=admin@example.com
+PGADMIN_DEFAULT_PASSWORD=change-me
 ```
 
-For Docker-based development, `DB_HOST` is usually set to `db`, because this is the name of the PostgreSQL service inside Docker Compose.
+Alternative Docker `web` container database settings:
+
+```env
+DB_HOST=db
+DB_PORT=5432
+```
+
+For Docker-based development, the `web` container uses `DB_HOST=db` and `DB_PORT=5432`, because `db` is the PostgreSQL service name inside Docker Compose.
 
 For local development without Docker, `DB_HOST` should usually be set to `localhost`.
+
+In this project, local development uses `DB_PORT=5433` so the Docker PostgreSQL container does not conflict with a local PostgreSQL instance that may already be using port `5432`.
 
 ## 🐳 Running with Docker
 
@@ -213,10 +227,18 @@ If your system uses the older Docker Compose command, use:
 docker-compose up --build
 ```
 
-After the containers are running, open a new terminal window and apply database migrations:
+The `web` container runs migrations automatically on startup when `RUN_MIGRATIONS=True`.
+
+If you want to run them manually, use:
 
 ```bash
 docker compose exec web python manage.py migrate
+```
+
+Verify migration status:
+
+```bash
+docker compose exec web python manage.py showmigrations
 ```
 
 Create an admin user:
@@ -293,10 +315,23 @@ copy .env.example .env
 
 Make sure the database settings in `.env` are correct.
 
+For local development with Docker PostgreSQL:
+
+```env
+DB_HOST=localhost
+DB_PORT=5433
+```
+
 Apply database migrations:
 
 ```bash
 python manage.py migrate
+```
+
+Verify migration status:
+
+```bash
+python manage.py showmigrations
 ```
 
 Create an admin user:
@@ -337,6 +372,34 @@ Check migration status:
 
 ```bash
 python manage.py showmigrations
+```
+
+Verify that model tables were created in PostgreSQL by running the application and checking that the core apps (`accounts`, `roles`, `drones`, Django auth/admin/session tables) appear in the database after migration.
+
+For this project, the initial migration flow was verified with:
+
+```bash
+python manage.py makemigrations --check --dry-run
+python manage.py migrate
+python manage.py showmigrations
+```
+
+If you are using Docker, the equivalent verification command is:
+
+```bash
+docker compose exec web python manage.py showmigrations
+```
+
+Manual post-migration step:
+
+```bash
+python manage.py createsuperuser
+```
+
+Or in Docker:
+
+```bash
+docker compose exec web python manage.py createsuperuser
 ```
 
 ## 🔐 Django Admin
