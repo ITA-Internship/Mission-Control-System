@@ -43,7 +43,7 @@ class Drone(models.Model):
     serial_number = models.CharField(max_length=100, unique=True)
     inventory_number = models.CharField(max_length=100, unique=True)
     name = models.CharField(max_length=100)
-    drone_model = models.CharField(max_length=255)
+    drone_model = models.CharField(max_length=255, db_index=True)
     classification = models.CharField(
         max_length=20, choices=CLASSIFICATION_CHOICES, default="CLASS_1"
     )

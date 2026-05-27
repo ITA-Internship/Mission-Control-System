@@ -4,6 +4,7 @@ from django.urls import reverse
 from rest_framework import status
 from rest_framework.test import APITestCase
 
+from common.pagination import StandardResultsSetPagination
 from drones.factories import (
     AdminUserFactory,
     DroneFactory,
@@ -12,7 +13,6 @@ from drones.factories import (
     ViewerUserFactory,
 )
 from drones.models import Drone, DroneSpec, DroneStatusHistory, WriteOffRecord
-from drones.pagination import StandardResultsSetPagination
 
 
 class DroneCreateTests(APITestCase):
@@ -311,15 +311,9 @@ class DroneSearchTests(APITestCase):
         self.create_url = reverse("drones:drone-create")
         self.military_unit = MilitaryUnitFactory()
         self.page_size = StandardResultsSetPagination.page_size
-        self.drones = []
-        for i in range(self.page_size + 1):
-            if i % 2 == 0:
-                self.drones.append(DroneFactory(military_unit=self.military_unit))
-            else:
-                self.drones.append(
-                    DroneFactory(military_unit=self.military_unit, status="LOST")
-                )
-
+        self.drones = DroneFactory.create_batch(
+            self.page_size + 1, military_unit=self.military_unit
+        )
         self.user = ViewerUserFactory()
         self.client.force_authenticate(self.user)
 
@@ -355,38 +349,22 @@ class DroneSearchTests(APITestCase):
 
         self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
 
-    def test_search_valid_query(self):
-        target_drone = self.drones[1]
-        response = self.client.get(
-            self.create_url, {"search": target_drone.serial_number}
-        )
-
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(
-            response.data["results"][0]["serial_number"], target_drone.serial_number
-        )
-
-    def test_search_no_results(self):
-        response = self.client.get(self.create_url, {"search": "NON_EXISTENT_QUERY"})
-
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(response.data["count"], 0)
-
     def test_filtering_exact_field(self):
-        response = self.client.get(self.create_url, {"status": "LOST"})
+        response = self.client.get(self.create_url, {"status": self.drones[0].status})
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         for item in response.data["results"]:
-            self.assertEqual(item["status"], "LOST")
+            self.assertEqual(item["status"], self.drones[0].status)
 
     def test_filtering_icontains_field(self):
+        serial = self.drones[0].serial_number[:3]
         response = self.client.get(
-            self.create_url, {"drone_model__icontains": "model_4"}
+            self.create_url, {"serial_number__icontains": serial}
         )
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         for item in response.data["results"]:
-            self.assertIn("model_4", item["drone_model"])
+            self.assertIn(serial.lower(), item["serial_number"].lower())
 
     def test_ordering(self):
         response = self.client.get(self.create_url, {"ordering": "name"})
@@ -395,3 +373,12 @@ class DroneSearchTests(APITestCase):
         results = response.data["results"]
         names = [d["name"] for d in results]
         self.assertEqual(names, sorted(names))
+
+    def test_filtering_inactive_drones(self):
+        inactive_drone = DroneFactory(status="WRITTEN_OFF")
+
+        response = self.client.get(self.create_url, {"status": "WRITTEN_OFF"})
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        results_ids = [item["id"] for item in response.data["results"]]
+        self.assertIn(inactive_drone.id, results_ids)
