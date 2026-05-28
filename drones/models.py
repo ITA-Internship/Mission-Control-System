@@ -85,7 +85,7 @@ class DroneSpec(models.Model):
 
     def __str__(self) -> str:
         return f"Specification for {self.drone}"
-    
+
 
 class DroneSpecChangeLog(models.Model):
     drone_spec = models.ForeignKey(

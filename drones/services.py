@@ -125,7 +125,7 @@ def update_drone(
 
     if drone_changed_fields:
         drone.save()
-        
+
     spec_changed_fields = []
 
     if spec_data is not None:

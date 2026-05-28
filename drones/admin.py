@@ -56,8 +56,8 @@ class DroneSpecAdmin(admin.ModelAdmin):
         "flight_controller",
     )
     list_filter = ("battery_type", "frame_type", "updated_at")
-    
-    
+
+
 @admin.register(DroneSpecChangeLog)
 class DroneSpecChangeLogAdmin(admin.ModelAdmin):
     list_display = (
@@ -81,7 +81,7 @@ class DroneSpecChangeLogAdmin(admin.ModelAdmin):
         "new_values",
         "created_at",
     )
-    
+
     def has_add_permission(self, request):
         return False
 

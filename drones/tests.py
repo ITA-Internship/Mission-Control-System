@@ -84,7 +84,7 @@ class DroneCreateTests(APITestCase):
 
         self.assertEqual(drone.drone_model, "Test Model")
         self.assertEqual(drone.spec.frame_type, "Test Frame")
-        
+
     def test_create_drone_with_detailed_spec_fields(self):
         response = self.client.post(self.create_url, self.base_payload, format="json")
 
@@ -98,7 +98,7 @@ class DroneCreateTests(APITestCase):
             spec.technical_documentation_url,
             "https://example.com/drone-spec.pdf",
         )
-        
+
     def test_create_drone_spec_change_log_created(self):
         response = self.client.post(self.create_url, self.base_payload, format="json")
 
@@ -164,7 +164,7 @@ class DroneCreateTests(APITestCase):
         self.assertEqual(spec.camera_specs, {})
         self.assertEqual(spec.additional_modules, [])
         self.assertEqual(spec.technical_documentation_url, "")
-        
+
     def test_create_drone_rejects_invalid_camera_specs(self):
         payload = copy.deepcopy(self.base_payload)
         payload["spec"]["camera_specs"] = ["invalid"]
@@ -173,7 +173,7 @@ class DroneCreateTests(APITestCase):
 
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertIn("camera_specs", response.data["spec"])
-        
+
     def test_create_drone_rejects_invalid_additional_modules(self):
         payload = copy.deepcopy(self.base_payload)
         payload["spec"]["additional_modules"] = {"type": "GPS"}
@@ -239,7 +239,7 @@ class DroneUpdateAndDecommissionTests(APITestCase):
 
         self.assertEqual(self.drone.spec.frame_type, "Updated frame")
         self.assertEqual(str(self.drone.spec.max_speed_kmh), "155.50")
-        
+
     def test_patch_drone_spec_detailed_fields(self):
         self.client.force_authenticate(self.admin_user)
 
@@ -261,7 +261,9 @@ class DroneUpdateAndDecommissionTests(APITestCase):
                             "notes": "External module",
                         }
                     ],
-                    "technical_documentation_url": "https://example.com/updated-spec.pdf",
+                    "technical_documentation_url": (
+                        "https://example.com/updated-spec.pdf"
+                    ),
                 }
             },
             format="json",
@@ -277,7 +279,7 @@ class DroneUpdateAndDecommissionTests(APITestCase):
             self.drone.spec.technical_documentation_url,
             "https://example.com/updated-spec.pdf",
         )
-        
+
     def test_patch_drone_spec_creates_change_log(self):
         self.client.force_authenticate(self.admin_user)
 

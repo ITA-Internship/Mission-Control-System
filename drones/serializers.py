@@ -34,7 +34,9 @@ class DroneSpecValidationMixin:
 
     def validate_additional_modules(self, value):
         if not isinstance(value, list):
-            raise serializers.ValidationError("additional_modules must be a JSON array.")
+            raise serializers.ValidationError(
+                "additional_modules must be a JSON array."
+            )
 
         for index, module in enumerate(value):
             if not isinstance(module, dict):
