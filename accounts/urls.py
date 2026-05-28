@@ -1,13 +1,18 @@
-from django.urls import path
+from django.urls import include, path
+from rest_framework.routers import DefaultRouter
 
 from .views import (
     ActivateAccountAPIView,
+    AuditLogViewSet,
     UserRegistrationView,
     UserRoleUpdateAPIView,
     UserStatusUpdateView,
 )
 
 app_name = "accounts"
+
+router = DefaultRouter()
+router.register(r"audit-log", AuditLogViewSet, basename="audit-log")
 
 urlpatterns = [
     path("users/", UserRegistrationView.as_view(), name="user-create"),
@@ -21,6 +26,7 @@ urlpatterns = [
         ActivateAccountAPIView.as_view(),
         name="account-activate",
     ),
+    path("", include(router.urls)),
     path(
         "users/<int:pk>/status",
         UserStatusUpdateView.as_view(),

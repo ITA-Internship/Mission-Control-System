@@ -108,13 +108,14 @@ class MissionDrone(models.Model):
     )
 
     drone = models.ForeignKey(
-        "drones.Drone", on_delete=models.PROTECT, related_name="mission_participations"
+        "drones.Drone", on_delete=models.PROTECT, related_name="mission_assignments"
     )
 
     operator = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.SET_NULL,
         null=True,
+        blank=True,
         related_name="operated_mission_drones",
     )
 
@@ -122,14 +123,20 @@ class MissionDrone(models.Model):
         max_length=20, choices=Drone.STATUS_CHOICES, default="ACTIVE"
     )
 
-    created_at = models.DateTimeField(auto_now_add=True)
+    condition_description = models.TextField(null=True, blank=True)
+    flight_started_at = models.DateTimeField(null=True, blank=True)
+    flight_ended_at = models.DateTimeField(null=True, blank=True)
 
     class Meta:
         db_table = "mission_drones"
-        unique_together = ("mission", "drone")
+        constraints = [
+            models.UniqueConstraint(
+                fields=["mission", "drone"], name="unique_mission_drone"
+            ),
+        ]
 
     def __str__(self):
-        return f"{self.drone} in {self.mission}"
+        return f"{self.mission.title} - {self.drone} (Operator: {self.operator})"
 
 
 class MissionAuditLog(models.Model):
@@ -146,3 +153,28 @@ class MissionAuditLog(models.Model):
 
     def __str__(self):
         return f"{self.action} on {self.target_model} (ID: {self.target_id})"
+
+
+class AuditLog(models.Model):
+    action = models.CharField(max_length=255)
+    target_model = models.CharField(max_length=255)
+    changes = models.JSONField()
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "audit_logs"
+        indexes = [
+            models.Index(fields=["action", "target_model"]),
+            models.Index(fields=["created_at"]),
+        ]
+
+    def __str__(self):
+        return (
+            f"[{self.action}] {self.target_model} by {self.user} at {self.created_at}"
+        )

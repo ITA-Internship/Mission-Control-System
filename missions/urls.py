@@ -1,6 +1,12 @@
 from django.urls import path
 
-from .views import MissionDetailView, MissionListCreateView, MissionStatusUpdateView
+from .views import (
+    MissionAssignmentDetailView,
+    MissionAssignmentListCreateView,
+    MissionDetailView,
+    MissionListCreateView,
+    MissionStatusUpdateView,
+)
 
 app_name = "missions"
 
@@ -11,5 +17,15 @@ urlpatterns = [
         "<int:pk>/status/",
         MissionStatusUpdateView.as_view(),
         name="mission-status-update",
+    ),
+    path(
+        "<int:mission_pk>/assignments/",
+        MissionAssignmentListCreateView.as_view(),
+        name="mission-assignment-list-create",
+    ),
+    path(
+        "<int:mission_pk>/assignments/<int:pk>/",
+        MissionAssignmentDetailView.as_view(),
+        name="mission-assignment-detail",
     ),
 ]

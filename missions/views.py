@@ -5,9 +5,14 @@ from rest_framework.pagination import PageNumberPagination
 
 from drones.models import Drone
 
-from .models import Mission, MissionAuditLog, Status
+from .models import Mission, MissionAuditLog, MissionDrone, Status
 from .permissions import CanUpdateMissionStatus, IsDispatcherOrAdmin
-from .serializers import MissionSerializer, MissionStatusUpdateSerializer
+from .serializers import (
+    MissionDroneSerializer,
+    MissionSerializer,
+    MissionStatusUpdateSerializer,
+)
+from .services import unassign_drone_from_mission
 
 
 class MissionPagination(PageNumberPagination):
@@ -108,3 +113,47 @@ class MissionStatusUpdateView(generics.RetrieveUpdateAPIView):
 
             if drones_to_update:
                 Drone.objects.bulk_update(drones_to_update, ["status"])
+
+
+class MissionAssignmentListCreateView(generics.ListCreateAPIView):
+    serializer_class = MissionDroneSerializer
+    permission_classes = [permissions.IsAuthenticated, IsDispatcherOrAdmin]
+
+    def get_mission(self):
+        if not hasattr(self, "_mission"):
+            self._mission = generics.get_object_or_404(
+                Mission, id=self.kwargs["mission_pk"]
+            )
+        return self._mission
+
+    def get_queryset(self):
+        mission = self.get_mission()
+        return MissionDrone.objects.filter(mission=mission).select_related(
+            "drone", "operator"
+        )
+
+    def get_serializer_context(self):
+        context = super().get_serializer_context()
+        if self.request.method in ["POST", "PUT", "PATCH"]:
+            context["mission"] = self.get_mission()
+        return context
+
+    def perform_create(self, serializer):
+        mission = self.get_mission()
+        serializer.save(mission=mission)
+
+
+class MissionAssignmentDetailView(generics.DestroyAPIView):
+    permission_classes = [permissions.IsAuthenticated, IsDispatcherOrAdmin]
+    lookup_url_kwarg = "pk"
+
+    def get_queryset(self):
+        return MissionDrone.objects.filter(
+            mission_id=self.kwargs["mission_pk"]
+        ).select_related("mission", "drone")
+
+    def perform_destroy(self, instance):
+        unassign_drone_from_mission(
+            assignment=instance,
+            action_user=self.request.user,
+        )
