@@ -1,6 +1,7 @@
 from django.contrib.auth import get_user_model
 from django.db import transaction
 from django.db.models import Q
+from django.utils import timezone
 from rest_framework import serializers
 
 from drones.models import Drone
@@ -242,9 +243,10 @@ def record_drone_condition(
             id=locked_assignment.drone_id,
         )
 
+        is_lost = condition_after == Condition.LOST
         writeoff_reason = (
             "Mission outcome: drone marked as lost"
-            if condition_after == Condition.LOST
+            if is_lost
             else f"Mission outcome: condition_after={condition_after}"
         )
 
@@ -254,6 +256,7 @@ def record_drone_condition(
             user=action_user,
             related_mission=locked_mission,
             writeoff_reason=writeoff_reason,
+            written_off_at=timezone.localdate() if is_lost else None,
         )
 
         AuditLog.objects.create(
