@@ -164,6 +164,24 @@ class DroneCreateTests(APITestCase):
         self.assertEqual(spec.camera_specs, {})
         self.assertEqual(spec.additional_modules, [])
         self.assertEqual(spec.technical_documentation_url, "")
+        
+    def test_create_drone_rejects_invalid_camera_specs(self):
+        payload = copy.deepcopy(self.base_payload)
+        payload["spec"]["camera_specs"] = ["invalid"]
+
+        response = self.client.post(self.create_url, payload, format="json")
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("camera_specs", response.data["spec"])
+        
+    def test_create_drone_rejects_invalid_additional_modules(self):
+        payload = copy.deepcopy(self.base_payload)
+        payload["spec"]["additional_modules"] = {"type": "GPS"}
+
+        response = self.client.post(self.create_url, payload, format="json")
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("additional_modules", response.data["spec"])
 
 
 class DroneUpdateAndDecommissionTests(APITestCase):
