@@ -81,6 +81,12 @@ class DroneSpecChangeLogAdmin(admin.ModelAdmin):
         "new_values",
         "created_at",
     )
+    
+    def has_add_permission(self, request):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
 
 
 @admin.register(WriteOffRecord)
