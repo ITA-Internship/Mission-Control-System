@@ -1,12 +1,47 @@
+import datetime
+from decimal import Decimal
+
 from django.db import transaction
 
-from .models import Drone, DroneSpec, DroneStatusHistory, WriteOffRecord
+from .models import (
+    Drone,
+    DroneSpec,
+    DroneSpecChangeLog,
+    DroneStatusHistory,
+    WriteOffRecord,
+)
+
+
+def _serialize_audit_value(value):
+    if isinstance(value, Decimal):
+        return str(value)
+
+    if isinstance(value, (datetime.date, datetime.datetime)):
+        return value.isoformat()
+
+    if hasattr(value, "pk"):
+        return value.pk
+
+    return value
 
 
 @transaction.atomic
-def create_drone_with_spec(drone_data, spec_data):
+def create_drone_with_spec(drone_data, spec_data, user=None):
+    user = _get_authenticated_user(user)
+
     drone = Drone.objects.create(**drone_data)
-    DroneSpec.objects.create(drone=drone, **spec_data)
+    spec = DroneSpec.objects.create(drone=drone, **spec_data)
+
+    DroneSpecChangeLog.objects.create(
+        drone_spec=spec,
+        changed_by=user,
+        changed_fields=list(spec_data.keys()),
+        old_values={},
+        new_values={
+            field_name: _serialize_audit_value(getattr(spec, field_name))
+            for field_name in spec_data.keys()
+        },
+    )
 
     return drone
 
@@ -49,6 +84,24 @@ def _update_instance_fields(instance, data):
     return changed_fields
 
 
+def _create_spec_change_log(*, spec, changed_fields, old_values, user):
+    if not changed_fields:
+        return
+
+    new_values = {
+        field_name: _serialize_audit_value(getattr(spec, field_name))
+        for field_name in changed_fields
+    }
+
+    DroneSpecChangeLog.objects.create(
+        drone_spec=spec,
+        changed_by=user,
+        changed_fields=changed_fields,
+        old_values=old_values,
+        new_values=new_values,
+    )
+
+
 @transaction.atomic
 def update_drone(
     *,
@@ -72,19 +125,37 @@ def update_drone(
 
     if drone_changed_fields:
         drone.save()
-
+        
     spec_changed_fields = []
 
     if spec_data is not None:
         try:
             spec = drone.spec
+            spec_was_created = False
         except DroneSpec.DoesNotExist:
             spec = DroneSpec(drone=drone)
+            spec_was_created = True
+
+        old_spec_values = {}
+        if not spec_was_created:
+            old_spec_values = {
+                field_name: _serialize_audit_value(getattr(spec, field_name, None))
+                for field_name in spec_data.keys()
+            }
 
         spec_changed_fields = _update_instance_fields(spec, spec_data)
 
         if spec_changed_fields:
             spec.save()
+            _create_spec_change_log(
+                spec=spec,
+                changed_fields=spec_changed_fields,
+                old_values={
+                    field_name: old_spec_values.get(field_name)
+                    for field_name in spec_changed_fields
+                },
+                user=user,
+            )
 
     writeoff_record = None
 

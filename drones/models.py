@@ -68,7 +68,9 @@ class DroneSpec(models.Model):
     motor_model = models.CharField(max_length=255)
     battery_type = models.CharField(max_length=255)
     battery_capacity_mah = models.PositiveIntegerField()
+    battery_model = models.CharField(max_length=255, blank=True)
     camera_model = models.CharField(max_length=255)
+    camera_specs = models.JSONField(default=dict, blank=True)
     vtx_model = models.CharField(max_length=255, blank=True)
     flight_controller = models.CharField(max_length=255)
     firmware_version = models.CharField(max_length=255, blank=True)
@@ -77,10 +79,37 @@ class DroneSpec(models.Model):
     max_flight_time_min = models.DecimalField(max_digits=6, decimal_places=2)
     frequency_mhz = models.PositiveIntegerField()
     payload_capacity_g = models.PositiveIntegerField(blank=True, null=True)
+    additional_modules = models.JSONField(default=list, blank=True)
+    technical_documentation_url = models.URLField(blank=True)
     updated_at = models.DateTimeField(auto_now=True)
 
     def __str__(self) -> str:
         return f"Specification for {self.drone}"
+    
+
+class DroneSpecChangeLog(models.Model):
+    drone_spec = models.ForeignKey(
+        DroneSpec,
+        on_delete=models.CASCADE,
+        related_name="change_history",
+    )
+    changed_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="drone_spec_changes",
+    )
+    changed_fields = models.JSONField(default=list)
+    old_values = models.JSONField(default=dict, blank=True)
+    new_values = models.JSONField(default=dict, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self) -> str:
+        return f"Spec changes for {self.drone_spec.drone}"
 
 
 class WriteOffRecord(models.Model):

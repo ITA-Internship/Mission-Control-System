@@ -12,7 +12,13 @@ from drones.factories import (
     MilitaryUnitFactory,
     ViewerUserFactory,
 )
-from drones.models import Drone, DroneSpec, DroneStatusHistory, WriteOffRecord
+from drones.models import (
+    Drone,
+    DroneSpec,
+    DroneSpecChangeLog,
+    DroneStatusHistory,
+    WriteOffRecord,
+)
 
 
 class DroneCreateTests(APITestCase):
@@ -32,7 +38,15 @@ class DroneCreateTests(APITestCase):
                 "motor_model": "Test Motor Model",
                 "battery_type": "Test Battery Type",
                 "battery_capacity_mah": 1500,
+                "battery_model": "Test Battery Model",
                 "camera_model": "Test Camera Model",
+                "camera_specs": {
+                    "sensor": '1/2.8"',
+                    "resolution": "1080p",
+                    "fov": "120",
+                    "stabilization": "none",
+                    "night_mode": True,
+                },
                 "vtx_model": "Test VTX Model",
                 "flight_controller": "Test Controller",
                 "firmware_version": "Test Firmware Version",
@@ -41,6 +55,19 @@ class DroneCreateTests(APITestCase):
                 "max_flight_time_min": "20",
                 "frequency_mhz": "1000",
                 "payload_capacity_g": "100",
+                "additional_modules": [
+                    {
+                        "type": "GPS",
+                        "model": "Matek M10Q",
+                        "notes": "External module",
+                    },
+                    {
+                        "type": "Receiver",
+                        "model": "ELRS 2.4GHz",
+                        "notes": "",
+                    },
+                ],
+                "technical_documentation_url": "https://example.com/drone-spec.pdf",
             },
         }
         self.user = AdminUserFactory()
@@ -57,6 +84,34 @@ class DroneCreateTests(APITestCase):
 
         self.assertEqual(drone.drone_model, "Test Model")
         self.assertEqual(drone.spec.frame_type, "Test Frame")
+        
+    def test_create_drone_with_detailed_spec_fields(self):
+        response = self.client.post(self.create_url, self.base_payload, format="json")
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+
+        spec = DroneSpec.objects.get()
+        self.assertEqual(spec.battery_model, "Test Battery Model")
+        self.assertEqual(spec.camera_specs["resolution"], "1080p")
+        self.assertEqual(spec.additional_modules[0]["type"], "GPS")
+        self.assertEqual(
+            spec.technical_documentation_url,
+            "https://example.com/drone-spec.pdf",
+        )
+        
+    def test_create_drone_spec_change_log_created(self):
+        response = self.client.post(self.create_url, self.base_payload, format="json")
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(DroneSpecChangeLog.objects.count(), 1)
+
+        change_log = DroneSpecChangeLog.objects.first()
+        self.assertEqual(change_log.drone_spec, DroneSpec.objects.get())
+        self.assertEqual(change_log.changed_by, self.user)
+        self.assertIn("battery_model", change_log.changed_fields)
+        self.assertIn("camera_specs", change_log.changed_fields)
+        self.assertIn("additional_modules", change_log.changed_fields)
+        self.assertIn("technical_documentation_url", change_log.changed_fields)
 
     def test_create_drone_missing_required_field(self):
         payload = copy.deepcopy(self.base_payload)
@@ -90,6 +145,10 @@ class DroneCreateTests(APITestCase):
         payload["spec"].pop("vtx_model", None)
         payload["spec"].pop("firmware_version", None)
         payload["spec"].pop("payload_capacity_g", None)
+        payload["spec"].pop("battery_model", None)
+        payload["spec"].pop("camera_specs", None)
+        payload["spec"].pop("additional_modules", None)
+        payload["spec"].pop("technical_documentation_url", None)
 
         response = self.client.post(self.create_url, payload, format="json")
 
@@ -101,6 +160,10 @@ class DroneCreateTests(APITestCase):
         self.assertEqual(spec.vtx_model, "")
         self.assertEqual(spec.firmware_version, "")
         self.assertIsNone(spec.payload_capacity_g)
+        self.assertEqual(spec.battery_model, "")
+        self.assertEqual(spec.camera_specs, {})
+        self.assertEqual(spec.additional_modules, [])
+        self.assertEqual(spec.technical_documentation_url, "")
 
 
 class DroneUpdateAndDecommissionTests(APITestCase):
@@ -158,6 +221,73 @@ class DroneUpdateAndDecommissionTests(APITestCase):
 
         self.assertEqual(self.drone.spec.frame_type, "Updated frame")
         self.assertEqual(str(self.drone.spec.max_speed_kmh), "155.50")
+        
+    def test_patch_drone_spec_detailed_fields(self):
+        self.client.force_authenticate(self.admin_user)
+
+        response = self.client.patch(
+            self.detail_url,
+            {
+                "spec": {
+                    "battery_model": "Updated Battery Model",
+                    "camera_specs": {
+                        "sensor": '1/2.8"',
+                        "resolution": "4K",
+                        "fov": "120",
+                        "night_mode": True,
+                    },
+                    "additional_modules": [
+                        {
+                            "type": "GPS",
+                            "model": "Matek M10Q",
+                            "notes": "External module",
+                        }
+                    ],
+                    "technical_documentation_url": "https://example.com/updated-spec.pdf",
+                }
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        self.drone.spec.refresh_from_db()
+        self.assertEqual(self.drone.spec.battery_model, "Updated Battery Model")
+        self.assertEqual(self.drone.spec.camera_specs["resolution"], "4K")
+        self.assertEqual(self.drone.spec.additional_modules[0]["type"], "GPS")
+        self.assertEqual(
+            self.drone.spec.technical_documentation_url,
+            "https://example.com/updated-spec.pdf",
+        )
+        
+    def test_patch_drone_spec_creates_change_log(self):
+        self.client.force_authenticate(self.admin_user)
+
+        response = self.client.patch(
+            self.detail_url,
+            {
+                "spec": {
+                    "battery_model": "Updated Battery Model",
+                    "camera_specs": {
+                        "resolution": "4K",
+                    },
+                }
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(DroneSpecChangeLog.objects.count(), 1)
+
+        change_log = DroneSpecChangeLog.objects.first()
+        self.assertEqual(change_log.drone_spec, self.drone.spec)
+        self.assertEqual(change_log.changed_by, self.admin_user)
+        self.assertIn("battery_model", change_log.changed_fields)
+        self.assertIn("camera_specs", change_log.changed_fields)
+        self.assertEqual(
+            change_log.new_values["battery_model"],
+            "Updated Battery Model",
+        )
 
     def test_decommission_requires_reason(self):
         self.client.force_authenticate(self.admin_user)
