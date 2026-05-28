@@ -126,6 +126,7 @@ class MissionDrone(models.Model):
     condition_description = models.TextField(null=True, blank=True)
     flight_started_at = models.DateTimeField(null=True, blank=True)
     flight_ended_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
         db_table = "mission_drones"
