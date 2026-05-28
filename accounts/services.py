@@ -6,7 +6,7 @@ from django.db import transaction
 
 from roles.models import ADMIN_CODE, Role
 
-from .models import User, UserProfile, UserRoleAuditLog
+from .models import AuditLog, User, UserProfile, UserRoleAuditLog
 
 
 @transaction.atomic
@@ -31,6 +31,14 @@ def create_user_account(validated_data: dict, created_by: User = None) -> User:
         )
 
     send_activation_email(user)
+
+    create_audit_log(
+        actor=created_by,
+        action_type=AuditLog.ActionType.USER_CREATED,
+        result=AuditLog.ResultStatus.SUCCESS,
+        target_user=user,
+        description=f"User {user.username} created.",
+    )
 
     return user
 
@@ -132,4 +140,39 @@ def update_user_role(*, target_user: User, new_role_id: int, changed_by: User) -
         new_role=new_role,
     )
 
+    create_audit_log(
+        actor=changed_by,
+        action_type=AuditLog.ActionType.ROLE_CHANGED,
+        result=AuditLog.ResultStatus.SUCCESS,
+        target_user=locked_user,
+        description=f"Role changed from "
+        f"{previous_role.name if previous_role else 'None'} to {new_role.name}.",
+    )
+
     return locked_user
+
+
+def create_audit_log(
+    actor, action_type, result, target_user=None, description="", request=None
+):
+    ip_address = None
+    user_agent = ""
+
+    if request:
+        user_agent = request.META.get("HTTP_USER_AGENT", "")
+
+        x_forwarded_for = request.META.get("HTTP_X_FORWARDED_FOR")
+        if x_forwarded_for:
+            ip_address = x_forwarded_for.split(",")[-1].strip()
+        else:
+            ip_address = request.META.get("REMOTE_ADDR")
+
+    return AuditLog.objects.create(
+        actor=actor if actor and actor.is_authenticated else None,
+        target_user=target_user,
+        action_type=action_type,
+        result=result,
+        description=description,
+        ip_address=ip_address,
+        user_agent=user_agent,
+    )
