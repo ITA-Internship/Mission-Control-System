@@ -9,13 +9,15 @@ from drones.factories import (
     ViewerRoleFactory,
     ViewerUserFactory,
 )
-from roles.models import COMMANDER_CODE, OPERATOR_CODE
+from roles.models import COMMANDER_CODE, DISPATCHER_CODE, OPERATOR_CODE
 
 __all__ = [
     "AdminRoleFactory",
     "AdminUserFactory",
     "CommanderRoleFactory",
     "CommanderUserFactory",
+    "DispatcherRoleFactory",
+    "DispatcherUserFactory",
     "DroneFactory",
     "MissionFactory",
     "MissionDroneFactory",
@@ -62,6 +64,25 @@ class CommanderUserFactory(factory.django.DjangoModelFactory):
     email = factory.Sequence(lambda n: f"commander_user_{n}@example.com")
     password = factory.Sequence(lambda n: f"password_{n}")
     role = factory.SubFactory(CommanderRoleFactory)
+
+
+class DispatcherRoleFactory(factory.django.DjangoModelFactory):
+    class Meta:
+        model = "roles.Role"
+        django_get_or_create = ("code",)
+
+    code = DISPATCHER_CODE
+    name = "Dispatcher"
+
+
+class DispatcherUserFactory(factory.django.DjangoModelFactory):
+    class Meta:
+        model = "accounts.User"
+
+    username = factory.Sequence(lambda n: f"dispatcher_user_{n}")
+    email = factory.Sequence(lambda n: f"dispatcher_user_{n}@example.com")
+    password = factory.Sequence(lambda n: f"password_{n}")
+    role = factory.SubFactory(DispatcherRoleFactory)
 
 
 class MissionFactory(factory.django.DjangoModelFactory):

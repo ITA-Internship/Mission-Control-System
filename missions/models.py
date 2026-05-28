@@ -2,8 +2,6 @@ from django.conf import settings
 from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
 
-from drones.models import Drone
-
 
 def get_default_changes():
     return {}
@@ -127,7 +125,10 @@ class MissionDrone(models.Model):
     )
 
     condition_after = models.CharField(
-        max_length=20, choices=Drone.STATUS_CHOICES, default="ACTIVE"
+        max_length=20,
+        choices=Condition.choices,
+        null=True,
+        blank=True,
     )
 
     condition_description = models.TextField(null=True, blank=True)

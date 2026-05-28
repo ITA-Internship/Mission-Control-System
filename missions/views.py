@@ -5,9 +5,14 @@ from rest_framework.pagination import PageNumberPagination
 
 from accounts.permissions import HasRBACPermission
 from accounts.rbac import PERMISSION_MISSIONS_UPDATE_STATUS
+from drones.models import Drone
 
 from .models import Mission, MissionAuditLog, MissionDrone, Status
-from .permissions import IsAssignedOperatorOrAdmin, CanUpdateMissionStatus, IsDispatcherOrAdmin
+from .permissions import (
+    CanUpdateMissionStatus,
+    IsAssignedOperatorOrAdmin,
+    IsDispatcherOrAdmin,
+)
 from .serializers import (
     MissionDroneConditionSerializer,
     MissionDroneSerializer,
@@ -15,14 +20,13 @@ from .serializers import (
     MissionSerializer,
     MissionStatusUpdateSerializer,
 )
-from drones.models import Drone
 from .services import unassign_drone_from_mission
 
 
 class MissionsUpdateStatusRBAC(HasRBACPermission):
     required_permission = PERMISSION_MISSIONS_UPDATE_STATUS
 
-    
+
 class MissionPagination(PageNumberPagination):
     page_size = 10
     page_size_query_param = "page_size"
@@ -95,8 +99,8 @@ class MissionDroneConditionView(generics.UpdateAPIView):
         return MissionDrone.objects.filter(
             mission_id=self.kwargs["pk"],
         ).select_related("mission", "drone", "operator")
-    
-    
+
+
 class MissionStatusUpdateView(generics.RetrieveUpdateAPIView):
     serializer_class = MissionStatusUpdateSerializer
     permission_classes = [permissions.IsAuthenticated, CanUpdateMissionStatus]

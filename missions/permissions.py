@@ -29,11 +29,11 @@ class IsAssignedOperatorOrAdmin(permissions.BasePermission):
             return True
         if role_code != OPERATOR_CODE:
             return False
-        assignments = getattr(obj, "assignments", None)
-        if assignments is not None and hasattr(assignments, "filter"):
-            return assignments.filter(operator=request.user).exists()
+        mission_drones = getattr(obj, "mission_drones", None)
+        if mission_drones is not None and hasattr(mission_drones, "filter"):
+            return mission_drones.filter(operator=request.user).exists()
         return getattr(obj, "operator_id", None) == request.user.id
-    
+
 
 class CanUpdateMissionStatus(permissions.BasePermission):
     def has_object_permission(self, request, view, obj):

@@ -1,4 +1,7 @@
+from datetime import timedelta
+
 from django.urls import reverse
+from django.utils import timezone
 from rest_framework import status
 from rest_framework.test import APITestCase
 
@@ -6,6 +9,8 @@ from drones.models import DroneStatusHistory, WriteOffRecord
 
 from .factories import (
     AdminUserFactory,
+    CommanderUserFactory,
+    DispatcherUserFactory,
     DroneFactory,
     MissionDroneFactory,
     MissionFactory,
@@ -167,7 +172,7 @@ class MissionOutcomeTests(APITestCase):
             format="json",
         )
 
-        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
 
     def test_outcome_creates_audit_log(self):
         self.client.force_authenticate(self.admin)
@@ -334,7 +339,7 @@ class MissionDroneConditionTests(APITestCase):
             format="json",
         )
 
-        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
 
     def test_condition_rejected_on_planned_mission(self):
         self.mission.status = "planned"
@@ -431,3 +436,324 @@ class MissionOutcomeFactoryIntegrityTests(APITestCase):
         self.assertEqual(MissionDrone.objects.count(), 1)
         self.assertIsNotNone(assignment.operator.role)
         self.assertEqual(assignment.operator.role.code, "OPERATOR")
+
+
+def _future_datetime(hours=1):
+    return timezone.now() + timedelta(hours=hours)
+
+
+class MissionCreateTests(APITestCase):
+    """POST /api/missions/ — create endpoint, validation, permissions."""
+
+    def setUp(self):
+        self.dispatcher = DispatcherUserFactory()
+        self.admin = AdminUserFactory()
+        self.operator = OperatorUserFactory()
+        self.viewer = ViewerUserFactory()
+        self.commander = CommanderUserFactory()
+
+        self.url = reverse("missions:mission-list-create")
+
+        self.valid_payload = {
+            "title": "Recon Sweep",
+            "started_at": _future_datetime(2).isoformat(),
+            "location_description": "Sector 7",
+        }
+
+    def test_dispatcher_can_create_mission(self):
+        self.client.force_authenticate(self.dispatcher)
+
+        response = self.client.post(self.url, self.valid_payload, format="json")
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(Mission.objects.count(), 1)
+
+        mission = Mission.objects.get()
+        self.assertEqual(mission.title, "Recon Sweep")
+        self.assertEqual(mission.location_description, "Sector 7")
+        self.assertEqual(mission.created_by, self.dispatcher)
+        self.assertEqual(mission.status, "planned")
+
+    def test_admin_can_create_mission(self):
+        self.client.force_authenticate(self.admin)
+
+        response = self.client.post(self.url, self.valid_payload, format="json")
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(Mission.objects.get().created_by, self.admin)
+
+    def test_create_with_coordinates_only(self):
+        self.client.force_authenticate(self.dispatcher)
+
+        payload = {
+            "title": "Coord Mission",
+            "started_at": _future_datetime(2).isoformat(),
+            "latitude": "50.450001",
+            "longitude": "30.523333",
+        }
+
+        response = self.client.post(self.url, payload, format="json")
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        mission = Mission.objects.get()
+        self.assertEqual(str(mission.latitude), "50.450001")
+        self.assertEqual(str(mission.longitude), "30.523333")
+
+    def test_create_with_commander_id(self):
+        self.client.force_authenticate(self.dispatcher)
+
+        payload = {**self.valid_payload, "commander_id": self.commander.id}
+
+        response = self.client.post(self.url, payload, format="json")
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(Mission.objects.get().commander, self.commander)
+
+    def test_commander_id_must_be_commander_role(self):
+        self.client.force_authenticate(self.dispatcher)
+
+        payload = {**self.valid_payload, "commander_id": self.viewer.id}
+
+        response = self.client.post(self.url, payload, format="json")
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("commander_id", response.data)
+
+    def test_operator_cannot_create(self):
+        self.client.force_authenticate(self.operator)
+
+        response = self.client.post(self.url, self.valid_payload, format="json")
+
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertEqual(Mission.objects.count(), 0)
+
+    def test_viewer_cannot_create(self):
+        self.client.force_authenticate(self.viewer)
+
+        response = self.client.post(self.url, self.valid_payload, format="json")
+
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_commander_cannot_create(self):
+        self.client.force_authenticate(self.commander)
+
+        response = self.client.post(self.url, self.valid_payload, format="json")
+
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_unauthenticated_cannot_create(self):
+        response = self.client.post(self.url, self.valid_payload, format="json")
+
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_missing_title_rejected(self):
+        self.client.force_authenticate(self.dispatcher)
+
+        payload = {
+            key: val for key, val in self.valid_payload.items() if key != "title"
+        }
+
+        response = self.client.post(self.url, payload, format="json")
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("title", response.data)
+
+    def test_blank_title_rejected(self):
+        self.client.force_authenticate(self.dispatcher)
+
+        payload = {**self.valid_payload, "title": "   "}
+
+        response = self.client.post(self.url, payload, format="json")
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("title", response.data)
+
+    def test_short_title_rejected(self):
+        self.client.force_authenticate(self.dispatcher)
+
+        payload = {**self.valid_payload, "title": "ab"}
+
+        response = self.client.post(self.url, payload, format="json")
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("title", response.data)
+
+    def test_missing_location_and_coordinates_rejected(self):
+        self.client.force_authenticate(self.dispatcher)
+
+        payload = {
+            "title": "No Location Mission",
+            "started_at": _future_datetime(2).isoformat(),
+        }
+
+        response = self.client.post(self.url, payload, format="json")
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_latitude_without_longitude_rejected(self):
+        self.client.force_authenticate(self.dispatcher)
+
+        payload = {
+            "title": "Half Coords",
+            "started_at": _future_datetime(2).isoformat(),
+            "latitude": "50.0",
+        }
+
+        response = self.client.post(self.url, payload, format="json")
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_started_at_in_past_rejected(self):
+        self.client.force_authenticate(self.dispatcher)
+
+        payload = {
+            **self.valid_payload,
+            "started_at": (timezone.now() - timedelta(days=1)).isoformat(),
+        }
+
+        response = self.client.post(self.url, payload, format="json")
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("started_at", response.data)
+
+    def test_status_field_is_read_only_on_create(self):
+        self.client.force_authenticate(self.dispatcher)
+
+        payload = {**self.valid_payload, "status": "active"}
+
+        response = self.client.post(self.url, payload, format="json")
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(Mission.objects.get().status, "planned")
+
+
+class MissionListTests(APITestCase):
+    """GET /api/missions/ — list, status filter, pagination."""
+
+    def setUp(self):
+        self.dispatcher = DispatcherUserFactory()
+        self.viewer = ViewerUserFactory()
+
+        self.url = reverse("missions:mission-list-create")
+
+    def test_unauthenticated_cannot_list(self):
+        MissionFactory()
+
+        response = self.client.get(self.url)
+
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_authenticated_user_can_list(self):
+        MissionFactory()
+        MissionFactory()
+
+        self.client.force_authenticate(self.viewer)
+
+        response = self.client.get(self.url)
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["count"], 2)
+
+    def test_filter_by_status(self):
+        MissionFactory(status="planned")
+        MissionFactory(status="planned")
+        MissionFactory(status="completed")
+
+        self.client.force_authenticate(self.dispatcher)
+
+        response = self.client.get(self.url, {"status": "completed"})
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["count"], 1)
+        self.assertEqual(response.data["results"][0]["status"], "completed")
+
+    def test_invalid_status_filter_rejected(self):
+        self.client.force_authenticate(self.dispatcher)
+
+        response = self.client.get(self.url, {"status": "bogus"})
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("status", response.data)
+
+    def test_pagination_default_page_size(self):
+        for _ in range(12):
+            MissionFactory()
+
+        self.client.force_authenticate(self.dispatcher)
+
+        response = self.client.get(self.url)
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["count"], 12)
+        self.assertEqual(len(response.data["results"]), 10)
+        self.assertIsNotNone(response.data["next"])
+
+    def test_pagination_second_page(self):
+        for _ in range(12):
+            MissionFactory()
+
+        self.client.force_authenticate(self.dispatcher)
+
+        response = self.client.get(self.url, {"page": 2})
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data["results"]), 2)
+        self.assertIsNone(response.data["next"])
+
+    def test_pagination_custom_page_size(self):
+        for _ in range(7):
+            MissionFactory()
+
+        self.client.force_authenticate(self.dispatcher)
+
+        response = self.client.get(self.url, {"page_size": 3})
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data["results"]), 3)
+
+    def test_pagination_page_size_capped_at_max(self):
+        for _ in range(3):
+            MissionFactory()
+
+        self.client.force_authenticate(self.dispatcher)
+
+        response = self.client.get(self.url, {"page_size": 500})
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data["results"]), 3)
+
+
+class MissionDetailTests(APITestCase):
+    """GET /api/missions/{id}/ — retrieve detail."""
+
+    def setUp(self):
+        self.viewer = ViewerUserFactory()
+        self.mission = MissionFactory(title="Detail Mission")
+
+        self.url = reverse(
+            "missions:mission-detail",
+            kwargs={"pk": self.mission.pk},
+        )
+
+    def test_unauthenticated_cannot_retrieve(self):
+        response = self.client.get(self.url)
+
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_authenticated_user_can_retrieve(self):
+        self.client.force_authenticate(self.viewer)
+
+        response = self.client.get(self.url)
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["id"], self.mission.pk)
+        self.assertEqual(response.data["title"], "Detail Mission")
+
+    def test_nonexistent_mission_returns_404(self):
+        self.client.force_authenticate(self.viewer)
+
+        url = reverse("missions:mission-detail", kwargs={"pk": 99999})
+
+        response = self.client.get(url)
+
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)

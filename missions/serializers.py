@@ -9,9 +9,15 @@ from accounts.permissions import get_user_role_code
 from drones.models import Drone
 from roles.models import COMMANDER_CODE, OPERATOR_CODE
 
-from .models import Condition, Mission, MissionDrone, Result, Status, MISSION_STATUS_TRANSITIONS
+from .models import (
+    MISSION_STATUS_TRANSITIONS,
+    Condition,
+    Mission,
+    MissionDrone,
+    Result,
+    Status,
+)
 from .services import (
-    _check_overlap,
     assign_drone_to_mission,
     record_drone_condition,
     record_mission_outcome,
@@ -258,6 +264,10 @@ class MissionOutcomeSerializer(serializers.ModelSerializer):
                     ),
                 },
             )
+        if "result" not in attrs:
+            raise serializers.ValidationError(
+                {"result": "This field is required."},
+            )
         return attrs
 
     def update(self, instance, validated_data):
@@ -310,8 +320,8 @@ class MissionDroneConditionSerializer(serializers.ModelSerializer):
             condition_description=validated_data.get("condition_description"),
             action_user=action_user,
         )
-    
-    
+
+
 class MissionStatusUpdateSerializer(serializers.ModelSerializer):
     class Meta:
         model = Mission
