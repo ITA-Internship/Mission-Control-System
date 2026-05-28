@@ -5,21 +5,29 @@ from django.utils import timezone
 from rest_framework import serializers
 
 from accounts.permissions import get_user_role_code
-from roles.models import COMMANDER_CODE
+from drones.models import Drone
+from roles.models import COMMANDER_CODE, OPERATOR_CODE
 
-from .models import Mission
+from .models import Mission, MissionDrone
+from .services import assign_drone_to_mission
 
 User = get_user_model()
 
 TITLE_MIN_LENGTH = 3
 STARTED_AT_GRACE_PERIOD = timedelta(seconds=60)
-# COMMANDER_PERMISSION = "missions.command_mission"
 
 
 class UserBriefSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
         fields = ["id", "username", "email"]
+        read_only_fields = fields
+
+
+class DroneBriefSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Drone
+        fields = ["id", "name", "serial_number", "drone_model", "status"]
         read_only_fields = fields
 
 
@@ -39,6 +47,7 @@ class MissionSerializer(serializers.ModelSerializer):
         fields = [
             "id",
             "title",
+            "commander",
             "commander_id",
             "status",
             "result",
@@ -106,3 +115,52 @@ class MissionSerializer(serializers.ModelSerializer):
             )
 
         return attrs
+
+
+class MissionDroneSerializer(serializers.ModelSerializer):
+    drone_details = DroneBriefSerializer(source="drone", read_only=True)
+    operator_details = UserBriefSerializer(source="operator", read_only=True)
+
+    class Meta:
+        model = MissionDrone
+        fields = [
+            "id",
+            "mission",
+            "drone",
+            "drone_details",
+            "operator",
+            "operator_details",
+            "condition_after",
+            "condition_description",
+            "flight_started_at",
+            "flight_ended_at",
+            "created_at",
+        ]
+        read_only_fields = ["id", "mission", "created_at"]
+
+    def validate(self, attrs):
+        operator = attrs.get("operator")
+
+        if operator:
+            if get_user_role_code(operator) != OPERATOR_CODE:
+                raise serializers.ValidationError(
+                    {"operator": "Selected user does not have the Operator role."}
+                )
+
+        return attrs
+
+    def create(self, validated_data):
+        request = self.context.get("request")
+        action_user = request.user if request else None
+
+        mission = validated_data.pop("mission", None) or self.context.get("mission")
+        drone = validated_data.pop("drone")
+        operator = validated_data.pop("operator")
+
+        return assign_drone_to_mission(
+            mission=mission,
+            drone=drone,
+            operator=operator,
+            action_user=action_user,
+            extra_fields=validated_data if validated_data else None,
+        )
