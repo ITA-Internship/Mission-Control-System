@@ -7,6 +7,7 @@ from .views import (
     MissionDroneConditionView,
     MissionListCreateView,
     MissionOutcomeView,
+    MissionStatusUpdateView,
 )
 
 app_name = "missions"
@@ -18,6 +19,11 @@ urlpatterns = [
         "<int:pk>/outcome/",
         MissionOutcomeView.as_view(),
         name="mission-outcome",
+    ),
+    path(
+        "<int:pk>/status/",
+        MissionStatusUpdateView.as_view(),
+        name="mission-status-update",
     ),
     path(
         "<int:mission_pk>/assignments/",

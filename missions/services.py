@@ -22,6 +22,10 @@ def _check_overlap(mission, operator=None, drone=None):
     """Check whether a drone or operator has a scheduling conflict
     with another PLANNED / ACTIVE mission.
 
+    Two intervals overlap when each one starts before the other ends.
+    Open-ended missions (``ended_at IS NULL``) are treated as extending
+    indefinitely into the future.
+
     Requires that ``mission.started_at`` is set (the caller must
     validate this before invoking the helper).
     """
@@ -40,14 +44,16 @@ def _check_overlap(mission, operator=None, drone=None):
     m_start = mission.started_at
     m_end = mission.ended_at
 
-    q_objects = Q()
+    time_filter = Q()
+
     if m_end:
-        q_objects &= Q(mission__started_at__lt=m_end)
-    q_objects &= Q(mission__ended_at__isnull=True) | Q(
+        time_filter &= Q(mission__started_at__lt=m_end)
+
+    time_filter &= Q(mission__ended_at__isnull=True) | Q(
         mission__ended_at__gt=m_start,
     )
 
-    return overlapping.filter(q_objects).exists()
+    return overlapping.filter(time_filter).exists()
 
 
 def assign_drone_to_mission(
@@ -58,13 +64,8 @@ def assign_drone_to_mission(
     action_user=None,
     extra_fields=None,
 ):
-    """Assign a drone + operator to a mission inside a single
-    ``SELECT … FOR UPDATE`` transaction that eliminates TOCTOU races.
 
-    Returns the created ``MissionDrone`` instance.
-    """
     with transaction.atomic():
-        # Lock all three rows to prevent concurrent mutations.
         locked_mission = Mission.objects.select_for_update().get(
             id=mission.id,
         )
