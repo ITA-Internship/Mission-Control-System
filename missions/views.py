@@ -4,7 +4,11 @@ from rest_framework.exceptions import ValidationError
 from rest_framework.pagination import PageNumberPagination
 
 from accounts.permissions import HasRBACPermission
-from accounts.rbac import PERMISSION_MISSIONS_UPDATE_STATUS
+from accounts.rbac import (
+    PERMISSION_MISSIONS_RECORD_CONDITION,
+    PERMISSION_MISSIONS_RECORD_OUTCOME,
+    PERMISSION_MISSIONS_UPDATE_STATUS,
+)
 from drones.models import Drone
 
 from .models import Mission, MissionAuditLog, MissionDrone, Status
@@ -25,6 +29,14 @@ from .services import unassign_drone_from_mission
 
 class MissionsUpdateStatusRBAC(HasRBACPermission):
     required_permission = PERMISSION_MISSIONS_UPDATE_STATUS
+
+
+class MissionsRecordOutcomeRBAC(HasRBACPermission):
+    required_permission = PERMISSION_MISSIONS_RECORD_OUTCOME
+
+
+class MissionsRecordConditionRBAC(HasRBACPermission):
+    required_permission = PERMISSION_MISSIONS_RECORD_CONDITION
 
 
 class MissionPagination(PageNumberPagination):
@@ -78,7 +90,7 @@ class MissionOutcomeView(generics.UpdateAPIView):
     serializer_class = MissionOutcomeSerializer
     permission_classes = [
         permissions.IsAuthenticated,
-        MissionsUpdateStatusRBAC,
+        MissionsRecordOutcomeRBAC,
         IsAssignedOperatorOrAdmin,
     ]
     queryset = Mission.objects.with_related()
@@ -89,7 +101,7 @@ class MissionDroneConditionView(generics.UpdateAPIView):
     serializer_class = MissionDroneConditionSerializer
     permission_classes = [
         permissions.IsAuthenticated,
-        MissionsUpdateStatusRBAC,
+        MissionsRecordConditionRBAC,
         IsAssignedOperatorOrAdmin,
     ]
     lookup_url_kwarg = "assignment_id"

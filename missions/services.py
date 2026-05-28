@@ -213,7 +213,7 @@ def record_drone_condition(
     with transaction.atomic():
         locked_assignment = (
             MissionDrone.objects.select_for_update()
-            .select_related("drone", "mission")
+            .select_related("mission")
             .get(id=assignment.id)
         )
         locked_mission = Mission.objects.select_for_update().get(
@@ -231,7 +231,17 @@ def record_drone_condition(
             )
 
         previous_condition = locked_assignment.condition_after
-        previous_drone_status = locked_assignment.drone.status
+
+        if previous_condition == Condition.LOST and condition_after != Condition.LOST:
+            raise serializers.ValidationError(
+                {
+                    "condition_after": (
+                        "Cannot reverse a 'lost' condition: a writeoff record "
+                        "has been created and requires a manual reversal "
+                        "process."
+                    ),
+                },
+            )
 
         locked_assignment.condition_after = condition_after
         update_fields = ["condition_after"]
@@ -243,6 +253,7 @@ def record_drone_condition(
         locked_drone = Drone.objects.select_for_update().get(
             id=locked_assignment.drone_id,
         )
+        previous_drone_status = locked_drone.status
 
         is_lost = condition_after == Condition.LOST
         writeoff_reason = (
