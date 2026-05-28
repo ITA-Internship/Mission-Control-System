@@ -5,6 +5,7 @@ from .views import (
     MissionAssignmentListCreateView,
     MissionDetailView,
     MissionListCreateView,
+    MissionStatusUpdateView,
 )
 
 app_name = "missions"
@@ -12,6 +13,11 @@ app_name = "missions"
 urlpatterns = [
     path("", MissionListCreateView.as_view(), name="mission-list-create"),
     path("<int:pk>/", MissionDetailView.as_view(), name="mission-detail"),
+    path(
+        "<int:pk>/status/",
+        MissionStatusUpdateView.as_view(),
+        name="mission-status-update",
+    ),
     path(
         "<int:mission_pk>/assignments/",
         MissionAssignmentListCreateView.as_view(),

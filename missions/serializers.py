@@ -1,6 +1,7 @@
 from datetime import timedelta
 
 from django.contrib.auth import get_user_model
+from django.db.models import Q
 from django.utils import timezone
 from rest_framework import serializers
 
@@ -8,7 +9,7 @@ from accounts.permissions import get_user_role_code
 from drones.models import Drone
 from roles.models import COMMANDER_CODE, OPERATOR_CODE
 
-from .models import Mission, MissionDrone
+from .models import MISSION_STATUS_TRANSITIONS, Mission, MissionDrone, Status
 from .services import assign_drone_to_mission
 
 User = get_user_model()
@@ -31,7 +32,41 @@ class DroneBriefSerializer(serializers.ModelSerializer):
         read_only_fields = fields
 
 
+class MissionDroneInputSerializer(serializers.ModelSerializer):
+    drone_id = serializers.PrimaryKeyRelatedField(
+        queryset=Drone.objects.all(), source="drone"
+    )
+    operator_id = serializers.PrimaryKeyRelatedField(
+        queryset=User.objects.all(), source="operator", required=False, allow_null=True
+    )
+
+    class Meta:
+        model = MissionDrone
+        fields = ["drone_id", "operator_id"]
+
+    def validate_operator_id(self, user):
+        if user is None:
+            return user
+
+        role = getattr(user, "role", None)
+        if not role:
+            raise serializers.ValidationError(
+                "Selected user does not have any role assigned."
+            )
+
+        if role.code != OPERATOR_CODE:
+            raise serializers.ValidationError(
+                "Selected user does not have the Operator role."
+            )
+        return user
+
+
 class MissionSerializer(serializers.ModelSerializer):
+
+    drones = MissionDroneInputSerializer(
+        source="mission_drones", many=True, required=False
+    )
+
     commander = UserBriefSerializer(read_only=True)
     commander_id = serializers.PrimaryKeyRelatedField(
         source="commander",
@@ -60,6 +95,7 @@ class MissionSerializer(serializers.ModelSerializer):
             "created_by",
             "created_at",
             "updated_at",
+            "drones",
         ]
         read_only_fields = [
             "id",
@@ -69,6 +105,35 @@ class MissionSerializer(serializers.ModelSerializer):
             "created_at",
             "updated_at",
         ]
+
+    def create(self, validated_data):
+        drones_data = validated_data.pop("mission_drones", [])
+
+        mission = Mission.objects.create(**validated_data)
+
+        for drone_item in drones_data:
+            MissionDrone.objects.create(
+                mission=mission,
+                drone=drone_item["drone"],
+                operator=drone_item.get("operator"),
+            )
+
+        return mission
+
+    def update(self, instance, validated_data):
+        if "mission_drones" in validated_data:
+            drones_data = validated_data.pop("mission_drones")
+
+            instance.mission_drones.all().delete()
+
+            for drone_item in drones_data:
+                MissionDrone.objects.create(
+                    mission=instance,
+                    drone=drone_item["drone"],
+                    operator=drone_item.get("operator"),
+                )
+
+        return super().update(instance, validated_data)
 
     def validate_title(self, value):
         stripped = (value or "").strip()
@@ -114,7 +179,75 @@ class MissionSerializer(serializers.ModelSerializer):
                 "latitude and longitude must be provided together."
             )
 
+        drones_data = attrs.get("mission_drones", [])
+        started_at = attrs.get("started_at")
+        ended_at = attrs.get("ended_at")
+
+        if self.instance:
+            if "started_at" not in attrs:
+                started_at = self.instance.started_at
+            if "ended_at" not in attrs:
+                ended_at = self.instance.ended_at
+
+        drone_ids = [item["drone"].id for item in drones_data if "drone" in item]
+        operator_ids = [
+            item["operator"].id for item in drones_data if item.get("operator")
+        ]
+
+        if drone_ids or operator_ids:
+            time_overlap = Q(mission__started_at__lte=ended_at) if ended_at else Q()
+            time_overlap &= Q(mission__ended_at__gte=started_at) | Q(
+                mission__ended_at__isnull=True
+            )
+
+            conflicting_links = MissionDrone.objects.filter(
+                mission__status__in=[Status.PLANNED, Status.ACTIVE]
+            ).filter(time_overlap)
+
+            if self.instance:
+                conflicting_links = conflicting_links.exclude(mission=self.instance)
+
+            busy_drones = (
+                conflicting_links.filter(drone_id__in=drone_ids)
+                .values_list("drone__name", flat=True)
+                .distinct()
+            )
+
+            if busy_drones:
+                raise serializers.ValidationError(
+                    "The following drones are already booked for"
+                    f"overlapping missions: {', '.join(busy_drones)}."
+                )
+
+            busy_operators = (
+                conflicting_links.filter(operator_id__in=operator_ids)
+                .values_list("operator__username", flat=True)
+                .distinct()
+            )
+
+            if busy_operators:
+                raise serializers.ValidationError(
+                    f"The following operators are already assigned to "
+                    f"overlapping missions: {', '.join(busy_operators)}."
+                )
+
         return attrs
+
+
+class MissionStatusUpdateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Mission
+        fields = ["status"]
+
+    def validate_status(self, value):
+        current_status = self.instance.status
+        allowed_transitions = MISSION_STATUS_TRANSITIONS.get(current_status, [])
+
+        if value not in allowed_transitions:
+            raise serializers.ValidationError(
+                f"Cannot change status from '{current_status}' to '{value}'."
+            )
+        return value
 
 
 class MissionDroneSerializer(serializers.ModelSerializer):

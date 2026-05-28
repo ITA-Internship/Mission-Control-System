@@ -2,11 +2,26 @@ from django.conf import settings
 from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
 
+from drones.models import Drone
+
+
+def get_default_changes():
+    return {}
+
 
 class Status(models.TextChoices):
     PLANNED = "planned", "Planned"
     ACTIVE = "active", "Active"
     COMPLETED = "completed", "Completed"
+    ABORTED = "aborted", "Aborted"
+
+
+MISSION_STATUS_TRANSITIONS = {
+    Status.PLANNED: [Status.ACTIVE, Status.ABORTED],
+    Status.ACTIVE: [Status.COMPLETED, Status.ABORTED],
+    Status.COMPLETED: [],
+    Status.ABORTED: [],
+}
 
 
 class Result(models.TextChoices):
@@ -89,17 +104,25 @@ class Mission(models.Model):
 
 class MissionDrone(models.Model):
     mission = models.ForeignKey(
-        Mission, on_delete=models.CASCADE, related_name="assignments"
+        Mission, on_delete=models.CASCADE, related_name="mission_drones"
     )
+
     drone = models.ForeignKey(
         "drones.Drone", on_delete=models.PROTECT, related_name="mission_assignments"
     )
+
     operator = models.ForeignKey(
         settings.AUTH_USER_MODEL,
-        on_delete=models.PROTECT,
-        related_name="drone_assignments",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="operated_mission_drones",
     )
-    condition_after = models.CharField(max_length=255, null=True, blank=True)
+
+    condition_after = models.CharField(
+        max_length=20, choices=Drone.STATUS_CHOICES, default="ACTIVE"
+    )
+
     condition_description = models.TextField(null=True, blank=True)
     flight_started_at = models.DateTimeField(null=True, blank=True)
     flight_ended_at = models.DateTimeField(null=True, blank=True)
@@ -115,6 +138,22 @@ class MissionDrone(models.Model):
 
     def __str__(self):
         return f"{self.mission.title} - {self.drone} (Operator: {self.operator})"
+
+
+class MissionAuditLog(models.Model):
+    user = models.ForeignKey(
+        "accounts.User",
+        on_delete=models.SET_NULL,
+        null=True,
+    )
+    action = models.CharField(max_length=255)
+    target_model = models.CharField(max_length=100)
+    target_id = models.IntegerField()
+    changes = models.JSONField(default=get_default_changes)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"{self.action} on {self.target_model} (ID: {self.target_id})"
 
 
 class AuditLog(models.Model):
