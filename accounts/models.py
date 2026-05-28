@@ -54,7 +54,11 @@ class UserProfile(models.Model):
     )
     rank = models.CharField(max_length=100, blank=True)
     contact = models.CharField(max_length=255, blank=True)
-    profile_picture = models.URLField(blank=True)
+    profile_picture = models.ImageField(
+        upload_to="profile_pictures/",
+        blank=True,
+        null=True,
+    )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

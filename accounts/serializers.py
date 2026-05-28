@@ -1,13 +1,13 @@
 from rest_framework import serializers
 
-from .models import AuditLog, User
+from .models import AuditLog, User, UserProfile
 from .services import create_user_account
 
 
 class UserRegistrationSerializer(serializers.ModelSerializer):
     rank = serializers.CharField(required=False, allow_blank=True)
     contact = serializers.CharField(required=False, allow_blank=True)
-    profile_picture = serializers.URLField(required=False, allow_blank=True)
+    profile_picture = serializers.ImageField(required=False, allow_null=True)
 
     class Meta:
         model = User
@@ -93,3 +93,57 @@ class AuditLogSerializer(serializers.ModelSerializer):
             "user_agent",
             "created_at",
         ]
+
+
+class UserMeSerializer(serializers.ModelSerializer):
+    rank = serializers.CharField(
+        source="profile.rank", required=False, allow_blank=True
+    )
+    contact = serializers.CharField(
+        source="profile.contact", required=False, allow_blank=True
+    )
+    profile_picture = serializers.ImageField(
+        source="profile.profile_picture", required=False, allow_null=True
+    )
+
+    class Meta:
+        model = User
+        fields = (
+            "id",
+            "username",
+            "email",
+            "first_name",
+            "last_name",
+            "rank",
+            "contact",
+            "profile_picture",
+            "role",
+            "unit",
+            "is_active",
+        )
+        read_only_fields = (
+            "id",
+            "username",
+            "email",
+            "role",
+            "unit",
+            "is_active",
+            "is_staff",
+            "is_superuser",
+            "created_by",
+        )
+
+        def update(self, instance, validated_data):
+            profile_data = validated_data.pop("profile", None)
+
+            for attr, value in validated_data.items():
+                setattr(instance, attr, value)
+            instance.save()
+
+            if profile_data is not None:
+                profile, created = UserProfile.objects.get_or_create(user=instance)
+                for attr, value in profile_data.items():
+                    setattr(profile, attr, value)
+                profile.save()
+
+            return instance
