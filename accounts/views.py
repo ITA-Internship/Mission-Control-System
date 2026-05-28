@@ -21,6 +21,7 @@ from .permissions import HasRBACPermission, IsSystemAdmin
 from .rbac import PERMISSION_USERS_CREATE, PERMISSION_USERS_MANAGE_ROLES
 from .serializers import (
     AuditLogSerializer,
+    UserMeSerializer,
     UserRegistrationSerializer,
     UserRoleUpdateResponseSerializer,
     UserRoleUpdateSerializer,
@@ -248,3 +249,23 @@ class UserStatusUpdateView(APIView):
             data = session.get_decoded()
             if str(user.pk) == str(data.get("_auth_user_id")):
                 session.delete()
+
+
+class UserMeView(generics.RetrieveUpdateAPIView):
+    serializer_class = UserMeSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_object(self):
+        return self.request.user
+
+    def perform_update(self, serializer):
+        updated_user = serializer.save()
+
+        create_audit_log(
+            actor=self.request.user,
+            action_type=AuditLog.ActionType.PROFILE_UPDATED,
+            result=AuditLog.ResultStatus.SUCCESS,
+            target_user=updated_user,
+            description="User updated their basic profile information.",
+            request=self.request,
+        )
