@@ -52,6 +52,7 @@ INSTALLED_APPS = [
     "missions",
     "rest_framework",
     "django_filters",
+    "common",
 ]
 
 MIDDLEWARE = [

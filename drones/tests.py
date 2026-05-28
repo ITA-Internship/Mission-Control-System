@@ -4,6 +4,7 @@ from django.urls import reverse
 from rest_framework import status
 from rest_framework.test import APITestCase
 
+from common.pagination import StandardResultsSetPagination
 from drones.factories import (
     AdminUserFactory,
     DroneFactory,
@@ -213,7 +214,7 @@ class DroneUpdateAndDecommissionTests(APITestCase):
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
 
-        returned_ids = [drone["id"] for drone in response.data]
+        returned_ids = [drone["id"] for drone in response.data["results"]]
 
         self.assertIn(self.drone.id, returned_ids)
         self.assertNotIn(inactive_drone.id, returned_ids)
@@ -303,3 +304,81 @@ class DroneUpdateAndDecommissionTests(APITestCase):
         self.assertEqual(writeoff_record.reason, "Original reason")
         self.assertEqual(writeoff_record.document_number, "WO-2026-001")
         self.assertEqual(str(writeoff_record.written_off_at), "2026-05-17")
+
+
+class DroneSearchTests(APITestCase):
+    def setUp(self):
+        self.create_url = reverse("drones:drone-create")
+        self.military_unit = MilitaryUnitFactory()
+        self.page_size = StandardResultsSetPagination.page_size
+        self.drones = DroneFactory.create_batch(
+            self.page_size + 1, military_unit=self.military_unit
+        )
+        self.user = ViewerUserFactory()
+        self.client.force_authenticate(self.user)
+
+    def test_get_drone_list(self):
+        response = self.client.get(self.create_url)
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+    def test_pagination_get_first_page(self):
+        response = self.client.get(self.create_url)
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["count"], self.page_size + 1)
+        self.assertEqual(
+            len(response.data["results"]),
+            self.page_size,
+        )
+        self.assertIsNotNone(response.data["next"])
+        self.assertIsNone(response.data["previous"])
+
+    def test_pagination_get_second_page(self):
+        response = self.client.get(self.create_url, {"page": 2})
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(
+            len(response.data["results"]),
+            1,
+        )
+        self.assertIsNotNone(response.data["previous"])
+
+    def test_pagination_get_non_existing_page(self):
+        response = self.client.get(self.create_url, {"page": 10})
+
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+
+    def test_filtering_exact_field(self):
+        response = self.client.get(self.create_url, {"status": self.drones[0].status})
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        for item in response.data["results"]:
+            self.assertEqual(item["status"], self.drones[0].status)
+
+    def test_filtering_icontains_field(self):
+        serial = self.drones[0].serial_number[:3]
+        response = self.client.get(
+            self.create_url, {"serial_number__icontains": serial}
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        for item in response.data["results"]:
+            self.assertIn(serial.lower(), item["serial_number"].lower())
+
+    def test_ordering(self):
+        response = self.client.get(self.create_url, {"ordering": "name"})
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        results = response.data["results"]
+        names = [d["name"] for d in results]
+        self.assertEqual(names, sorted(names))
+
+    def test_filtering_inactive_drones(self):
+        inactive_drone = DroneFactory(status="WRITTEN_OFF")
+
+        response = self.client.get(self.create_url, {"status": "WRITTEN_OFF"})
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        results_ids = [item["id"] for item in response.data["results"]]
+        self.assertIn(inactive_drone.id, results_ids)

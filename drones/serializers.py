@@ -121,6 +121,7 @@ class DroneUpdateSerializer(serializers.ModelSerializer):
             "inventory_number",
             "name",
             "drone_model",
+            "classification",
             "status",
             "military_unit",
             "acquired_at",
@@ -205,3 +206,19 @@ class DroneUpdateSerializer(serializers.ModelSerializer):
 
     def to_representation(self, instance):
         return DroneSerializer(instance, context=self.context).data
+
+
+class DroneListSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Drone
+        fields = (
+            "id",
+            "serial_number",
+            "inventory_number",
+            "name",
+            "drone_model",
+            "classification",
+            "status",
+            "military_unit",
+            "created_at",
+        )

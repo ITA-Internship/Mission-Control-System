@@ -1,21 +1,37 @@
-from rest_framework import generics
+from django_filters.rest_framework import DjangoFilterBackend
+from rest_framework import filters, generics
 
+from common.pagination import StandardResultsSetPagination
+
+from .filters import DroneFilter
 from .models import Drone
 from .permissions import DronePermission
-from .serializers import DroneSerializer, DroneUpdateSerializer
+from .serializers import DroneListSerializer, DroneSerializer, DroneUpdateSerializer
 
 
-class DroneCreateView(generics.ListCreateAPIView):
+class DroneListCreateView(generics.ListCreateAPIView):
     serializer_class = DroneSerializer
     permission_classes = [DronePermission]
+    filter_backends = (
+        DjangoFilterBackend,
+        filters.OrderingFilter,
+    )
+    filterset_class = DroneFilter
+    pagination_class = StandardResultsSetPagination
+    ordering_fields = ["created_at", "status", "name", "classification"]
 
     def get_queryset(self):
         return (
             Drone.objects.select_related("military_unit")
             .prefetch_related("status_history")
-            .exclude(status__in=Drone.INACTIVE_STATUSES)
             .order_by("id")
         )
+
+    def get_serializer_class(self):
+        if self.request.method == "GET":
+            return DroneListSerializer
+
+        return self.serializer_class
 
 
 class DroneDetailView(generics.RetrieveUpdateAPIView):
