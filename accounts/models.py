@@ -130,3 +130,87 @@ class UserRoleAuditLog(models.Model):
             f"Role change for {target_username}: "
             f"{previous_role_name} -> {new_role_name}"
         )
+
+
+class AuditLogQuerySet(models.QuerySet):
+    def delete(self):
+        raise ValueError("AuditLog entries are immutable and cannot be deleted.")
+
+    def update(self, **kwargs):
+        raise ValueError("AuditLog entries are immutable and cannot be updated.")
+
+
+class AuditLogManager(models.Manager):
+    def get_queryset(self):
+        return AuditLogQuerySet(self.model, using=self._db)
+
+
+class AuditLog(models.Model):
+    class ActionType(models.TextChoices):
+        LOGIN_SUCCESS = "LOGIN_SUCCESS", "Login Success"
+        LOGIN_FAILED = "LOGIN_FAILED", "Login Failed"
+        LOGOUT = "LOGOUT", "Logout"
+        USER_CREATED = "USER_CREATED", "User Created"
+        ROLE_CHANGED = "ROLE_CHANGED", "Role Changed"
+        ACCOUNT_ACTIVATED = "ACCOUNT_ACTIVATED", "Account Activated"
+        ACCOUNT_DEACTIVATED = "ACCOUNT_DEACTIVATED", "Account Deactivated"
+        PROFILE_UPDATED = "PROFILE_UPDATED", "Profile Updated"
+        PASSWORD_CHANGED = "PASSWORD_CHANGED", "Password Changed"
+        PASSWORD_RESET_REQUESTED = (
+            "PASSWORD_RESET_REQUESTED",
+            "Password Reset Requested",
+        )
+        PERMISSION_DENIED = "PERMISSION_DENIED", "Permission Denied"
+
+    class ResultStatus(models.TextChoices):
+        SUCCESS = "SUCCESS", "Success"
+        FAILED = "FAILED", "Failed"
+
+    actor = models.ForeignKey(
+        "accounts.User",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="actions_performed",
+        help_text="User performing the action (can be Null for system actions)",
+    )
+    target_user = models.ForeignKey(
+        "accounts.User",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="actions_received",
+        help_text="User on whom the action was taken",
+    )
+    action_type = models.CharField(
+        max_length=50, choices=ActionType.choices, db_index=True
+    )
+    result = models.CharField(
+        max_length=20, choices=ResultStatus.choices, db_index=True
+    )
+    description = models.TextField(blank=True)
+    ip_address = models.GenericIPAddressField(null=True, blank=True)
+    user_agent = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+
+    objects = AuditLogManager()
+
+    class Meta:
+        ordering = ("-created_at",)
+        verbose_name = "Audit Log"
+        verbose_name_plural = "Audit Logs"
+
+    def __str__(self) -> str:
+        actor_name = self.actor.username if self.actor else "System/Anonymous"
+        return (
+            f"[{self.created_at.strftime('%Y-%m-%d %H:%M:%S')}] "
+            f"{actor_name} - {self.action_type} ({self.result})"
+        )
+
+    def save(self, *args, **kwargs):
+        if not self._state.adding:
+            raise ValueError("AuditLog entries are immutable and cannot be updated.")
+        super().save(*args, **kwargs)
+
+    def delete(self, *args, **kwargs):
+        raise ValueError("AuditLog entries are immutable and cannot be deleted.")
