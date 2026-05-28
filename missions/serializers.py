@@ -8,8 +8,8 @@ from accounts.permissions import get_user_role_code
 from drones.models import Drone
 from roles.models import COMMANDER_CODE, OPERATOR_CODE
 
-from .models import Mission, MissionDrone, Status
-from .services import _check_overlap, assign_drone_to_mission
+from .models import Mission, MissionDrone
+from .services import assign_drone_to_mission
 
 User = get_user_model()
 
@@ -139,49 +139,12 @@ class MissionDroneSerializer(serializers.ModelSerializer):
         read_only_fields = ["id", "mission", "created_at"]
 
     def validate(self, attrs):
-        drone = attrs.get("drone")
         operator = attrs.get("operator")
-        mission = self.context.get("mission")
-
-        if not mission:
-            raise serializers.ValidationError(
-                {"mission": "Mission context is required for assignment validation."}
-            )
-
-        if mission.status != Status.PLANNED:
-            raise serializers.ValidationError(
-                {"mission": "Assignments can only be added to planned missions."}
-            )
-
-        if not mission.started_at:
-            raise serializers.ValidationError(
-                {
-                    "mission": (
-                        "Mission must have a start time before "
-                        "assigning drones or operators."
-                    ),
-                }
-            )
-
-        if drone and drone.status != Drone.STATUS_ACTIVE:
-            raise serializers.ValidationError({"drone": "Drone must be active."})
 
         if operator:
             if get_user_role_code(operator) != OPERATOR_CODE:
                 raise serializers.ValidationError(
                     {"operator": "Selected user does not have the Operator role."}
-                )
-
-        if operator and mission:
-            if _check_overlap(mission=mission, operator=operator):
-                raise serializers.ValidationError(
-                    {"operator": "Operator is busy during this time."}
-                )
-
-        if drone and mission:
-            if _check_overlap(mission=mission, drone=drone):
-                raise serializers.ValidationError(
-                    {"drone": "Drone is assigned to another mission during this time."}
                 )
 
         return attrs

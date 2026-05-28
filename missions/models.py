@@ -111,9 +111,6 @@ class MissionDrone(models.Model):
             models.UniqueConstraint(
                 fields=["mission", "drone"], name="unique_mission_drone"
             ),
-            models.UniqueConstraint(
-                fields=["mission", "operator"], name="unique_mission_operator"
-            ),
         ]
 
     def __str__(self):
