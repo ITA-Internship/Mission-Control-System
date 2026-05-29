@@ -4,6 +4,7 @@ from rest_framework.routers import DefaultRouter
 from .views import (
     ActivateAccountAPIView,
     AuditLogViewSet,
+    UserMeView,
     UserRegistrationView,
     UserRoleUpdateAPIView,
     UserStatusUpdateView,
@@ -16,6 +17,11 @@ router.register(r"audit-log", AuditLogViewSet, basename="audit-log")
 
 urlpatterns = [
     path("users/", UserRegistrationView.as_view(), name="user-create"),
+    path(
+        "users/me/",
+        UserMeView.as_view(),
+        name="user-me",
+    ),
     path(
         "users/<int:user_id>/role/",
         UserRoleUpdateAPIView.as_view(),
