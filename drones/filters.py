@@ -14,6 +14,12 @@ class DroneFilter(django_filters.FilterSet):
             "classification": ["exact"],
             "military_unit": ["exact"],
             "military_unit__name": ["icontains"],
+            "spec__max_speed_kmh": ["exact", "gte", "lte"],
+            "spec__typical_range_km": ["exact", "gte", "lte"],
+            "spec__max_range_km": ["exact", "gte", "lte"],
+            "spec__typical_flight_time_min": ["exact", "gte", "lte"],
+            "spec__max_flight_time_min": ["exact", "gte", "lte"],
+            "spec__payload_capacity_g": ["exact", "gte", "lte"],
         }
 
     @property
