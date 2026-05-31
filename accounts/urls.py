@@ -4,6 +4,7 @@ from rest_framework.routers import DefaultRouter
 from .views import (
     ActivateAccountAPIView,
     AuditLogViewSet,
+    ChangePasswordView,
     UserMeView,
     UserRegistrationView,
     UserRoleUpdateAPIView,
@@ -21,6 +22,11 @@ urlpatterns = [
         "users/me/",
         UserMeView.as_view(),
         name="user-me",
+    ),
+    path(
+        "users/me/change-password/",
+        ChangePasswordView.as_view(),
+        name="change-password",
     ),
     path(
         "users/<int:user_id>/role/",

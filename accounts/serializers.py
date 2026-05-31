@@ -1,3 +1,5 @@
+from django.contrib.auth.password_validation import validate_password
+from django.core.exceptions import ValidationError as DjangoValidationError
 from rest_framework import serializers
 
 from .models import AuditLog, User, UserProfile
@@ -133,17 +135,36 @@ class UserMeSerializer(serializers.ModelSerializer):
             "created_by",
         )
 
-        def update(self, instance, validated_data):
-            profile_data = validated_data.pop("profile", None)
+    def update(self, instance, validated_data):
+        profile_data = validated_data.pop("profile", None)
 
-            for attr, value in validated_data.items():
-                setattr(instance, attr, value)
-            instance.save()
+        for attr, value in validated_data.items():
+            setattr(instance, attr, value)
+        instance.save()
 
-            if profile_data is not None:
-                profile, created = UserProfile.objects.get_or_create(user=instance)
-                for attr, value in profile_data.items():
-                    setattr(profile, attr, value)
-                profile.save()
+        if profile_data is not None:
+            profile, created = UserProfile.objects.get_or_create(user=instance)
+            for attr, value in profile_data.items():
+                setattr(profile, attr, value)
+            profile.save()
 
-            return instance
+        return instance
+
+
+class ChangePasswordSerializer(serializers.Serializer):
+    old_password = serializers.CharField(required=True, write_only=True)
+    new_password = serializers.CharField(required=True, write_only=True)
+
+    def validate_old_password(self, value):
+        user = self.context["request"].user
+        if not user.check_password(value):
+            raise serializers.ValidationError("Incorrect old password.")
+        return value
+
+    def validate_new_password(self, value):
+        user = self.context["request"].user
+        try:
+            validate_password(value, user)
+        except DjangoValidationError as exc:
+            raise serializers.ValidationError(list(exc.messages))
+        return value

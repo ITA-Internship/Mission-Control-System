@@ -21,6 +21,7 @@ from .permissions import HasRBACPermission, IsSystemAdmin
 from .rbac import PERMISSION_USERS_CREATE, PERMISSION_USERS_MANAGE_ROLES
 from .serializers import (
     AuditLogSerializer,
+    ChangePasswordSerializer,
     UserMeSerializer,
     UserRegistrationSerializer,
     UserRoleUpdateResponseSerializer,
@@ -269,3 +270,41 @@ class UserMeView(generics.RetrieveUpdateAPIView):
             description="User updated their basic profile information.",
             request=self.request,
         )
+
+
+class ChangePasswordView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request):
+        serializer = ChangePasswordSerializer(
+            data=request.data, context={"request": request}
+        )
+
+        if serializer.is_valid():
+            user = request.user
+            user.set_password(serializer.validated_data["new_password"])
+            user.save()
+
+            create_audit_log(
+                actor=user,
+                action_type=AuditLog.ActionType.PASSWORD_CHANGED,
+                result=AuditLog.ResultStatus.SUCCESS,
+                target_user=user,
+                description="User successfully changed their password.",
+                request=request,
+            )
+
+            return Response(
+                {"detail": "Password has been successfully changed."},
+                status=status.HTTP_200_OK,
+            )
+
+        create_audit_log(
+            actor=request.user,
+            action_type=AuditLog.ActionType.PASSWORD_CHANGED,
+            result=AuditLog.ResultStatus.FAILED,
+            target_user=request.user,
+            description="Failed attempt to change password.",
+            request=request,
+        )
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
