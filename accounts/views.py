@@ -1,12 +1,16 @@
 import csv
 
+from django.conf import settings
 from django.contrib.auth.tokens import default_token_generator
 from django.contrib.sessions.models import Session
 from django.core.exceptions import ValidationError as DjangoValidationError
+from django.core.mail import send_mail
 from django.db.models import Q
 from django.http import StreamingHttpResponse
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
+from django.utils.encoding import force_bytes, force_str
+from django.utils.http import urlsafe_base64_decode, urlsafe_base64_encode
 from django_filters import rest_framework as filters
 from rest_framework import generics, permissions, status, viewsets
 from rest_framework.decorators import action
@@ -22,6 +26,8 @@ from .rbac import PERMISSION_USERS_CREATE, PERMISSION_USERS_MANAGE_ROLES
 from .serializers import (
     AuditLogSerializer,
     ChangePasswordSerializer,
+    PasswordResetConfirmSerializer,
+    PasswordResetRequestSerializer,
     UserMeSerializer,
     UserRegistrationSerializer,
     UserRoleUpdateResponseSerializer,
@@ -308,3 +314,104 @@ class ChangePasswordView(APIView):
             request=request,
         )
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+class PasswordResetRequestView(APIView):
+    permission_classes = [permissions.AllowAny]
+
+    def post(self, request):
+        serializer = PasswordResetRequestSerializer(data=request.data)
+        if serializer.is_valid():
+            email = serializer.validated_data["email"]
+            user = User.objects.filter(email__iexact=email).first()
+
+            if user:
+                uid = urlsafe_base64_encode(force_bytes(user.pk))
+                token = default_token_generator.make_token(user)
+
+                reset_link = f"{settings.FRONTEND_URL}/reset-password/{uid}/{token}/"
+
+                send_mail(
+                    subject="Password Reset Request",
+                    message=f"You requested a password reset. "
+                    f"Click the link below to reset your password:\n\n{reset_link}",
+                    from_email=settings.DEFAULT_FROM_EMAIL,
+                    recipient_list=[user.email],
+                    fail_silently=False,
+                )
+
+                create_audit_log(
+                    actor=None,
+                    action_type=AuditLog.ActionType.PASSWORD_RESET_REQUESTED,
+                    result=AuditLog.ResultStatus.SUCCESS,
+                    target_user=user,
+                    description="Password reset email sent.",
+                    request=request,
+                )
+
+            return Response(
+                {
+                    "detail": "If an account with this email exists, "
+                    "a password reset link has been sent."
+                },
+                status=status.HTTP_200_OK,
+            )
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+class PasswordResetConfirmView(APIView):
+    permission_classes = [permissions.AllowAny]
+
+    def post(self, request, uidb64, token):
+        serializer = PasswordResetConfirmSerializer(data=request.data)
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            uid = force_str(urlsafe_base64_decode(uidb64))
+            user = User.objects.get(pk=uid)
+        except (TypeError, ValueError, OverflowError, User.DoesNotExist):
+            user = None
+
+        if user is not None and default_token_generator.check_token(user, token):
+            new_password = serializer.validated_data["new_password"]
+            user.set_password(new_password)
+            user.save()
+
+            create_audit_log(
+                actor=user,
+                action_type=AuditLog.ActionType.PASSWORD_CHANGED,
+                result=AuditLog.ResultStatus.SUCCESS,
+                target_user=user,
+                description="Password successfully reset via email link.",
+                request=request,
+            )
+
+            send_mail(
+                subject="Password Changed Successfully",
+                message="Your password has been successfully updated. "
+                "If you did not make this change, contact support immediately.",
+                from_email=settings.DEFAULT_FROM_EMAIL,
+                recipient_list=[user.email],
+                fail_silently=True,
+            )
+
+            return Response(
+                {"detail": "Password has been reset successfully."},
+                status=status.HTTP_200_OK,
+            )
+
+        if user:
+            create_audit_log(
+                actor=None,
+                action_type=AuditLog.ActionType.PASSWORD_CHANGED,
+                result=AuditLog.ResultStatus.FAILED,
+                target_user=user,
+                description="Failed attempt to reset password (invalid/expired token).",
+                request=request,
+            )
+
+        return Response(
+            {"detail": "The reset link is invalid or has expired."},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
