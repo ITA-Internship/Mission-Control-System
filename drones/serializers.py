@@ -151,14 +151,8 @@ class DroneSerializer(serializers.ModelSerializer):
 
     def create(self, validated_data):
         spec_data = validated_data.pop("spec")
-        request = self.context.get("request")
-        user = getattr(request, "user", None)
 
-        return create_drone_with_spec(
-            drone_data=validated_data,
-            spec_data=spec_data,
-            user=user,
-        )
+        return create_drone_with_spec(drone_data=validated_data, spec_data=spec_data)
 
 
 class DroneUpdateSerializer(serializers.ModelSerializer):

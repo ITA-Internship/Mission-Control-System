@@ -1,5 +1,6 @@
 import copy
 
+from django.core.exceptions import ValidationError
 from django.urls import reverse
 from rest_framework import status
 from rest_framework.test import APITestCase
@@ -99,19 +100,15 @@ class DroneCreateTests(APITestCase):
             "https://example.com/drone-spec.pdf",
         )
 
-    def test_create_drone_spec_change_log_created(self):
-        response = self.client.post(self.create_url, self.base_payload, format="json")
+    def test_create_drone_does_not_create_spec_change_log(self):
+        response = self.client.post(
+            self.create_url,
+            self.base_payload,
+            format="json",
+        )
 
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
-        self.assertEqual(DroneSpecChangeLog.objects.count(), 1)
-
-        change_log = DroneSpecChangeLog.objects.first()
-        self.assertEqual(change_log.drone_spec, DroneSpec.objects.get())
-        self.assertEqual(change_log.changed_by, self.user)
-        self.assertIn("battery_model", change_log.changed_fields)
-        self.assertIn("camera_specs", change_log.changed_fields)
-        self.assertIn("additional_modules", change_log.changed_fields)
-        self.assertIn("technical_documentation_url", change_log.changed_fields)
+        self.assertEqual(DroneSpecChangeLog.objects.count(), 0)
 
     def test_create_drone_missing_required_field(self):
         payload = copy.deepcopy(self.base_payload)
@@ -283,6 +280,9 @@ class DroneUpdateAndDecommissionTests(APITestCase):
     def test_patch_drone_spec_creates_change_log(self):
         self.client.force_authenticate(self.admin_user)
 
+        old_battery_model = self.drone.spec.battery_model
+        old_camera_specs = self.drone.spec.camera_specs
+
         response = self.client.patch(
             self.detail_url,
             {
@@ -300,13 +300,28 @@ class DroneUpdateAndDecommissionTests(APITestCase):
         self.assertEqual(DroneSpecChangeLog.objects.count(), 1)
 
         change_log = DroneSpecChangeLog.objects.first()
+
         self.assertEqual(change_log.drone_spec, self.drone.spec)
         self.assertEqual(change_log.changed_by, self.admin_user)
         self.assertIn("battery_model", change_log.changed_fields)
         self.assertIn("camera_specs", change_log.changed_fields)
+
+        self.assertEqual(
+            change_log.old_values["battery_model"],
+            old_battery_model,
+        )
+        self.assertEqual(
+            change_log.old_values["camera_specs"],
+            old_camera_specs,
+        )
+
         self.assertEqual(
             change_log.new_values["battery_model"],
             "Updated Battery Model",
+        )
+        self.assertEqual(
+            change_log.new_values["camera_specs"],
+            {"resolution": "4K"},
         )
 
     def test_decommission_requires_reason(self):
@@ -454,6 +469,39 @@ class DroneUpdateAndDecommissionTests(APITestCase):
         self.assertEqual(writeoff_record.reason, "Original reason")
         self.assertEqual(writeoff_record.document_number, "WO-2026-001")
         self.assertEqual(str(writeoff_record.written_off_at), "2026-05-17")
+
+    def test_drone_spec_change_log_rejects_invalid_changed_fields(self):
+        change_log = DroneSpecChangeLog(
+            drone_spec=self.drone.spec,
+            changed_fields={"battery_model": "Updated Battery Model"},
+            old_values={},
+            new_values={},
+        )
+
+        with self.assertRaises(ValidationError):
+            change_log.full_clean()
+
+    def test_drone_spec_change_log_rejects_invalid_old_values(self):
+        change_log = DroneSpecChangeLog(
+            drone_spec=self.drone.spec,
+            changed_fields=["battery_model"],
+            old_values=[],
+            new_values={},
+        )
+
+        with self.assertRaises(ValidationError):
+            change_log.full_clean()
+
+    def test_drone_spec_change_log_rejects_invalid_new_values(self):
+        change_log = DroneSpecChangeLog(
+            drone_spec=self.drone.spec,
+            changed_fields=["battery_model"],
+            old_values={},
+            new_values=[],
+        )
+
+        with self.assertRaises(ValidationError):
+            change_log.full_clean()
 
 
 class DroneSearchTests(APITestCase):

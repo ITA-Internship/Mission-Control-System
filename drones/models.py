@@ -1,6 +1,7 @@
 import uuid
 
 from django.conf import settings
+from django.core.exceptions import ValidationError
 from django.db import models
 from django.utils import timezone
 
@@ -83,6 +84,29 @@ class DroneSpec(models.Model):
     technical_documentation_url = models.URLField(blank=True)
     updated_at = models.DateTimeField(auto_now=True)
 
+    def clean(self):
+        errors = {}
+
+        if not isinstance(self.camera_specs, dict):
+            errors["camera_specs"] = "camera_specs must be a JSON object."
+
+        if not isinstance(self.additional_modules, list):
+            errors["additional_modules"] = "additional_modules must be a JSON array."
+        else:
+            invalid_modules = [
+                index
+                for index, module in enumerate(self.additional_modules)
+                if not isinstance(module, dict)
+            ]
+
+            if invalid_modules:
+                errors["additional_modules"] = (
+                    "Each additional module must be a JSON object."
+                )
+
+        if errors:
+            raise ValidationError(errors)
+
     def __str__(self) -> str:
         return f"Specification for {self.drone}"
 
@@ -107,6 +131,35 @@ class DroneSpecChangeLog(models.Model):
 
     class Meta:
         ordering = ["-created_at"]
+        indexes = [
+            models.Index(
+                fields=["-created_at"],
+                name="dronespec_log_created_idx",
+            ),
+            models.Index(
+                fields=["drone_spec", "-created_at"],
+                name="dronespec_log_spec_created_idx",
+            ),
+            models.Index(
+                fields=["changed_by", "-created_at"],
+                name="dronespec_log_user_created_idx",
+            ),
+        ]
+
+    def clean(self):
+        errors = {}
+
+        if not isinstance(self.changed_fields, list):
+            errors["changed_fields"] = "changed_fields must be a list."
+
+        if not isinstance(self.old_values, dict):
+            errors["old_values"] = "old_values must be a JSON object."
+
+        if not isinstance(self.new_values, dict):
+            errors["new_values"] = "new_values must be a JSON object."
+
+        if errors:
+            raise ValidationError(errors)
 
     def __str__(self) -> str:
         return f"Spec changes for {self.drone_spec.drone}"
