@@ -80,8 +80,8 @@ class Mission(models.Model):
     started_at = models.DateTimeField(null=True, blank=True)
     ended_at = models.DateTimeField(null=True, blank=True)
 
-    notes = models.TextField(blank=True)
-    incident_notes = models.TextField(blank=True)
+    notes = models.TextField(blank=True, max_length=5000)
+    incident_notes = models.TextField(blank=True, max_length=5000)
 
     created_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,

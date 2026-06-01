@@ -160,14 +160,24 @@ def record_mission_outcome(
                 },
             )
 
+        if locked_mission.result:
+            raise serializers.ValidationError(
+                {
+                    "result": (
+                        "Outcome has already been recorded for this mission "
+                        "and cannot be overwritten."
+                    ),
+                },
+            )
+
         previous_result = locked_mission.result
         update_fields = ["result", "updated_at"]
         locked_mission.result = result
 
-        if notes is not None:
+        if notes:
             locked_mission.notes = notes
             update_fields.append("notes")
-        if incident_notes is not None:
+        if incident_notes:
             locked_mission.incident_notes = incident_notes
             update_fields.append("incident_notes")
 
@@ -211,13 +221,20 @@ def record_drone_condition(
     target_drone_status = CONDITION_TO_DRONE_STATUS[condition_after]
 
     with transaction.atomic():
+        fk_ids = MissionDrone.objects.values("mission_id", "drone_id").get(
+            id=assignment.id,
+        )
+
+        locked_mission = Mission.objects.select_for_update().get(
+            id=fk_ids["mission_id"],
+        )
+        locked_drone = Drone.objects.select_for_update().get(
+            id=fk_ids["drone_id"],
+        )
         locked_assignment = (
             MissionDrone.objects.select_for_update()
             .select_related("mission")
             .get(id=assignment.id)
-        )
-        locked_mission = Mission.objects.select_for_update().get(
-            id=locked_assignment.mission_id,
         )
 
         if locked_mission.status not in (Status.COMPLETED, Status.ABORTED):
@@ -243,6 +260,19 @@ def record_drone_condition(
                 },
             )
 
+        if (
+            condition_after == Condition.LOST
+            and locked_drone.status == Drone.STATUS_WRITTEN_OFF
+        ):
+            raise serializers.ValidationError(
+                {
+                    "condition_after": (
+                        "Drone is already written off; cannot record "
+                        "'lost' condition again."
+                    ),
+                },
+            )
+
         locked_assignment.condition_after = condition_after
         update_fields = ["condition_after"]
         if condition_description is not None:
@@ -250,25 +280,21 @@ def record_drone_condition(
             update_fields.append("condition_description")
         locked_assignment.save(update_fields=update_fields)
 
-        locked_drone = Drone.objects.select_for_update().get(
-            id=locked_assignment.drone_id,
-        )
         previous_drone_status = locked_drone.status
 
-        is_lost = condition_after == Condition.LOST
-        writeoff_reason = (
-            "Mission outcome: drone marked as lost"
-            if is_lost
-            else f"Mission outcome: condition_after={condition_after}"
-        )
+        writeoff_kwargs = {}
+        if condition_after == Condition.LOST:
+            writeoff_kwargs = {
+                "writeoff_reason": "Mission outcome: drone marked as lost",
+                "written_off_at": timezone.localdate(),
+            }
 
         update_drone(
             drone=locked_drone,
             drone_data={"status": target_drone_status},
             user=action_user,
             related_mission=locked_mission,
-            writeoff_reason=writeoff_reason,
-            written_off_at=timezone.localdate() if is_lost else None,
+            **writeoff_kwargs,
         )
 
         AuditLog.objects.create(

@@ -103,6 +103,7 @@ class MissionSerializer(serializers.ModelSerializer):
             "started_at",
             "ended_at",
             "notes",
+            "incident_notes",
             "created_by",
             "created_at",
             "updated_at",
@@ -254,6 +255,9 @@ class MissionOutcomeSerializer(serializers.ModelSerializer):
         read_only_fields = ["id", "status"]
 
     def validate(self, attrs):
+        # Fast-path guards on the unlocked instance. The authoritative status
+        # and overwrite checks run inside record_mission_outcome under
+        # select_for_update(); keep the rules in both layers in sync.
         instance = self.instance
         if instance and instance.status not in (Status.COMPLETED, Status.ABORTED):
             raise serializers.ValidationError(
@@ -264,10 +268,29 @@ class MissionOutcomeSerializer(serializers.ModelSerializer):
                     ),
                 },
             )
+        if instance and instance.result:
+            raise serializers.ValidationError(
+                {
+                    "result": (
+                        "Outcome has already been recorded for this mission "
+                        "and cannot be overwritten."
+                    ),
+                },
+            )
         if "result" not in attrs:
             raise serializers.ValidationError(
                 {"result": "This field is required."},
             )
+        if attrs["result"] == Result.FAILURE:
+            incident_notes = (attrs.get("incident_notes") or "").strip()
+            if not incident_notes:
+                raise serializers.ValidationError(
+                    {
+                        "incident_notes": (
+                            "Incident notes are required when result is 'failure'."
+                        ),
+                    },
+                )
         return attrs
 
     def update(self, instance, validated_data):
@@ -295,6 +318,9 @@ class MissionDroneConditionSerializer(serializers.ModelSerializer):
         read_only_fields = ["id"]
 
     def validate(self, attrs):
+        # Fast-path guard on the unlocked instance. The authoritative check
+        # runs inside record_drone_condition under select_for_update();
+        # keep the rules in both layers in sync.
         instance = self.instance
         if instance and instance.mission.status not in (
             Status.COMPLETED,

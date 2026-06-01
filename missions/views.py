@@ -93,7 +93,7 @@ class MissionOutcomeView(generics.UpdateAPIView):
         MissionsRecordOutcomeRBAC,
         IsAssignedOperatorOrAdmin,
     ]
-    queryset = Mission.objects.with_related()
+    queryset = Mission.objects.with_related().prefetch_related("mission_drones")
     http_method_names = ["patch", "options", "head"]
 
 
@@ -116,7 +116,7 @@ class MissionDroneConditionView(generics.UpdateAPIView):
 class MissionStatusUpdateView(generics.RetrieveUpdateAPIView):
     serializer_class = MissionStatusUpdateSerializer
     permission_classes = [permissions.IsAuthenticated, CanUpdateMissionStatus]
-    queryset = Mission.objects.all()
+    queryset = Mission.objects.prefetch_related("mission_drones")
 
     def update(self, request, *args, **kwargs):
         with transaction.atomic():
