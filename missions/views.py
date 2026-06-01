@@ -45,8 +45,12 @@ class MissionListCreateView(generics.ListCreateAPIView):
         if assigned_to:
             if assigned_to != "me":
                 raise ValidationError(
-                    f"Invalid value '{assigned_to}'. The only allowed value is 'me'."
+                    {
+                        "assigned_to": f"Invalid value '{assigned_to}'."
+                        "The only allowed value is 'me'."
+                    }
                 )
+
             user = self.request.user
             queryset = queryset.filter(mission_drones__operator_id=user.id).distinct()
 

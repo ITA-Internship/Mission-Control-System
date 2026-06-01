@@ -48,13 +48,7 @@ class MissionDroneInputSerializer(serializers.ModelSerializer):
         if user is None:
             return user
 
-        role = getattr(user, "role", None)
-        if not role:
-            raise serializers.ValidationError(
-                "Selected user does not have any role assigned."
-            )
-
-        if role.code != OPERATOR_CODE:
+        if get_user_role_code(user) != OPERATOR_CODE:
             raise serializers.ValidationError(
                 "Selected user does not have the Operator role."
             )
@@ -62,7 +56,6 @@ class MissionDroneInputSerializer(serializers.ModelSerializer):
 
 
 class MissionSerializer(serializers.ModelSerializer):
-
     drones = MissionDroneInputSerializer(
         source="mission_drones", many=True, required=False
     )
@@ -108,7 +101,6 @@ class MissionSerializer(serializers.ModelSerializer):
 
     def create(self, validated_data):
         drones_data = validated_data.pop("mission_drones", [])
-
         mission = Mission.objects.create(**validated_data)
 
         for drone_item in drones_data:
@@ -117,13 +109,11 @@ class MissionSerializer(serializers.ModelSerializer):
                 drone=drone_item["drone"],
                 operator=drone_item.get("operator"),
             )
-
         return mission
 
     def update(self, instance, validated_data):
         if "mission_drones" in validated_data:
             drones_data = validated_data.pop("mission_drones")
-
             instance.mission_drones.all().delete()
 
             for drone_item in drones_data:
@@ -132,7 +122,6 @@ class MissionSerializer(serializers.ModelSerializer):
                     drone=drone_item["drone"],
                     operator=drone_item.get("operator"),
                 )
-
         return super().update(instance, validated_data)
 
     def validate_title(self, value):
@@ -172,9 +161,7 @@ class MissionSerializer(serializers.ModelSerializer):
                 "Either location or latitude and longitude must be provided."
             )
 
-        latitude_missing = latitude is None
-        longitude_missing = longitude is None
-        if latitude_missing != longitude_missing:
+        if (latitude is None) != (longitude is None):
             raise serializers.ValidationError(
                 "latitude and longitude must be provided together."
             )
@@ -189,10 +176,21 @@ class MissionSerializer(serializers.ModelSerializer):
             if "ended_at" not in attrs:
                 ended_at = self.instance.ended_at
 
-        drone_ids = [item["drone"].id for item in drones_data if "drone" in item]
-        operator_ids = [
-            item["operator"].id for item in drones_data if item.get("operator")
-        ]
+        if "mission_drones" in attrs:
+            drone_ids = [item["drone"].id for item in drones_data if "drone" in item]
+            operator_ids = [
+                item["operator"].id for item in drones_data if item.get("operator")
+            ]
+        elif self.instance:
+            drone_ids = list(
+                self.instance.mission_drones.values_list("drone_id", flat=True)
+            )
+            operator_ids = list(
+                self.instance.mission_drones.values_list("operator_id", flat=True)
+            )
+            operator_ids = [op_id for op_id in operator_ids if op_id is not None]
+        else:
+            drone_ids, operator_ids = [], []
 
         if drone_ids or operator_ids:
             time_overlap = Q(mission__started_at__lte=ended_at) if ended_at else Q()
@@ -212,11 +210,10 @@ class MissionSerializer(serializers.ModelSerializer):
                 .values_list("drone__name", flat=True)
                 .distinct()
             )
-
             if busy_drones:
                 raise serializers.ValidationError(
-                    "The following drones are already booked for"
-                    f"overlapping missions: {', '.join(busy_drones)}."
+                    "The following drones are already booked"
+                    f"for overlapping missions: {', '.join(busy_drones)}."
                 )
 
             busy_operators = (
@@ -224,11 +221,10 @@ class MissionSerializer(serializers.ModelSerializer):
                 .values_list("operator__username", flat=True)
                 .distinct()
             )
-
             if busy_operators:
                 raise serializers.ValidationError(
-                    f"The following operators are already assigned to "
-                    f"overlapping missions: {', '.join(busy_operators)}."
+                    "The following operators are already assigned"
+                    f" to overlapping missions: {', '.join(busy_operators)}."
                 )
 
         return attrs
@@ -273,13 +269,10 @@ class MissionDroneSerializer(serializers.ModelSerializer):
 
     def validate(self, attrs):
         operator = attrs.get("operator")
-
-        if operator:
-            if get_user_role_code(operator) != OPERATOR_CODE:
-                raise serializers.ValidationError(
-                    {"operator": "Selected user does not have the Operator role."}
-                )
-
+        if operator and get_user_role_code(operator) != OPERATOR_CODE:
+            raise serializers.ValidationError(
+                {"operator": "Selected user does not have the Operator role."}
+            )
         return attrs
 
     def create(self, validated_data):
