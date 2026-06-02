@@ -2,28 +2,94 @@ from rest_framework import serializers
 
 from missions.models import Mission
 
-from .models import Drone, DroneSpec, DroneStatusHistory, WriteOffRecord
+from .models import (
+    Drone,
+    DroneSpec,
+    DroneSpecChangeLog,
+    DroneStatusHistory,
+    WriteOffRecord,
+)
 from .services import create_drone_with_spec, update_drone
 
 
-class DroneSpecSerializer(serializers.ModelSerializer):
+class DroneSpecChangeLogSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = DroneSpecChangeLog
+        fields = (
+            "id",
+            "changed_by",
+            "changed_fields",
+            "old_values",
+            "new_values",
+            "created_at",
+        )
+        read_only_fields = fields
+
+
+class DroneSpecValidationMixin:
+    def validate_camera_specs(self, value):
+        if not isinstance(value, dict):
+            raise serializers.ValidationError("camera_specs must be a JSON object.")
+        return value
+
+    def validate_additional_modules(self, value):
+        if not isinstance(value, list):
+            raise serializers.ValidationError(
+                "additional_modules must be a JSON array."
+            )
+
+        for index, module in enumerate(value):
+            if not isinstance(module, dict):
+                raise serializers.ValidationError(
+                    f"additional_modules[{index}] must be a JSON object."
+                )
+
+        return value
+
+
+class DroneSpecSerializer(DroneSpecValidationMixin, serializers.ModelSerializer):
+    change_history = DroneSpecChangeLogSerializer(many=True, read_only=True)
 
     class Meta:
         model = DroneSpec
-        exclude = ("drone",)
+        fields = (
+            "id",
+            "frame_type",
+            "motor_model",
+            "battery_type",
+            "battery_capacity_mah",
+            "battery_model",
+            "camera_model",
+            "camera_specs",
+            "vtx_model",
+            "flight_controller",
+            "firmware_version",
+            "max_speed_kmh",
+            "max_range_km",
+            "max_flight_time_min",
+            "frequency_mhz",
+            "payload_capacity_g",
+            "additional_modules",
+            "technical_documentation_url",
+            "updated_at",
+            "change_history",
+        )
+        read_only_fields = ("id", "updated_at", "change_history")
 
 
-class DroneSpecUpdateSerializer(serializers.ModelSerializer):
-
+class DroneSpecUpdateSerializer(DroneSpecValidationMixin, serializers.ModelSerializer):
     class Meta:
         model = DroneSpec
         exclude = ("drone",)
+        read_only_fields = ("id", "updated_at")
         extra_kwargs = {
             "frame_type": {"required": False},
             "motor_model": {"required": False},
             "battery_type": {"required": False},
             "battery_capacity_mah": {"required": False},
+            "battery_model": {"required": False},
             "camera_model": {"required": False},
+            "camera_specs": {"required": False},
             "vtx_model": {"required": False},
             "flight_controller": {"required": False},
             "firmware_version": {"required": False},
@@ -32,6 +98,8 @@ class DroneSpecUpdateSerializer(serializers.ModelSerializer):
             "max_flight_time_min": {"required": False},
             "frequency_mhz": {"required": False},
             "payload_capacity_g": {"required": False},
+            "additional_modules": {"required": False},
+            "technical_documentation_url": {"required": False},
         }
 
 
