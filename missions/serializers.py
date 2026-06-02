@@ -189,10 +189,21 @@ class MissionSerializer(serializers.ModelSerializer):
             if "ended_at" not in attrs:
                 ended_at = self.instance.ended_at
 
-        drone_ids = [item["drone"].id for item in drones_data if "drone" in item]
-        operator_ids = [
-            item["operator"].id for item in drones_data if item.get("operator")
-        ]
+        if "mission_drones" in attrs:
+            drone_ids = [item["drone"].id for item in drones_data if "drone" in item]
+            operator_ids = [
+                item["operator"].id for item in drones_data if item.get("operator")
+            ]
+        elif self.instance:
+            drone_ids = list(
+                self.instance.mission_drones.values_list("drone_id", flat=True)
+            )
+            operator_ids = list(
+                self.instance.mission_drones.values_list("operator_id", flat=True)
+            )
+            operator_ids = [op_id for op_id in operator_ids if op_id is not None]
+        else:
+            drone_ids, operator_ids = [], []
 
         if drone_ids or operator_ids:
             time_overlap = Q(mission__started_at__lte=ended_at) if ended_at else Q()
@@ -212,11 +223,10 @@ class MissionSerializer(serializers.ModelSerializer):
                 .values_list("drone__name", flat=True)
                 .distinct()
             )
-
             if busy_drones:
                 raise serializers.ValidationError(
-                    "The following drones are already booked for"
-                    f"overlapping missions: {', '.join(busy_drones)}."
+                    "The following drones are already booked "
+                    f"for overlapping missions: {', '.join(busy_drones)}."
                 )
 
             busy_operators = (
@@ -224,11 +234,10 @@ class MissionSerializer(serializers.ModelSerializer):
                 .values_list("operator__username", flat=True)
                 .distinct()
             )
-
             if busy_operators:
                 raise serializers.ValidationError(
-                    f"The following operators are already assigned to "
-                    f"overlapping missions: {', '.join(busy_operators)}."
+                    "The following operators are already assigned"
+                    f" to overlapping missions: {', '.join(busy_operators)}."
                 )
 
         return attrs
