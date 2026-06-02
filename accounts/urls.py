@@ -52,7 +52,7 @@ urlpatterns = [
     ),
     path("", include(router.urls)),
     path(
-        "users/<int:pk>/status",
+        "users/<int:pk>/status/",
         UserStatusUpdateView.as_view(),
         name="user-status-update",
     ),
