@@ -7,8 +7,7 @@ from rest_framework import serializers
 from drones.models import Drone
 from drones.services import update_drone
 
-from .models import MissionAuditLog, Condition, Mission, MissionDrone, Status
-
+from .models import Condition, Mission, MissionAuditLog, MissionDrone, Status
 
 CONDITION_TO_DRONE_STATUS = {
     Condition.OK: Drone.STATUS_ACTIVE,

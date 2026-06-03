@@ -17,7 +17,7 @@ from .factories import (
     OperatorUserFactory,
     ViewerUserFactory,
 )
-from .models import MissionAuditLog, Mission, MissionDrone
+from .models import Mission, MissionAuditLog, MissionDrone
 
 
 class MissionOutcomeTests(APITestCase):
