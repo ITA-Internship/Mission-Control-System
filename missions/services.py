@@ -148,7 +148,7 @@ def record_mission_outcome(
     """Record outcome (result + notes) on a completed/aborted mission.
 
     Locks the mission row to avoid races with status mutations, then writes
-    an ``AuditLog`` entry tagged ``mission_outcome_recorded``.
+    an ``MissionAuditLog`` entry tagged ``mission_outcome_recorded``.
     """
     with transaction.atomic():
         locked_mission = Mission.objects.select_for_update().get(id=mission.id)
@@ -186,9 +186,10 @@ def record_mission_outcome(
 
         locked_mission.save(update_fields=update_fields)
 
-        AuditLog.objects.create(
+        MissionAuditLog.objects.create(
             action="mission_outcome_recorded",
             target_model="Mission",
+            target_id=locked_mission.id,
             user=action_user,
             changes={
                 "mission_id": locked_mission.id,
@@ -300,9 +301,10 @@ def record_drone_condition(
             **writeoff_kwargs,
         )
 
-        AuditLog.objects.create(
+        MissionAuditLog.objects.create(
             action="drone_condition_recorded",
             target_model="MissionDrone",
+            target_id=locked_assignment.id,
             user=action_user,
             changes={
                 "assignment_id": locked_assignment.id,

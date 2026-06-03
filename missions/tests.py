@@ -17,7 +17,7 @@ from .factories import (
     OperatorUserFactory,
     ViewerUserFactory,
 )
-from .models import AuditLog, Mission, MissionDrone
+from .models import MissionAuditLog, Mission, MissionDrone
 
 
 class MissionOutcomeTests(APITestCase):
@@ -66,7 +66,11 @@ class MissionOutcomeTests(APITestCase):
 
         response = self.client.patch(
             self.url,
-            {"result": "failure", "notes": "Failed extraction."},
+            {
+                "result": "failure",
+                "notes": "Failed extraction.",
+                "incident_notes": "Operator lost contact during extraction.",
+            },
             format="json",
         )
 
@@ -84,7 +88,10 @@ class MissionOutcomeTests(APITestCase):
 
         response = self.client.patch(
             self.url,
-            {"result": "failure"},
+            {
+                "result": "failure",
+                "incident_notes": "Mission aborted before objective.",
+            },
             format="json",
         )
 
@@ -187,7 +194,7 @@ class MissionOutcomeTests(APITestCase):
             format="json",
         )
 
-        log = AuditLog.objects.get(action="mission_outcome_recorded")
+        log = MissionAuditLog.objects.get(action="mission_outcome_recorded")
 
         self.assertEqual(log.target_model, "Mission")
         self.assertEqual(log.user, self.admin)
@@ -412,7 +419,7 @@ class MissionDroneConditionTests(APITestCase):
             format="json",
         )
 
-        log = AuditLog.objects.get(action="drone_condition_recorded")
+        log = MissionAuditLog.objects.get(action="drone_condition_recorded")
 
         self.assertEqual(log.target_model, "MissionDrone")
         self.assertEqual(log.user, self.admin)
