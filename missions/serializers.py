@@ -118,6 +118,19 @@ class MissionSerializer(serializers.ModelSerializer):
             "updated_at",
         ]
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Assignments may only be set when a mission is first created. Once the
+        # mission exists, drones must be added or removed through the dedicated
+        # assignment endpoints (MissionAssignment* views -> services), which
+        # write audit-log entries and take row locks. Marking the nested
+        # ``drones`` field read-only on update means an incoming ``drones``
+        # payload is ignored here instead of silently wiping and recreating the
+        # existing assignments (which would drop condition data and skip
+        # auditing/locking).
+        if self.instance is not None:
+            self.fields["drones"].read_only = True
+
     def create(self, validated_data):
         drones_data = validated_data.pop("mission_drones", [])
 
@@ -131,21 +144,6 @@ class MissionSerializer(serializers.ModelSerializer):
             )
 
         return mission
-
-    def update(self, instance, validated_data):
-        if "mission_drones" in validated_data:
-            drones_data = validated_data.pop("mission_drones")
-
-            instance.mission_drones.all().delete()
-
-            for drone_item in drones_data:
-                MissionDrone.objects.create(
-                    mission=instance,
-                    drone=drone_item["drone"],
-                    operator=drone_item.get("operator"),
-                )
-
-        return super().update(instance, validated_data)
 
     def validate_title(self, value):
         stripped = (value or "").strip()
