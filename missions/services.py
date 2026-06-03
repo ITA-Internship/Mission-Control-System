@@ -7,13 +7,15 @@ from rest_framework import serializers
 from drones.models import Drone
 from drones.services import update_drone
 
-from .models import AuditLog, Condition, Mission, MissionDrone, Status
+from .models import MissionAuditLog, Condition, Mission, MissionDrone, Status
+
 
 CONDITION_TO_DRONE_STATUS = {
     Condition.OK: Drone.STATUS_ACTIVE,
     Condition.DAMAGED: Drone.STATUS_DAMAGED,
     Condition.LOST: Drone.STATUS_WRITTEN_OFF,
 }
+
 
 User = get_user_model()
 
@@ -101,7 +103,7 @@ def assign_drone_to_mission(
             raise serializers.ValidationError(
                 {
                     "operator": (
-                        "Operator was just assigned to an " "overlapping mission."
+                        "Operator was just assigned to an overlapping mission."
                     ),
                 },
             )
@@ -121,10 +123,11 @@ def assign_drone_to_mission(
 
         instance = MissionDrone.objects.create(**create_kwargs)
 
-        AuditLog.objects.create(
+        MissionAuditLog.objects.create(
+            user=action_user,
             action="assignment_created",
             target_model="MissionDrone",
-            user=action_user,
+            target_id=instance.id,
             changes={
                 "mission_id": instance.mission_id,
                 "drone_id": instance.drone_id,
@@ -330,10 +333,11 @@ def unassign_drone_from_mission(*, assignment, action_user=None):
                 "Cannot delete assignment unless mission is planned.",
             )
 
-        AuditLog.objects.create(
+        MissionAuditLog.objects.create(
+            user=action_user,
             action="assignment_deleted",
             target_model="MissionDrone",
-            user=action_user,
+            target_id=assignment.id,
             changes={
                 "mission_id": assignment.mission_id,
                 "drone_id": assignment.drone_id,
