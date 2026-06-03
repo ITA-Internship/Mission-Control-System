@@ -1,7 +1,6 @@
 from datetime import timedelta
 
 from django.contrib.auth import get_user_model
-from django.db.models import Q
 from django.utils import timezone
 from rest_framework import serializers
 
@@ -18,6 +17,7 @@ from .models import (
     Status,
 )
 from .services import (
+    _check_overlap,
     assign_drone_to_mission,
     record_drone_condition,
     record_mission_outcome,
@@ -202,38 +202,40 @@ class MissionSerializer(serializers.ModelSerializer):
                 ended_at = self.instance.ended_at
 
         if "mission_drones" in attrs:
-            drone_ids = [item["drone"].id for item in drones_data if "drone" in item]
-            operator_ids = [
-                item["operator"].id for item in drones_data if item.get("operator")
+            drones_to_check = [item["drone"] for item in drones_data if "drone" in item]
+            operators_to_check = [
+                item["operator"] for item in drones_data if item.get("operator")
             ]
         elif self.instance:
-            drone_ids = list(
-                self.instance.mission_drones.values_list("drone_id", flat=True)
-            )
-            operator_ids = list(
-                self.instance.mission_drones.values_list("operator_id", flat=True)
-            )
-            operator_ids = [op_id for op_id in operator_ids if op_id is not None]
+            existing_links = self.instance.mission_drones.select_related(
+                "drone", "operator"
+            ).all()
+            drones_to_check = [link.drone for link in existing_links]
+            operators_to_check = [
+                link.operator for link in existing_links if link.operator_id
+            ]
         else:
-            drone_ids, operator_ids = [], []
+            drones_to_check, operators_to_check = [], []
 
-        if drone_ids or operator_ids:
-            time_overlap = Q(mission__started_at__lte=ended_at) if ended_at else Q()
-            time_overlap &= Q(mission__ended_at__gte=started_at) | Q(
-                mission__ended_at__isnull=True
+        if drones_to_check or operators_to_check:
+            # Reuse the service-layer overlap rule so the two paths cannot
+            # drift. _check_overlap reads started_at/ended_at off the mission
+            # and excludes ``mission`` itself, so we hand it an in-memory probe
+            # carrying the resolved time window. On create there is no mission
+            # yet; id=0 excludes a row that can never exist (real ids start
+            # at 1), matching the "exclude nothing" behaviour we want.
+            probe = Mission(
+                id=self.instance.id if self.instance else 0,
+                started_at=started_at,
+                ended_at=ended_at,
             )
 
-            conflicting_links = MissionDrone.objects.filter(
-                mission__status__in=[Status.PLANNED, Status.ACTIVE]
-            ).filter(time_overlap)
-
-            if self.instance:
-                conflicting_links = conflicting_links.exclude(mission=self.instance)
-
-            busy_drones = (
-                conflicting_links.filter(drone_id__in=drone_ids)
-                .values_list("drone__name", flat=True)
-                .distinct()
+            busy_drones = sorted(
+                {
+                    drone.name
+                    for drone in drones_to_check
+                    if _check_overlap(probe, drone=drone)
+                }
             )
             if busy_drones:
                 raise serializers.ValidationError(
@@ -241,10 +243,12 @@ class MissionSerializer(serializers.ModelSerializer):
                     f"for overlapping missions: {', '.join(busy_drones)}."
                 )
 
-            busy_operators = (
-                conflicting_links.filter(operator_id__in=operator_ids)
-                .values_list("operator__username", flat=True)
-                .distinct()
+            busy_operators = sorted(
+                {
+                    operator.username
+                    for operator in operators_to_check
+                    if _check_overlap(probe, operator=operator)
+                }
             )
             if busy_operators:
                 raise serializers.ValidationError(
