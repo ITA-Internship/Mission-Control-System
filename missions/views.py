@@ -4,17 +4,41 @@ from rest_framework import generics, permissions
 from rest_framework.exceptions import ValidationError
 from rest_framework.pagination import PageNumberPagination
 
+from accounts.permissions import HasRBACPermission
+from accounts.rbac import (
+    PERMISSION_MISSIONS_RECORD_CONDITION,
+    PERMISSION_MISSIONS_RECORD_OUTCOME,
+    PERMISSION_MISSIONS_UPDATE_STATUS,
+)
 from drones.models import Drone
 from drones.services import update_drone
 
 from .models import Mission, MissionAuditLog, MissionDrone, Status
-from .permissions import CanUpdateMissionStatus, IsDispatcherOrAdmin
+from .permissions import (
+    CanUpdateMissionStatus,
+    IsAssignedOperatorOrAdmin,
+    IsDispatcherOrAdmin,
+)
 from .serializers import (
+    MissionDroneConditionSerializer,
     MissionDroneSerializer,
+    MissionOutcomeSerializer,
     MissionSerializer,
     MissionStatusUpdateSerializer,
 )
 from .services import unassign_drone_from_mission
+
+
+class MissionsUpdateStatusRBAC(HasRBACPermission):
+    required_permission = PERMISSION_MISSIONS_UPDATE_STATUS
+
+
+class MissionsRecordOutcomeRBAC(HasRBACPermission):
+    required_permission = PERMISSION_MISSIONS_RECORD_OUTCOME
+
+
+class MissionsRecordConditionRBAC(HasRBACPermission):
+    required_permission = PERMISSION_MISSIONS_RECORD_CONDITION
 
 
 class MissionPagination(PageNumberPagination):
@@ -68,10 +92,37 @@ class MissionDetailView(generics.RetrieveAPIView):
     queryset = Mission.objects.with_related()
 
 
+class MissionOutcomeView(generics.UpdateAPIView):
+    serializer_class = MissionOutcomeSerializer
+    permission_classes = [
+        permissions.IsAuthenticated,
+        MissionsRecordOutcomeRBAC,
+        IsAssignedOperatorOrAdmin,
+    ]
+    queryset = Mission.objects.with_related().prefetch_related("mission_drones")
+    http_method_names = ["patch", "options", "head"]
+
+
+class MissionDroneConditionView(generics.UpdateAPIView):
+    serializer_class = MissionDroneConditionSerializer
+    permission_classes = [
+        permissions.IsAuthenticated,
+        MissionsRecordConditionRBAC,
+        IsAssignedOperatorOrAdmin,
+    ]
+    lookup_url_kwarg = "assignment_id"
+    http_method_names = ["patch", "options", "head"]
+
+    def get_queryset(self):
+        return MissionDrone.objects.filter(
+            mission_id=self.kwargs["pk"],
+        ).select_related("mission", "drone", "operator")
+
+
 class MissionStatusUpdateView(generics.RetrieveUpdateAPIView):
     serializer_class = MissionStatusUpdateSerializer
     permission_classes = [permissions.IsAuthenticated, CanUpdateMissionStatus]
-    queryset = Mission.objects.all()
+    queryset = Mission.objects.prefetch_related("mission_drones")
 
     def update(self, request, *args, **kwargs):
         with transaction.atomic():

@@ -2,8 +2,6 @@ from django.conf import settings
 from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
 
-from drones.models import Drone
-
 
 def get_default_changes():
     return {}
@@ -27,6 +25,12 @@ MISSION_STATUS_TRANSITIONS = {
 class Result(models.TextChoices):
     SUCCESS = "success", "Success"
     FAILURE = "failure", "Failure"
+
+
+class Condition(models.TextChoices):
+    OK = "ok", "Ok"
+    DAMAGED = "damaged", "Damaged"
+    LOST = "lost", "Lost"
 
 
 class MissionQuerySet(models.QuerySet):
@@ -76,7 +80,8 @@ class Mission(models.Model):
     started_at = models.DateTimeField(null=True, blank=True)
     ended_at = models.DateTimeField(null=True, blank=True)
 
-    notes = models.TextField(blank=True)
+    notes = models.TextField(blank=True, max_length=5000)
+    incident_notes = models.TextField(blank=True, max_length=5000)
 
     created_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
@@ -120,7 +125,10 @@ class MissionDrone(models.Model):
     )
 
     condition_after = models.CharField(
-        max_length=20, choices=Drone.STATUS_CHOICES, default="ACTIVE"
+        max_length=20,
+        choices=Condition.choices,
+        null=True,
+        blank=True,
     )
 
     condition_description = models.TextField(null=True, blank=True)
