@@ -1,6 +1,6 @@
 from django.contrib import admin
 
-from .models import AuditLog, Mission, MissionAuditLog, MissionDrone
+from .models import Mission, MissionAuditLog, MissionDrone
 
 
 class MissionDroneInline(admin.TabularInline):
@@ -34,11 +34,18 @@ class MissionDroneAdmin(admin.ModelAdmin):
     raw_id_fields = ("mission", "drone", "operator")
 
 
-@admin.register(AuditLog)
-class AuditLogAdmin(admin.ModelAdmin):
-    list_display = ("id", "action", "target_model", "user", "created_at")
+@admin.register(MissionAuditLog)
+class MissionAuditLogAdmin(admin.ModelAdmin):
+    list_display = ("id", "action", "target_model", "target_id", "created_at", "user")
     list_filter = ("action", "target_model")
-    readonly_fields = ("action", "target_model", "changes", "user", "created_at")
+    readonly_fields = (
+        "action",
+        "target_model",
+        "target_id",
+        "changes",
+        "user",
+        "created_at",
+    )
 
     def has_add_permission(self, request):
         return False
@@ -48,9 +55,3 @@ class AuditLogAdmin(admin.ModelAdmin):
 
     def has_delete_permission(self, request, obj=None):
         return False
-
-
-@admin.register(MissionAuditLog)
-class MissionAuditLogAdmin(admin.ModelAdmin):
-    list_display = ("id", "action", "target_model", "target_id", "created_at", "user")
-    readonly_fields = ("changes",)

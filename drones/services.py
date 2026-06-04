@@ -26,22 +26,9 @@ def _serialize_audit_value(value):
 
 
 @transaction.atomic
-def create_drone_with_spec(drone_data, spec_data, user=None):
-    user = _get_authenticated_user(user)
-
+def create_drone_with_spec(drone_data, spec_data):
     drone = Drone.objects.create(**drone_data)
-    spec = DroneSpec.objects.create(drone=drone, **spec_data)
-
-    DroneSpecChangeLog.objects.create(
-        drone_spec=spec,
-        changed_by=user,
-        changed_fields=list(spec_data.keys()),
-        old_values={},
-        new_values={
-            field_name: _serialize_audit_value(getattr(spec, field_name))
-            for field_name in spec_data.keys()
-        },
-    )
+    DroneSpec.objects.create(drone=drone, **spec_data)
 
     return drone
 
@@ -73,13 +60,22 @@ def _field_value_changed(instance, field_name, new_value):
     return old_prepared_value != new_prepared_value
 
 
-def _update_instance_fields(instance, data):
-    changed_fields = []
+def _get_changed_fields(instance, data):
+    return [
+        field_name
+        for field_name, new_value in data.items()
+        if _field_value_changed(instance, field_name, new_value)
+    ]
 
-    for field_name, new_value in data.items():
-        if _field_value_changed(instance, field_name, new_value):
-            changed_fields.append(field_name)
-            setattr(instance, field_name, new_value)
+
+def _set_instance_fields(instance, data, field_names):
+    for field_name in field_names:
+        setattr(instance, field_name, data[field_name])
+
+
+def _update_instance_fields(instance, data):
+    changed_fields = _get_changed_fields(instance, data)
+    _set_instance_fields(instance, data, changed_fields)
 
     return changed_fields
 
@@ -136,26 +132,26 @@ def update_drone(
             spec = DroneSpec(drone=drone)
             spec_was_created = True
 
+        spec_changed_fields = _get_changed_fields(spec, spec_data)
         old_spec_values = {}
-        if not spec_was_created:
-            old_spec_values = {
-                field_name: _serialize_audit_value(getattr(spec, field_name, None))
-                for field_name in spec_data.keys()
-            }
-
-        spec_changed_fields = _update_instance_fields(spec, spec_data)
 
         if spec_changed_fields:
-            spec.save()
-            _create_spec_change_log(
-                spec=spec,
-                changed_fields=spec_changed_fields,
-                old_values={
-                    field_name: old_spec_values.get(field_name)
+            if not spec_was_created:
+                old_spec_values = {
+                    field_name: _serialize_audit_value(getattr(spec, field_name))
                     for field_name in spec_changed_fields
-                },
-                user=user,
-            )
+                }
+
+            _set_instance_fields(spec, spec_data, spec_changed_fields)
+            spec.save()
+
+            if not spec_was_created:
+                _create_spec_change_log(
+                    spec=spec,
+                    changed_fields=spec_changed_fields,
+                    old_values=old_spec_values,
+                    user=user,
+                )
 
     writeoff_record = None
 

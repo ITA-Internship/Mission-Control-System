@@ -1,18 +1,44 @@
 from django.db import transaction
+from django.utils import timezone
 from rest_framework import generics, permissions
 from rest_framework.exceptions import ValidationError
 from rest_framework.pagination import PageNumberPagination
 
+from accounts.permissions import HasRBACPermission
+from accounts.rbac import (
+    PERMISSION_MISSIONS_RECORD_CONDITION,
+    PERMISSION_MISSIONS_RECORD_OUTCOME,
+    PERMISSION_MISSIONS_UPDATE_STATUS,
+)
 from drones.models import Drone
+from drones.services import update_drone
 
 from .models import Mission, MissionAuditLog, MissionDrone, Status
-from .permissions import CanUpdateMissionStatus, IsDispatcherOrAdmin
+from .permissions import (
+    CanUpdateMissionStatus,
+    IsAssignedOperatorOrAdmin,
+    IsDispatcherOrAdmin,
+)
 from .serializers import (
+    MissionDroneConditionSerializer,
     MissionDroneSerializer,
+    MissionOutcomeSerializer,
     MissionSerializer,
     MissionStatusUpdateSerializer,
 )
 from .services import unassign_drone_from_mission
+
+
+class MissionsUpdateStatusRBAC(HasRBACPermission):
+    required_permission = PERMISSION_MISSIONS_UPDATE_STATUS
+
+
+class MissionsRecordOutcomeRBAC(HasRBACPermission):
+    required_permission = PERMISSION_MISSIONS_RECORD_OUTCOME
+
+
+class MissionsRecordConditionRBAC(HasRBACPermission):
+    required_permission = PERMISSION_MISSIONS_RECORD_CONDITION
 
 
 class MissionPagination(PageNumberPagination):
@@ -45,8 +71,12 @@ class MissionListCreateView(generics.ListCreateAPIView):
         if assigned_to:
             if assigned_to != "me":
                 raise ValidationError(
-                    f"Invalid value '{assigned_to}'. The only allowed value is 'me'."
+                    {
+                        "assigned_to": f"Invalid value '{assigned_to}'."
+                        " The only allowed value is 'me'."
+                    }
                 )
+
             user = self.request.user
             queryset = queryset.filter(mission_drones__operator_id=user.id).distinct()
 
@@ -62,10 +92,37 @@ class MissionDetailView(generics.RetrieveAPIView):
     queryset = Mission.objects.with_related()
 
 
+class MissionOutcomeView(generics.UpdateAPIView):
+    serializer_class = MissionOutcomeSerializer
+    permission_classes = [
+        permissions.IsAuthenticated,
+        MissionsRecordOutcomeRBAC,
+        IsAssignedOperatorOrAdmin,
+    ]
+    queryset = Mission.objects.with_related().prefetch_related("mission_drones")
+    http_method_names = ["patch", "options", "head"]
+
+
+class MissionDroneConditionView(generics.UpdateAPIView):
+    serializer_class = MissionDroneConditionSerializer
+    permission_classes = [
+        permissions.IsAuthenticated,
+        MissionsRecordConditionRBAC,
+        IsAssignedOperatorOrAdmin,
+    ]
+    lookup_url_kwarg = "assignment_id"
+    http_method_names = ["patch", "options", "head"]
+
+    def get_queryset(self):
+        return MissionDrone.objects.filter(
+            mission_id=self.kwargs["pk"],
+        ).select_related("mission", "drone", "operator")
+
+
 class MissionStatusUpdateView(generics.RetrieveUpdateAPIView):
     serializer_class = MissionStatusUpdateSerializer
     permission_classes = [permissions.IsAuthenticated, CanUpdateMissionStatus]
-    queryset = Mission.objects.all()
+    queryset = Mission.objects.prefetch_related("mission_drones")
 
     def update(self, request, *args, **kwargs):
         with transaction.atomic():
@@ -102,17 +159,32 @@ class MissionStatusUpdateView(generics.RetrieveUpdateAPIView):
         elif mission.status in [Status.COMPLETED, Status.ABORTED]:
             mission_drones = mission.mission_drones.select_related("drone").all()
 
-            drones_to_update = []
+            CONDITION_TO_DRONE_STATUS = {
+                "ok": "ACTIVE",
+                "damaged": "DAMAGED",
+                "lost": "WRITTEN_OFF",
+            }
+
             for link in mission_drones:
-                drone = link.drone
-                new_status = link.condition_after if link.condition_after else "ACTIVE"
+                condition = link.condition_after or "ok"
+                target_status = CONDITION_TO_DRONE_STATUS.get(condition, "ACTIVE")
 
-                if drone.status != new_status:
-                    drone.status = new_status
-                    drones_to_update.append(drone)
+                log_reason = (
+                    f"Mission '{mission.title}' (ID: {mission.id}) ended."
+                    f"Condition: {condition}."
+                )
 
-            if drones_to_update:
-                Drone.objects.bulk_update(drones_to_update, ["status"])
+                update_drone(
+                    drone=link.drone,
+                    drone_data={"status": target_status},
+                    user=self.request.user,
+                    related_mission=mission,
+                    writeoff_reason=log_reason,
+                    writeoff_reason_description=link.condition_description or "",
+                    written_off_at=(
+                        timezone.now() if target_status == "WRITTEN_OFF" else None
+                    ),
+                )
 
 
 class MissionAssignmentListCreateView(generics.ListCreateAPIView):
