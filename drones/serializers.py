@@ -64,6 +64,10 @@ class DroneSpecSerializer(DroneSpecValidationMixin, serializers.ModelSerializer)
             "vtx_model",
             "flight_controller",
             "firmware_version",
+            "is_firmware_outdated",
+            "communication_protocol",
+            "control_channel",
+            "telemetry_channel",
             "max_speed_kmh",
             "max_range_km",
             "max_flight_time_min",
@@ -71,6 +75,7 @@ class DroneSpecSerializer(DroneSpecValidationMixin, serializers.ModelSerializer)
             "payload_capacity_g",
             "additional_modules",
             "technical_documentation_url",
+            "firmware_file_url",
             "updated_at",
             "change_history",
         )
@@ -93,6 +98,10 @@ class DroneSpecUpdateSerializer(DroneSpecValidationMixin, serializers.ModelSeria
             "vtx_model": {"required": False},
             "flight_controller": {"required": False},
             "firmware_version": {"required": False},
+            "is_firmware_outdated": {"required": False},
+            "communication_protocol": {"required": False},
+            "control_channel": {"required": False},
+            "telemetry_channel": {"required": False},
             "max_speed_kmh": {"required": False},
             "max_range_km": {"required": False},
             "max_flight_time_min": {"required": False},
@@ -100,6 +109,7 @@ class DroneSpecUpdateSerializer(DroneSpecValidationMixin, serializers.ModelSeria
             "payload_capacity_g": {"required": False},
             "additional_modules": {"required": False},
             "technical_documentation_url": {"required": False},
+            "firmware_file_url": {"required": False},
         }
 
 

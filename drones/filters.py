@@ -4,6 +4,10 @@ from .models import Drone
 
 
 class DroneFilter(django_filters.FilterSet):
+    is_firmware_outdated = django_filters.BooleanFilter(
+        field_name="spec__is_firmware_outdated"
+    )
+
     class Meta:
         model = Drone
         fields = {

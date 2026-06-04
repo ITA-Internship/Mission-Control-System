@@ -51,6 +51,10 @@ class DroneCreateTests(APITestCase):
                 "vtx_model": "Test VTX Model",
                 "flight_controller": "Test Controller",
                 "firmware_version": "Test Firmware Version",
+                "is_firmware_outdated": False,
+                "communication_protocol": "ExpressLRS",
+                "control_channel": "CH1",
+                "telemetry_channel": "CH2",
                 "max_speed_kmh": "12.5",
                 "max_range_km": "130",
                 "max_flight_time_min": "20",
@@ -69,6 +73,7 @@ class DroneCreateTests(APITestCase):
                     },
                 ],
                 "technical_documentation_url": "https://example.com/drone-spec.pdf",
+                "firmware_file_url": "https://example.com/firmware.bin",
             },
         }
         self.user = AdminUserFactory()
@@ -99,6 +104,11 @@ class DroneCreateTests(APITestCase):
             spec.technical_documentation_url,
             "https://example.com/drone-spec.pdf",
         )
+        self.assertFalse(spec.is_firmware_outdated)
+        self.assertEqual(spec.communication_protocol, "ExpressLRS")
+        self.assertEqual(spec.control_channel, "CH1")
+        self.assertEqual(spec.telemetry_channel, "CH2")
+        self.assertEqual(spec.firmware_file_url, "https://example.com/firmware.bin")
 
     def test_create_drone_does_not_create_spec_change_log(self):
         response = self.client.post(
@@ -146,6 +156,11 @@ class DroneCreateTests(APITestCase):
         payload["spec"].pop("camera_specs", None)
         payload["spec"].pop("additional_modules", None)
         payload["spec"].pop("technical_documentation_url", None)
+        payload["spec"].pop("communication_protocol", None)
+        payload["spec"].pop("control_channel", None)
+        payload["spec"].pop("telemetry_channel", None)
+        payload["spec"].pop("firmware_file_url", None)
+        payload["spec"].pop("is_firmware_outdated", None)
 
         response = self.client.post(self.create_url, payload, format="json")
 
@@ -161,6 +176,11 @@ class DroneCreateTests(APITestCase):
         self.assertEqual(spec.camera_specs, {})
         self.assertEqual(spec.additional_modules, [])
         self.assertEqual(spec.technical_documentation_url, "")
+        self.assertEqual(spec.communication_protocol, "")
+        self.assertEqual(spec.control_channel, "")
+        self.assertEqual(spec.telemetry_channel, "")
+        self.assertEqual(spec.firmware_file_url, "")
+        self.assertFalse(spec.is_firmware_outdated)
 
     def test_create_drone_rejects_invalid_camera_specs(self):
         payload = copy.deepcopy(self.base_payload)
@@ -261,6 +281,9 @@ class DroneUpdateAndDecommissionTests(APITestCase):
                     "technical_documentation_url": (
                         "https://example.com/updated-spec.pdf"
                     ),
+                    "is_firmware_outdated": True,
+                    "communication_protocol": "Crossfire",
+                    "firmware_file_url": "https://example.com/new-firmware.bin",
                 }
             },
             format="json",
@@ -276,12 +299,18 @@ class DroneUpdateAndDecommissionTests(APITestCase):
             self.drone.spec.technical_documentation_url,
             "https://example.com/updated-spec.pdf",
         )
+        self.assertTrue(self.drone.spec.is_firmware_outdated)
+        self.assertEqual(self.drone.spec.communication_protocol, "Crossfire")
+        self.assertEqual(
+            self.drone.spec.firmware_file_url, "https://example.com/new-firmware.bin"
+        )
 
     def test_patch_drone_spec_creates_change_log(self):
         self.client.force_authenticate(self.admin_user)
 
         old_battery_model = self.drone.spec.battery_model
         old_camera_specs = self.drone.spec.camera_specs
+        old_protocol = self.drone.spec.communication_protocol
 
         response = self.client.patch(
             self.detail_url,
@@ -291,6 +320,7 @@ class DroneUpdateAndDecommissionTests(APITestCase):
                     "camera_specs": {
                         "resolution": "4K",
                     },
+                    "communication_protocol": "Crossfire",
                 }
             },
             format="json",
@@ -305,6 +335,9 @@ class DroneUpdateAndDecommissionTests(APITestCase):
         self.assertEqual(change_log.changed_by, self.admin_user)
         self.assertIn("battery_model", change_log.changed_fields)
         self.assertIn("camera_specs", change_log.changed_fields)
+        self.assertIn("communication_protocol", change_log.changed_fields)
+        self.assertEqual(change_log.old_values["communication_protocol"], old_protocol)
+        self.assertEqual(change_log.new_values["communication_protocol"], "Crossfire")
 
         self.assertEqual(
             change_log.old_values["battery_model"],
@@ -580,3 +613,14 @@ class DroneSearchTests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         results_ids = [item["id"] for item in response.data["results"]]
         self.assertIn(inactive_drone.id, results_ids)
+
+    def test_filtering_is_firmware_outdated(self):
+        outdated_drone = DroneFactory(military_unit=self.military_unit)
+        DroneSpecFactory(drone=outdated_drone, is_firmware_outdated=True)
+
+        response = self.client.get(self.create_url, {"is_firmware_outdated": "true"})
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        results_ids = [item["id"] for item in response.data["results"]]
+
+        self.assertIn(outdated_drone.id, results_ids)
