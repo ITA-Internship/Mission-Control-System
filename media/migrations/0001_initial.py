@@ -10,7 +10,10 @@ class Migration(migrations.Migration):
     initial = True
 
     dependencies = [
-        ("drones", "0007_dronespec_additional_modules_dronespec_battery_model_and_more"),
+        (
+            "drones",
+            "0007_dronespec_additional_modules_dronespec_battery_model_and_more",
+        ),
         ("missions", "0010_alter_mission_incident_notes_alter_mission_notes"),
         migrations.swappable_dependency(settings.AUTH_USER_MODEL),
     ]

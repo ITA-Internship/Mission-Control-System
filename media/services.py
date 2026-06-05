@@ -1,8 +1,11 @@
 import logging
 import os
+
 from django.core.files.storage import default_storage
 from django.db import transaction
+
 from missions.models import MissionAuditLog
+
 from .models import MissionArtifact
 
 logger = logging.getLogger(__name__)
@@ -56,9 +59,7 @@ def upload_artifact(
             try:
                 default_storage.delete(saved_path)
             except Exception:
-                logger.exception(
-                    "Failed to clean up orphaned file %s", saved_path
-                )
+                logger.exception("Failed to clean up orphaned file %s", saved_path)
         raise
 
     return artifact
@@ -89,6 +90,4 @@ def delete_artifact(*, artifact, action_user):
         try:
             default_storage.delete(file_name)
         except Exception:
-            logger.exception(
-                "Failed to remove artifact file %s", file_name
-            )
+            logger.exception("Failed to remove artifact file %s", file_name)

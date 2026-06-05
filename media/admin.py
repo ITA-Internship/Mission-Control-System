@@ -33,6 +33,3 @@ class MissionArtifactAdmin(admin.ModelAdmin):
     @admin.display(description="File Size", ordering="file_size")
     def formatted_file_size(self, obj):
         return filesizeformat(obj.file_size)
-
-
-

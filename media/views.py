@@ -55,9 +55,8 @@ class ArtifactListCreateView(_MissionArtifactMixin, generics.ListCreateAPIView):
 
     def get_queryset(self):
         mission = self.get_mission()
-        return (
-            MissionArtifact.objects.filter(mission=mission)
-            .select_related("uploaded_by")
+        return MissionArtifact.objects.filter(mission=mission).select_related(
+            "uploaded_by"
         )
 
     def create(self, request, *args, **kwargs):

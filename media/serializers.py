@@ -1,13 +1,12 @@
 import os
+
 from django.conf import settings
 from rest_framework import serializers
 
 from common.serializers import UserBriefSerializer
-from .models import (
-    ALL_ALLOWED_EXTENSIONS,
-    EXTENSION_TO_FILE_TYPE,
-    MissionArtifact,
-)
+
+from .models import ALL_ALLOWED_EXTENSIONS, EXTENSION_TO_FILE_TYPE, MissionArtifact
+
 
 class MissionArtifactSerializer(serializers.ModelSerializer):
 
@@ -71,4 +70,3 @@ class MissionArtifactUploadSerializer(serializers.Serializer):
             ext = os.path.splitext(file.name)[1].lower()
             attrs["file_type"] = EXTENSION_TO_FILE_TYPE[ext]
         return attrs
-

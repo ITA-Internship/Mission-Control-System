@@ -1,5 +1,6 @@
 import os
 import uuid
+
 from django.conf import settings
 from django.db import models
 
@@ -16,14 +17,10 @@ ALLOWED_EXTENSIONS = {
     FileType.DATA: [".csv", ".json"],
 }
 
-ALL_ALLOWED_EXTENSIONS = [
-    ext for exts in ALLOWED_EXTENSIONS.values() for ext in exts
-]
+ALL_ALLOWED_EXTENSIONS = [ext for exts in ALLOWED_EXTENSIONS.values() for ext in exts]
 
 EXTENSION_TO_FILE_TYPE = {
-    ext: file_type
-    for file_type, exts in ALLOWED_EXTENSIONS.items()
-    for ext in exts
+    ext: file_type for file_type, exts in ALLOWED_EXTENSIONS.items() for ext in exts
 }
 
 
