@@ -65,7 +65,9 @@ class DroneSpecSerializer(DroneSpecValidationMixin, serializers.ModelSerializer)
             "flight_controller",
             "firmware_version",
             "max_speed_kmh",
+            "typical_range_km",
             "max_range_km",
+            "typical_flight_time_min",
             "max_flight_time_min",
             "frequency_mhz",
             "payload_capacity_g",
@@ -93,8 +95,10 @@ class DroneSpecUpdateSerializer(DroneSpecValidationMixin, serializers.ModelSeria
             "vtx_model": {"required": False},
             "flight_controller": {"required": False},
             "firmware_version": {"required": False},
+            "typical_range_km": {"required": False},
             "max_speed_kmh": {"required": False},
             "max_range_km": {"required": False},
+            "typical_flight_time_min": {"required": False},
             "max_flight_time_min": {"required": False},
             "frequency_mhz": {"required": False},
             "payload_capacity_g": {"required": False},
@@ -151,8 +155,14 @@ class DroneSerializer(serializers.ModelSerializer):
 
     def create(self, validated_data):
         spec_data = validated_data.pop("spec")
+        request = self.context.get("request")
+        user = getattr(request, "user", None)
 
-        return create_drone_with_spec(drone_data=validated_data, spec_data=spec_data)
+        return create_drone_with_spec(
+            drone_data=validated_data,
+            spec_data=spec_data,
+            user=user,
+        )
 
 
 class DroneUpdateSerializer(serializers.ModelSerializer):
