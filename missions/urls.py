@@ -1,4 +1,4 @@
-from django.urls import path
+from django.urls import include, path
 
 from .views import (
     MissionAssignmentDetailView,
@@ -39,5 +39,9 @@ urlpatterns = [
         "<int:pk>/assignments/<int:assignment_id>/condition/",
         MissionDroneConditionView.as_view(),
         name="mission-drone-condition",
+    ),
+    path(
+        "<int:mission_pk>/artifacts/",
+        include("media.urls"),
     ),
 ]
