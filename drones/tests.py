@@ -119,7 +119,22 @@ class DroneCreateTests(APITestCase):
         response = self.client.post(self.create_url, self.base_payload, format="json")
 
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
-        self.assertEqual(DroneSpecChangeLog.objects.count(), 0)
+        self.assertEqual(DroneSpecChangeLog.objects.count(), 1)
+
+        change_log = DroneSpecChangeLog.objects.first()
+
+        self.assertEqual(change_log.drone_spec, DroneSpec.objects.get())
+        self.assertEqual(change_log.changed_by, self.user)
+        self.assertEqual(change_log.old_values, {})
+        self.assertIn("max_speed_kmh", change_log.changed_fields)
+        self.assertIn("typical_range_km", change_log.changed_fields)
+        self.assertIn("typical_flight_time_min", change_log.changed_fields)
+        self.assertEqual(change_log.new_values["max_speed_kmh"], "12.50")
+        self.assertEqual(change_log.new_values["typical_range_km"], "95.50")
+        self.assertEqual(
+            change_log.new_values["typical_flight_time_min"],
+            "17.50",
+        )
 
     def test_create_drone_missing_required_field(self):
         payload = copy.deepcopy(self.base_payload)
