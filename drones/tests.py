@@ -718,7 +718,7 @@ class DroneSearchTests(APITestCase):
         results_ids = [item["id"] for item in response.data["results"]]
 
         self.assertIn(outdated_drone.id, results_ids)
-        
+
     def test_filter_by_typical_range_km_gte(self):
         matching_drone = DroneFactory(military_unit=self.military_unit)
         DroneSpecFactory(drone=matching_drone, typical_range_km="120.00")
