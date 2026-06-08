@@ -43,6 +43,7 @@ class DroneSpecAdmin(admin.ModelAdmin):
         "camera_model",
         "vtx_model",
         "technical_documentation_url",
+        "is_firmware_outdated",
     )
     search_fields = (
         "drone__serial_number",
@@ -54,8 +55,9 @@ class DroneSpecAdmin(admin.ModelAdmin):
         "camera_model",
         "vtx_model",
         "flight_controller",
+        "communication_protocol",
     )
-    list_filter = ("battery_type", "frame_type", "updated_at")
+    list_filter = ("battery_type", "frame_type", "is_firmware_outdated", "updated_at")
 
 
 @admin.register(DroneSpecChangeLog)
