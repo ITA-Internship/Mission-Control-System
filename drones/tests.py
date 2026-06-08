@@ -55,8 +55,10 @@ class DroneCreateTests(APITestCase):
                 "communication_protocol": "ExpressLRS",
                 "control_channel": "CH1",
                 "telemetry_channel": "CH2",
+                "typical_range_km": "95.50",
                 "max_speed_kmh": "12.5",
                 "max_range_km": "130",
+                "typical_flight_time_min": "17.50",
                 "max_flight_time_min": "20",
                 "frequency_mhz": "1000",
                 "payload_capacity_g": "100",
@@ -99,6 +101,8 @@ class DroneCreateTests(APITestCase):
         spec = DroneSpec.objects.get()
         self.assertEqual(spec.battery_model, "Test Battery Model")
         self.assertEqual(spec.camera_specs["resolution"], "1080p")
+        self.assertEqual(str(spec.typical_range_km), "95.50")
+        self.assertEqual(str(spec.typical_flight_time_min), "17.50")
         self.assertEqual(spec.additional_modules[0]["type"], "GPS")
         self.assertEqual(
             spec.technical_documentation_url,
@@ -110,15 +114,37 @@ class DroneCreateTests(APITestCase):
         self.assertEqual(spec.telemetry_channel, "CH2")
         self.assertEqual(spec.firmware_file_url, "https://example.com/firmware.bin")
 
-    def test_create_drone_does_not_create_spec_change_log(self):
-        response = self.client.post(
-            self.create_url,
-            self.base_payload,
-            format="json",
-        )
+    def test_create_drone_with_typical_performance_metrics(self):
+        response = self.client.post(self.create_url, self.base_payload, format="json")
 
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
-        self.assertEqual(DroneSpecChangeLog.objects.count(), 0)
+
+        drone = Drone.objects.get()
+        spec = drone.spec
+
+        self.assertEqual(str(spec.typical_range_km), "95.50")
+        self.assertEqual(str(spec.typical_flight_time_min), "17.50")
+
+    def test_create_drone_spec_change_log_created(self):
+        response = self.client.post(self.create_url, self.base_payload, format="json")
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(DroneSpecChangeLog.objects.count(), 1)
+
+        change_log = DroneSpecChangeLog.objects.first()
+
+        self.assertEqual(change_log.drone_spec, DroneSpec.objects.get())
+        self.assertEqual(change_log.changed_by, self.user)
+        self.assertEqual(change_log.old_values, {})
+        self.assertIn("max_speed_kmh", change_log.changed_fields)
+        self.assertIn("typical_range_km", change_log.changed_fields)
+        self.assertIn("typical_flight_time_min", change_log.changed_fields)
+        self.assertEqual(change_log.new_values["max_speed_kmh"], "12.50")
+        self.assertEqual(change_log.new_values["typical_range_km"], "95.50")
+        self.assertEqual(
+            change_log.new_values["typical_flight_time_min"],
+            "17.50",
+        )
 
     def test_create_drone_missing_required_field(self):
         payload = copy.deepcopy(self.base_payload)
@@ -221,6 +247,25 @@ class DroneUpdateAndDecommissionTests(APITestCase):
         self.assertEqual(response.data["id"], self.drone.id)
         self.assertEqual(response.data["status"], "ACTIVE")
 
+    def test_drone_detail_returns_typical_performance_metrics(self):
+        self.client.force_authenticate(self.admin_user)
+
+        self.drone.spec.typical_range_km = "95.50"
+        self.drone.spec.typical_flight_time_min = "17.50"
+        self.drone.spec.save(
+            update_fields=[
+                "typical_range_km",
+                "typical_flight_time_min",
+                "updated_at",
+            ]
+        )
+
+        response = self.client.get(self.detail_url)
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["spec"]["typical_range_km"], "95.50")
+        self.assertEqual(response.data["spec"]["typical_flight_time_min"], "17.50")
+
     def test_patch_drone_notes(self):
         self.client.force_authenticate(self.admin_user)
 
@@ -305,6 +350,27 @@ class DroneUpdateAndDecommissionTests(APITestCase):
             self.drone.spec.firmware_file_url, "https://example.com/new-firmware.bin"
         )
 
+    def test_patch_drone_typical_performance_metrics(self):
+        self.client.force_authenticate(self.admin_user)
+
+        response = self.client.patch(
+            self.detail_url,
+            {
+                "spec": {
+                    "typical_range_km": "110.50",
+                    "typical_flight_time_min": "19.00",
+                }
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        self.drone.spec.refresh_from_db()
+
+        self.assertEqual(str(self.drone.spec.typical_range_km), "110.50")
+        self.assertEqual(str(self.drone.spec.typical_flight_time_min), "19.00")
+
     def test_patch_drone_spec_creates_change_log(self):
         self.client.force_authenticate(self.admin_user)
 
@@ -355,6 +421,34 @@ class DroneUpdateAndDecommissionTests(APITestCase):
         self.assertEqual(
             change_log.new_values["camera_specs"],
             {"resolution": "4K"},
+        )
+
+    def test_patch_typical_performance_metrics_creates_change_log(self):
+        self.client.force_authenticate(self.admin_user)
+
+        response = self.client.patch(
+            self.detail_url,
+            {
+                "spec": {
+                    "typical_range_km": "110.50",
+                    "typical_flight_time_min": "19.00",
+                }
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(DroneSpecChangeLog.objects.count(), 1)
+
+        change_log = DroneSpecChangeLog.objects.first()
+
+        self.assertIsNotNone(change_log)
+        self.assertIn("typical_range_km", change_log.changed_fields)
+        self.assertIn("typical_flight_time_min", change_log.changed_fields)
+        self.assertEqual(change_log.new_values["typical_range_km"], "110.50")
+        self.assertEqual(
+            change_log.new_values["typical_flight_time_min"],
+            "19.00",
         )
 
     def test_decommission_requires_reason(self):
@@ -624,3 +718,22 @@ class DroneSearchTests(APITestCase):
         results_ids = [item["id"] for item in response.data["results"]]
 
         self.assertIn(outdated_drone.id, results_ids)
+        
+    def test_filter_by_typical_range_km_gte(self):
+        matching_drone = DroneFactory(military_unit=self.military_unit)
+        DroneSpecFactory(drone=matching_drone, typical_range_km="120.00")
+
+        non_matching_drone = DroneFactory(military_unit=self.military_unit)
+        DroneSpecFactory(drone=non_matching_drone, typical_range_km="80.00")
+
+        response = self.client.get(
+            self.create_url,
+            {"spec__typical_range_km__gte": "100.00"},
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        results_ids = [item["id"] for item in response.data["results"]]
+
+        self.assertIn(matching_drone.id, results_ids)
+        self.assertNotIn(non_matching_drone.id, results_ids)
