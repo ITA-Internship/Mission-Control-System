@@ -27,7 +27,7 @@ class DroneSeed:
     serial_number: str
     inventory_number: str
     name: str
-    drone_model: str
+    drone_model_name: str
     status: str
     unit_code: str
     acquired_at: date
@@ -56,12 +56,77 @@ class WriteOffSeed:
     written_off_at: date
 
 
+@dataclass(frozen=True)
+class DroneModelSeed:
+    name: str
+    manufacturer: str
+    description: str | None
+    supported_classifications: list[str]
+    is_active: bool = True
+
+
+DRONE_MODELS = (
+    DroneModelSeed(
+        name="Shark Recon 7",
+        manufacturer="Ukrspecsystems",
+        description="Long-range reconnaissance and artillery adjustment UAV.",
+        supported_classifications=[
+            Drone.CLASSIFICATION_RECONNAISSANCE,
+            Drone.CLASSIFICATION_SURVEILLANCE,
+        ],
+    ),
+    DroneModelSeed(
+        name="Viper Strike 5",
+        manufacturer="SkyDio",
+        description="High-speed strike drone for precision attacks.",
+        supported_classifications=[Drone.CLASSIFICATION_COMBAT],
+        is_active=False,
+    ),
+    DroneModelSeed(
+        name="Banshee Cargo 6",
+        manufacturer="Malloy Aeronautics",
+        description="Heavy-lift cargo drone for logistics and payload delivery.",
+        supported_classifications=[
+            Drone.CLASSIFICATION_TRANSPORT,
+            Drone.CLASSIFICATION_COMBAT,
+        ],
+    ),
+    DroneModelSeed(
+        name="Atlas Relay 8",
+        manufacturer="Quantum Systems",
+        description="Long-endurance signal relay and perimeter monitoring platform.",
+        supported_classifications=[
+            Drone.CLASSIFICATION_TRANSPORT,
+            Drone.CLASSIFICATION_SURVEILLANCE,
+        ],
+    ),
+    DroneModelSeed(
+        name="Kestrel Mini 4",
+        manufacturer="Teal Drones",
+        description="Compact, silent tactical drone for rapid reconnaissance.",
+        supported_classifications=[Drone.CLASSIFICATION_RECONNAISSANCE],
+    ),
+    DroneModelSeed(
+        name="Guardian Hex 6",
+        manufacturer="DJI",
+        description="Enterprise hexacopter for surveillance and thermal inspection.",
+        supported_classifications=[Drone.CLASSIFICATION_SURVEILLANCE],
+    ),
+    DroneModelSeed(
+        name="Raven Attack 5",
+        manufacturer="Anduril",
+        description="AI-powered loitering munition for target engagement.",
+        supported_classifications=[Drone.CLASSIFICATION_COMBAT],
+        is_active=False,
+    ),
+)
+
 DRONES = (
     DroneSeed(
         serial_number="FPV-AER-24001",
         inventory_number="INV-AER-001",
         name="Falcon Eye 1",
-        drone_model="Shark Recon 7",
+        drone_model_name="Shark Recon 7",
         status=Drone.STATUS_ACTIVE,
         unit_code="AER-01",
         acquired_at=date(2025, 1, 12),
@@ -86,7 +151,7 @@ DRONES = (
         serial_number="FPV-AER-24002",
         inventory_number="INV-AER-002",
         name="Falcon Eye 2",
-        drone_model="Shark Recon 7",
+        drone_model_name="Shark Recon 7",
         status=Drone.STATUS_ACTIVE,
         unit_code="AER-01",
         acquired_at=date(2025, 2, 18),
@@ -111,7 +176,7 @@ DRONES = (
         serial_number="FPV-ATK-24003",
         inventory_number="INV-ATK-003",
         name="Hammer 1",
-        drone_model="Viper Strike 5",
+        drone_model_name="Viper Strike 5",
         status=Drone.STATUS_ACTIVE,
         unit_code="ATK-02",
         acquired_at=date(2025, 3, 7),
@@ -136,7 +201,7 @@ DRONES = (
         serial_number="FPV-ATK-24004",
         inventory_number="INV-ATK-004",
         name="Hammer 2",
-        drone_model="Viper Strike 5",
+        drone_model_name="Viper Strike 5",
         status=Drone.STATUS_MAINTENANCE,
         unit_code="ATK-02",
         acquired_at=date(2025, 3, 25),
@@ -161,7 +226,7 @@ DRONES = (
         serial_number="FPV-ATK-24005",
         inventory_number="INV-ATK-005",
         name="Spear 1",
-        drone_model="Banshee Cargo 6",
+        drone_model_name="Banshee Cargo 6",
         status=Drone.STATUS_DAMAGED,
         unit_code="ATK-02",
         acquired_at=date(2025, 4, 3),
@@ -186,7 +251,7 @@ DRONES = (
         serial_number="FPV-SUP-24006",
         inventory_number="INV-SUP-006",
         name="Relay 1",
-        drone_model="Atlas Relay 8",
+        drone_model_name="Atlas Relay 8",
         status=Drone.STATUS_TRANSFERRED,
         unit_code="SUP-03",
         acquired_at=date(2024, 11, 29),
@@ -214,7 +279,7 @@ DRONES = (
         serial_number="FPV-AER-24007",
         inventory_number="INV-AER-007",
         name="Scout 1",
-        drone_model="Kestrel Mini 4",
+        drone_model_name="Kestrel Mini 4",
         status=Drone.STATUS_ACTIVE,
         unit_code="AER-01",
         acquired_at=date(2025, 4, 21),
@@ -239,7 +304,7 @@ DRONES = (
         serial_number="FPV-SUP-24008",
         inventory_number="INV-SUP-008",
         name="Sentinel 1",
-        drone_model="Guardian Hex 6",
+        drone_model_name="Guardian Hex 6",
         status=Drone.STATUS_DECOMMISSIONED,
         unit_code="SUP-03",
         acquired_at=date(2024, 8, 15),
@@ -267,7 +332,7 @@ DRONES = (
         serial_number="FPV-ATK-24009",
         inventory_number="INV-ATK-009",
         name="Lancer 1",
-        drone_model="Raven Attack 5",
+        drone_model_name="Raven Attack 5",
         status=Drone.STATUS_WRITTEN_OFF,
         unit_code="ATK-02",
         acquired_at=date(2024, 12, 10),
@@ -292,7 +357,7 @@ DRONES = (
         serial_number="FPV-SUP-24010",
         inventory_number="INV-SUP-010",
         name="Courier 1",
-        drone_model="Atlas Relay 8",
+        drone_model_name="Atlas Relay 8",
         status=Drone.STATUS_LOST,
         unit_code="SUP-03",
         acquired_at=date(2024, 7, 30),

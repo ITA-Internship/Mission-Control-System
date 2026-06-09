@@ -1,7 +1,19 @@
 from accounts.models import MilitaryUnit, User
-from drones.models import Drone, DroneSpec, DroneStatusHistory, WriteOffRecord
+from drones.models import (
+    Drone,
+    DroneModel,
+    DroneSpec,
+    DroneStatusHistory,
+    WriteOffRecord,
+)
 from missions.models import Mission
-from seed_data.data.drones_data import DRONES, STATUS_HISTORY, WRITE_OFFS, DroneSeed
+from seed_data.data.drones_data import (
+    DRONE_MODELS,
+    DRONES,
+    STATUS_HISTORY,
+    WRITE_OFFS,
+    DroneSeed,
+)
 
 
 class DroneSeeder:
@@ -10,10 +22,13 @@ class DroneSeeder:
         self.users = self._load_users()
         self.missions = self._load_missions()
         self.drones: dict[str, Drone] = {}
+        self.drone_models: dict[str, DroneModel] = {}
 
     def seed(self) -> dict[str, int]:
         created_count = 0
         updated_count = 0
+
+        self._seed_drone_models()
 
         for drone_seed in DRONES:
             _, created = self._upsert_drone(drone_seed)
@@ -78,13 +93,15 @@ class DroneSeeder:
 
     def _upsert_drone(self, drone_seed: DroneSeed) -> tuple[Drone, bool]:
         unit = self.units[drone_seed.unit_code]
+        drone_model_instance = self.drone_models.get(drone_seed.drone_model_name)
 
         drone, created = Drone.objects.update_or_create(
             serial_number=drone_seed.serial_number,
             defaults={
                 "inventory_number": drone_seed.inventory_number,
                 "name": drone_seed.name,
-                "drone_model": drone_seed.drone_model,
+                "drone_model": drone_model_instance,
+                "classification": drone_model_instance.get_allowed_classifications()[0],
                 "status": drone_seed.status,
                 "military_unit": unit,
                 "acquired_at": drone_seed.acquired_at,
@@ -155,6 +172,21 @@ class DroneSeeder:
                 drone=drone,
                 to_status=Drone.STATUS_WRITTEN_OFF,
             ).update(related_writeoff=writeoff_record)
+
+    def _seed_drone_models(self) -> None:
+        for drone_model_seed in DRONE_MODELS:
+            drone_model, _ = DroneModel.objects.update_or_create(
+                name=drone_model_seed.name,
+                defaults={
+                    "manufacturer": drone_model_seed.manufacturer,
+                    "description": drone_model_seed.description,
+                    "supported_classifications": (
+                        drone_model_seed.supported_classifications
+                    ),
+                    "is_active": drone_model_seed.is_active,
+                },
+            )
+            self.drone_models[drone_model_seed.name] = drone_model
 
 
 def seed_drones() -> dict[str, int]:

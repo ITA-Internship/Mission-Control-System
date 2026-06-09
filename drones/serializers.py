@@ -1,9 +1,14 @@
+from django.core.exceptions import ValidationError
 from rest_framework import serializers
 
 from missions.models import Mission
 
-from .models import Drone, DroneSpec, DroneStatusHistory, WriteOffRecord
-from .services import create_drone_with_spec, update_drone
+from .models import Drone, DroneModel, DroneSpec, DroneStatusHistory, WriteOffRecord
+from .services import (
+    create_drone_with_spec,
+    update_drone,
+    validate_drone_classification,
+)
 
 
 class DroneSpecSerializer(serializers.ModelSerializer):
@@ -85,6 +90,15 @@ class DroneSerializer(serializers.ModelSerializer):
         spec_data = validated_data.pop("spec")
 
         return create_drone_with_spec(drone_data=validated_data, spec_data=spec_data)
+
+    def validate(self, attrs):
+        drone_model = attrs.get("drone_model")
+        classification = attrs.get("classification")
+
+        if drone_model and classification:
+            validate_drone_classification(drone_model, classification)
+
+        return attrs
 
 
 class DroneUpdateSerializer(serializers.ModelSerializer):
@@ -174,6 +188,12 @@ class DroneUpdateSerializer(serializers.ModelSerializer):
         if errors:
             raise serializers.ValidationError(errors)
 
+        drone_model = attrs.get("drone_model")
+        classification = attrs.get("classification")
+
+        if drone_model and classification:
+            validate_drone_classification(drone_model, classification)
+
         return attrs
 
     def update(self, instance, validated_data):
@@ -222,3 +242,45 @@ class DroneListSerializer(serializers.ModelSerializer):
             "military_unit",
             "created_at",
         )
+
+
+class DroneModelSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = DroneModel
+        fields = (
+            "id",
+            "name",
+            "manufacturer",
+            "description",
+            "supported_classifications",
+            "is_active",
+            "created_at",
+            "updated_at",
+        )
+
+    def validate(self, attrs):
+        classifications = attrs.get("supported_classifications")
+
+        if not classifications:
+            raise ValidationError(
+                {
+                    "supported_classifications": (
+                        "A drone model must support at least one classification."
+                    )
+                }
+            )
+
+        valid_keys = {choice[0] for choice in Drone.CLASSIFICATION_CHOICES}
+        invalid_items = [item for item in classifications if item not in valid_keys]
+
+        if invalid_items:
+            raise ValidationError(
+                {
+                    "supported_classifications": (
+                        f"Value {invalid_items} are not valid classifications. "
+                        f'Valid classifications: {", ".join(valid_keys)}'
+                    )
+                }
+            )
+
+        return attrs
