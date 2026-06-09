@@ -17,28 +17,21 @@ def upload_artifact(
     file,
     title,
     uploaded_by,
-    file_type,
     description=None,
     captured_at=None,
 ):
-    original_filename = os.path.basename(file.name)
-    file_size = file.size
+    artifact = MissionArtifact(
+        mission=mission,
+        uploaded_by=uploaded_by,
+        title=title,
+        description=description,
+        file=file,
+        captured_at=captured_at,
+    )
 
-    saved_path = None
     try:
         with transaction.atomic():
-            artifact = MissionArtifact.objects.create(
-                mission=mission,
-                uploaded_by=uploaded_by,
-                title=title,
-                description=description,
-                file=file,
-                file_type=file_type,
-                original_filename=original_filename,
-                file_size=file_size,
-                captured_at=captured_at,
-            )
-            saved_path = artifact.file.name
+            artifact.save()
 
             MissionAuditLog.objects.create(
                 user=uploaded_by,
@@ -47,18 +40,22 @@ def upload_artifact(
                 target_id=artifact.id,
                 changes={
                     "mission_id": mission.id,
-                    "file_type": file_type,
-                    "original_filename": original_filename,
-                    "file_size": file_size,
+                    "file_type": artifact.file_type,
+                    "original_filename": artifact.original_filename,
+                    "file_size": artifact.file_size,
                     "title": title,
                 },
             )
     except Exception:
-        if saved_path and default_storage.exists(saved_path):
-            try:
-                default_storage.delete(saved_path)
-            except Exception:
-                logger.exception("Failed to clean up orphaned file %s", saved_path)
+        current_file_name = artifact.file.name if artifact.file else None
+        if current_file_name and current_file_name != file.name:
+            if default_storage.exists(current_file_name):
+                try:
+                    default_storage.delete(current_file_name)
+                except Exception:
+                    logger.exception(
+                        "Failed to clean up orphaned file %s", current_file_name
+                    )
         raise
 
     return artifact

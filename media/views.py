@@ -70,7 +70,6 @@ class ArtifactListCreateView(_MissionArtifactMixin, generics.ListCreateAPIView):
             file=serializer.validated_data["file"],
             title=serializer.validated_data["title"],
             uploaded_by=request.user,
-            file_type=serializer.validated_data["file_type"],
             description=serializer.validated_data.get("description"),
             captured_at=serializer.validated_data.get("captured_at"),
         )

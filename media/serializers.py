@@ -74,11 +74,4 @@ class MissionArtifactUploadSerializer(serializers.Serializer):
                 f"{settings.ARTIFACT_MAX_FILE_SIZE_MB} MB limit."
             )
 
-        self._resolved_file_type = EXTENSION_TO_FILE_TYPE[ext]
-
         return file
-
-    def validate(self, attrs):
-        if hasattr(self, "_resolved_file_type"):
-            attrs["file_type"] = self._resolved_file_type
-        return attrs
