@@ -20,6 +20,8 @@ from rest_framework.response import Response
 from rest_framework.throttling import ScopedRateThrottle
 from rest_framework.views import APIView
 
+from common.utils import EchoBuffer
+
 from .models import AuditLog, User, UserStatusLog
 from .permissions import HasRBACPermission, IsSystemAdmin
 from .rbac import PERMISSION_USERS_CREATE, PERMISSION_USERS_MANAGE_ROLES
@@ -119,11 +121,6 @@ class AuditLogFilter(filters.FilterSet):
         fields = ["actor", "target_user", "action_type", "result"]
 
 
-class Echo:
-    def write(self, value):
-        return value
-
-
 class AuditLogViewSet(viewsets.ReadOnlyModelViewSet):
     serializer_class = AuditLogSerializer
     permission_classes = [permissions.IsAuthenticated]
@@ -153,7 +150,7 @@ class AuditLogViewSet(viewsets.ReadOnlyModelViewSet):
         queryset = self.filter_queryset(self.get_queryset())[:MAX_EXPORT_LIMIT]
 
         def generate_csv():
-            writer = csv.writer(Echo())
+            writer = csv.writer(EchoBuffer())
 
             yield writer.writerow(
                 [

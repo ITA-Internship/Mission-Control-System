@@ -1,8 +1,13 @@
+import csv
 import datetime
+import io
 from decimal import Decimal
 
 from django.core.exceptions import ValidationError
 from django.db import transaction
+
+from accounts.models import MilitaryUnit
+from common.utils import EchoBuffer
 
 from .models import (
     Drone,
@@ -211,3 +216,142 @@ def validate_drone_classification(drone_model, classification):
                 f'Allowed: {", ".join([c.title() for c in allowed_classifications])}'
             }
         )
+
+def generate_drones_csv(queryset):
+
+    buffer = EchoBuffer()
+    writer = csv.writer(buffer)
+
+    yield writer.writerow(
+        [
+            "ID",
+            "Serial Number",
+            "Inventory Number",
+            "Name",
+            "Model",
+            "Classification",
+            "Status",
+            "Military Unit",
+            "Created At",
+        ]
+    )
+
+    for drone in queryset:
+        yield writer.writerow(
+            [
+                drone.id,
+                drone.serial_number,
+                drone.inventory_number,
+                drone.name,
+                drone.drone_model,
+                drone.get_classification_display(),
+                drone.get_status_display(),
+                drone.military_unit.name if drone.military_unit else "",
+                (
+                    drone.created_at.strftime("%Y-%m-%d %H:%M:%S")
+                    if drone.created_at
+                    else ""
+                ),
+            ]
+        )
+
+
+def import_drones_csv(drones_csv_file, user=None):
+    decoded_file = drones_csv_file.read().decode("utf-8")
+    io_string = io.StringIO(decoded_file)
+
+    reader = csv.DictReader(io_string)
+
+    required_columns = {
+        "Serial Number",
+        "Inventory Number",
+        "Name",
+        "Model",
+        "Military Unit",
+        "Acquired At",
+    }
+
+    if not reader.fieldnames or not required_columns.issubset(set(reader.fieldnames)):
+        return {
+            "success": False,
+            "error": f"Invalid file format. Required columns: "
+            f"{', '.join(required_columns)}",
+        }
+
+    success_cnt = 0
+    errors = []
+
+    for row_num, row in enumerate(reader, start=2):
+        serial_number = row.get("Serial Number", "").strip()
+        inventory_number = row.get("Inventory Number", "").strip()
+        name = row.get("Name", "").strip()
+        drone_model = row.get("Model", "").strip()
+        military_unit_name = row.get("Military Unit", "").strip()
+        acquired_at = row.get("Acquired At", "").strip()
+
+        if not all(
+            [serial_number, inventory_number, name, drone_model, military_unit_name]
+        ):
+            errors.append(
+                {"row": row_num, "error": "Missing one or more required fields."}
+            )
+            continue
+
+        if Drone.objects.filter(serial_number=serial_number).exists():
+            errors.append(
+                {
+                    "row": row_num,
+                    "error": f"Drone with serial number "
+                    f"'{serial_number}' already exists.",
+                }
+            )
+            continue
+
+        try:
+            military_unit = MilitaryUnit.objects.get(name=military_unit_name)
+        except MilitaryUnit.DoesNotExist:
+            errors.append(
+                {
+                    "row": row_num,
+                    "error": f"Military unit "
+                    f"'{military_unit_name}' not found in database.",
+                }
+            )
+            continue
+
+        drone_data = {
+            "serial_number": serial_number,
+            "inventory_number": inventory_number,
+            "name": name,
+            "drone_model": drone_model,
+            "military_unit": military_unit,
+            "acquired_at": acquired_at,
+        }
+
+        # TODO: This is a stub to work around the NOT NULL restrictions in DroneSpec.
+        # In the future specification field, it is worth making null=True/blank=True,
+        # then when importing according to the technical details unknown.
+        dummy_spec_data = {
+            "frame_type": "Unknown",
+            "motor_model": "Unknown",
+            "battery_type": "Unknown",
+            "battery_capacity_mah": 0,
+            "camera_model": "Unknown",
+            "flight_controller": "Unknown",
+            "max_speed_kmh": "0.00",
+            "max_range_km": "0.00",
+            "max_flight_time_min": "0.00",
+            "frequency_mhz": 0,
+        }
+
+        try:
+            create_drone_with_spec(drone_data, spec_data=dummy_spec_data, user=user)
+            success_cnt += 1
+        except Exception as e:
+            errors.append({"row": row_num, "error": f"Failed to create: {str(e)}"})
+
+    return {
+        "success": True,
+        "added_count": success_cnt,
+        "errors": errors,
+    }
