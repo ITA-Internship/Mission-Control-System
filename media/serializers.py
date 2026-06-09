@@ -5,7 +5,7 @@ from rest_framework import serializers
 
 from common.serializers import UserBriefSerializer
 
-from .models import ALL_ALLOWED_EXTENSIONS, EXTENSION_TO_FILE_TYPE, MissionArtifact
+from .models import EXTENSION_TO_FILE_TYPE, MissionArtifact, _get_all_allowed_extensions
 
 
 class MissionArtifactSerializer(serializers.ModelSerializer):
@@ -28,7 +28,16 @@ class MissionArtifactSerializer(serializers.ModelSerializer):
             "captured_at",
             "uploaded_at",
         ]
-        read_only_fields = fields
+        read_only_fields = [
+            "id",
+            "uploaded_by",
+            "file",
+            "file_type",
+            "original_filename",
+            "file_size",
+            "storage_backend",
+            "uploaded_at",
+        ]
 
 
 class MissionArtifactUploadSerializer(serializers.Serializer):
@@ -45,14 +54,17 @@ class MissionArtifactUploadSerializer(serializers.Serializer):
         return stripped
 
     def validate_file(self, file):
-        if file.size is None:
-            raise serializers.ValidationError("Cannot determine file size.")
+        if file.size is None or file.size == 0:
+            raise serializers.ValidationError(
+                "File is empty or its size cannot be determined."
+            )
 
         ext = os.path.splitext(file.name)[1].lower()
-        if ext not in ALL_ALLOWED_EXTENSIONS:
+        all_allowed = _get_all_allowed_extensions()
+        if ext not in all_allowed:
             raise serializers.ValidationError(
                 f"Unsupported file type '{ext}'. "
-                f"Allowed: {', '.join(sorted(ALL_ALLOWED_EXTENSIONS))}."
+                f"Allowed: {', '.join(sorted(all_allowed))}."
             )
 
         max_bytes = settings.ARTIFACT_MAX_FILE_SIZE_MB * 1024 * 1024
@@ -62,11 +74,11 @@ class MissionArtifactUploadSerializer(serializers.Serializer):
                 f"{settings.ARTIFACT_MAX_FILE_SIZE_MB} MB limit."
             )
 
+        self._resolved_file_type = EXTENSION_TO_FILE_TYPE[ext]
+
         return file
 
     def validate(self, attrs):
-        file = attrs.get("file")
-        if file:
-            ext = os.path.splitext(file.name)[1].lower()
-            attrs["file_type"] = EXTENSION_TO_FILE_TYPE[ext]
+        if hasattr(self, "_resolved_file_type"):
+            attrs["file_type"] = self._resolved_file_type
         return attrs

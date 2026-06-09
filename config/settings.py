@@ -158,6 +158,13 @@ MEDIA_ROOT = BASE_DIR / "mediafiles"
 # Artifact upload limits (configurable via environment)
 ARTIFACT_MAX_FILE_SIZE_MB = int(os.getenv("ARTIFACT_MAX_FILE_SIZE_MB", "50"))
 
+# Allowed file extensions for artifact uploads, grouped by file type.
+ARTIFACT_ALLOWED_EXTENSIONS = {
+    "video": [".mp4", ".avi", ".mov"],
+    "image": [".jpg", ".jpeg", ".png"],
+    "data": [".csv", ".json"],
+}
+
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 EMAIL_BACKEND = os.getenv(
