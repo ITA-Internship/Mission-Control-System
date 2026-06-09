@@ -16,10 +16,9 @@ class FileType(models.TextChoices):
 
 def _get_all_allowed_extensions():
     return [
-        ext
-        for exts in settings.ARTIFACT_ALLOWED_EXTENSIONS.values()
-        for ext in exts
+        ext for exts in settings.ARTIFACT_ALLOWED_EXTENSIONS.values() for ext in exts
     ]
+
 
 def _get_extension_to_file_type():
     return {
@@ -93,8 +92,7 @@ class MissionArtifact(models.Model):
         validators=[
             FileExtensionValidator(
                 allowed_extensions=[
-                    ext.lstrip(".")
-                    for ext in _get_all_allowed_extensions()
+                    ext.lstrip(".") for ext in _get_all_allowed_extensions()
                 ]
             ),
             _validate_file_size,

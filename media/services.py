@@ -58,9 +58,7 @@ def upload_artifact(
             try:
                 default_storage.delete(saved_path)
             except Exception:
-                logger.exception(
-                    "Failed to clean up orphaned file %s", saved_path
-                )
+                logger.exception("Failed to clean up orphaned file %s", saved_path)
         raise
 
     return artifact
@@ -94,8 +92,7 @@ def delete_artifact(*, artifact, action_user):
                 default_storage.delete(file_name)
             except Exception:
                 logger.exception(
-                    "Failed to remove artifact file %s; "
-                    "requires manual cleanup.",
+                    "Failed to remove artifact file %s; " "requires manual cleanup.",
                     file_name,
                 )
 
