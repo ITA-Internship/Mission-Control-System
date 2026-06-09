@@ -326,7 +326,6 @@ class DroneUpdateSerializer(serializers.ModelSerializer):
             writeoff_reason_description=writeoff_reason_description,
             document_number=document_number,
             written_off_at=written_off_at,
-            # TODO: must be changed when 'missions' are created
             related_mission=related_mission,
             status_change_reason=status_change_reason,
         )
