@@ -1,5 +1,4 @@
 import logging
-import os
 
 from django.core.files.storage import default_storage
 from django.db import transaction

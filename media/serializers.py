@@ -5,7 +5,7 @@ from rest_framework import serializers
 
 from common.serializers import UserBriefSerializer
 
-from .models import EXTENSION_TO_FILE_TYPE, MissionArtifact, _get_all_allowed_extensions
+from .models import MissionArtifact, _get_all_allowed_extensions
 
 
 class MissionArtifactSerializer(serializers.ModelSerializer):
