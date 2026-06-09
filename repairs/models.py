@@ -2,6 +2,7 @@ from django.conf import settings
 from django.db import models
 
 
+# some examples, since I don't know which ones might actually be needed
 class DefectType(models.TextChoices):
     MOTOR = "MOTOR", "Motor"
     BATTERY = "BATTERY", "Battery"

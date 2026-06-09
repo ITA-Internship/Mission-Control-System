@@ -39,9 +39,7 @@ class DefectReportSerializer(serializers.ModelSerializer):
 
     def validate_detected_at(self, value):
         if value > timezone.now() + DETECTED_AT_GRACE_PERIOD:
-            raise serializers.ValidationError(
-                "detected_at cannot be in the future."
-            )
+            raise serializers.ValidationError("detected_at cannot be in the future.")
         return value
 
     def create(self, validated_data):
