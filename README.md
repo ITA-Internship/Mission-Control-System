@@ -705,7 +705,7 @@ GET    /api/videos/{id}/
 
 ### 📄 CSV Import/Export Format
 
-The system supports bulk drone inventory management via CSV files. 
+The system supports bulk drone inventory management via CSV files.
 
 **Expected Import Format:**
 To import drones, upload a `.csv` file with the following required columns (exact headers must be present):
