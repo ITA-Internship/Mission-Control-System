@@ -1,14 +1,47 @@
 from rest_framework.permissions import SAFE_METHODS, BasePermission
 
-from accounts.permissions import user_has_permission
+from accounts.permissions import get_user_role_code, user_has_permission
 from accounts.rbac import (
     PERMISSION_DRONES_CREATE,
     PERMISSION_DRONES_DECOMMISSION,
     PERMISSION_DRONES_UPDATE,
     PERMISSION_DRONES_VIEW,
 )
+from roles.models import COMMANDER_CODE, DISPATCHER_CODE, OPERATOR_CODE, TECHNICIAN_CODE
 
 from .models import Drone
+
+
+class CanCompareDrones(BasePermission):
+
+    message = "You do not have permission to view the drone comparison tool."
+
+    def _has_base_view_permission(self, user):
+        if not user or not user.is_authenticated:
+            return False
+
+        if getattr(user, "is_staff", False):
+            return True
+
+        return user_has_permission(user, PERMISSION_DRONES_VIEW)
+
+    def has_permission(self, request, view):
+
+        if not self._has_base_view_permission(request.user):
+            return False
+
+        if getattr(request.user, "is_staff", False):
+            return True
+
+        user_role = get_user_role_code(request.user)
+        ALLOWED_COMPARISON_ROLES = [
+            TECHNICIAN_CODE,
+            OPERATOR_CODE,
+            DISPATCHER_CODE,
+            COMMANDER_CODE,
+        ]
+
+        return user_role in ALLOWED_COMPARISON_ROLES
 
 
 class DronePermission(BasePermission):
