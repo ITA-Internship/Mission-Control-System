@@ -156,7 +156,7 @@ class DroneStatusHistorySerializer(serializers.ModelSerializer):
             "created_at",
         )
         read_only_fields = fields
-        
+
     def get_changed_by_display(self, obj):
         user = obj.changed_by
 
@@ -164,9 +164,7 @@ class DroneStatusHistorySerializer(serializers.ModelSerializer):
             return None
 
         return (
-            getattr(user, "username", None)
-            or getattr(user, "email", None)
-            or str(user)
+            getattr(user, "username", None) or getattr(user, "email", None) or str(user)
         )
 
     def get_event_type(self, obj):
@@ -219,13 +217,13 @@ class DroneUpdateSerializer(serializers.ModelSerializer):
         required=False,
         allow_blank=True,
     )
-    
+
     status_change_reason = serializers.CharField(
         write_only=True,
         required=False,
         allow_blank=True,
     )
-    
+
     document_number = serializers.CharField(
         write_only=True,
         required=False,
@@ -341,7 +339,7 @@ class DroneListSerializer(serializers.ModelSerializer):
     status_label = serializers.CharField(read_only=True)
     status_indicator = serializers.CharField(read_only=True)
     status_category = serializers.CharField(read_only=True)
-    
+
     class Meta:
         model = Drone
         fields = (

@@ -549,7 +549,7 @@ class DroneUpdateAndDecommissionTests(APITestCase):
 
         self.assertEqual(history.from_status, "ACTIVE")
         self.assertEqual(history.to_status, "DAMAGED")
-        
+
     def test_status_change_uses_custom_reason_in_status_history(self):
         self.client.force_authenticate(self.admin_user)
 

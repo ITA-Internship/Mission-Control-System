@@ -430,8 +430,8 @@ class MissionDroneConditionTests(APITestCase):
         self.assertEqual(log.changes["new_condition"], "damaged")
         self.assertEqual(log.changes["previous_drone_status"], "ACTIVE")
         self.assertEqual(log.changes["new_drone_status"], "DAMAGED")
-        
-        
+
+
 class MissionStatusLifecycleTests(APITestCase):
     def setUp(self):
         self.admin = AdminUserFactory()

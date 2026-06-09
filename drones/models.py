@@ -36,7 +36,7 @@ class Drone(models.Model):
         STATUS_TRANSFERRED,
         STATUS_WRITTEN_OFF,
     )
-    
+
     STATUS_UI = {
         STATUS_ACTIVE: {
             "label": "Active",
@@ -111,7 +111,7 @@ class Drone(models.Model):
 
     def __str__(self) -> str:
         return f"{self.name} {self.drone_model} - {self.serial_number}"
-    
+
     @property
     def status_label(self):
         return self.STATUS_UI.get(self.status, {}).get("label", self.status)
@@ -309,7 +309,7 @@ class DroneStatusHistory(models.Model):
         related_name="status_history_records",
     )
     created_at = models.DateTimeField(auto_now_add=True)
-    
+
     class Meta:
         ordering = ["-created_at"]
 

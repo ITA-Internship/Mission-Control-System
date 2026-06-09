@@ -1,14 +1,14 @@
 from datetime import timedelta
 
 from django.contrib.auth import get_user_model
-from django.utils import timezone
 from django.db import transaction
+from django.utils import timezone
 from rest_framework import serializers
 
 from accounts.permissions import get_user_role_code
 from drones.models import Drone
-from roles.models import COMMANDER_CODE, OPERATOR_CODE
 from drones.services import update_drone
+from roles.models import COMMANDER_CODE, OPERATOR_CODE
 
 from .models import (
     MISSION_STATUS_TRANSITIONS,
@@ -375,7 +375,7 @@ class MissionStatusUpdateSerializer(serializers.ModelSerializer):
                 f"Cannot change status from '{current_status}' to '{value}'."
             )
         return value
-    
+
     def update(self, instance, validated_data):
         old_status = instance.status
         new_status = validated_data["status"]
