@@ -86,8 +86,14 @@ class DroneSpecFactory(factory.django.DjangoModelFactory):
     vtx_model = "Test VTX"
     flight_controller = "Test Controller"
     firmware_version = "1.0.0"
+    is_firmware_outdated = False
+    communication_protocol = "ExpressLRS"
+    control_channel = "CH1"
+    telemetry_channel = "CH2"
     max_speed_kmh = "120.00"
+    typical_range_km = "8.50"
     max_range_km = "10.00"
+    typical_flight_time_min = "18.00"
     max_flight_time_min = "20.00"
     frequency_mhz = 5800
     payload_capacity_g = 100
@@ -99,3 +105,4 @@ class DroneSpecFactory(factory.django.DjangoModelFactory):
         }
     ]
     technical_documentation_url = "https://example.com/drone-spec.pdf"
+    firmware_file_url = "https://example.com/firmware.bin"

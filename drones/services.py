@@ -26,9 +26,21 @@ def _serialize_audit_value(value):
 
 
 @transaction.atomic
-def create_drone_with_spec(drone_data, spec_data):
+def create_drone_with_spec(drone_data, spec_data, user=None):
+    user = _get_authenticated_user(user)
     drone = Drone.objects.create(**drone_data)
-    DroneSpec.objects.create(drone=drone, **spec_data)
+    spec = DroneSpec.objects.create(drone=drone, **spec_data)
+
+    DroneSpecChangeLog.objects.create(
+        drone_spec=spec,
+        changed_by=user,
+        changed_fields=list(spec_data.keys()),
+        old_values={},
+        new_values={
+            field_name: _serialize_audit_value(getattr(spec, field_name))
+            for field_name in spec_data.keys()
+        },
+    )
 
     return drone
 

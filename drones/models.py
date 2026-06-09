@@ -75,13 +75,34 @@ class DroneSpec(models.Model):
     vtx_model = models.CharField(max_length=255, blank=True)
     flight_controller = models.CharField(max_length=255)
     firmware_version = models.CharField(max_length=255, blank=True)
+    is_firmware_outdated = models.BooleanField(
+        default=False,
+        help_text="Indicates if the firmware or "
+        "communication parameters are unsupported.",
+    )
+    communication_protocol = models.CharField(max_length=100, blank=True)
+    control_channel = models.CharField(max_length=255, blank=True)
+    telemetry_channel = models.CharField(max_length=255, blank=True)
     max_speed_kmh = models.DecimalField(max_digits=6, decimal_places=2)
+    typical_range_km = models.DecimalField(
+        max_digits=6,
+        decimal_places=2,
+        null=True,
+        blank=True,
+    )
     max_range_km = models.DecimalField(max_digits=6, decimal_places=2)
+    typical_flight_time_min = models.DecimalField(
+        max_digits=6,
+        decimal_places=2,
+        null=True,
+        blank=True,
+    )
     max_flight_time_min = models.DecimalField(max_digits=6, decimal_places=2)
     frequency_mhz = models.PositiveIntegerField()
     payload_capacity_g = models.PositiveIntegerField(blank=True, null=True)
     additional_modules = models.JSONField(default=list, blank=True)
     technical_documentation_url = models.URLField(blank=True)
+    firmware_file_url = models.URLField(max_length=500, blank=True)
     updated_at = models.DateTimeField(auto_now=True)
 
     def clean(self):
