@@ -92,9 +92,7 @@ def update_user_role(*, target_user: User, new_role_id: int, changed_by: User) -
     except Role.DoesNotExist as exc:
         raise ValidationError({"role_id": ["Invalid role_id."]}) from exc
 
-    locked_user = (
-        User.objects.select_for_update().select_related("role").get(pk=target_user.pk)
-    )
+    locked_user = User.objects.select_for_update().get(pk=target_user.pk)
     previous_role = locked_user.role
 
     if not locked_user.is_active:

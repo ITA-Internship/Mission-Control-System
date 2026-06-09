@@ -74,12 +74,35 @@ class DroneSpecFactory(factory.django.DjangoModelFactory):
     motor_model = "Test Motor"
     battery_type = "LiPo"
     battery_capacity_mah = 1500
+    battery_model = "Test Battery Model"
     camera_model = "Test Camera"
+    camera_specs = {
+        "sensor": '1/2.8"',
+        "resolution": "1080p",
+        "fov": "120",
+        "stabilization": "none",
+        "night_mode": True,
+    }
     vtx_model = "Test VTX"
     flight_controller = "Test Controller"
     firmware_version = "1.0.0"
+    is_firmware_outdated = False
+    communication_protocol = "ExpressLRS"
+    control_channel = "CH1"
+    telemetry_channel = "CH2"
     max_speed_kmh = "120.00"
+    typical_range_km = "8.50"
     max_range_km = "10.00"
+    typical_flight_time_min = "18.00"
     max_flight_time_min = "20.00"
     frequency_mhz = 5800
     payload_capacity_g = 100
+    additional_modules = [
+        {
+            "type": "GPS",
+            "model": "Matek M10Q",
+            "notes": "External module",
+        }
+    ]
+    technical_documentation_url = "https://example.com/drone-spec.pdf"
+    firmware_file_url = "https://example.com/firmware.bin"

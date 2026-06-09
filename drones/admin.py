@@ -1,6 +1,12 @@
 from django.contrib import admin
 
-from .models import Drone, DroneSpec, DroneStatusHistory, WriteOffRecord
+from .models import (
+    Drone,
+    DroneSpec,
+    DroneSpecChangeLog,
+    DroneStatusHistory,
+    WriteOffRecord,
+)
 
 
 @admin.register(Drone)
@@ -33,16 +39,56 @@ class DroneSpecAdmin(admin.ModelAdmin):
         "frame_type",
         "motor_model",
         "battery_type",
+        "battery_model",
         "camera_model",
         "vtx_model",
+        "technical_documentation_url",
+        "is_firmware_outdated",
     )
     search_fields = (
         "drone__serial_number",
         "drone__inventory_number",
         "frame_type",
         "motor_model",
+        "battery_type",
+        "battery_model",
         "camera_model",
+        "vtx_model",
+        "flight_controller",
+        "communication_protocol",
     )
+    list_filter = ("battery_type", "frame_type", "is_firmware_outdated", "updated_at")
+
+
+@admin.register(DroneSpecChangeLog)
+class DroneSpecChangeLogAdmin(admin.ModelAdmin):
+    list_display = (
+        "id",
+        "drone_spec",
+        "changed_by",
+        "changed_fields",
+        "created_at",
+    )
+    search_fields = (
+        "drone_spec__drone__serial_number",
+        "drone_spec__drone__inventory_number",
+        "drone_spec__drone__name",
+    )
+    list_filter = ("created_at",)
+    readonly_fields = (
+        "drone_spec",
+        "changed_by",
+        "changed_fields",
+        "old_values",
+        "new_values",
+        "created_at",
+    )
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
 
 
 @admin.register(WriteOffRecord)
