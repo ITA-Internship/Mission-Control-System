@@ -9,6 +9,7 @@ from django.utils import timezone
 class Drone(models.Model):
 
     STATUS_ACTIVE = "ACTIVE"
+    STATUS_IN_MISSION = "IN_MISSION"
     STATUS_DAMAGED = "DAMAGED"
     STATUS_LOST = "LOST"
     STATUS_MAINTENANCE = "MAINTENANCE"
@@ -19,6 +20,7 @@ class Drone(models.Model):
 
     STATUS_CHOICES = [
         (STATUS_ACTIVE, "Active"),
+        (STATUS_IN_MISSION, "In mission"),
         (STATUS_DAMAGED, "Damaged"),
         (STATUS_LOST, "Lost"),
         (STATUS_MAINTENANCE, "Maintenance"),
@@ -34,6 +36,54 @@ class Drone(models.Model):
         STATUS_TRANSFERRED,
         STATUS_WRITTEN_OFF,
     )
+    
+    STATUS_UI = {
+        STATUS_ACTIVE: {
+            "label": "Active",
+            "indicator": "success",
+            "category": "available",
+        },
+        STATUS_IN_MISSION: {
+            "label": "In mission",
+            "indicator": "primary",
+            "category": "in_mission",
+        },
+        STATUS_DAMAGED: {
+            "label": "Damaged",
+            "indicator": "warning",
+            "category": "downtime",
+        },
+        STATUS_LOST: {
+            "label": "Lost",
+            "indicator": "danger",
+            "category": "downtime",
+        },
+        STATUS_MAINTENANCE: {
+            "label": "Maintenance",
+            "indicator": "warning",
+            "category": "repair",
+        },
+        STATUS_DECOMMISSIONED: {
+            "label": "Decommissioned",
+            "indicator": "secondary",
+            "category": "written_off",
+        },
+        STATUS_SOLD: {
+            "label": "Sold",
+            "indicator": "secondary",
+            "category": "written_off",
+        },
+        STATUS_TRANSFERRED: {
+            "label": "Transferred",
+            "indicator": "secondary",
+            "category": "written_off",
+        },
+        STATUS_WRITTEN_OFF: {
+            "label": "Written off",
+            "indicator": "danger",
+            "category": "written_off",
+        },
+    }
 
     CLASSIFICATION_CHOICES = [
         ("CLASS_1", "Class 1"),
@@ -61,6 +111,18 @@ class Drone(models.Model):
 
     def __str__(self) -> str:
         return f"{self.name} {self.drone_model} - {self.serial_number}"
+    
+    @property
+    def status_label(self):
+        return self.STATUS_UI.get(self.status, {}).get("label", self.status)
+
+    @property
+    def status_indicator(self):
+        return self.STATUS_UI.get(self.status, {}).get("indicator", "secondary")
+
+    @property
+    def status_category(self):
+        return self.STATUS_UI.get(self.status, {}).get("category", "unknown")
 
 
 class DroneSpec(models.Model):
@@ -247,6 +309,9 @@ class DroneStatusHistory(models.Model):
         related_name="status_history_records",
     )
     created_at = models.DateTimeField(auto_now_add=True)
+    
+    class Meta:
+        ordering = ["-created_at"]
 
     def __str__(self) -> str:
         return f"{self.drone}: {self.from_status} -> {self.to_status}"

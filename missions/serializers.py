@@ -2,11 +2,13 @@ from datetime import timedelta
 
 from django.contrib.auth import get_user_model
 from django.utils import timezone
+from django.db import transaction
 from rest_framework import serializers
 
 from accounts.permissions import get_user_role_code
 from drones.models import Drone
 from roles.models import COMMANDER_CODE, OPERATOR_CODE
+from drones.services import update_drone
 
 from .models import (
     MISSION_STATUS_TRANSITIONS,
@@ -373,6 +375,46 @@ class MissionStatusUpdateSerializer(serializers.ModelSerializer):
                 f"Cannot change status from '{current_status}' to '{value}'."
             )
         return value
+    
+    def update(self, instance, validated_data):
+        old_status = instance.status
+        new_status = validated_data["status"]
+
+        request = self.context.get("request")
+        user = getattr(request, "user", None)
+
+        with transaction.atomic():
+            instance.status = new_status
+            instance.save(update_fields=["status", "updated_at"])
+
+            assignments = instance.mission_drones.select_related("drone")
+
+            if old_status == Status.PLANNED and new_status == Status.ACTIVE:
+                for assignment in assignments:
+                    if assignment.drone.status == Drone.STATUS_ACTIVE:
+                        update_drone(
+                            drone=assignment.drone,
+                            drone_data={"status": Drone.STATUS_IN_MISSION},
+                            user=user,
+                            related_mission=instance,
+                            status_change_reason="Mission started",
+                        )
+
+            elif old_status == Status.ACTIVE and new_status in (
+                Status.COMPLETED,
+                Status.ABORTED,
+            ):
+                for assignment in assignments:
+                    if assignment.drone.status == Drone.STATUS_IN_MISSION:
+                        update_drone(
+                            drone=assignment.drone,
+                            drone_data={"status": Drone.STATUS_ACTIVE},
+                            user=user,
+                            related_mission=instance,
+                            status_change_reason="Mission finished",
+                        )
+
+        return instance
 
 
 class MissionDroneSerializer(serializers.ModelSerializer):

@@ -137,6 +137,8 @@ class WriteOffRecordSerializer(serializers.ModelSerializer):
 
 class DroneStatusHistorySerializer(serializers.ModelSerializer):
     related_mission_id = serializers.IntegerField(read_only=True)
+    changed_by_display = serializers.SerializerMethodField()
+    event_type = serializers.SerializerMethodField()
 
     class Meta:
         model = DroneStatusHistory
@@ -145,19 +147,48 @@ class DroneStatusHistorySerializer(serializers.ModelSerializer):
             "from_status",
             "to_status",
             "changed_by",
+            "changed_by_display",
             "reason",
+            "event_type",
             "related_mission_id",
             "related_repair_order_id",  # must be changed
             "related_writeoff",
             "created_at",
         )
         read_only_fields = fields
+        
+    def get_changed_by_display(self, obj):
+        user = obj.changed_by
+
+        if not user:
+            return None
+
+        return (
+            getattr(user, "username", None)
+            or getattr(user, "email", None)
+            or str(user)
+        )
+
+    def get_event_type(self, obj):
+        if obj.related_writeoff_id:
+            return "writeoff"
+
+        if obj.related_repair_order_id:
+            return "repair"
+
+        if obj.related_mission_id:
+            return "mission"
+
+        return "status_change"
 
 
 class DroneSerializer(serializers.ModelSerializer):
     spec = DroneSpecSerializer()
     writeoff_record = WriteOffRecordSerializer(read_only=True)
     status_history = DroneStatusHistorySerializer(many=True, read_only=True)
+    status_label = serializers.CharField(read_only=True)
+    status_indicator = serializers.CharField(read_only=True)
+    status_category = serializers.CharField(read_only=True)
 
     class Meta:
         model = Drone
@@ -188,6 +219,13 @@ class DroneUpdateSerializer(serializers.ModelSerializer):
         required=False,
         allow_blank=True,
     )
+    
+    status_change_reason = serializers.CharField(
+        write_only=True,
+        required=False,
+        allow_blank=True,
+    )
+    
     document_number = serializers.CharField(
         write_only=True,
         required=False,
@@ -217,6 +255,7 @@ class DroneUpdateSerializer(serializers.ModelSerializer):
             "spec",
             "writeoff_reason",
             "writeoff_reason_description",
+            "status_change_reason",
             "document_number",
             "written_off_at",
             "related_mission_id",
@@ -272,6 +311,7 @@ class DroneUpdateSerializer(serializers.ModelSerializer):
             "writeoff_reason_description",
             "",
         )
+        status_change_reason = validated_data.pop("status_change_reason", "")
         document_number = validated_data.pop("document_number", "")
         written_off_at = validated_data.pop("written_off_at", None)
         related_mission = validated_data.pop("related_mission", None)
@@ -290,6 +330,7 @@ class DroneUpdateSerializer(serializers.ModelSerializer):
             written_off_at=written_off_at,
             # TODO: must be changed when 'missions' are created
             related_mission=related_mission,
+            status_change_reason=status_change_reason,
         )
 
     def to_representation(self, instance):
@@ -297,6 +338,10 @@ class DroneUpdateSerializer(serializers.ModelSerializer):
 
 
 class DroneListSerializer(serializers.ModelSerializer):
+    status_label = serializers.CharField(read_only=True)
+    status_indicator = serializers.CharField(read_only=True)
+    status_category = serializers.CharField(read_only=True)
+    
     class Meta:
         model = Drone
         fields = (
@@ -307,6 +352,9 @@ class DroneListSerializer(serializers.ModelSerializer):
             "drone_model",
             "classification",
             "status",
+            "status_label",
+            "status_indicator",
+            "status_category",
             "military_unit",
             "created_at",
         )

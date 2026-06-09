@@ -5,7 +5,7 @@ from django.utils import timezone
 from rest_framework import status
 from rest_framework.test import APITestCase
 
-from drones.models import DroneStatusHistory, WriteOffRecord
+from drones.models import Drone, DroneStatusHistory, WriteOffRecord
 
 from .factories import (
     AdminUserFactory,
@@ -430,6 +430,108 @@ class MissionDroneConditionTests(APITestCase):
         self.assertEqual(log.changes["new_condition"], "damaged")
         self.assertEqual(log.changes["previous_drone_status"], "ACTIVE")
         self.assertEqual(log.changes["new_drone_status"], "DAMAGED")
+        
+        
+class MissionStatusLifecycleTests(APITestCase):
+    def setUp(self):
+        self.admin = AdminUserFactory()
+        self.operator = OperatorUserFactory()
+
+        self.mission = MissionFactory(status="planned")
+        self.drone = DroneFactory(status=Drone.STATUS_ACTIVE)
+
+        MissionDroneFactory(
+            mission=self.mission,
+            drone=self.drone,
+            operator=self.operator,
+        )
+
+        self.url = reverse(
+            "missions:mission-status-update",
+            kwargs={"pk": self.mission.pk},
+        )
+
+    def test_starting_mission_marks_assigned_drone_as_in_mission(self):
+        self.client.force_authenticate(self.admin)
+
+        response = self.client.patch(
+            self.url,
+            {"status": "active"},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        self.mission.refresh_from_db()
+        self.drone.refresh_from_db()
+
+        self.assertEqual(self.mission.status, "active")
+        self.assertEqual(self.drone.status, Drone.STATUS_IN_MISSION)
+
+        history = DroneStatusHistory.objects.get(drone=self.drone)
+
+        self.assertEqual(history.from_status, Drone.STATUS_ACTIVE)
+        self.assertEqual(history.to_status, Drone.STATUS_IN_MISSION)
+        self.assertEqual(history.reason, "Mission started")
+        self.assertEqual(history.related_mission, self.mission)
+        self.assertEqual(history.changed_by, self.admin)
+
+    def test_completing_mission_returns_in_mission_drone_to_active(self):
+        self.mission.status = "active"
+        self.mission.save(update_fields=["status"])
+
+        self.drone.status = Drone.STATUS_IN_MISSION
+        self.drone.save(update_fields=["status"])
+
+        self.client.force_authenticate(self.admin)
+
+        response = self.client.patch(
+            self.url,
+            {"status": "completed"},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        self.mission.refresh_from_db()
+        self.drone.refresh_from_db()
+
+        self.assertEqual(self.mission.status, "completed")
+        self.assertEqual(self.drone.status, Drone.STATUS_ACTIVE)
+
+        history = DroneStatusHistory.objects.get(drone=self.drone)
+
+        self.assertEqual(history.from_status, Drone.STATUS_IN_MISSION)
+        self.assertEqual(history.to_status, Drone.STATUS_ACTIVE)
+        self.assertEqual(history.reason, "Mission finished")
+        self.assertEqual(history.related_mission, self.mission)
+
+    def test_finishing_mission_does_not_overwrite_damaged_drone_status(self):
+        self.mission.status = "active"
+        self.mission.save(update_fields=["status"])
+
+        self.drone.status = Drone.STATUS_DAMAGED
+        self.drone.save(update_fields=["status"])
+
+        self.client.force_authenticate(self.admin)
+
+        response = self.client.patch(
+            self.url,
+            {"status": "completed"},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        self.mission.refresh_from_db()
+        self.drone.refresh_from_db()
+
+        self.assertEqual(self.mission.status, "completed")
+        self.assertEqual(self.drone.status, Drone.STATUS_DAMAGED)
+        self.assertEqual(
+            DroneStatusHistory.objects.filter(drone=self.drone).count(),
+            0,
+        )
 
 
 class MissionOutcomeFactoryIntegrityTests(APITestCase):
