@@ -1,15 +1,21 @@
 from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError as DjangoValidationError
+from django.db import transaction
 from rest_framework import serializers
 
 from .models import AuditLog, User, UserProfile
 from .services import create_user_account
+from .validators import validate_image_extension, validate_image_size
 
 
 class UserRegistrationSerializer(serializers.ModelSerializer):
     rank = serializers.CharField(required=False, allow_blank=True)
     contact = serializers.CharField(required=False, allow_blank=True)
-    profile_picture = serializers.ImageField(required=False, allow_null=True)
+    profile_picture = serializers.ImageField(
+        required=False,
+        allow_null=True,
+        validators=[validate_image_size, validate_image_extension],
+    )
 
     class Meta:
         model = User
@@ -105,7 +111,10 @@ class UserMeSerializer(serializers.ModelSerializer):
         source="profile.contact", required=False, allow_blank=True
     )
     profile_picture = serializers.ImageField(
-        source="profile.profile_picture", required=False, allow_null=True
+        source="profile.profile_picture",
+        required=False,
+        allow_null=True,
+        validators=[validate_image_size, validate_image_extension],
     )
 
     class Meta:
@@ -135,6 +144,7 @@ class UserMeSerializer(serializers.ModelSerializer):
             "created_by",
         )
 
+    @transaction.atomic
     def update(self, instance, validated_data):
         profile_data = validated_data.pop("profile", None)
 

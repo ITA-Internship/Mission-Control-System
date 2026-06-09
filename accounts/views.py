@@ -243,19 +243,12 @@ class UserStatusUpdateView(APIView):
         )
 
         if not new_status:
-            self.invalidate_user_sessions(target_user)
+            invalidate_user_sessions(target_user)
 
         return Response(
             {"detail": "User status updated successfully.", "is_active": new_status},
             status=status.HTTP_200_OK,
         )
-
-    def invalidate_user_sessions(self, user):
-        active_sessions = Session.objects.filter(expire_date__gte=timezone.now())
-        for session in active_sessions:
-            data = session.get_decoded()
-            if str(user.pk) == str(data.get("_auth_user_id")):
-                session.delete()
 
 
 class UserMeView(generics.RetrieveUpdateAPIView):
@@ -278,6 +271,14 @@ class UserMeView(generics.RetrieveUpdateAPIView):
         )
 
 
+def invalidate_user_sessions(user):
+    active_sessions = Session.objects.filter(expire_date__gte=timezone.now())
+    for session in active_sessions:
+        data = session.get_decoded()
+        if str(user.pk) == str(data.get("_auth_user_id")):
+            session.delete()
+
+
 class ChangePasswordView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
@@ -290,6 +291,8 @@ class ChangePasswordView(APIView):
             user = request.user
             user.set_password(serializer.validated_data["new_password"])
             user.save()
+
+            invalidate_user_sessions(user)
 
             create_audit_log(
                 actor=user,
@@ -323,7 +326,10 @@ class PasswordResetRequestView(APIView):
         serializer = PasswordResetRequestSerializer(data=request.data)
         if serializer.is_valid():
             email = serializer.validated_data["email"]
-            user = User.objects.filter(email__iexact=email).first()
+            try:
+                user = User.objects.get(email__iexact=email)
+            except User.DoesNotExist:
+                user = None
 
             if user:
                 uid = urlsafe_base64_encode(force_bytes(user.pk))
@@ -363,9 +369,6 @@ class PasswordResetConfirmView(APIView):
     permission_classes = [permissions.AllowAny]
 
     def post(self, request, uidb64, token):
-        serializer = PasswordResetConfirmSerializer(data=request.data)
-        if not serializer.is_valid():
-            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
         try:
             uid = force_str(urlsafe_base64_decode(uidb64))
@@ -374,9 +377,15 @@ class PasswordResetConfirmView(APIView):
             user = None
 
         if user is not None and default_token_generator.check_token(user, token):
+            serializer = PasswordResetConfirmSerializer(data=request.data)
+            if not serializer.is_valid():
+                return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
             new_password = serializer.validated_data["new_password"]
             user.set_password(new_password)
             user.save()
+
+            invalidate_user_sessions(user)
 
             create_audit_log(
                 actor=user,
