@@ -26,6 +26,7 @@ urlpatterns = [
     path("api/drones/", include("drones.urls")),
     path("api/roles/", include("roles.urls")),
     path("api/missions/", include("missions.urls")),
+    path("api/repairs/", include("repairs.urls")),
 ]
 
 if settings.DEBUG:

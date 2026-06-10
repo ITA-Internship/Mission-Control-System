@@ -40,6 +40,10 @@ PERMISSION_WRITEOFF_VIEW = "writeoff.view"
 PERMISSION_WRITEOFF_CREATE = "writeoff.create"
 PERMISSION_WRITEOFF_AUTHORIZE = "writeoff.authorize"
 
+# Repairs
+PERMISSION_REPAIRS_VIEW = "repairs.view"
+PERMISSION_REPAIRS_CREATE = "repairs.create"
+
 # Media
 PERMISSION_MEDIA_UPLOAD = "media.upload"
 PERMISSION_MEDIA_VIEW = "media.view"
@@ -93,6 +97,8 @@ def admin_permissions():
         PERMISSION_WRITEOFF_VIEW,
         PERMISSION_WRITEOFF_CREATE,
         PERMISSION_WRITEOFF_AUTHORIZE,
+        PERMISSION_REPAIRS_VIEW,
+        PERMISSION_REPAIRS_CREATE,
         PERMISSION_AUDIT_LOGS_VIEW_ALL,
     }
 
@@ -112,6 +118,7 @@ def commander_permissions():
             PERMISSION_MAINTENANCE_VIEW,
             PERMISSION_WRITEOFF_VIEW,
             PERMISSION_WRITEOFF_AUTHORIZE,
+            PERMISSION_REPAIRS_VIEW,
         }
     )
 
@@ -128,6 +135,7 @@ def dispatcher_permissions():
             PERMISSION_MISSIONS_ASSIGN,
             PERMISSION_MEDIA_UPLOAD,
             PERMISSION_MEDIA_VIEW,
+            PERMISSION_REPAIRS_VIEW,
         }
     )
 
@@ -145,6 +153,8 @@ def operator_permissions():
             PERMISSION_MISSIONS_RECORD_CONDITION,
             PERMISSION_MEDIA_UPLOAD,
             PERMISSION_MEDIA_VIEW,
+            PERMISSION_REPAIRS_VIEW,
+            PERMISSION_REPAIRS_CREATE,
         }
     )
 
@@ -161,6 +171,8 @@ def technician_permissions():
             PERMISSION_MAINTENANCE_MANAGE,
             PERMISSION_WRITEOFF_VIEW,
             PERMISSION_WRITEOFF_CREATE,
+            PERMISSION_REPAIRS_VIEW,
+            PERMISSION_REPAIRS_CREATE,
         }
     )
 
@@ -176,6 +188,7 @@ def viewer_permissions():
             PERMISSION_MAINTENANCE_VIEW,
             PERMISSION_WRITEOFF_VIEW,
             PERMISSION_MEDIA_VIEW,
+            PERMISSION_REPAIRS_VIEW,
         }
     )
 
