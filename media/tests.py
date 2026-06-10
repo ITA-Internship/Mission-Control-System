@@ -308,12 +308,12 @@ class ArtifactServicesTests(TestCase):
     def test_upload_artifact_exception_cleans_up_storage(self, mock_delete):
         with patch(
             "media.services.MissionAuditLog.objects.create",
-            side_effect=Exception("DB Error"),
+            side_effect=RuntimeError("DB Error"),
         ):
             file_content = b"test data"
             upload_file = SimpleUploadedFile("test.jpg", file_content)
 
-            with self.assertRaises(Exception):
+            with self.assertRaises(RuntimeError):
                 upload_artifact(
                     mission=self.mission,
                     file=upload_file,
