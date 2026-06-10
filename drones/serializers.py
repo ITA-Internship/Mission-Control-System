@@ -310,3 +310,22 @@ class DroneListSerializer(serializers.ModelSerializer):
             "military_unit",
             "created_at",
         )
+
+
+class DroneComparisonSerializer(serializers.ModelSerializer):
+    spec = DroneSpecSerializer(read_only=True)
+
+    class Meta:
+        model = Drone
+        fields = (
+            "id",
+            "serial_number",
+            "name",
+            "drone_model",
+            "classification",
+            "status",
+            "military_unit",
+            "spec",
+        )
+
+        read_only_fields = fields
