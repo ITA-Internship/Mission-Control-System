@@ -4,6 +4,10 @@ from rest_framework.routers import DefaultRouter
 from .views import (
     ActivateAccountAPIView,
     AuditLogViewSet,
+    ChangePasswordView,
+    PasswordResetConfirmView,
+    PasswordResetRequestView,
+    UserMeView,
     UserRegistrationView,
     UserRoleUpdateAPIView,
     UserStatusUpdateView,
@@ -16,6 +20,26 @@ router.register(r"audit-log", AuditLogViewSet, basename="audit-log")
 
 urlpatterns = [
     path("users/", UserRegistrationView.as_view(), name="user-create"),
+    path(
+        "users/me/",
+        UserMeView.as_view(),
+        name="user-me",
+    ),
+    path(
+        "users/me/change-password/",
+        ChangePasswordView.as_view(),
+        name="change-password",
+    ),
+    path(
+        "users/password-reset/",
+        PasswordResetRequestView.as_view(),
+        name="password-reset-request",
+    ),
+    path(
+        "users/password-reset-confirm/<str:uidb64>/<str:token>/",
+        PasswordResetConfirmView.as_view(),
+        name="password-reset-confirm",
+    ),
     path(
         "users/<int:user_id>/role/",
         UserRoleUpdateAPIView.as_view(),
