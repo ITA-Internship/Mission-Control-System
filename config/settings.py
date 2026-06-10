@@ -54,6 +54,7 @@ INSTALLED_APPS = [
     "drones",
     "roles",
     "missions",
+    "media",
     "repairs",
     "rest_framework",
     "django_filters",
@@ -149,6 +150,21 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/6.0/howto/static-files/
 
 STATIC_URL = "static/"
+STATIC_ROOT = BASE_DIR / "staticfiles"
+
+# Media files (uploads)
+MEDIA_URL = "/media/"
+MEDIA_ROOT = BASE_DIR / "mediafiles"
+
+# Artifact upload limits (configurable via environment)
+ARTIFACT_MAX_FILE_SIZE_MB = int(os.getenv("ARTIFACT_MAX_FILE_SIZE_MB", "50"))
+
+# Allowed file extensions for artifact uploads, grouped by file type.
+ARTIFACT_ALLOWED_EXTENSIONS = {
+    "video": [".mp4", ".avi", ".mov"],
+    "image": [".jpg", ".jpeg", ".png"],
+    "data": [".csv", ".json"],
+}
 
 MEDIA_URL = "/media/"
 MEDIA_ROOT = BASE_DIR / "media"
