@@ -2,30 +2,17 @@ from rest_framework import generics, permissions, status
 from rest_framework.parsers import FormParser, MultiPartParser
 from rest_framework.response import Response
 
-from accounts.permissions import HasRBACPermission
-from accounts.rbac import (
-    PERMISSION_MEDIA_DELETE,
-    PERMISSION_MEDIA_UPLOAD,
-    PERMISSION_MEDIA_VIEW,
-)
 from common.pagination import StandardResultsSetPagination
 from missions.models import Mission
 
 from .models import MissionArtifact
+from .permissions import (
+    MediaDeletePermission,
+    MediaUploadPermission,
+    MediaViewPermission,
+)
 from .serializers import MissionArtifactSerializer, MissionArtifactUploadSerializer
 from .services import delete_artifact, upload_artifact
-
-
-class MediaUploadPermission(HasRBACPermission):
-    required_permission = PERMISSION_MEDIA_UPLOAD
-
-
-class MediaViewPermission(HasRBACPermission):
-    required_permission = PERMISSION_MEDIA_VIEW
-
-
-class MediaDeletePermission(HasRBACPermission):
-    required_permission = PERMISSION_MEDIA_DELETE
 
 
 class _MissionArtifactMixin:
