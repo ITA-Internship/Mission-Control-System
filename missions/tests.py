@@ -533,6 +533,30 @@ class MissionStatusLifecycleTests(APITestCase):
             0,
         )
 
+    def test_cannot_start_mission_with_non_active_assigned_drone(self):
+        self.drone.status = Drone.STATUS_MAINTENANCE
+        self.drone.save(update_fields=["status"])
+
+        self.client.force_authenticate(self.admin)
+
+        response = self.client.patch(
+            self.url,
+            {"status": "active"},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+        self.mission.refresh_from_db()
+        self.drone.refresh_from_db()
+
+        self.assertEqual(self.mission.status, "planned")
+        self.assertEqual(self.drone.status, Drone.STATUS_MAINTENANCE)
+        self.assertEqual(
+            DroneStatusHistory.objects.filter(drone=self.drone).count(),
+            0,
+        )
+
 
 class MissionOutcomeFactoryIntegrityTests(APITestCase):
     """Sanity checks that the factories produce DB-valid objects so other

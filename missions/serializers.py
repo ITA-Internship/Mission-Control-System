@@ -1,7 +1,7 @@
 from datetime import timedelta
 
 from django.contrib.auth import get_user_model
-from django.db import transaction
+from django.db import IntegrityError, transaction
 from django.utils import timezone
 from rest_framework import serializers
 
@@ -376,6 +376,34 @@ class MissionStatusUpdateSerializer(serializers.ModelSerializer):
             )
         return value
 
+    def validate(self, attrs):
+        new_status = attrs.get("status")
+        old_status = self.instance.status
+
+        if old_status == Status.PLANNED and new_status == Status.ACTIVE:
+            invalid_assignments = [
+                assignment
+                for assignment in self.instance.mission_drones.select_related("drone")
+                if assignment.drone.status != Drone.STATUS_ACTIVE
+            ]
+
+            if invalid_assignments:
+                invalid_drones = ", ".join(
+                    f"{assignment.drone.name} ({assignment.drone.status})"
+                    for assignment in invalid_assignments
+                )
+
+                raise serializers.ValidationError(
+                    {
+                        "status": (
+                            "Mission cannot be activated because the following "
+                            f"assigned drones are not active: {invalid_drones}."
+                        )
+                    }
+                )
+
+        return attrs
+
     def update(self, instance, validated_data):
         old_status = instance.status
         new_status = validated_data["status"]
@@ -383,15 +411,15 @@ class MissionStatusUpdateSerializer(serializers.ModelSerializer):
         request = self.context.get("request")
         user = getattr(request, "user", None)
 
-        with transaction.atomic():
-            instance.status = new_status
-            instance.save(update_fields=["status", "updated_at"])
+        try:
+            with transaction.atomic():
+                instance.status = new_status
+                instance.save(update_fields=["status", "updated_at"])
 
-            assignments = instance.mission_drones.select_related("drone")
+                assignments = instance.mission_drones.select_related("drone")
 
-            if old_status == Status.PLANNED and new_status == Status.ACTIVE:
-                for assignment in assignments:
-                    if assignment.drone.status == Drone.STATUS_ACTIVE:
+                if old_status == Status.PLANNED and new_status == Status.ACTIVE:
+                    for assignment in assignments:
                         update_drone(
                             drone=assignment.drone,
                             drone_data={"status": Drone.STATUS_IN_MISSION},
@@ -400,19 +428,28 @@ class MissionStatusUpdateSerializer(serializers.ModelSerializer):
                             status_change_reason="Mission started",
                         )
 
-            elif old_status == Status.ACTIVE and new_status in (
-                Status.COMPLETED,
-                Status.ABORTED,
-            ):
-                for assignment in assignments:
-                    if assignment.drone.status == Drone.STATUS_IN_MISSION:
-                        update_drone(
-                            drone=assignment.drone,
-                            drone_data={"status": Drone.STATUS_ACTIVE},
-                            user=user,
-                            related_mission=instance,
-                            status_change_reason="Mission finished",
-                        )
+                elif old_status == Status.ACTIVE and new_status in (
+                    Status.COMPLETED,
+                    Status.ABORTED,
+                ):
+                    for assignment in assignments:
+                        if assignment.drone.status == Drone.STATUS_IN_MISSION:
+                            update_drone(
+                                drone=assignment.drone,
+                                drone_data={"status": Drone.STATUS_ACTIVE},
+                                user=user,
+                                related_mission=instance,
+                                status_change_reason="Mission finished",
+                            )
+
+        except IntegrityError as exc:
+            raise serializers.ValidationError(
+                {
+                    "detail": (
+                        "Could not update mission status due to a data integrity error."
+                    )
+                }
+            ) from exc
 
         return instance
 

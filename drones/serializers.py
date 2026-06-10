@@ -161,7 +161,7 @@ class DroneStatusHistorySerializer(serializers.ModelSerializer):
         user = obj.changed_by
 
         if not user:
-            return None
+            return ""
 
         return (
             getattr(user, "username", None) or getattr(user, "email", None) or str(user)
