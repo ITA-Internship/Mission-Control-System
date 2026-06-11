@@ -2,8 +2,6 @@ from django.conf import settings
 from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
 
-from drones.models import Drone
-
 
 def get_default_changes():
     return {}
@@ -27,6 +25,12 @@ MISSION_STATUS_TRANSITIONS = {
 class Result(models.TextChoices):
     SUCCESS = "success", "Success"
     FAILURE = "failure", "Failure"
+
+
+class Condition(models.TextChoices):
+    OK = "ok", "Ok"
+    DAMAGED = "damaged", "Damaged"
+    LOST = "lost", "Lost"
 
 
 class MissionQuerySet(models.QuerySet):
@@ -76,7 +80,8 @@ class Mission(models.Model):
     started_at = models.DateTimeField(null=True, blank=True)
     ended_at = models.DateTimeField(null=True, blank=True)
 
-    notes = models.TextField(blank=True)
+    notes = models.TextField(blank=True, max_length=5000)
+    incident_notes = models.TextField(blank=True, max_length=5000)
 
     created_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
@@ -120,7 +125,10 @@ class MissionDrone(models.Model):
     )
 
     condition_after = models.CharField(
-        max_length=20, choices=Drone.STATUS_CHOICES, default="ACTIVE"
+        max_length=20,
+        choices=Condition.choices,
+        null=True,
+        blank=True,
     )
 
     condition_description = models.TextField(null=True, blank=True)
@@ -142,34 +150,21 @@ class MissionDrone(models.Model):
 
 class MissionAuditLog(models.Model):
     user = models.ForeignKey(
-        "accounts.User",
-        on_delete=models.SET_NULL,
-        null=True,
-    )
-    action = models.CharField(max_length=255)
-    target_model = models.CharField(max_length=100)
-    target_id = models.IntegerField()
-    changes = models.JSONField(default=get_default_changes)
-    created_at = models.DateTimeField(auto_now_add=True)
-
-    def __str__(self):
-        return f"{self.action} on {self.target_model} (ID: {self.target_id})"
-
-
-class AuditLog(models.Model):
-    action = models.CharField(max_length=255)
-    target_model = models.CharField(max_length=255)
-    changes = models.JSONField()
-    user = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.SET_NULL,
         null=True,
         blank=True,
+        related_name="mission_audit_logs",
     )
+    action = models.CharField(max_length=255)
+    target_model = models.CharField(max_length=100)
+    target_id = models.IntegerField()
+    changes = models.JSONField(default=dict)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        db_table = "audit_logs"
+        db_table = "mission_audit_logs"
+        ordering = ["-created_at"]
         indexes = [
             models.Index(fields=["action", "target_model"]),
             models.Index(fields=["created_at"]),
@@ -177,5 +172,5 @@ class AuditLog(models.Model):
 
     def __str__(self):
         return (
-            f"[{self.action}] {self.target_model} by {self.user} at {self.created_at}"
+            f"[{self.action}] {self.target_model} (ID: {self.target_id}) by {self.user}"
         )

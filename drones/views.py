@@ -27,7 +27,7 @@ class DroneListCreateView(generics.ListCreateAPIView):
 
     def get_queryset(self):
         return (
-            Drone.objects.select_related("military_unit")
+            Drone.objects.select_related("military_unit", "spec")
             .prefetch_related("status_history")
             .order_by("id")
         )
@@ -41,7 +41,7 @@ class DroneListCreateView(generics.ListCreateAPIView):
 
 class DroneDetailView(generics.RetrieveUpdateAPIView):
     queryset = (
-        Drone.objects.select_related("military_unit")
+        Drone.objects.select_related("military_unit", "spec")
         .prefetch_related("status_history")
         .all()
     )

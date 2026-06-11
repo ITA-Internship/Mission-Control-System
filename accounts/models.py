@@ -1,6 +1,8 @@
 from django.contrib.auth.models import AbstractUser
 from django.db import models
 
+from .validators import validate_image_extension, validate_image_size
+
 
 class MilitaryUnit(models.Model):
     name = models.CharField(max_length=255)
@@ -54,7 +56,12 @@ class UserProfile(models.Model):
     )
     rank = models.CharField(max_length=100, blank=True)
     contact = models.CharField(max_length=255, blank=True)
-    profile_picture = models.URLField(blank=True)
+    profile_picture = models.ImageField(
+        upload_to="profile_pictures/",
+        blank=True,
+        null=True,
+        validators=[validate_image_size, validate_image_extension],
+    )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

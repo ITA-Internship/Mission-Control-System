@@ -157,19 +157,121 @@ class DroneSpec(models.Model):
     motor_model = models.CharField(max_length=255)
     battery_type = models.CharField(max_length=255)
     battery_capacity_mah = models.PositiveIntegerField()
+    battery_model = models.CharField(max_length=255, blank=True)
     camera_model = models.CharField(max_length=255)
+    camera_specs = models.JSONField(default=dict, blank=True)
     vtx_model = models.CharField(max_length=255, blank=True)
     flight_controller = models.CharField(max_length=255)
     firmware_version = models.CharField(max_length=255, blank=True)
+    is_firmware_outdated = models.BooleanField(
+        default=False,
+        help_text="Indicates if the firmware or "
+        "communication parameters are unsupported.",
+    )
+    communication_protocol = models.CharField(max_length=100, blank=True)
+    control_channel = models.CharField(max_length=255, blank=True)
+    telemetry_channel = models.CharField(max_length=255, blank=True)
     max_speed_kmh = models.DecimalField(max_digits=6, decimal_places=2)
+    typical_range_km = models.DecimalField(
+        max_digits=6,
+        decimal_places=2,
+        null=True,
+        blank=True,
+    )
     max_range_km = models.DecimalField(max_digits=6, decimal_places=2)
+    typical_flight_time_min = models.DecimalField(
+        max_digits=6,
+        decimal_places=2,
+        null=True,
+        blank=True,
+    )
     max_flight_time_min = models.DecimalField(max_digits=6, decimal_places=2)
     frequency_mhz = models.PositiveIntegerField()
     payload_capacity_g = models.PositiveIntegerField(blank=True, null=True)
+    additional_modules = models.JSONField(default=list, blank=True)
+    technical_documentation_url = models.URLField(blank=True)
+    firmware_file_url = models.URLField(max_length=500, blank=True)
     updated_at = models.DateTimeField(auto_now=True)
+
+    def clean(self):
+        errors = {}
+
+        if not isinstance(self.camera_specs, dict):
+            errors["camera_specs"] = "camera_specs must be a JSON object."
+
+        if not isinstance(self.additional_modules, list):
+            errors["additional_modules"] = "additional_modules must be a JSON array."
+        else:
+            invalid_modules = [
+                index
+                for index, module in enumerate(self.additional_modules)
+                if not isinstance(module, dict)
+            ]
+
+            if invalid_modules:
+                errors["additional_modules"] = (
+                    "Each additional module must be a JSON object."
+                )
+
+        if errors:
+            raise ValidationError(errors)
 
     def __str__(self) -> str:
         return f"Specification for {self.drone}"
+
+
+class DroneSpecChangeLog(models.Model):
+    drone_spec = models.ForeignKey(
+        DroneSpec,
+        on_delete=models.CASCADE,
+        related_name="change_history",
+    )
+    changed_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="drone_spec_changes",
+    )
+    changed_fields = models.JSONField(default=list)
+    old_values = models.JSONField(default=dict, blank=True)
+    new_values = models.JSONField(default=dict, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+        indexes = [
+            models.Index(
+                fields=["-created_at"],
+                name="dronespec_log_created_idx",
+            ),
+            models.Index(
+                fields=["drone_spec", "-created_at"],
+                name="dronespec_log_spec_created_idx",
+            ),
+            models.Index(
+                fields=["changed_by", "-created_at"],
+                name="dronespec_log_user_created_idx",
+            ),
+        ]
+
+    def clean(self):
+        errors = {}
+
+        if not isinstance(self.changed_fields, list):
+            errors["changed_fields"] = "changed_fields must be a list."
+
+        if not isinstance(self.old_values, dict):
+            errors["old_values"] = "old_values must be a JSON object."
+
+        if not isinstance(self.new_values, dict):
+            errors["new_values"] = "new_values must be a JSON object."
+
+        if errors:
+            raise ValidationError(errors)
+
+    def __str__(self) -> str:
+        return f"Spec changes for {self.drone_spec.drone}"
 
 
 class WriteOffRecord(models.Model):
