@@ -1,6 +1,7 @@
 import datetime
 from decimal import Decimal
 
+from django.core.exceptions import ValidationError
 from django.db import transaction
 
 from .models import (
@@ -193,3 +194,16 @@ def update_drone(
         )
 
     return drone
+
+
+def validate_drone_classification(drone_model, classification):
+    allowed_classifications = drone_model.get_allowed_classifications()
+
+    if classification not in allowed_classifications:
+        raise ValidationError(
+            {
+                "classification": f'Classification "{classification}" '
+                f'is not supported by drone model "{drone_model.name}". '
+                f'Allowed: {", ".join([c.title() for c in allowed_classifications])}'
+            }
+        )

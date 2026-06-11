@@ -11,6 +11,14 @@ from .models import (
 )
 
 
+class UserProfileInline(admin.StackedInline):
+    model = UserProfile
+    can_delete = False
+    verbose_name_plural = "Profile Information"
+    fk_name = "user"
+    fields = ("rank", "contact", "profile_picture")
+
+
 @admin.register(User)
 class CustomUserAdmin(UserAdmin):
     list_display = (
@@ -28,6 +36,8 @@ class CustomUserAdmin(UserAdmin):
     ordering = ("id",)
     autocomplete_fields = ("role", "unit", "created_by")
     readonly_fields = ("created_at", "updated_at")
+
+    inlines = (UserProfileInline,)
 
     fieldsets = UserAdmin.fieldsets + (
         (

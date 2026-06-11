@@ -43,6 +43,7 @@ services:
     volumes:
       - .:/app
       - static_data:/app/staticfiles
+      - media_data:/app/mediafiles
     ports:
       - "8000:8000"
     env_file:
@@ -87,6 +88,7 @@ volumes:
   redis_data:
   pgadmin_data:
   static_data:
+  media_data:
 
 networks:
   mission_control_network:

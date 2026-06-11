@@ -1,6 +1,11 @@
 from django.urls import path
 
-from .views import DroneComparisonView, DroneDetailView, DroneListCreateView
+from .views import (
+    DroneComparisonView,
+    DroneDetailView,
+    DroneListCreateView,
+    DroneModelListCreateView,
+)
 
 app_name = "drones"
 
@@ -8,4 +13,5 @@ urlpatterns = [
     path("", DroneListCreateView.as_view(), name="drone-create"),
     path("compare/", DroneComparisonView.as_view(), name="drone-compare"),
     path("<int:pk>/", DroneDetailView.as_view(), name="drone-detail"),
+    path("models/", DroneModelListCreateView.as_view(), name="drone-model-create"),
 ]

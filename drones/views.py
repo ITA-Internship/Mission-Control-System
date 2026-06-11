@@ -8,9 +8,14 @@ from rest_framework import filters, generics
 from common.pagination import StandardResultsSetPagination
 
 from .filters import DroneFilter
-from .models import Drone
+from .models import Drone, DroneModel
 from .permissions import CanCompareDrones, DronePermission
-from .serializers import DroneListSerializer, DroneSerializer, DroneUpdateSerializer
+from .serializers import (
+    DroneListSerializer,
+    DroneModelSerializer,
+    DroneSerializer,
+    DroneUpdateSerializer,
+)
 
 
 class DroneComparisonView(TemplateView):
@@ -227,3 +232,9 @@ class DroneDetailView(generics.RetrieveUpdateAPIView):
             return DroneUpdateSerializer
 
         return DroneSerializer
+
+
+class DroneModelListCreateView(generics.ListCreateAPIView):
+    serializer_class = DroneModelSerializer
+    permission_classes = [DronePermission]
+    queryset = DroneModel.objects.all()

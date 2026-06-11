@@ -2,6 +2,7 @@ from django.contrib import admin
 
 from .models import (
     Drone,
+    DroneModel,
     DroneSpec,
     DroneSpecChangeLog,
     DroneStatusHistory,
@@ -16,7 +17,7 @@ class DroneAdmin(admin.ModelAdmin):
         "serial_number",
         "inventory_number",
         "name",
-        "drone_model",
+        "drone_model__name",
         "classification",
         "military_unit__name",
         "status",
@@ -127,3 +128,17 @@ class DroneStatusHistoryAdmin(admin.ModelAdmin):
         "reason",
     )
     list_filter = ("from_status", "to_status", "created_at")
+
+
+@admin.register(DroneModel)
+class DroneModelAdmin(admin.ModelAdmin):
+    list_display = (
+        "id",
+        "name",
+        "manufacturer",
+        "supported_classifications",
+        "is_active",
+        "created_at",
+    )
+    search_fields = ("name", "manufacturer", "supported_classifications")
+    list_filter = ("is_active", "created_at")
