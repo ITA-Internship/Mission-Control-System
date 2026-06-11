@@ -1,5 +1,6 @@
 import csv
 
+from django.db.models import Max, Min
 from django.http import HttpResponse, HttpResponseBadRequest, HttpResponseForbidden
 from django.views.generic import TemplateView
 from django_filters.rest_framework import DjangoFilterBackend
@@ -83,8 +84,8 @@ class DroneComparisonView(TemplateView):
 
         if len(drone_ids) > self.MAX_COMPARE_COUNT:
             context["error"] = (
-                f"Too many drones selected. \
-                You can compare a maximum of {self.MAX_COMPARE_COUNT} drones at a time."
+                "Too many drones selected. You can compare a maximum "
+                f"of {self.MAX_COMPARE_COUNT} drones at a time."
             )
             return context
 
@@ -99,55 +100,21 @@ class DroneComparisonView(TemplateView):
             )
 
         if queryset.count() > 1:
-            context["max_flight_time"] = max(
-                [
-                    d.spec.max_flight_time_min
-                    for d in queryset
-                    if getattr(d, "spec", None) and d.spec.max_flight_time_min
-                ]
-                or [0]
-            )
-            context["max_speed"] = max(
-                [
-                    d.spec.max_speed_kmh
-                    for d in queryset
-                    if getattr(d, "spec", None) and d.spec.max_speed_kmh
-                ]
-                or [0]
-            )
-            context["max_payload"] = max(
-                [
-                    d.spec.payload_capacity_g
-                    for d in queryset
-                    if getattr(d, "spec", None) and d.spec.payload_capacity_g
-                ]
-                or [0]
+            metrics = queryset.aggregate(
+                max_flight_time=Max("spec__max_flight_time_min"),
+                min_flight_time=Min("spec__max_flight_time_min"),
+                max_speed=Max("spec__max_speed_kmh"),
+                min_speed=Min("spec__max_speed_kmh"),
+                max_payload=Max("spec__payload_capacity_g"),
+                min_payload=Min("spec__payload_capacity_g"),
             )
 
-            context["min_flight_time"] = min(
-                [
-                    d.spec.max_flight_time_min
-                    for d in queryset
-                    if getattr(d, "spec", None) and d.spec.max_flight_time_min
-                ]
-                or [0]
-            )
-            context["min_speed"] = min(
-                [
-                    d.spec.max_speed_kmh
-                    for d in queryset
-                    if getattr(d, "spec", None) and d.spec.max_speed_kmh
-                ]
-                or [0]
-            )
-            context["min_payload"] = min(
-                [
-                    d.spec.payload_capacity_g
-                    for d in queryset
-                    if getattr(d, "spec", None) and d.spec.payload_capacity_g
-                ]
-                or [0]
-            )
+            context["max_flight_time"] = metrics["max_flight_time"] or 0
+            context["min_flight_time"] = metrics["min_flight_time"] or 0
+            context["max_speed"] = metrics["max_speed"] or 0
+            context["min_speed"] = metrics["min_speed"] or 0
+            context["max_payload"] = metrics["max_payload"] or 0
+            context["min_payload"] = metrics["min_payload"] or 0
         else:
             context["max_flight_time"] = context["max_speed"] = context[
                 "max_payload"
