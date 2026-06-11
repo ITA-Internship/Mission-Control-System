@@ -6,6 +6,65 @@ from django.db import models
 from django.utils import timezone
 
 
+class DroneModel(models.Model):
+    name = models.CharField(max_length=255, unique=True)
+    manufacturer = models.CharField(max_length=255)
+    description = models.TextField(blank=True)
+
+    supported_classifications = models.JSONField(
+        default=list, help_text="List of supported classifications"
+    )
+
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "Drone Model"
+        verbose_name_plural = "Drone Models"
+        ordering = ["name"]
+
+    def __str__(self):
+        return f"{self.manufacturer} {self.name}"
+
+    def get_allowed_classifications(self):
+        return self.supported_classifications or []
+
+    def supports_classification(self, classification):
+        return classification in self.get_allowed_classifications()
+
+    def clean(self):
+        super().clean()
+
+        if not self.supported_classifications:
+            raise ValidationError(
+                {
+                    "supported_classifications": (
+                        "A drone model must support at least one classification."
+                    )
+                }
+            )
+
+        valid_keys = {choice[0] for choice in Drone.CLASSIFICATION_CHOICES}
+        invalid_items = [
+            item for item in self.supported_classifications if item not in valid_keys
+        ]
+
+        if invalid_items:
+            raise ValidationError(
+                {
+                    "supported_classifications": (
+                        f"Value {invalid_items} are not valid classifications. "
+                        f'Valid classifications: {", ".join(valid_keys)}'
+                    )
+                }
+            )
+
+    def save(self, *args, **kwargs):
+        self.full_clean()
+        super().save(*args, **kwargs)
+
+
 class Drone(models.Model):
 
     STATUS_ACTIVE = "ACTIVE"
@@ -84,20 +143,28 @@ class Drone(models.Model):
             "category": "written_off",
         },
     }
+    CLASSIFICATION_RECONNAISSANCE = "RECONNAISSANCE"
+    CLASSIFICATION_COMBAT = "COMBAT"
+    CLASSIFICATION_TRANSPORT = "TRANSPORT"
+    CLASSIFICATION_SURVEILLANCE = "SURVEILLANCE"
 
     CLASSIFICATION_CHOICES = [
-        ("CLASS_1", "Class 1"),
-        ("CLASS_2", "Class 2"),
-        ("CLASS_3", "Class 3"),
+        (CLASSIFICATION_RECONNAISSANCE, "Reconnaissance"),
+        (CLASSIFICATION_COMBAT, "Combat"),
+        (CLASSIFICATION_TRANSPORT, "Transport"),
+        (CLASSIFICATION_SURVEILLANCE, "Surveillance"),
     ]
 
     serial_number = models.CharField(max_length=100, unique=True)
     inventory_number = models.CharField(max_length=100, unique=True)
     name = models.CharField(max_length=100)
-    drone_model = models.CharField(max_length=255, db_index=True)
-    classification = models.CharField(
-        max_length=20, choices=CLASSIFICATION_CHOICES, default="CLASS_1"
+    drone_model = models.ForeignKey(
+        DroneModel,
+        on_delete=models.PROTECT,
+        related_name="drones",
+        help_text="Drone Model",
     )
+    classification = models.CharField(max_length=20, choices=CLASSIFICATION_CHOICES)
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="ACTIVE")
     military_unit = models.ForeignKey(
         "accounts.MilitaryUnit",
@@ -123,6 +190,26 @@ class Drone(models.Model):
     @property
     def status_category(self):
         return self.STATUS_UI.get(self.status, {}).get("category", "unknown")
+
+    def clean(self):
+        super().clean()
+
+        if self.drone_model and self.classification:
+            allowed_classifications = self.drone_model.get_allowed_classifications()
+
+            if self.classification not in allowed_classifications:
+                raise ValidationError(
+                    {
+                        "classification": f'Classification "{self.classification}" '
+                        f'is not supported by drone model "{self.drone_model.name}". '
+                        f"Allowed: "
+                        f'{", ".join([c.title() for c in allowed_classifications])}'
+                    }
+                )
+
+    def save(self, *args, **kwargs):
+        self.full_clean()
+        super().save(*args, **kwargs)
 
 
 class DroneSpec(models.Model):

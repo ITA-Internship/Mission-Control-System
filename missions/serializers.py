@@ -6,6 +6,7 @@ from django.utils import timezone
 from rest_framework import serializers
 
 from accounts.permissions import get_user_role_code
+from common.serializers import UserBriefSerializer
 from drones.models import Drone
 from drones.services import update_drone
 from roles.models import COMMANDER_CODE, OPERATOR_CODE
@@ -29,13 +30,6 @@ User = get_user_model()
 
 TITLE_MIN_LENGTH = 3
 STARTED_AT_GRACE_PERIOD = timedelta(seconds=60)
-
-
-class UserBriefSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = User
-        fields = ["id", "username", "email"]
-        read_only_fields = fields
 
 
 class DroneBriefSerializer(serializers.ModelSerializer):

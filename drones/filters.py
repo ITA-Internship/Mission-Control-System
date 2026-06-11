@@ -15,6 +15,7 @@ class DroneFilter(django_filters.FilterSet):
             "inventory_number": ["icontains"],
             "status": ["exact"],
             "drone_model": ["exact"],
+            "drone_model__name": ["exact"],
             "classification": ["exact"],
             "military_unit": ["exact"],
             "military_unit__name": ["icontains"],

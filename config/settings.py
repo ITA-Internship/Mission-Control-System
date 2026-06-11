@@ -54,6 +54,8 @@ INSTALLED_APPS = [
     "drones",
     "roles",
     "missions",
+    "media",
+    "repairs",
     "rest_framework",
     "django_filters",
     "common",
@@ -148,11 +150,35 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/6.0/howto/static-files/
 
 STATIC_URL = "static/"
+STATIC_ROOT = BASE_DIR / "staticfiles"
+
+# Media files (uploads)
+MEDIA_URL = "/media/"
+MEDIA_ROOT = BASE_DIR / "mediafiles"
+
+# Artifact upload limits (configurable via environment)
+ARTIFACT_MAX_FILE_SIZE_MB = int(os.getenv("ARTIFACT_MAX_FILE_SIZE_MB", "50"))
+
+# Allowed file extensions for artifact uploads, grouped by file type.
+ARTIFACT_ALLOWED_EXTENSIONS = {
+    "video": [".mp4", ".avi", ".mov"],
+    "image": [".jpg", ".jpeg", ".png"],
+    "data": [".csv", ".json"],
+}
+
+MEDIA_URL = "/media/"
+MEDIA_ROOT = BASE_DIR / "media"
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 EMAIL_BACKEND = os.getenv(
     "EMAIL_BACKEND", "django.core.mail.backends.console.EmailBackend"
 )
+EMAIL_HOST = os.getenv("EMAIL_HOST")
+EMAIL_PORT = int(os.getenv("EMAIL_PORT", 587))
+EMAIL_USE_TLS = os.getenv("EMAIL_USE_TLS", "True") == "True"
+EMAIL_HOST_USER = os.getenv("EMAIL_HOST_USER")
+EMAIL_HOST_PASSWORD = os.getenv("EMAIL_HOST_PASSWORD")
+
 DEFAULT_FROM_EMAIL = os.getenv("DEFAULT_FROM_EMAIL", "no-reply@localhost")
 FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:3000")
