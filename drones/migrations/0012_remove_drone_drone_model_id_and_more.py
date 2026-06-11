@@ -7,7 +7,7 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ("drones", "0006_migrate_drone_models_and_classifications"),
+        ("drones", "0011_migrate_drone_models_and_classifications"),
     ]
 
     operations = [

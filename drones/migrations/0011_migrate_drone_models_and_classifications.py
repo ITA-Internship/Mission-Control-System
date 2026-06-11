@@ -31,7 +31,7 @@ def migrate_drone_data(apps, schema_editor):
 class Migration(migrations.Migration):
 
     dependencies = [
-        ("drones", "0005_dronemodel_drone_classification_and_more"),
+        ("drones", "0010_dronemodel_drone_classification_and_more"),
     ]
 
     operations = [migrations.RunPython(migrate_drone_data, migrations.RunPython.noop)]

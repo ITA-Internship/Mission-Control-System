@@ -7,7 +7,7 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ("drones", "0004_remove_dronestatushistory_related_mission_id_and_more"),
+        ("drones", "0009_merge_20260609_1131"),
     ]
 
     operations = [
@@ -42,7 +42,7 @@ class Migration(migrations.Migration):
                 "ordering": ["name"],
             },
         ),
-        migrations.AddField(
+        migrations.AlterField(
             model_name="drone",
             name="classification",
             field=models.CharField(
