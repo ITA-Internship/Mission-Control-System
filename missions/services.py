@@ -292,11 +292,20 @@ def record_drone_condition(
                 "written_off_at": timezone.localdate(),
             }
 
+        status_change_reason = ""
+
+        if condition_after != Condition.LOST:
+            status_change_reason = (
+                condition_description
+                or f"Mission condition recorded: {condition_after}"
+            )
+
         update_drone(
             drone=locked_drone,
             drone_data={"status": target_drone_status},
             user=action_user,
             related_mission=locked_mission,
+            status_change_reason=status_change_reason,
             **writeoff_kwargs,
         )
 
