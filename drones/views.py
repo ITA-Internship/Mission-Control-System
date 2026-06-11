@@ -62,8 +62,8 @@ class DroneComparisonView(TemplateView):
         if request.GET.get("export") == "csv":
             if len(drone_ids) > self.MAX_COMPARE_COUNT:
                 return HttpResponseBadRequest(
-                    f"Export failed. You can compare and export a \
-                     maximum of {self.MAX_COMPARE_COUNT} drones."
+                    "Export failed. You can compare and export a"
+                    f" maximum of {self.MAX_COMPARE_COUNT} drones."
                 )
 
             queryset = self.get_drones_queryset(drone_ids)
