@@ -9,12 +9,14 @@ from common.pagination import StandardResultsSetPagination
 from drones.factories import (
     AdminUserFactory,
     DroneFactory,
+    DroneModelFactory,
     DroneSpecFactory,
     MilitaryUnitFactory,
     ViewerUserFactory,
 )
 from drones.models import (
     Drone,
+    DroneModel,
     DroneSpec,
     DroneSpecChangeLog,
     DroneStatusHistory,
@@ -26,11 +28,13 @@ class DroneCreateTests(APITestCase):
     def setUp(self):
         self.create_url = reverse("drones:drone-create")
         self.military_unit = MilitaryUnitFactory()
+        self.drone_model = DroneModelFactory()
         self.base_payload = {
             "serial_number": "Test Serial Number",
             "inventory_number": "Test Inventory Number",
             "name": "Test Name",
-            "drone_model": "Test Model",
+            "drone_model": self.drone_model.id,
+            "classification": self.drone_model.supported_classifications[0],
             "status": "ACTIVE",
             "military_unit": self.military_unit.id,
             "acquired_at": "2026-05-09",
@@ -90,7 +94,7 @@ class DroneCreateTests(APITestCase):
 
         drone = Drone.objects.first()
 
-        self.assertEqual(drone.drone_model, "Test Model")
+        self.assertEqual(drone.serial_number, "Test Serial Number")
         self.assertEqual(drone.spec.frame_type, "Test Frame")
 
     def test_create_drone_with_detailed_spec_fields(self):
@@ -161,7 +165,8 @@ class DroneCreateTests(APITestCase):
             serial_number=self.base_payload["serial_number"],
             inventory_number="Inventory Number",
             name="Drone",
-            drone_model="Test Model",
+            drone_model=self.drone_model,
+            classification=self.drone_model.supported_classifications[0],
             status="ACTIVE",
             military_unit=self.military_unit,
             acquired_at="2026-05-09",
@@ -737,3 +742,123 @@ class DroneSearchTests(APITestCase):
 
         self.assertIn(matching_drone.id, results_ids)
         self.assertNotIn(non_matching_drone.id, results_ids)
+
+
+class DroneModelTests(APITestCase):
+    def setUp(self):
+        self.create_url = reverse("drones:drone-model-create")
+        self.base_payload = {
+            "name": "Test Model Name",
+            "manufacturer": "Test Manufacturer",
+            "supported_classifications": [
+                Drone.CLASSIFICATION_RECONNAISSANCE,
+                Drone.CLASSIFICATION_COMBAT,
+            ],
+        }
+        self.user = AdminUserFactory()
+        self.client.force_authenticate(self.user)
+
+    def test_create_drone_model(self):
+        response = self.client.post(self.create_url, self.base_payload, format="json")
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(DroneModel.objects.count(), 1)
+
+        drone_model = DroneModel.objects.first()
+        self.assertEqual(drone_model.name, self.base_payload.get("name"))
+
+    def test_create_drone_model_without_supported_classifications(self):
+        payload = copy.deepcopy(self.base_payload)
+        payload.pop("supported_classifications")
+
+        response = self.client.post(self.create_url, payload, format="json")
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("supported_classifications", response.data)
+
+    def test_create_drone_model_with_empty_supported_classifications(self):
+        payload = copy.deepcopy(self.base_payload)
+        payload["supported_classifications"] = []
+
+        response = self.client.post(self.create_url, payload, format="json")
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("supported_classifications", response.data)
+
+    def test_create_drone_model_with_wrong_classification(self):
+        payload = copy.deepcopy(self.base_payload)
+        payload["supported_classifications"] = ["unknown classification"]
+
+        response = self.client.post(self.create_url, payload, format="json")
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("supported_classifications", response.data)
+
+
+class DroneClassificationValidationTests(APITestCase):
+    def setUp(self):
+        self.create_url = reverse("drones:drone-create")
+        self.military_unit = MilitaryUnitFactory()
+        self.drone_model = DroneModelFactory()
+        self.base_payload = {
+            "serial_number": "Test Serial Number",
+            "inventory_number": "Test Inventory Number",
+            "name": "Test Name",
+            "drone_model": self.drone_model.id,
+            "classification": self.drone_model.supported_classifications[0],
+            "status": "ACTIVE",
+            "military_unit": self.military_unit.id,
+            "acquired_at": "2026-05-09",
+            "spec": {
+                "frame_type": "Test Frame",
+                "motor_model": "Test Motor Model",
+                "battery_type": "Test Battery Type",
+                "battery_capacity_mah": 1500,
+                "camera_model": "Test Camera Model",
+                "vtx_model": "Test VTX Model",
+                "flight_controller": "Test Controller",
+                "firmware_version": "Test Firmware Version",
+                "max_speed_kmh": "12.5",
+                "max_range_km": "130",
+                "max_flight_time_min": "20",
+                "frequency_mhz": "1000",
+                "payload_capacity_g": "100",
+            },
+        }
+        self.drone = DroneFactory(drone_model=self.drone_model)
+        self.detail_url = reverse("drones:drone-detail", kwargs={"pk": self.drone.pk})
+        self.user = AdminUserFactory()
+        self.client.force_authenticate(self.user)
+
+    def test_create_drone_with_allowed_classification(self):
+        response = self.client.post(self.create_url, self.base_payload, format="json")
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+
+    def test_create_drone_with_not_allowed_classififcation(self):
+        payload = copy.deepcopy(self.base_payload)
+        payload["classification"] = "unknown"
+
+        response = self.client.post(self.create_url, payload, format="json")
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("classification", response.data)
+
+    def test_update_drone_classification_to_allowed(self):
+        response = self.client.patch(
+            self.detail_url,
+            {"classification": self.drone_model.supported_classifications[1]},
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+    def test_update_drone_classification_to_empty(self):
+        response = self.client.patch(self.detail_url, {"classification": ""})
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("classification", response.data)
+
+    def test_update_drone_classification_to_not_allowed(self):
+        response = self.client.patch(self.detail_url, {"classification": "unknown"})
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("classification", response.data)

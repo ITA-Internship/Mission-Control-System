@@ -51,6 +51,15 @@ class MilitaryUnitFactory(factory.django.DjangoModelFactory):
     code = factory.Sequence(lambda n: f"UNIT_{n}")
 
 
+class DroneModelFactory(factory.django.DjangoModelFactory):
+    class Meta:
+        model = "drones.DroneModel"
+
+    name = factory.Sequence(lambda n: f"Model Name {n}")
+    manufacturer = factory.Sequence(lambda n: f"Manufacturer {n}")
+    supported_classifications = factory.List(["RECONNAISSANCE", "SURVEILLANCE"])
+
+
 class DroneFactory(factory.django.DjangoModelFactory):
     class Meta:
         model = "drones.Drone"
@@ -58,7 +67,12 @@ class DroneFactory(factory.django.DjangoModelFactory):
     serial_number = factory.Sequence(lambda n: f"SERIAL_{n}")
     inventory_number = factory.Sequence(lambda n: f"INV_{n}")
     name = factory.Sequence(lambda n: f"Drone {n}")
-    drone_model = "FPV Test Model"
+    drone_model = factory.SubFactory(DroneModelFactory)
+
+    @factory.lazy_attribute
+    def classification(self):
+        return self.drone_model.supported_classifications[0]
+
     status = "ACTIVE"
     military_unit = factory.SubFactory(MilitaryUnitFactory)
     acquired_at = datetime.date(2026, 5, 9)
