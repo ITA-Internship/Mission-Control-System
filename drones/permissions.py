@@ -6,36 +6,9 @@ from accounts.rbac import (
     PERMISSION_DRONES_DECOMMISSION,
     PERMISSION_DRONES_UPDATE,
     PERMISSION_DRONES_VIEW,
-    PERMISSION_SPECIFICATIONS_VIEW,
-    ROLE_PERMISSION_MATRIX,
 )
-from roles.models import VIEWER_CODE
 
 from .models import Drone
-
-
-class CanCompareDrones(BasePermission):
-    def has_permission(self, request, view):
-        if not request.user or not request.user.is_authenticated:
-            return False
-
-        if request.user.is_superuser:
-            return True
-
-        user_role_obj = request.user.role
-        if not user_role_obj:
-            return False
-
-        role_code = getattr(user_role_obj, "code", None)
-        if not role_code:
-            return False
-
-        if role_code == VIEWER_CODE:
-            return False
-
-        allowed_permissions = ROLE_PERMISSION_MATRIX.get(role_code, set())
-
-        return PERMISSION_SPECIFICATIONS_VIEW in allowed_permissions
 
 
 class DronePermission(BasePermission):

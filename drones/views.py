@@ -5,11 +5,13 @@ from django.views.generic import TemplateView
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import filters, generics
 
+from accounts.permissions import HasRBACPermission
+from accounts.rbac import PERMISSION_SPECIFICATIONS_COMPARE
 from common.pagination import StandardResultsSetPagination
 
 from .filters import DroneFilter
 from .models import Drone, DroneModel
-from .permissions import CanCompareDrones, DronePermission
+from .permissions import DronePermission
 from .serializers import (
     DroneListSerializer,
     DroneModelSerializer,
@@ -23,9 +25,10 @@ class DroneComparisonView(TemplateView):
 
     MAX_COMPARE_COUNT = 5
 
-    def dispatch(self, request, *args, **kwargs):
-        permission_validator = CanCompareDrones()
+    required_permission = PERMISSION_SPECIFICATIONS_COMPARE
 
+    def dispatch(self, request, *args, **kwargs):
+        permission_validator = HasRBACPermission()
         if not permission_validator.has_permission(request, self):
             return HttpResponseForbidden(
                 "You do not have permission to access this tool."
