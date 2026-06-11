@@ -128,8 +128,8 @@ class DroneComparisonView(TemplateView):
     def export_to_csv(self, queryset):
         response = HttpResponse(content_type="text/csv")
         response["Content-Disposition"] = 'attachment; filename="drone_comparison.csv"'
-
         writer = csv.writer(response)
+
         writer.writerow(
             [
                 "ID",
@@ -146,6 +146,12 @@ class DroneComparisonView(TemplateView):
 
         for drone in queryset:
             spec = getattr(drone, "spec", None)
+
+            fw = getattr(spec, "firmware_version", None) if spec else None
+            speed = getattr(spec, "max_speed_kmh", None) if spec else None
+            time = getattr(spec, "max_flight_time_min", None) if spec else None
+            payload = getattr(spec, "payload_capacity_g", None) if spec else None
+
             writer.writerow(
                 [
                     drone.id,
@@ -153,10 +159,10 @@ class DroneComparisonView(TemplateView):
                     drone.drone_model,
                     drone.classification,
                     drone.status,
-                    getattr(spec, "firmware_version", "N/A"),
-                    getattr(spec, "max_speed_kmh", "N/A"),
-                    getattr(spec, "max_flight_time_min", "N/A"),
-                    getattr(spec, "payload_capacity_g", "N/A"),
+                    fw if fw is not None else "N/A",
+                    speed if speed is not None else "N/A",
+                    time if time is not None else "N/A",
+                    payload if payload is not None else "N/A",
                 ]
             )
 
