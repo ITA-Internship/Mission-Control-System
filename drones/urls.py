@@ -5,7 +5,7 @@ from .views import (
     DroneDataImportView,
     DroneDetailView,
     DroneListCreateView,
-    DroneModelListCreateView
+    DroneModelListCreateView,
 )
 
 app_name = "drones"

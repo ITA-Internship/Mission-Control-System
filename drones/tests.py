@@ -977,6 +977,8 @@ class DroneDataImportTests(APITestCase):
 
         self.admin_user = AdminUserFactory()
         self.military_unit = MilitaryUnitFactory(name="Test Unit 123")
+        DroneModelFactory(name="DJI", supported_classifications=["RECONNAISSANCE"])
+        DroneModelFactory(name="Custom", supported_classifications=["COMBAT"])
         self.client.force_authenticate(self.admin_user)
 
     def _generate_csv_file(self, data_rows, headers=None, filename="drones.csv"):
@@ -1023,8 +1025,6 @@ class DroneDataImportTests(APITestCase):
         response = self.client.post(
             self.import_url, {"file": csv_file}, format="multipart"
         )
-
-        print(response.data["errors"])
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.data["added_count"], 2)

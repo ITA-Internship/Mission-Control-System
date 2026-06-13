@@ -1,3 +1,4 @@
+from django.conf import settings
 from django.http import StreamingHttpResponse
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import filters, generics, status
@@ -63,6 +64,8 @@ class DroneModelListCreateView(generics.ListCreateAPIView):
     serializer_class = DroneModelSerializer
     permission_classes = [DronePermission]
     queryset = DroneModel.objects.all()
+
+
 class DroneDataExportView(generics.ListAPIView):
     permission_classes = [DronePermission]
 
@@ -76,14 +79,18 @@ class DroneDataExportView(generics.ListAPIView):
 
     pagination_class = None
 
+    MAX_EXPORT_LIMIT = getattr(settings, "MAX_EXPORT_LIMIT", 10000)
+
     def get_queryset(self):
         return Drone.objects.select_related("military_unit").order_by("id")
 
     def list(self, request, *args, **kwargs):
         queryset = self.filter_queryset(self.get_queryset())
 
+        limited_queryset = queryset[: self.MAX_EXPORT_LIMIT]
+
         response = StreamingHttpResponse(
-            generate_drones_csv(queryset), content_type="text/csv"
+            generate_drones_csv(limited_queryset), content_type="text/csv"
         )
 
         response["Content-Disposition"] = 'attachment; filename="drones_export.csv"'
