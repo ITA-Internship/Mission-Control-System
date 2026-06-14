@@ -1,5 +1,7 @@
 from django.conf import settings
+from django.core.exceptions import ValidationError
 from django.db import models
+from django.utils import timezone
 
 
 # some examples, since I don't know which ones might actually be needed
@@ -132,6 +134,21 @@ class ComponentReplacement(models.Model):
                 name="repl_user_replaced_idx",
             ),
         ]
+
+    def clean(self):
+        errors = {}
+
+        if self.replaced_at and self.replaced_at > timezone.now():
+            errors["replaced_at"] = "replaced_at cannot be in the future."
+
+        if (
+            self.component_type == ComponentType.OTHER
+            and not self.component_name.strip()
+        ):
+            errors["component_name"] = "Component name is required for OTHER."
+
+        if errors:
+            raise ValidationError(errors)
 
     def __str__(self) -> str:
         component = (

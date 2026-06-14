@@ -1,6 +1,7 @@
 import datetime
 
 from django.contrib.auth.models import AnonymousUser
+from django.core.exceptions import ValidationError
 from django.db.models import ProtectedError
 from django.urls import reverse
 from django.utils import timezone
@@ -16,7 +17,13 @@ from .factories import (
     DroneFactory,
     ViewerUserFactory,
 )
-from .models import ComponentReplacement, ComponentType, DefectReport, DefectType, Severity
+from .models import (
+    ComponentReplacement,
+    ComponentType,
+    DefectReport,
+    DefectType,
+    Severity,
+)
 from .services import create_component_replacement, create_defect_report
 
 
@@ -858,6 +865,32 @@ class CreateComponentReplacementServiceTests(APITestCase):
         )
 
         self.assertIsNone(replacement.replaced_by)
+
+    def test_future_replaced_at_is_rejected_on_service_layer(self):
+        with self.assertRaises(ValidationError):
+            create_component_replacement(
+                drone=self.drone,
+                component_type=ComponentType.CAMERA,
+                component_name="",
+                old_serial_number="CAM-OLD-001",
+                new_serial_number="CAM-NEW-001",
+                reason="Camera replaced after image distortion.",
+                replaced_at=timezone.now() + datetime.timedelta(minutes=5),
+                replaced_by=self.user,
+            )
+
+    def test_other_component_without_name_is_rejected_on_service_layer(self):
+        with self.assertRaises(ValidationError):
+            create_component_replacement(
+                drone=self.drone,
+                component_type=ComponentType.OTHER,
+                component_name="",
+                old_serial_number="GPS-OLD-001",
+                new_serial_number="GPS-NEW-001",
+                reason="GPS antenna replaced after connector damage.",
+                replaced_at=timezone.now(),
+                replaced_by=self.user,
+            )
 
 
 class ComponentReplacementProtectTests(APITestCase):

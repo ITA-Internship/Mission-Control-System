@@ -1,7 +1,6 @@
 from django.db import transaction
 
-from .models import DefectReport
-from .models import ComponentReplacement
+from .models import ComponentReplacement, DefectReport
 
 
 def _get_authenticated_user(user):
@@ -42,7 +41,7 @@ def create_component_replacement(
     replaced_at,
     replaced_by,
 ):
-    return ComponentReplacement.objects.create(
+    replacement = ComponentReplacement(
         drone=drone,
         component_type=component_type,
         component_name=component_name,
@@ -52,3 +51,6 @@ def create_component_replacement(
         replaced_at=replaced_at,
         replaced_by=_get_authenticated_user(replaced_by),
     )
+    replacement.full_clean()
+    replacement.save()
+    return replacement
