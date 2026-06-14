@@ -2,6 +2,7 @@ from django.urls import path
 
 from .views import (
     ComponentReplacementDetailView,
+    ComponentReplacementExportView,
     ComponentReplacementListCreateView,
     DefectDetailView,
     DefectListCreateView,
@@ -16,6 +17,11 @@ urlpatterns = [
         "replacements/",
         ComponentReplacementListCreateView.as_view(),
         name="replacement-list-create",
+    ),
+    path(
+        "replacements/export/",
+        ComponentReplacementExportView.as_view(),
+        name="replacement-export",
     ),
     path(
         "replacements/<int:pk>/",

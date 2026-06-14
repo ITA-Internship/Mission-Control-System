@@ -1,3 +1,6 @@
+import csv
+
+from django.http import StreamingHttpResponse
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import filters, generics
 
@@ -12,6 +15,11 @@ from .serializers import (
     DefectReportListSerializer,
     DefectReportSerializer,
 )
+
+
+class Echo:
+    def write(self, value):
+        return value
 
 
 class DefectListCreateView(generics.ListCreateAPIView):
@@ -68,3 +76,60 @@ class ComponentReplacementDetailView(generics.RetrieveAPIView):
     serializer_class = ComponentReplacementSerializer
     permission_classes = [RepairPermission]
     http_method_names = ["get", "head", "options"]
+
+
+class ComponentReplacementExportView(generics.GenericAPIView):
+    permission_classes = [RepairPermission]
+    filter_backends = (DjangoFilterBackend,)
+    filterset_class = ComponentReplacementFilter
+
+    def get_queryset(self):
+        return ComponentReplacement.objects.select_related("drone", "replaced_by")
+
+    def get(self, request, *args, **kwargs):
+        max_export_limit = 10000
+        queryset = self.filter_queryset(self.get_queryset())[:max_export_limit]
+
+        def generate_csv():
+            writer = csv.writer(Echo())
+
+            yield writer.writerow(
+                [
+                    "ID",
+                    "Drone ID",
+                    "Drone Serial Number",
+                    "Component Type",
+                    "Component Name",
+                    "Old Serial Number",
+                    "New Serial Number",
+                    "Reason",
+                    "Replaced At",
+                    "Replaced By",
+                ]
+            )
+
+            for replacement in queryset.iterator(chunk_size=2000):
+                yield writer.writerow(
+                    [
+                        replacement.id,
+                        replacement.drone_id,
+                        replacement.drone.serial_number,
+                        replacement.component_type,
+                        replacement.component_name or "N/A",
+                        replacement.old_serial_number or "N/A",
+                        replacement.new_serial_number,
+                        replacement.reason,
+                        replacement.replaced_at.strftime("%Y-%m-%d %H:%M:%S"),
+                        (
+                            replacement.replaced_by.username
+                            if replacement.replaced_by
+                            else "N/A"
+                        ),
+                    ]
+                )
+
+        response = StreamingHttpResponse(generate_csv(), content_type="text/csv")
+        response["Content-Disposition"] = (
+            'attachment; filename="component_replacements.csv"'
+        )
+        return response

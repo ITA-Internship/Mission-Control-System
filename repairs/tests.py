@@ -876,3 +876,117 @@ class ComponentReplacementFactoryIntegrityTests(APITestCase):
         self.assertEqual(ComponentReplacement.objects.count(), 1)
 
         replacement.full_clean()
+
+
+class ComponentReplacementReportTests(APITestCase):
+    def setUp(self):
+        self.url = reverse("repairs:replacement-export")
+        self.user = ViewerUserFactory()
+        self.client.force_authenticate(self.user)
+
+        self.drone_a = DroneFactory(serial_number="DRONE-A-001")
+        self.drone_b = DroneFactory(serial_number="DRONE-B-001")
+        self.reporter_a = AdminUserFactory(username="tech.alpha")
+        self.reporter_b = AdminUserFactory(username="tech.bravo")
+
+        self.replacement_a = ComponentReplacementFactory(
+            drone=self.drone_a,
+            component_type=ComponentType.MOTOR,
+            component_name="",
+            old_serial_number="MOTOR-OLD-001",
+            new_serial_number="MOTOR-NEW-001",
+            replaced_by=self.reporter_a,
+            replaced_at=datetime.datetime(
+                2026, 6, 10, 11, 0, tzinfo=datetime.timezone.utc
+            ),
+        )
+        self.replacement_b = ComponentReplacementFactory(
+            drone=self.drone_b,
+            component_type=ComponentType.BATTERY,
+            component_name="Battery Pack",
+            old_serial_number="BAT-OLD-001",
+            new_serial_number="BAT-NEW-001",
+            replaced_by=self.reporter_b,
+            replaced_at=datetime.datetime(
+                2026, 6, 12, 11, 0, tzinfo=datetime.timezone.utc
+            ),
+        )
+
+    def _decode_rows(self, response):
+        content = b"".join(response.streaming_content).decode("utf-8")
+        return [row for row in content.strip().splitlines() if row]
+
+    def test_report_returns_csv_response(self):
+        response = self.client.get(self.url)
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response["Content-Type"], "text/csv")
+        self.assertIn("component_replacements.csv", response["Content-Disposition"])
+
+    def test_report_returns_correct_replacement_records(self):
+        response = self.client.get(self.url)
+        rows = self._decode_rows(response)
+
+        self.assertEqual(len(rows), 3)
+        self.assertIn("Drone Serial Number", rows[0])
+        joined_rows = "\n".join(rows[1:])
+        self.assertIn("DRONE-A-001", joined_rows)
+        self.assertIn("MOTOR-NEW-001", joined_rows)
+        self.assertIn("tech.alpha", joined_rows)
+        self.assertIn("DRONE-B-001", joined_rows)
+        self.assertIn("BAT-NEW-001", joined_rows)
+        self.assertIn("tech.bravo", joined_rows)
+
+    def test_report_filters_by_drone(self):
+        response = self.client.get(self.url, {"drone": self.drone_a.id})
+        rows = self._decode_rows(response)
+
+        self.assertEqual(len(rows), 2)
+        self.assertIn("DRONE-A-001", rows[1])
+        self.assertNotIn("DRONE-B-001", "\n".join(rows))
+
+    def test_report_filters_by_component_type(self):
+        response = self.client.get(
+            self.url,
+            {"component_type": ComponentType.BATTERY},
+        )
+        rows = self._decode_rows(response)
+
+        self.assertEqual(len(rows), 2)
+        self.assertIn("BATTERY", rows[1])
+        self.assertNotIn("MOTOR", "\n".join(rows[1:]))
+
+    def test_report_filters_by_user(self):
+        response = self.client.get(
+            self.url,
+            {"replaced_by": self.reporter_a.id},
+        )
+        rows = self._decode_rows(response)
+
+        self.assertEqual(len(rows), 2)
+        self.assertIn("tech.alpha", rows[1])
+        self.assertNotIn("tech.bravo", "\n".join(rows))
+
+    def test_report_filters_by_date_range(self):
+        response = self.client.get(
+            self.url,
+            {
+                "start_date": "2026-06-11T00:00:00Z",
+                "end_date": "2026-06-13T00:00:00Z",
+            },
+        )
+        rows = self._decode_rows(response)
+
+        self.assertEqual(len(rows), 2)
+        self.assertIn("DRONE-B-001", rows[1])
+        self.assertNotIn("DRONE-A-001", "\n".join(rows))
+
+    def test_unauthenticated_user_cannot_export_report(self):
+        self.client.force_authenticate(None)
+
+        response = self.client.get(self.url)
+
+        self.assertIn(
+            response.status_code,
+            (status.HTTP_401_UNAUTHORIZED, status.HTTP_403_FORBIDDEN),
+        )
