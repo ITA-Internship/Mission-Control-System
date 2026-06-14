@@ -1,6 +1,7 @@
 from django.db import transaction
 
 from .models import DefectReport
+from .models import ComponentReplacement
 
 
 def _get_authenticated_user(user):
@@ -26,4 +27,28 @@ def create_defect_report(
         severity=severity,
         description=description,
         detected_at=detected_at,
+    )
+
+
+@transaction.atomic
+def create_component_replacement(
+    *,
+    drone,
+    component_type,
+    component_name,
+    old_serial_number,
+    new_serial_number,
+    reason,
+    replaced_at,
+    replaced_by,
+):
+    return ComponentReplacement.objects.create(
+        drone=drone,
+        component_type=component_type,
+        component_name=component_name,
+        old_serial_number=old_serial_number,
+        new_serial_number=new_serial_number,
+        reason=reason,
+        replaced_at=replaced_at,
+        replaced_by=_get_authenticated_user(replaced_by),
     )
