@@ -361,7 +361,7 @@ def import_drones_csv(drones_csv_file, user=None):
 
         try:
             drone_model_obj = DroneModel.objects.get(name=drone_model_name)
-        except Drone.DoesNotExist:
+        except DroneModel.DoesNotExist:
             errors.append(
                 {
                     "row": row_num,
