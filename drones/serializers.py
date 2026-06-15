@@ -1,15 +1,21 @@
+from django.core.exceptions import ValidationError
 from rest_framework import serializers
 
 from missions.models import Mission
 
 from .models import (
     Drone,
+    DroneModel,
     DroneSpec,
     DroneSpecChangeLog,
     DroneStatusHistory,
     WriteOffRecord,
 )
-from .services import create_drone_with_spec, update_drone
+from .services import (
+    create_drone_with_spec,
+    update_drone,
+    validate_drone_classification,
+)
 
 
 class DroneSpecChangeLogSerializer(serializers.ModelSerializer):
@@ -137,6 +143,8 @@ class WriteOffRecordSerializer(serializers.ModelSerializer):
 
 class DroneStatusHistorySerializer(serializers.ModelSerializer):
     related_mission_id = serializers.IntegerField(read_only=True)
+    changed_by_display = serializers.SerializerMethodField()
+    event_type = serializers.SerializerMethodField()
 
     class Meta:
         model = DroneStatusHistory
@@ -145,7 +153,9 @@ class DroneStatusHistorySerializer(serializers.ModelSerializer):
             "from_status",
             "to_status",
             "changed_by",
+            "changed_by_display",
             "reason",
+            "event_type",
             "related_mission_id",
             "related_repair_order_id",  # must be changed
             "related_writeoff",
@@ -153,11 +163,36 @@ class DroneStatusHistorySerializer(serializers.ModelSerializer):
         )
         read_only_fields = fields
 
+    def get_changed_by_display(self, obj):
+        user = obj.changed_by
+
+        if not user:
+            return ""
+
+        return (
+            getattr(user, "username", None) or getattr(user, "email", None) or str(user)
+        )
+
+    def get_event_type(self, obj):
+        if obj.related_writeoff_id:
+            return "writeoff"
+
+        if obj.related_repair_order_id:
+            return "repair"
+
+        if obj.related_mission_id:
+            return "mission"
+
+        return "status_change"
+
 
 class DroneSerializer(serializers.ModelSerializer):
     spec = DroneSpecSerializer()
     writeoff_record = WriteOffRecordSerializer(read_only=True)
     status_history = DroneStatusHistorySerializer(many=True, read_only=True)
+    status_label = serializers.CharField(read_only=True)
+    status_indicator = serializers.CharField(read_only=True)
+    status_category = serializers.CharField(read_only=True)
 
     class Meta:
         model = Drone
@@ -174,6 +209,15 @@ class DroneSerializer(serializers.ModelSerializer):
             user=user,
         )
 
+    def validate(self, attrs):
+        drone_model = attrs.get("drone_model")
+        classification = attrs.get("classification")
+
+        if drone_model and classification:
+            validate_drone_classification(drone_model, classification)
+
+        return attrs
+
 
 class DroneUpdateSerializer(serializers.ModelSerializer):
     spec = DroneSpecUpdateSerializer(required=False)
@@ -188,6 +232,13 @@ class DroneUpdateSerializer(serializers.ModelSerializer):
         required=False,
         allow_blank=True,
     )
+
+    status_change_reason = serializers.CharField(
+        write_only=True,
+        required=False,
+        allow_blank=True,
+    )
+
     document_number = serializers.CharField(
         write_only=True,
         required=False,
@@ -217,6 +268,7 @@ class DroneUpdateSerializer(serializers.ModelSerializer):
             "spec",
             "writeoff_reason",
             "writeoff_reason_description",
+            "status_change_reason",
             "document_number",
             "written_off_at",
             "related_mission_id",
@@ -262,6 +314,12 @@ class DroneUpdateSerializer(serializers.ModelSerializer):
         if errors:
             raise serializers.ValidationError(errors)
 
+        drone_model = attrs.get("drone_model")
+        classification = attrs.get("classification")
+
+        if drone_model and classification:
+            validate_drone_classification(drone_model, classification)
+
         return attrs
 
     def update(self, instance, validated_data):
@@ -272,6 +330,7 @@ class DroneUpdateSerializer(serializers.ModelSerializer):
             "writeoff_reason_description",
             "",
         )
+        status_change_reason = validated_data.pop("status_change_reason", "")
         document_number = validated_data.pop("document_number", "")
         written_off_at = validated_data.pop("written_off_at", None)
         related_mission = validated_data.pop("related_mission", None)
@@ -288,8 +347,8 @@ class DroneUpdateSerializer(serializers.ModelSerializer):
             writeoff_reason_description=writeoff_reason_description,
             document_number=document_number,
             written_off_at=written_off_at,
-            # TODO: must be changed when 'missions' are created
             related_mission=related_mission,
+            status_change_reason=status_change_reason,
         )
 
     def to_representation(self, instance):
@@ -297,6 +356,10 @@ class DroneUpdateSerializer(serializers.ModelSerializer):
 
 
 class DroneListSerializer(serializers.ModelSerializer):
+    status_label = serializers.CharField(read_only=True)
+    status_indicator = serializers.CharField(read_only=True)
+    status_category = serializers.CharField(read_only=True)
+
     class Meta:
         model = Drone
         fields = (
@@ -307,6 +370,64 @@ class DroneListSerializer(serializers.ModelSerializer):
             "drone_model",
             "classification",
             "status",
+            "status_label",
+            "status_indicator",
+            "status_category",
             "military_unit",
             "created_at",
         )
+
+
+class DroneModelSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = DroneModel
+        fields = (
+            "id",
+            "name",
+            "manufacturer",
+            "description",
+            "supported_classifications",
+            "is_active",
+            "created_at",
+            "updated_at",
+        )
+
+    def validate(self, attrs):
+        classifications = attrs.get("supported_classifications")
+
+        if not classifications:
+            raise ValidationError(
+                {
+                    "supported_classifications": (
+                        "A drone model must support at least one classification."
+                    )
+                }
+            )
+
+        valid_keys = {choice[0] for choice in Drone.CLASSIFICATION_CHOICES}
+        invalid_items = [item for item in classifications if item not in valid_keys]
+
+        if invalid_items:
+            raise ValidationError(
+                {
+                    "supported_classifications": (
+                        f"Value {invalid_items} are not valid classifications. "
+                        f'Valid classifications: {", ".join(valid_keys)}'
+                    )
+                }
+            )
+
+        return attrs
+
+
+class DroneImportSerializer(serializers.Serializer):
+    file = serializers.FileField(
+        help_text="CSV file with drone inventory data.",
+    )
+
+    def validate_file(self, file):
+        if not file.name.endswith(".csv"):
+            raise serializers.ValidationError(
+                "Only files with the extension .csv are allowed"
+            )
+        return file

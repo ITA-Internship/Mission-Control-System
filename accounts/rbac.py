@@ -47,6 +47,7 @@ PERMISSION_REPAIRS_CREATE = "repairs.create"
 # Media
 PERMISSION_MEDIA_UPLOAD = "media.upload"
 PERMISSION_MEDIA_VIEW = "media.view"
+PERMISSION_MEDIA_DELETE = "media.delete"
 
 # Audit logs
 PERMISSION_AUDIT_LOGS_VIEW_ALL = "audit_logs.view_all"
@@ -56,6 +57,9 @@ PERMISSION_AUDIT_LOGS_VIEW_OWN = "audit_logs.view_own"
 PERMISSION_PROFILE_VIEW_OWN = "profile.view_own"
 PERMISSION_PROFILE_UPDATE_OWN = "profile.update_own"
 PERMISSION_PROFILE_RESET_PASSWORD_OWN = "profile.reset_password_own"
+
+# Drone Compare
+PERMISSION_SPECIFICATIONS_COMPARE = "specifications.compare"
 
 
 def profile_permissions():
@@ -88,6 +92,7 @@ def admin_permissions():
         PERMISSION_MISSIONS_RECORD_CONDITION,
         PERMISSION_MEDIA_UPLOAD,
         PERMISSION_MEDIA_VIEW,
+        PERMISSION_MEDIA_DELETE,
         PERMISSION_MAINTENANCE_VIEW,
         PERMISSION_MAINTENANCE_MANAGE,
         PERMISSION_SPECIFICATIONS_VIEW,
@@ -98,6 +103,7 @@ def admin_permissions():
         PERMISSION_REPAIRS_VIEW,
         PERMISSION_REPAIRS_CREATE,
         PERMISSION_AUDIT_LOGS_VIEW_ALL,
+        PERMISSION_SPECIFICATIONS_COMPARE,
     }
 
 
@@ -112,6 +118,7 @@ def commander_permissions():
             PERMISSION_MISSIONS_ASSIGN,
             PERMISSION_MISSIONS_UPDATE_STATUS,
             PERMISSION_MEDIA_VIEW,
+            PERMISSION_MEDIA_DELETE,
             PERMISSION_MAINTENANCE_VIEW,
             PERMISSION_WRITEOFF_VIEW,
             PERMISSION_WRITEOFF_AUTHORIZE,
@@ -130,8 +137,10 @@ def dispatcher_permissions():
             PERMISSION_MISSIONS_VIEW,
             PERMISSION_MISSIONS_CREATE,
             PERMISSION_MISSIONS_ASSIGN,
+            PERMISSION_MEDIA_UPLOAD,
             PERMISSION_MEDIA_VIEW,
             PERMISSION_REPAIRS_VIEW,
+            PERMISSION_SPECIFICATIONS_COMPARE,
         }
     )
 
@@ -151,6 +160,7 @@ def operator_permissions():
             PERMISSION_MEDIA_VIEW,
             PERMISSION_REPAIRS_VIEW,
             PERMISSION_REPAIRS_CREATE,
+            PERMISSION_SPECIFICATIONS_COMPARE,
         }
     )
 
@@ -169,6 +179,7 @@ def technician_permissions():
             PERMISSION_WRITEOFF_CREATE,
             PERMISSION_REPAIRS_VIEW,
             PERMISSION_REPAIRS_CREATE,
+            PERMISSION_SPECIFICATIONS_COMPARE,
         }
     )
 

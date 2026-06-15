@@ -1,6 +1,9 @@
 import copy
+import csv
+import io
 
 from django.core.exceptions import ValidationError
+from django.core.files.uploadedfile import SimpleUploadedFile
 from django.urls import reverse
 from rest_framework import status
 from rest_framework.test import APITestCase
@@ -9,12 +12,14 @@ from common.pagination import StandardResultsSetPagination
 from drones.factories import (
     AdminUserFactory,
     DroneFactory,
+    DroneModelFactory,
     DroneSpecFactory,
     MilitaryUnitFactory,
     ViewerUserFactory,
 )
 from drones.models import (
     Drone,
+    DroneModel,
     DroneSpec,
     DroneSpecChangeLog,
     DroneStatusHistory,
@@ -26,11 +31,13 @@ class DroneCreateTests(APITestCase):
     def setUp(self):
         self.create_url = reverse("drones:drone-create")
         self.military_unit = MilitaryUnitFactory()
+        self.drone_model = DroneModelFactory()
         self.base_payload = {
             "serial_number": "Test Serial Number",
             "inventory_number": "Test Inventory Number",
             "name": "Test Name",
-            "drone_model": "Test Model",
+            "drone_model": self.drone_model.id,
+            "classification": self.drone_model.supported_classifications[0],
             "status": "ACTIVE",
             "military_unit": self.military_unit.id,
             "acquired_at": "2026-05-09",
@@ -90,7 +97,7 @@ class DroneCreateTests(APITestCase):
 
         drone = Drone.objects.first()
 
-        self.assertEqual(drone.drone_model, "Test Model")
+        self.assertEqual(drone.serial_number, "Test Serial Number")
         self.assertEqual(drone.spec.frame_type, "Test Frame")
 
     def test_create_drone_with_detailed_spec_fields(self):
@@ -161,7 +168,8 @@ class DroneCreateTests(APITestCase):
             serial_number=self.base_payload["serial_number"],
             inventory_number="Inventory Number",
             name="Drone",
-            drone_model="Test Model",
+            drone_model=self.drone_model,
+            classification=self.drone_model.supported_classifications[0],
             status="ACTIVE",
             military_unit=self.military_unit,
             acquired_at="2026-05-09",
@@ -550,6 +558,61 @@ class DroneUpdateAndDecommissionTests(APITestCase):
         self.assertEqual(history.from_status, "ACTIVE")
         self.assertEqual(history.to_status, "DAMAGED")
 
+    def test_status_change_uses_custom_reason_in_status_history(self):
+        self.client.force_authenticate(self.admin_user)
+
+        response = self.client.patch(
+            self.detail_url,
+            {
+                "status": Drone.STATUS_DAMAGED,
+                "status_change_reason": "Battery failure during inspection",
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        self.drone.refresh_from_db()
+        self.assertEqual(self.drone.status, Drone.STATUS_DAMAGED)
+
+        history = DroneStatusHistory.objects.get(drone=self.drone)
+
+        self.assertEqual(history.from_status, Drone.STATUS_ACTIVE)
+        self.assertEqual(history.to_status, Drone.STATUS_DAMAGED)
+        self.assertEqual(history.reason, "Battery failure during inspection")
+        self.assertEqual(history.changed_by, self.admin_user)
+
+    def test_drone_detail_returns_status_history_and_visual_indicators(self):
+        self.client.force_authenticate(self.admin_user)
+
+        self.client.patch(
+            self.detail_url,
+            {
+                "status": Drone.STATUS_DAMAGED,
+                "status_change_reason": "Motor damaged",
+            },
+            format="json",
+        )
+
+        response = self.client.get(self.detail_url)
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        self.assertEqual(response.data["status"], Drone.STATUS_DAMAGED)
+        self.assertEqual(response.data["status_label"], "Damaged")
+        self.assertEqual(response.data["status_indicator"], "warning")
+        self.assertEqual(response.data["status_category"], "downtime")
+
+        self.assertIn("status_history", response.data)
+        self.assertEqual(len(response.data["status_history"]), 1)
+
+        history_item = response.data["status_history"][0]
+
+        self.assertEqual(history_item["from_status"], Drone.STATUS_ACTIVE)
+        self.assertEqual(history_item["to_status"], Drone.STATUS_DAMAGED)
+        self.assertEqual(history_item["reason"], "Motor damaged")
+        self.assertEqual(history_item["event_type"], "status_change")
+
     def test_decommission_requires_written_off_at(self):
         self.client.force_authenticate(self.admin_user)
 
@@ -737,3 +800,327 @@ class DroneSearchTests(APITestCase):
 
         self.assertIn(matching_drone.id, results_ids)
         self.assertNotIn(non_matching_drone.id, results_ids)
+
+
+class DroneModelTests(APITestCase):
+    def setUp(self):
+        self.create_url = reverse("drones:drone-model-create")
+        self.base_payload = {
+            "name": "Test Model Name",
+            "manufacturer": "Test Manufacturer",
+            "supported_classifications": [
+                Drone.CLASSIFICATION_RECONNAISSANCE,
+                Drone.CLASSIFICATION_COMBAT,
+            ],
+        }
+        self.user = AdminUserFactory()
+        self.client.force_authenticate(self.user)
+
+    def test_create_drone_model(self):
+        response = self.client.post(self.create_url, self.base_payload, format="json")
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(DroneModel.objects.count(), 1)
+
+        drone_model = DroneModel.objects.first()
+        self.assertEqual(drone_model.name, self.base_payload.get("name"))
+
+    def test_create_drone_model_without_supported_classifications(self):
+        payload = copy.deepcopy(self.base_payload)
+        payload.pop("supported_classifications")
+
+        response = self.client.post(self.create_url, payload, format="json")
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("supported_classifications", response.data)
+
+    def test_create_drone_model_with_empty_supported_classifications(self):
+        payload = copy.deepcopy(self.base_payload)
+        payload["supported_classifications"] = []
+
+        response = self.client.post(self.create_url, payload, format="json")
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("supported_classifications", response.data)
+
+    def test_create_drone_model_with_wrong_classification(self):
+        payload = copy.deepcopy(self.base_payload)
+        payload["supported_classifications"] = ["unknown classification"]
+
+        response = self.client.post(self.create_url, payload, format="json")
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("supported_classifications", response.data)
+
+
+class DroneClassificationValidationTests(APITestCase):
+    def setUp(self):
+        self.create_url = reverse("drones:drone-create")
+        self.military_unit = MilitaryUnitFactory()
+        self.drone_model = DroneModelFactory()
+        self.base_payload = {
+            "serial_number": "Test Serial Number",
+            "inventory_number": "Test Inventory Number",
+            "name": "Test Name",
+            "drone_model": self.drone_model.id,
+            "classification": self.drone_model.supported_classifications[0],
+            "status": "ACTIVE",
+            "military_unit": self.military_unit.id,
+            "acquired_at": "2026-05-09",
+            "spec": {
+                "frame_type": "Test Frame",
+                "motor_model": "Test Motor Model",
+                "battery_type": "Test Battery Type",
+                "battery_capacity_mah": 1500,
+                "camera_model": "Test Camera Model",
+                "vtx_model": "Test VTX Model",
+                "flight_controller": "Test Controller",
+                "firmware_version": "Test Firmware Version",
+                "max_speed_kmh": "12.5",
+                "max_range_km": "130",
+                "max_flight_time_min": "20",
+                "frequency_mhz": "1000",
+                "payload_capacity_g": "100",
+            },
+        }
+        self.drone = DroneFactory(drone_model=self.drone_model)
+        self.detail_url = reverse("drones:drone-detail", kwargs={"pk": self.drone.pk})
+        self.user = AdminUserFactory()
+        self.client.force_authenticate(self.user)
+
+    def test_create_drone_with_allowed_classification(self):
+        response = self.client.post(self.create_url, self.base_payload, format="json")
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+
+    def test_create_drone_with_not_allowed_classififcation(self):
+        payload = copy.deepcopy(self.base_payload)
+        payload["classification"] = "unknown"
+
+        response = self.client.post(self.create_url, payload, format="json")
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("classification", response.data)
+
+    def test_update_drone_classification_to_allowed(self):
+        response = self.client.patch(
+            self.detail_url,
+            {"classification": self.drone_model.supported_classifications[1]},
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+    def test_update_drone_classification_to_empty(self):
+        response = self.client.patch(self.detail_url, {"classification": ""})
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("classification", response.data)
+
+    def test_update_drone_classification_to_not_allowed(self):
+        response = self.client.patch(self.detail_url, {"classification": "unknown"})
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("classification", response.data)
+
+
+class DroneDataExportsTests(APITestCase):
+    def setUp(self):
+        self.export_url = reverse("drones:drone-export")
+        self.admin_user = AdminUserFactory()
+        self.military_unit = MilitaryUnitFactory(name="Unit A")
+
+        self.drone1 = DroneFactory(
+            serial_number="SN-001", status="ACTIVE", military_unit=self.military_unit
+        )
+        self.drone2 = DroneFactory(
+            serial_number="SN-002", status="DAMAGED", military_unit=self.military_unit
+        )
+
+        self.client.force_authenticate(self.admin_user)
+
+    def test_export_csv_success_and_format(self):
+        response = self.client.get(self.export_url)
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response["Content-Type"], "text/csv")
+        self.assertIn(
+            'attachment; filename="drones_export.csv"', response["Content-Disposition"]
+        )
+
+        content = b"".join(response.streaming_content).decode("utf-8")
+        csv_reader = csv.reader(io.StringIO(content))
+        rows = list(csv_reader)
+
+        self.assertEqual(rows[0][0], "ID")
+        self.assertEqual(rows[0][1], "Serial Number")
+        self.assertEqual(len(rows), 3)
+
+        content_str = content.lower()
+        self.assertIn("sn-001", content_str)
+        self.assertIn("sn-002", content_str)
+        self.assertIn("unit a", content_str)
+
+    def test_export_csv_with_filters(self):
+        response = self.client.get(self.export_url, {"status": "ACTIVE"})
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        content = b"".join(response.streaming_content).decode("utf-8")
+        content_str = content.lower()
+
+        self.assertIn("sn-001", content_str)
+        self.assertNotIn("sn-002", content_str)
+
+
+class DroneDataImportTests(APITestCase):
+    def setUp(self):
+        self.import_url = reverse("drones:drone-import")
+
+        self.admin_user = AdminUserFactory()
+        self.military_unit = MilitaryUnitFactory(name="Test Unit 123")
+        DroneModelFactory(name="DJI", supported_classifications=["RECONNAISSANCE"])
+        DroneModelFactory(name="Custom", supported_classifications=["COMBAT"])
+        self.client.force_authenticate(self.admin_user)
+
+    def _generate_csv_file(self, data_rows, headers=None, filename="drones.csv"):
+        if headers is None:
+            headers = [
+                "Serial Number",
+                "Inventory Number",
+                "Name",
+                "Model",
+                "Military Unit",
+                "Acquired At",
+            ]
+        output = io.StringIO()
+        writer = csv.writer(output)
+        writer.writerow(headers)
+        writer.writerows(data_rows)
+
+        return SimpleUploadedFile(
+            filename, output.getvalue().encode("utf-8"), content_type="text/csv"
+        )
+
+    def test_import_successful(self):
+        csv_file = self._generate_csv_file(
+            [
+                [
+                    "SN-IMP-01",
+                    "INV-01",
+                    "Mavic 3",
+                    "DJI",
+                    "Test Unit 123",
+                    "2026-05-10",
+                ],
+                [
+                    "SN-IMP-02",
+                    "INV-02",
+                    "FPV 7",
+                    "Custom",
+                    "Test Unit 123",
+                    "2026-05-11",
+                ],
+            ]
+        )
+
+        response = self.client.post(
+            self.import_url, {"file": csv_file}, format="multipart"
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["added_count"], 2)
+        self.assertEqual(len(response.data["errors"]), 0)
+
+        self.assertTrue(Drone.objects.filter(serial_number="SN-IMP-01").exists())
+        self.assertTrue(Drone.objects.filter(serial_number="SN-IMP-02").exists())
+
+        drone = Drone.objects.get(serial_number="SN-IMP-01")
+        self.assertIsNotNone(drone.spec)
+
+    def test_import_rejects_non_extension(self):
+        txt_file = self._generate_csv_file(
+            [["SN-01", "INV-01", "Name", "Model", "Unit", "2026-01-01"]],
+            filename="drones.txt",
+        )
+
+        response = self.client.post(
+            self.import_url, {"file": txt_file}, format="multipart"
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("file", response.data)
+
+    def test_import_fails_on_missing_required_columns(self):
+        bad_headers_file = self._generate_csv_file(
+            [["SN-01", "INV-01", "Name", "Model", "2026-01-01"]],
+            headers=[
+                "Serial Number",
+                "Inventory Number",
+                "Name",
+                "Model",
+                "Acquired At",
+            ],
+        )
+
+        response = self.client.post(
+            self.import_url, {"file": bad_headers_file}, format="multipart"
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("error", response.data)
+        self.assertIn("Invalid file format", response.data["error"])
+
+    def test_import_skips_duplicate_serial_numbers(self):
+        DroneFactory(serial_number="EXISTING-SN")
+
+        csv_file = self._generate_csv_file(
+            [
+                [
+                    "EXISTING-SN",
+                    "INV-01",
+                    "Mavic 3",
+                    "DJI",
+                    "Test Unit 123",
+                    "2026-05-10",
+                ],
+                ["NEW-SN", "INV-02", "FPV", "Custom", "Test Unit 123", "2026-05-11"],
+            ]
+        )
+
+        response = self.client.post(
+            self.import_url, {"file": csv_file}, format="multipart"
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["added_count"], 1)
+        self.assertEqual(len(response.data["errors"]), 1)
+        self.assertIn("already exists", response.data["errors"][0]["error"])
+        self.assertEqual(response.data["errors"][0]["row"], 2)
+
+    def test_import_skips_unknown_military_unit(self):
+        csv_file = self._generate_csv_file(
+            [["SN-001", "INV-01", "Mavic 3", "DJI", "UNKNOWN UNIT", "2026-05-10"]]
+        )
+
+        response = self.client.post(
+            self.import_url, {"file": csv_file}, format="multipart"
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["added_count"], 0)
+        self.assertEqual(len(response.data["errors"]), 1)
+        self.assertIn("not found in database", response.data["errors"][0]["error"])
+
+    def test_import_skips_rows_with_empty_required_fields(self):
+        csv_file = self._generate_csv_file(
+            [["", "INV-01", "Mavic 3", "DJI", "Test Unit 123", "2026-05-10"]]
+        )
+
+        response = self.client.post(
+            self.import_url, {"file": csv_file}, format="multipart"
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["added_count"], 0)
+        self.assertEqual(len(response.data["errors"]), 1)
+        self.assertIn(
+            "Missing one or more required fields", response.data["errors"][0]["error"]
+        )

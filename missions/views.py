@@ -1,5 +1,4 @@
 from django.db import transaction
-from django.utils import timezone
 from rest_framework import generics, permissions
 from rest_framework.exceptions import ValidationError
 from rest_framework.pagination import PageNumberPagination
@@ -10,8 +9,6 @@ from accounts.rbac import (
     PERMISSION_MISSIONS_RECORD_OUTCOME,
     PERMISSION_MISSIONS_UPDATE_STATUS,
 )
-from drones.models import Drone
-from drones.services import update_drone
 
 from .models import Mission, MissionAuditLog, MissionDrone, Status
 from .permissions import (
@@ -147,44 +144,6 @@ class MissionStatusUpdateView(generics.RetrieveUpdateAPIView):
             target_id=mission.id,
             changes={"previous": old_status, "new": mission.status},
         )
-
-        if mission.status == Status.ACTIVE:
-            assigned_drones_ids = mission.mission_drones.values_list(
-                "drone_id", flat=True
-            )
-
-            if assigned_drones_ids:
-                Drone.objects.filter(id__in=assigned_drones_ids).update(status="ACTIVE")
-
-        elif mission.status in [Status.COMPLETED, Status.ABORTED]:
-            mission_drones = mission.mission_drones.select_related("drone").all()
-
-            CONDITION_TO_DRONE_STATUS = {
-                "ok": "ACTIVE",
-                "damaged": "DAMAGED",
-                "lost": "WRITTEN_OFF",
-            }
-
-            for link in mission_drones:
-                condition = link.condition_after or "ok"
-                target_status = CONDITION_TO_DRONE_STATUS.get(condition, "ACTIVE")
-
-                log_reason = (
-                    f"Mission '{mission.title}' (ID: {mission.id}) ended."
-                    f"Condition: {condition}."
-                )
-
-                update_drone(
-                    drone=link.drone,
-                    drone_data={"status": target_status},
-                    user=self.request.user,
-                    related_mission=mission,
-                    writeoff_reason=log_reason,
-                    writeoff_reason_description=link.condition_description or "",
-                    written_off_at=(
-                        timezone.now() if target_status == "WRITTEN_OFF" else None
-                    ),
-                )
 
 
 class MissionAssignmentListCreateView(generics.ListCreateAPIView):
