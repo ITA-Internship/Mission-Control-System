@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Drone Comparison</title>
+</head>
+<body>
+
+    <h1>Drone Comparison Tool</h1>
+
+    {% if drones %}
+    <div>
+        <button onclick="window.print()">Print / PDF</button>
+        <a href="?ids={{ ids_param }}&export=csv">Export to CSV</a>
+    </div>
+    <br>
+    {% endif %}
+
+    {% if error %}
+        <p style="color: red;"><strong>Error:</strong> {{ error }}</p>
+    {% endif %}
+
+    {% if drones %}
+    <table border="1" cellpadding="10" cellspacing="0">
+        <thead>
+            <tr>
+                <th>Specification</th>
+                {% for drone in drones %}
+                    <th>
+                        {{ drone.name }}<br>
+                        <small>ID: {{ drone.id }}</small>
+                    </th>
+                {% endfor %}
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td><strong>Model</strong></td>
+                {% for drone in drones %}
+                    <td>{{ drone.drone_model }}</td>
+                {% endfor %}
+            </tr>
+
+            <tr>
+                <td><strong>Classification</strong></td>
+                {% for drone in drones %}
+                    <td>{{ drone.classification }}</td>
+                {% endfor %}
+            </tr>
+
+            <tr>
+                <td><strong>Status</strong></td>
+                {% for drone in drones %}
+                    <td>{{ drone.status }}</td>
+                {% endfor %}
+            </tr>
+
+            <tr>
+                <td><strong>Firmware Version</strong></td>
+                {% for drone in drones %}
+                    <td>{{ drone.spec.firmware_version|default:"N/A" }}</td>
+                {% endfor %}
+            </tr>
+
+            <tr>
+                <td><strong>Max Speed (km/h)</strong></td>
+                {% for drone in drones %}
+                    <td
+                        {% if max_speed and drone.spec.max_speed_kmh == max_speed %}style="background-color: lightgreen; font-weight: bold;"
+                        {% elif min_speed and drone.spec.max_speed_kmh == min_speed %}style="background-color: #ffcccc; font-weight: bold;"{% endif %}
+                    >
+                        {{ drone.spec.max_speed_kmh|default:"N/A" }}
+                        {% if max_speed and drone.spec.max_speed_kmh == max_speed %} (Best){% endif %}
+                        {% if min_speed and drone.spec.max_speed_kmh == min_speed %} (Worst){% endif %}
+                    </td>
+                {% endfor %}
+            </tr>
+
+            <tr>
+                <td><strong>Max Flight Time (min)</strong></td>
+                {% for drone in drones %}
+                    <td
+                        {% if max_flight_time and drone.spec.max_flight_time_min == max_flight_time %}style="background-color: lightgreen; font-weight: bold;"
+                        {% elif min_flight_time and drone.spec.max_flight_time_min == min_flight_time %}style="background-color: #ffcccc; font-weight: bold;"{% endif %}
+                    >
+                        {{ drone.spec.max_flight_time_min|default:"N/A" }}
+                        {% if max_flight_time and drone.spec.max_flight_time_min == max_flight_time %} (Best){% endif %}
+                        {% if min_flight_time and drone.spec.max_flight_time_min == min_flight_time %} (Worst){% endif %}
+                    </td>
+                {% endfor %}
+            </tr>
+
+            <tr>
+                <td><strong>Payload Capacity (g)</strong></td>
+                {% for drone in drones %}
+                    <td
+                        {% if max_payload and drone.spec.payload_capacity_g == max_payload %}style="background-color: lightgreen; font-weight: bold;"
+                        {% elif min_payload and drone.spec.payload_capacity_g == min_payload %}style="background-color: #ffcccc; font-weight: bold;"{% endif %}
+                    >
+                        {{ drone.spec.payload_capacity_g|default:"N/A" }}
+                        {% if max_payload and drone.spec.payload_capacity_g == max_payload %} (Best){% endif %}
+                        {% if min_payload and drone.spec.payload_capacity_g == min_payload %} (Worst){% endif %}
+                    </td>
+                {% endfor %}
+            </tr>
+        </tbody>
+    </table>
+    {% endif %}
+
+</body>
+</html>
