@@ -123,6 +123,7 @@ def update_drone(
     document_number="",
     written_off_at=None,
     related_mission=None,
+    status_change_reason="",
 ):
     user = _get_authenticated_user(user)
 
@@ -187,8 +188,11 @@ def update_drone(
             from_status=old_status,
             to_status=drone.status,
             changed_by=user,
-            reason=writeoff_reason
-            or f"Status changed from {old_status} to {drone.status}",
+            reason=(
+                status_change_reason
+                or writeoff_reason
+                or f"Status changed from {old_status} to {drone.status}"
+            ),
             related_mission=related_mission,
             related_writeoff=writeoff_record,
         )

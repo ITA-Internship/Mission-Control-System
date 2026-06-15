@@ -555,6 +555,61 @@ class DroneUpdateAndDecommissionTests(APITestCase):
         self.assertEqual(history.from_status, "ACTIVE")
         self.assertEqual(history.to_status, "DAMAGED")
 
+    def test_status_change_uses_custom_reason_in_status_history(self):
+        self.client.force_authenticate(self.admin_user)
+
+        response = self.client.patch(
+            self.detail_url,
+            {
+                "status": Drone.STATUS_DAMAGED,
+                "status_change_reason": "Battery failure during inspection",
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        self.drone.refresh_from_db()
+        self.assertEqual(self.drone.status, Drone.STATUS_DAMAGED)
+
+        history = DroneStatusHistory.objects.get(drone=self.drone)
+
+        self.assertEqual(history.from_status, Drone.STATUS_ACTIVE)
+        self.assertEqual(history.to_status, Drone.STATUS_DAMAGED)
+        self.assertEqual(history.reason, "Battery failure during inspection")
+        self.assertEqual(history.changed_by, self.admin_user)
+
+    def test_drone_detail_returns_status_history_and_visual_indicators(self):
+        self.client.force_authenticate(self.admin_user)
+
+        self.client.patch(
+            self.detail_url,
+            {
+                "status": Drone.STATUS_DAMAGED,
+                "status_change_reason": "Motor damaged",
+            },
+            format="json",
+        )
+
+        response = self.client.get(self.detail_url)
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        self.assertEqual(response.data["status"], Drone.STATUS_DAMAGED)
+        self.assertEqual(response.data["status_label"], "Damaged")
+        self.assertEqual(response.data["status_indicator"], "warning")
+        self.assertEqual(response.data["status_category"], "downtime")
+
+        self.assertIn("status_history", response.data)
+        self.assertEqual(len(response.data["status_history"]), 1)
+
+        history_item = response.data["status_history"][0]
+
+        self.assertEqual(history_item["from_status"], Drone.STATUS_ACTIVE)
+        self.assertEqual(history_item["to_status"], Drone.STATUS_DAMAGED)
+        self.assertEqual(history_item["reason"], "Motor damaged")
+        self.assertEqual(history_item["event_type"], "status_change")
+
     def test_decommission_requires_written_off_at(self):
         self.client.force_authenticate(self.admin_user)
 
