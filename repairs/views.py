@@ -6,6 +6,7 @@ from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import filters, generics
 
 from common.pagination import StandardResultsSetPagination
+from common.utils import EchoBuffer
 
 from .filters import ComponentReplacementFilter, DefectFilter
 from .models import ComponentReplacement, DefectReport
@@ -16,11 +17,6 @@ from .serializers import (
     DefectReportListSerializer,
     DefectReportSerializer,
 )
-
-
-class Echo:
-    def write(self, value):
-        return value
 
 
 class DefectListCreateView(generics.ListCreateAPIView):
@@ -94,7 +90,7 @@ class ComponentReplacementExportView(generics.GenericAPIView):
         export_truncated = total_count > max_export_limit
 
         def generate_csv():
-            writer = csv.writer(Echo())
+            writer = csv.writer(EchoBuffer())
 
             yield writer.writerow(
                 [
