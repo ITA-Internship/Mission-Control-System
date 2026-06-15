@@ -13,6 +13,7 @@ from .models import (
 )
 from .services import (
     create_drone_with_spec,
+    create_writeoff_record,
     update_drone,
     validate_drone_classification,
 )
@@ -373,3 +374,37 @@ class DroneModelSerializer(serializers.ModelSerializer):
             )
 
         return attrs
+
+
+class WriteOffRecordCreateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = WriteOffRecord
+        fields = (
+            "id",
+            "drone",
+            "reason",
+            "reason_description",
+            "related_mission_id",
+            "document_number",
+            "written_off_at",
+            "created_at",
+        )
+
+    def validate(self, attrs):
+        drone = attrs.get("drone")
+
+        if drone.status in Drone.INACTIVE_STATUSES:
+            raise ValidationError(
+                {
+                    "drone": (
+                        f"Cannot write off drone with inactive status '{drone.status}'."
+                    )
+                }
+            )
+
+        return attrs
+
+    def create(self, validated_data):
+        user = self.context["request"].user
+
+        return create_writeoff_record(user=user, **validated_data)

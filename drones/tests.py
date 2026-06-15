@@ -862,3 +862,72 @@ class DroneClassificationValidationTests(APITestCase):
 
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertIn("classification", response.data)
+
+
+class WriteOffRecordTests(APITestCase):
+    def setUp(self):
+        self.create_url = reverse("drones:write-off-create")
+        self.drone = DroneFactory()
+        self.admin_user = AdminUserFactory()
+        self.viewer = ViewerUserFactory()
+
+    def test_create_valid_write_off_record_as_admin(self):
+        self.client.force_authenticate(self.admin_user)
+        payload = {
+            "drone": self.drone.id,
+            "reason": "Write Off Reason",
+            "reason_description": "Write Off Reason Description",
+        }
+        response = self.client.post(self.create_url, payload, format="json")
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+
+        self.drone.refresh_from_db()
+
+        self.assertEqual(self.drone.status, "WRITTEN_OFF")
+        self.assertEqual(WriteOffRecord.objects.count(), 1)
+        self.assertEqual(DroneStatusHistory.objects.count(), 1)
+
+        writeoff_record = WriteOffRecord.objects.get(drone=self.drone)
+        status_history = DroneStatusHistory.objects.get(drone=self.drone)
+
+        self.assertEqual(writeoff_record.reason, "Write Off Reason")
+        self.assertEqual(writeoff_record.authorized_by, self.admin_user)
+
+        self.assertEqual(status_history.from_status, "ACTIVE")
+        self.assertEqual(status_history.to_status, "WRITTEN_OFF")
+        self.assertEqual(status_history.related_writeoff, writeoff_record)
+
+    def test_create_write_off_record_as_viewer(self):
+        self.client.force_authenticate(self.viewer)
+        payload = {"drone": self.drone.id, "reason": "Write Off Reason"}
+        response = self.client.post(self.create_url, payload, format="json")
+
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_get_write_off_record_list_as_viewer(self):
+        self.client.force_authenticate(self.viewer)
+
+        response = self.client.get(self.create_url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+    def test_crate_write_off_record_with_empty_reason(self):
+        self.client.force_authenticate(self.admin_user)
+        payload = {"drone": self.drone.id, "reason": ""}
+
+        response = self.client.post(self.create_url, payload, format="json")
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("reason", response.data)
+
+    def test_write_off_drone_with_inactive_status(self):
+        self.client.force_authenticate(self.admin_user)
+        written_off_drone = DroneFactory(status=Drone.STATUS_SOLD)
+        payload = {
+            "drone": written_off_drone.id,
+            "reason": "Write Off Reason",
+        }
+
+        response = self.client.post(self.create_url, payload, format="json")
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("drone", response.data)

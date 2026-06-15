@@ -207,3 +207,41 @@ def validate_drone_classification(drone_model, classification):
                 f'Allowed: {", ".join([c.title() for c in allowed_classifications])}'
             }
         )
+
+
+@transaction.atomic
+def create_writeoff_record(
+    *,
+    drone,
+    user,
+    reason,
+    reason_description="",
+    document_number="",
+    related_mission=None,
+):
+    user = _get_authenticated_user(user)
+
+    old_status = drone.status
+    drone.status = Drone.STATUS_WRITTEN_OFF
+    drone.save(update_fields=["status"])
+
+    writeoff_record = WriteOffRecord.objects.create(
+        drone=drone,
+        reason=reason,
+        reason_description=reason_description,
+        authorized_by=user,
+        related_mission=related_mission,
+        document_number=document_number,
+    )
+
+    DroneStatusHistory.objects.create(
+        drone=drone,
+        from_status=old_status,
+        to_status=drone.status,
+        changed_by=user,
+        reason=f"Status changed from {old_status} to {drone.status}",
+        related_mission=related_mission,
+        related_writeoff=writeoff_record,
+    )
+
+    return writeoff_record

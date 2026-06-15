@@ -4,13 +4,15 @@ from rest_framework import filters, generics
 from common.pagination import StandardResultsSetPagination
 
 from .filters import DroneFilter
-from .models import Drone, DroneModel
-from .permissions import DronePermission
+from .models import Drone, DroneModel, WriteOffRecord
+from .permissions import DronePermission, WriteOffPermission
 from .serializers import (
     DroneListSerializer,
     DroneModelSerializer,
     DroneSerializer,
     DroneUpdateSerializer,
+    WriteOffRecordCreateSerializer,
+    WriteOffRecordSerializer,
 )
 
 
@@ -59,3 +61,19 @@ class DroneModelListCreateView(generics.ListCreateAPIView):
     serializer_class = DroneModelSerializer
     permission_classes = [DronePermission]
     queryset = DroneModel.objects.all()
+
+
+class WriteOffRecordListCreateView(generics.ListCreateAPIView):
+    permission_classes = [WriteOffPermission]
+
+    def get_queryset(self):
+        return WriteOffRecord.objects.select_related(
+            "drone",
+            "authorized_by",
+            "related_mission",
+        ).order_by("-written_off_at")
+
+    def get_serializer_class(self):
+        if self.request.method == "POST":
+            return WriteOffRecordCreateSerializer
+        return WriteOffRecordSerializer

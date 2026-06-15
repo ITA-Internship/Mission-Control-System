@@ -6,6 +6,8 @@ from accounts.rbac import (
     PERMISSION_DRONES_DECOMMISSION,
     PERMISSION_DRONES_UPDATE,
     PERMISSION_DRONES_VIEW,
+    PERMISSION_WRITEOFF_CREATE,
+    PERMISSION_WRITEOFF_VIEW,
 )
 
 from .models import Drone
@@ -68,5 +70,18 @@ class DronePermission(BasePermission):
                 )
 
             return True
+
+        return False
+
+
+class WriteOffPermission(BasePermission):
+    message = "You do not have permission to perform this action."
+
+    def has_permission(self, request, view):
+        if request.method in SAFE_METHODS:
+            return user_has_permission(request.user, PERMISSION_WRITEOFF_VIEW)
+
+        if request.method == "POST":
+            return user_has_permission(request.user, PERMISSION_WRITEOFF_CREATE)
 
         return False
