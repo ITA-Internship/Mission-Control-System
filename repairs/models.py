@@ -23,6 +23,13 @@ class Severity(models.TextChoices):
     CRITICAL = "CRITICAL", "Critical"
 
 
+class RepairStatus(models.TextChoices):
+    REPORTED = "REPORTED", "Reported"
+    IN_PROGRESS = "IN_PROGRESS", "In progress"
+    FIXED = "FIXED", "Fixed"
+    VERIFIED = "VERIFIED", "Verified"
+
+
 class DefectReport(models.Model):
     drone = models.ForeignKey(
         "drones.Drone",
@@ -37,6 +44,12 @@ class DefectReport(models.Model):
     severity = models.CharField(
         max_length=20,
         choices=Severity.choices,
+        db_index=True,
+    )
+    status = models.CharField(
+        max_length=20,
+        choices=RepairStatus.choices,
+        default=RepairStatus.REPORTED,
         db_index=True,
     )
     description = models.TextField()
@@ -74,3 +87,29 @@ class DefectReport(models.Model):
             f"{self.get_severity_display()} "
             f"{self.get_defect_type_display()} on {self.drone}"
         )
+
+
+class RepairEvent(models.Model):
+    defect_report = models.ForeignKey(
+        DefectReport,
+        on_delete=models.CASCADE,
+        related_name="repair_events",
+    )
+    from_status = models.CharField(max_length=20, choices=RepairStatus.choices)
+    to_status = models.CharField(max_length=20, choices=RepairStatus.choices)
+    action_taken = models.TextField()
+    technician = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="repair_events",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "repair_events"
+        ordering = ("-created_at",)
+
+    def __str__(self) -> str:
+        return f"{self.defect_report} status changed to {self.to_status}"
