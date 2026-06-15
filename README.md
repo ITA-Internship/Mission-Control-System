@@ -686,6 +686,8 @@ POST   /api/drones/
 GET    /api/drones/{id}/
 PUT    /api/drones/{id}/
 DELETE /api/drones/{id}/
+GET    /api/drones/export/
+POST   /api/drones/import/
 
 # Missions
 GET    /api/missions/
@@ -700,6 +702,23 @@ POST   /api/repairs/
 POST   /api/videos/upload/
 GET    /api/videos/{id}/
 ```
+
+### 📄 CSV Import/Export Format
+
+The system supports bulk drone inventory management via CSV files.
+
+**Expected Import Format:**
+To import drones, upload a `.csv` file with the following required columns (exact headers must be present):
+
+| Serial Number | Inventory Number | Name    | Model   | Military Unit | Acquired At |
+|---------------|------------------|---------|---------|---------------|-------------|
+| SN-00123      | INV-A-99         | Mavic 3 | DJI     | Unit Alpha    | 2024-05-10  |
+| FPV-B-44      | INV-B-01         | FPV 7"  | Custom  | Unit Bravo    | 2024-05-11  |
+
+*Notes on Import:*
+- `Military Unit` must exactly match the name of an existing unit in the database.
+- Rows with existing `Serial Number`s will be skipped and reported in the API error summary.
+- The system processes valid rows even if other rows contain errors.
 
 ## 🔒 Security Features
 
