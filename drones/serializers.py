@@ -418,3 +418,16 @@ class DroneModelSerializer(serializers.ModelSerializer):
             )
 
         return attrs
+
+
+class DroneImportSerializer(serializers.Serializer):
+    file = serializers.FileField(
+        help_text="CSV file with drone inventory data.",
+    )
+
+    def validate_file(self, file):
+        if not file.name.endswith(".csv"):
+            raise serializers.ValidationError(
+                "Only files with the extension .csv are allowed"
+            )
+        return file
