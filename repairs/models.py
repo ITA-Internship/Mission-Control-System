@@ -102,7 +102,7 @@ class ComponentReplacement(models.Model):
         choices=ComponentType.choices,
         db_index=True,
     )
-    component_name = models.CharField(max_length=255, blank=True)
+    component_name = models.CharField(max_length=255, blank=True, null=True)
     old_serial_number = models.CharField(max_length=100, blank=True)
     new_serial_number = models.CharField(max_length=100)
     reason = models.TextField()
@@ -138,12 +138,12 @@ class ComponentReplacement(models.Model):
     def clean(self):
         errors = {}
 
-        if self.replaced_at and self.replaced_at > timezone.now():
+        if self.replaced_at is not None and self.replaced_at > timezone.now():
             errors["replaced_at"] = "replaced_at cannot be in the future."
 
         if (
             self.component_type == ComponentType.OTHER
-            and not self.component_name.strip()
+            and not (self.component_name or "").strip()
         ):
             errors["component_name"] = "Component name is required for OTHER."
 

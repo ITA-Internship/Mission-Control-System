@@ -1,5 +1,6 @@
 import csv
 
+from django.conf import settings
 from django.http import StreamingHttpResponse
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import filters, generics
@@ -87,8 +88,10 @@ class ComponentReplacementExportView(generics.GenericAPIView):
         return ComponentReplacement.objects.select_related("drone", "replaced_by")
 
     def get(self, request, *args, **kwargs):
-        max_export_limit = 10000
-        queryset = self.filter_queryset(self.get_queryset())[:max_export_limit]
+        max_export_limit = getattr(settings, "MAX_EXPORT_LIMIT", 10000)
+        queryset = self.filter_queryset(self.get_queryset())
+        total_count = queryset.count()
+        export_truncated = total_count > max_export_limit
 
         def generate_csv():
             writer = csv.writer(Echo())
@@ -108,7 +111,13 @@ class ComponentReplacementExportView(generics.GenericAPIView):
                 ]
             )
 
-            for replacement in queryset.iterator(chunk_size=2000):
+            for index, replacement in enumerate(
+                queryset.iterator(chunk_size=2000),
+                start=1,
+            ):
+                if index > max_export_limit:
+                    break
+
                 yield writer.writerow(
                     [
                         replacement.id,
@@ -132,4 +141,6 @@ class ComponentReplacementExportView(generics.GenericAPIView):
         response["Content-Disposition"] = (
             'attachment; filename="component_replacements.csv"'
         )
+        response["X-Export-Limit"] = str(max_export_limit)
+        response["X-Export-Truncated"] = str(export_truncated).lower()
         return response

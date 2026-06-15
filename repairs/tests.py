@@ -622,6 +622,22 @@ class ComponentReplacementValidationTests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertIn("drone", response.data)
 
+    def test_model_validation_with_missing_replaced_at_does_not_crash(self):
+        replacement = ComponentReplacement(
+            drone=self.drone,
+            component_type=ComponentType.MOTOR,
+            old_serial_number="MOTOR-OLD-001",
+            new_serial_number="MOTOR-NEW-001",
+            reason="Motor replaced after vibration and overheating.",
+            replaced_at=None,
+            replaced_by=self.user,
+        )
+
+        with self.assertRaises(ValidationError) as exc_info:
+            replacement.full_clean()
+
+        self.assertIn("replaced_at", exc_info.exception.message_dict)
+
 
 class ComponentReplacementAuthTests(APITestCase):
     def setUp(self):

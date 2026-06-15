@@ -83,7 +83,8 @@ class ComponentReplacementSerializer(serializers.ModelSerializer):
         read_only_fields = ("id", "replaced_by", "created_at", "updated_at")
 
     def validate_component_name(self, value):
-        return (value or "").strip()
+        stripped = (value or "").strip()
+        return stripped or None
 
     def validate_old_serial_number(self, value):
         return (value or "").strip()
@@ -108,15 +109,17 @@ class ComponentReplacementSerializer(serializers.ModelSerializer):
     def validate(self, attrs):
         attrs = super().validate(attrs)
         component_type = attrs.get("component_type")
-        component_name = attrs.get("component_name", "")
+        component_name = attrs.get("component_name")
 
         if component_type == ComponentType.OTHER and not component_name:
             raise serializers.ValidationError(
                 {"component_name": ["Component name is required for OTHER."]}
             )
 
-        if component_type != ComponentType.OTHER:
-            attrs["component_name"] = ""
+        if component_type != ComponentType.OTHER and (
+            self.instance is None or "component_name" in attrs
+        ):
+            attrs["component_name"] = None
 
         return attrs
 
