@@ -336,11 +336,33 @@ class DroneSpecChangeLog(models.Model):
 
 
 class WriteOffRecord(models.Model):
+    REASON_LOSS = "LOSS"
+    REASON_DESTRUCTION = "DESTRUCTION"
+    REASON_DAMAGE = "DAMAGE"
+    REASON_OTHER = "OTHER"
+
+    REASON_CHOICES = [
+        (REASON_LOSS, "Loss"),
+        (REASON_DESTRUCTION, "Destruction"),
+        (REASON_DAMAGE, "Critical damage"),
+        (REASON_OTHER, "Other"),
+    ]
+
     drone = models.OneToOneField(
         Drone, on_delete=models.PROTECT, related_name="writeoff_record"
     )
-    reason = models.CharField(max_length=255)
-    reason_description = models.TextField(blank=True)
+    reason = models.CharField(
+        max_length=20,
+        choices=REASON_CHOICES,
+        help_text="Canonical reason for writing off the drone.",
+    )
+    reason_description = models.TextField(
+        blank=True,
+        help_text=(
+            "Free-form details about the write-off. "
+            "Required when the reason is 'Other'."
+        ),
+    )
     authorized_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         null=True,
@@ -361,6 +383,36 @@ class WriteOffRecord(models.Model):
 
     def __str__(self) -> str:
         return f"Write-off record for {self.drone}"
+
+    @property
+    def reason_label(self):
+        return dict(self.REASON_CHOICES).get(self.reason, self.reason)
+
+    def clean(self):
+        super().clean()
+
+        errors = {}
+
+        if not self.reason:
+            errors["reason"] = "A write-off reason is required."
+        elif self.reason not in dict(self.REASON_CHOICES):
+            valid_codes = ", ".join(code for code, _ in self.REASON_CHOICES)
+            errors["reason"] = (
+                f'"{self.reason}" is not a valid write-off reason. '
+                f"Valid reasons: {valid_codes}."
+            )
+
+        if self.reason == self.REASON_OTHER and not self.reason_description.strip():
+            errors["reason_description"] = (
+                "A custom description is required when the reason is 'Other'."
+            )
+
+        if errors:
+            raise ValidationError(errors)
+
+    def save(self, *args, **kwargs):
+        self.full_clean()
+        super().save(*args, **kwargs)
 
 
 class DroneStatusHistory(models.Model):

@@ -125,12 +125,14 @@ class DroneSpecUpdateSerializer(DroneSpecValidationMixin, serializers.ModelSeria
 
 class WriteOffRecordSerializer(serializers.ModelSerializer):
     related_mission_id = serializers.IntegerField(read_only=True)
+    reason_label = serializers.CharField(read_only=True)
 
     class Meta:
         model = WriteOffRecord
         fields = (
             "id",
             "reason",
+            "reason_label",
             "reason_description",
             "authorized_by",
             "related_mission_id",
@@ -222,7 +224,8 @@ class DroneSerializer(serializers.ModelSerializer):
 class DroneUpdateSerializer(serializers.ModelSerializer):
     spec = DroneSpecUpdateSerializer(required=False)
 
-    writeoff_reason = serializers.CharField(
+    writeoff_reason = serializers.ChoiceField(
+        choices=WriteOffRecord.REASON_CHOICES,
         write_only=True,
         required=False,
         allow_blank=True,
@@ -310,6 +313,14 @@ class DroneUpdateSerializer(serializers.ModelSerializer):
                     "This field is required when drone is decommissioned, "
                     "sold, transferred, or written off."
                 )
+
+        reason = attrs.get("writeoff_reason")
+        description = attrs.get("writeoff_reason_description") or ""
+
+        if reason == WriteOffRecord.REASON_OTHER and not description.strip():
+            errors["writeoff_reason_description"] = (
+                "A custom description is required when the reason is 'Other'."
+            )
 
         if errors:
             raise serializers.ValidationError(errors)
