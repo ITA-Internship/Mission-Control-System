@@ -5,7 +5,7 @@ from rest_framework.exceptions import PermissionDenied, ValidationError
 
 from roles.models import ADMIN_CODE, COMMANDER_CODE, TECHNICIAN_CODE
 
-from .models import DefectReport, RepairEvent, RepairStatus
+from .models import ComponentReplacement, DefectReport, RepairEvent, RepairStatus
 
 
 def _get_authenticated_user(user):
@@ -88,3 +88,30 @@ def update_defect_status(
             )
 
     return event
+
+
+@transaction.atomic
+def create_component_replacement(
+    *,
+    drone,
+    component_type,
+    component_name,
+    old_serial_number,
+    new_serial_number,
+    reason,
+    replaced_at,
+    replaced_by,
+):
+    replacement = ComponentReplacement(
+        drone=drone,
+        component_type=component_type,
+        component_name=component_name,
+        old_serial_number=old_serial_number,
+        new_serial_number=new_serial_number,
+        reason=reason,
+        replaced_at=replaced_at,
+        replaced_by=_get_authenticated_user(replaced_by),
+    )
+    replacement.full_clean()
+    replacement.save()
+    return replacement
