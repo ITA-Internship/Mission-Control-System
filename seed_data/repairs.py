@@ -42,9 +42,9 @@ class RepairSeeder:
         }
 
     def _load_drones(self) -> dict[str, Drone]:
-        drone_serials = {
-            seed.drone_serial for seed in DEFECT_REPORTS
-        } | {seed.drone_serial for seed in COMPONENT_REPLACEMENTS}
+        drone_serials = {seed.drone_serial for seed in DEFECT_REPORTS} | {
+            seed.drone_serial for seed in COMPONENT_REPLACEMENTS
+        }
         drones = {
             drone.serial_number: drone
             for drone in Drone.objects.filter(serial_number__in=drone_serials)
