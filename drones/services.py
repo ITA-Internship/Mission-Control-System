@@ -183,8 +183,8 @@ def update_drone(
         )
 
     if old_status != drone.status:
-        writeoff_reason_label = (
-            writeoff_record.reason_label if writeoff_record else writeoff_reason
+        writeoff_reason_label = WriteOffRecord.label_for(
+            writeoff_record.reason if writeoff_record else writeoff_reason
         )
 
         DroneStatusHistory.objects.create(

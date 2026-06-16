@@ -1,5 +1,6 @@
 from django.core.exceptions import ValidationError
 from rest_framework import serializers
+from rest_framework.serializers import as_serializer_error
 
 from missions.models import Mission
 
@@ -225,7 +226,7 @@ class DroneUpdateSerializer(serializers.ModelSerializer):
     spec = DroneSpecUpdateSerializer(required=False)
 
     writeoff_reason = serializers.ChoiceField(
-        choices=WriteOffRecord.REASON_CHOICES,
+        choices=WriteOffRecord.Reason.choices,
         write_only=True,
         required=False,
         allow_blank=True,
@@ -314,14 +315,6 @@ class DroneUpdateSerializer(serializers.ModelSerializer):
                     "sold, transferred, or written off."
                 )
 
-        reason = attrs.get("writeoff_reason")
-        description = attrs.get("writeoff_reason_description") or ""
-
-        if reason == WriteOffRecord.REASON_OTHER and not description.strip():
-            errors["writeoff_reason_description"] = (
-                "A custom description is required when the reason is 'Other'."
-            )
-
         if errors:
             raise serializers.ValidationError(errors)
 
@@ -349,18 +342,35 @@ class DroneUpdateSerializer(serializers.ModelSerializer):
         request = self.context.get("request")
         user = getattr(request, "user", None)
 
-        return update_drone(
-            drone=instance,
-            drone_data=validated_data,
-            spec_data=spec_data,
-            user=user,
-            writeoff_reason=writeoff_reason,
-            writeoff_reason_description=writeoff_reason_description,
-            document_number=document_number,
-            written_off_at=written_off_at,
-            related_mission=related_mission,
-            status_change_reason=status_change_reason,
-        )
+        try:
+            return update_drone(
+                drone=instance,
+                drone_data=validated_data,
+                spec_data=spec_data,
+                user=user,
+                writeoff_reason=writeoff_reason,
+                writeoff_reason_description=writeoff_reason_description,
+                document_number=document_number,
+                written_off_at=written_off_at,
+                related_mission=related_mission,
+                status_change_reason=status_change_reason,
+            )
+        except ValidationError as exc:
+            raise serializers.ValidationError(self._map_writeoff_errors(exc))
+
+    WRITEOFF_FIELD_MAP = {
+        "reason": "writeoff_reason",
+        "reason_description": "writeoff_reason_description",
+    }
+
+    @classmethod
+    def _map_writeoff_errors(cls, exc):
+        error_detail = as_serializer_error(exc)
+
+        return {
+            cls.WRITEOFF_FIELD_MAP.get(field, field): messages
+            for field, messages in error_detail.items()
+        }
 
     def to_representation(self, instance):
         return DroneSerializer(instance, context=self.context).data
