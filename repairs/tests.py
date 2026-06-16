@@ -1,6 +1,7 @@
 import datetime
 
 from django.contrib.auth.models import AnonymousUser
+from django.core import mail
 from django.core.exceptions import ValidationError
 from django.db.models import ProtectedError
 from django.urls import reverse
@@ -9,6 +10,7 @@ from rest_framework import status
 from rest_framework.test import APITestCase
 
 from common.pagination import StandardResultsSetPagination
+from roles.models import COMMANDER_CODE, TECHNICIAN_CODE, VIEWER_CODE, Role
 
 from .factories import (
     AdminUserFactory,
@@ -22,6 +24,8 @@ from .models import (
     ComponentType,
     DefectReport,
     DefectType,
+    RepairEvent,
+    RepairStatus,
     Severity,
 )
 from .services import create_component_replacement, create_defect_report
@@ -1038,4 +1042,178 @@ class ComponentReplacementReportTests(APITestCase):
         self.assertIn(
             response.status_code,
             (status.HTTP_401_UNAUTHORIZED, status.HTTP_403_FORBIDDEN),
+        )
+
+
+class DefectStatusUpdateTests(APITestCase):
+    def setUp(self):
+        self.drone = DroneFactory()
+        self.reporter = AdminUserFactory(email="reporter@example.com")
+        self.defect = DefectReportFactory(
+            drone=self.drone, reporter=self.reporter, status=RepairStatus.REPORTED
+        )
+        self.url = reverse(
+            "repairs:defect-update-status", kwargs={"pk": self.defect.pk}
+        )
+
+        self.role, _ = Role.objects.get_or_create(code=COMMANDER_CODE, name="Commander")
+        self.user = AdminUserFactory()
+        self.user.role = self.role
+        self.user.save()
+        self.client.force_authenticate(self.user)
+
+    def test_successful_status_update_creates_history(self):
+        payload = {
+            "status": RepairStatus.IN_PROGRESS,
+            "action_taken": "Starting diagnostics.",
+        }
+        response = self.client.post(self.url, payload, format="json")
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        self.defect.refresh_from_db()
+        self.assertEqual(self.defect.status, RepairStatus.IN_PROGRESS)
+
+        events = RepairEvent.objects.filter(defect_report=self.defect)
+        self.assertEqual(events.count(), 1)
+
+        event = events.first()
+        self.assertEqual(event.from_status, RepairStatus.REPORTED)
+        self.assertEqual(event.to_status, RepairStatus.IN_PROGRESS)
+        self.assertEqual(event.action_taken, "Starting diagnostics.")
+        self.assertEqual(event.technician, self.user)
+
+    def test_status_update_sends_email(self):
+        payload = {
+            "status": RepairStatus.FIXED,
+            "action_taken": "Replaced the broken part.",
+        }
+        self.client.post(self.url, payload, format="json")
+
+        self.assertEqual(len(mail.outbox), 1)
+        self.assertEqual(mail.outbox[0].to, [self.reporter.email])
+        self.assertIn("Status Update", mail.outbox[0].subject)
+        self.assertIn(RepairStatus.FIXED, mail.outbox[0].body)
+        self.assertIn("Replaced the broken part.", mail.outbox[0].body)
+
+    def test_same_status_update_is_rejected(self):
+        payload = {"status": RepairStatus.REPORTED, "action_taken": "Doing nothing."}
+        response = self.client.post(self.url, payload, format="json")
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_verified_must_come_from_fixed(self):
+        payload = {
+            "status": RepairStatus.VERIFIED,
+            "action_taken": "Skipping to verified.",
+        }
+        response = self.client.post(self.url, payload, format="json")
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+
+class DefectStatusUpdateRBACTests(APITestCase):
+    def setUp(self):
+        self.drone = DroneFactory()
+        self.defect = DefectReportFactory(
+            drone=self.drone, status=RepairStatus.REPORTED
+        )
+        self.url = reverse(
+            "repairs:defect-update-status", kwargs={"pk": self.defect.pk}
+        )
+
+        self.tech_role, _ = Role.objects.get_or_create(
+            code=TECHNICIAN_CODE, name="Technician"
+        )
+        self.cmd_role, _ = Role.objects.get_or_create(
+            code=COMMANDER_CODE, name="Commander"
+        )
+        self.viewer_role, _ = Role.objects.get_or_create(
+            code=VIEWER_CODE, name="Viewer"
+        )
+
+    def test_viewer_cannot_update_status(self):
+        user = AdminUserFactory()
+        user.role = self.viewer_role
+        user.save()
+        self.client.force_authenticate(user)
+
+        payload = {"status": RepairStatus.IN_PROGRESS, "action_taken": "Try to update"}
+        response = self.client.post(self.url, payload, format="json")
+
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_technician_can_update_to_in_progress_but_not_verified(self):
+        tech = AdminUserFactory()
+        tech.role = self.tech_role
+        tech.save()
+        self.client.force_authenticate(tech)
+
+        payload_progress = {
+            "status": RepairStatus.IN_PROGRESS,
+            "action_taken": "Work started",
+        }
+        response_progress = self.client.post(self.url, payload_progress, format="json")
+        self.assertEqual(response_progress.status_code, status.HTTP_200_OK)
+
+        self.defect.status = RepairStatus.FIXED
+        self.defect.save()
+
+        payload_verified = {
+            "status": RepairStatus.VERIFIED,
+            "action_taken": "Looks good",
+        }
+        response_verified = self.client.post(self.url, payload_verified, format="json")
+        self.assertEqual(response_verified.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_commander_can_verify(self):
+        cmd = AdminUserFactory()
+        cmd.role = self.cmd_role
+        cmd.save()
+        self.client.force_authenticate(cmd)
+
+        self.defect.status = RepairStatus.FIXED
+        self.defect.save()
+
+        payload = {
+            "status": RepairStatus.VERIFIED,
+            "action_taken": "Checked and approved.",
+        }
+        response = self.client.post(self.url, payload, format="json")
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+
+class DefectHistoryEndpointTests(APITestCase):
+    def setUp(self):
+        self.user = AdminUserFactory()
+        self.client.force_authenticate(self.user)
+        self.defect = DefectReportFactory()
+        self.url = reverse("repairs:defect-history", kwargs={"pk": self.defect.pk})
+
+        RepairEvent.objects.create(
+            defect_report=self.defect,
+            from_status=RepairStatus.REPORTED,
+            to_status=RepairStatus.IN_PROGRESS,
+            action_taken="Started work",
+            technician=self.user,
+        )
+        RepairEvent.objects.create(
+            defect_report=self.defect,
+            from_status=RepairStatus.IN_PROGRESS,
+            to_status=RepairStatus.FIXED,
+            action_taken="Finished work",
+            technician=self.user,
+        )
+
+    def test_get_history_returns_events_in_correct_order(self):
+        response = self.client.get(self.url)
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertIn("results", response.data)
+        self.assertEqual(len(response.data["results"]), 2)
+
+        self.assertEqual(response.data["results"][0]["to_status"], RepairStatus.FIXED)
+        self.assertEqual(
+            response.data["results"][1]["to_status"], RepairStatus.IN_PROGRESS
         )
