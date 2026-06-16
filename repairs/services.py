@@ -1,7 +1,9 @@
 from django.conf import settings
 from django.core.mail import send_mail
 from django.db import transaction
-from rest_framework.exceptions import ValidationError
+from rest_framework.exceptions import PermissionDenied, ValidationError
+
+from roles.models import ADMIN_CODE, COMMANDER_CODE, TECHNICIAN_CODE
 
 from .models import DefectReport, RepairEvent, RepairStatus
 
@@ -45,6 +47,20 @@ def update_defect_status(
         raise ValidationError(
             {"status": "A defect can only be verified if its current status is FIXED."}
         )
+
+    role_code = (
+        getattr(user.role, "code", None) if user and hasattr(user, "role") else None
+    )
+
+    if new_status in [RepairStatus.IN_PROGRESS, RepairStatus.FIXED]:
+        if role_code not in [TECHNICIAN_CODE, COMMANDER_CODE, ADMIN_CODE]:
+            raise PermissionDenied(
+                "Only Technicians or Commanders can update repair status."
+            )
+
+    if new_status == RepairStatus.VERIFIED:
+        if role_code not in [COMMANDER_CODE, ADMIN_CODE]:
+            raise PermissionDenied("Only Commanders can verify repairs.")
 
     defect.status = new_status
     defect.save(update_fields=["status", "updated_at"])
