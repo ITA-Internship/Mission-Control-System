@@ -1,5 +1,5 @@
 from django.core.management.base import BaseCommand
-from django.db import transaction
+from django.db import connection, transaction
 
 from accounts.models import (
     MilitaryUnit,
@@ -10,13 +10,15 @@ from accounts.models import (
 )
 from drones.models import Drone, DroneSpec, DroneStatusHistory, WriteOffRecord
 from missions.models import Mission
+from repairs.models import ComponentReplacement, DefectReport
 from seed_data.drones import DRONES, seed_drones
 from seed_data.missions import MISSIONS, seed_missions
+from seed_data.repairs import seed_repairs
 from seed_data.users import UNITS, USERS, seed_users
 
 
 class Command(BaseCommand):
-    help = "Seed database with demo data for users, drones, and missions."
+    help = "Seed database with demo data for users, missions, drones, and repairs."
 
     def add_arguments(self, parser):
         parser.add_argument(
@@ -26,7 +28,7 @@ class Command(BaseCommand):
         )
         parser.add_argument(
             "--module",
-            choices=("users", "missions", "drones"),
+            choices=("users", "missions", "drones", "repairs"),
             help="Seed only one module.",
         )
 
@@ -52,6 +54,11 @@ class Command(BaseCommand):
             drone_stats = seed_drones()
             self.stdout.write(self.style.SUCCESS(self._format_stats(drone_stats)))
 
+        if module is None or module == "repairs":
+            self.stdout.write("Seeding repairs...")
+            repair_stats = seed_repairs()
+            self.stdout.write(self.style.SUCCESS(self._format_stats(repair_stats)))
+
         self.stdout.write(self.style.SUCCESS("Database seeding complete."))
 
     def _clear_seed_data(self) -> None:
@@ -62,6 +69,15 @@ class Command(BaseCommand):
         usernames = [user_seed.username for user_seed in USERS]
         unit_codes = [unit_seed.code for unit_seed in UNITS]
 
+        existing_tables = set(connection.introspection.table_names())
+
+        if DefectReport._meta.db_table in existing_tables:
+            DefectReport.objects.filter(drone__serial_number__in=drone_serials).delete()
+
+        if ComponentReplacement._meta.db_table in existing_tables:
+            ComponentReplacement.objects.filter(
+                drone__serial_number__in=drone_serials
+            ).delete()
         Mission.objects.filter(title__in=mission_titles).delete()
         DroneStatusHistory.objects.filter(
             drone__serial_number__in=drone_serials
