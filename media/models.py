@@ -7,7 +7,6 @@ from django.core.files.storage import default_storage
 from django.core.validators import FileExtensionValidator
 from django.db import models
 
-from config.settings import VIDEO_MAX_FILE_SIZE_MB
 from drones.models import Drone
 from missions.models import Mission
 
@@ -67,13 +66,11 @@ def artifact_upload_path(instance, filename):
 
 
 def validate_video_file_size(value):
+    max_mb = getattr(settings, "VIDEO_MAX_FILE_SIZE_MB", 500)
     if value.size == 0:
         raise ValidationError("Uploaded file is empty (0 bytes).")
-
-    if value.size > VIDEO_MAX_FILE_SIZE_MB * 1024 * 1024:
-        raise ValidationError(
-            f"File size exceeds the limit of {VIDEO_MAX_FILE_SIZE_MB}MB."
-        )
+    if value.size > max_mb * 1024 * 1024:
+        raise ValidationError(f"File size exceeds the limit of {max_mb}MB.")
 
 
 def _detect_storage_backend():
