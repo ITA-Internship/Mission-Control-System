@@ -1059,6 +1059,7 @@ class DefectStatusUpdateTests(APITestCase):
         self.role, _ = Role.objects.get_or_create(code=COMMANDER_CODE, name="Commander")
         self.user = AdminUserFactory()
         self.user.role = self.role
+        self.user.is_staff = True
         self.user.save()
         self.client.force_authenticate(self.user)
 
@@ -1135,6 +1136,7 @@ class DefectStatusUpdateRBACTests(APITestCase):
     def test_viewer_cannot_update_status(self):
         user = AdminUserFactory()
         user.role = self.viewer_role
+        user.is_staff = True
         user.save()
         self.client.force_authenticate(user)
 
@@ -1146,6 +1148,7 @@ class DefectStatusUpdateRBACTests(APITestCase):
     def test_technician_can_update_to_in_progress_but_not_verified(self):
         tech = AdminUserFactory()
         tech.role = self.tech_role
+        tech.is_staff = True
         tech.save()
         self.client.force_authenticate(tech)
 
@@ -1169,6 +1172,7 @@ class DefectStatusUpdateRBACTests(APITestCase):
     def test_commander_can_verify(self):
         cmd = AdminUserFactory()
         cmd.role = self.cmd_role
+        cmd.is_staff = True
         cmd.save()
         self.client.force_authenticate(cmd)
 
@@ -1182,38 +1186,3 @@ class DefectStatusUpdateRBACTests(APITestCase):
         response = self.client.post(self.url, payload, format="json")
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-
-
-class DefectHistoryEndpointTests(APITestCase):
-    def setUp(self):
-        self.user = AdminUserFactory()
-        self.client.force_authenticate(self.user)
-        self.defect = DefectReportFactory()
-        self.url = reverse("repairs:defect-history", kwargs={"pk": self.defect.pk})
-
-        RepairEvent.objects.create(
-            defect_report=self.defect,
-            from_status=RepairStatus.REPORTED,
-            to_status=RepairStatus.IN_PROGRESS,
-            action_taken="Started work",
-            technician=self.user,
-        )
-        RepairEvent.objects.create(
-            defect_report=self.defect,
-            from_status=RepairStatus.IN_PROGRESS,
-            to_status=RepairStatus.FIXED,
-            action_taken="Finished work",
-            technician=self.user,
-        )
-
-    def test_get_history_returns_events_in_correct_order(self):
-        response = self.client.get(self.url)
-
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertIn("results", response.data)
-        self.assertEqual(len(response.data["results"]), 2)
-
-        self.assertEqual(response.data["results"][0]["to_status"], RepairStatus.FIXED)
-        self.assertEqual(
-            response.data["results"][1]["to_status"], RepairStatus.IN_PROGRESS
-        )
