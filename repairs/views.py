@@ -1,8 +1,10 @@
 import csv
 
 from django.conf import settings
+from django.contrib.auth.mixins import LoginRequiredMixin
 from django.http import StreamingHttpResponse
 from django.shortcuts import get_object_or_404
+from django.views.generic import DetailView
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import filters, generics, status
 from rest_framework.response import Response
@@ -178,3 +180,9 @@ class ComponentReplacementExportView(generics.GenericAPIView):
         response["X-Export-Limit"] = str(max_export_limit)
         response["X-Export-Truncated"] = str(export_truncated).lower()
         return response
+
+
+class DefectUIDetailView(LoginRequiredMixin, DetailView):
+    model = DefectReport
+    template_name = "repairs/defect_detail.html"
+    context_object_name = "defect"

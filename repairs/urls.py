@@ -8,6 +8,7 @@ from .views import (
     DefectHistoryView,
     DefectListCreateView,
     DefectStatusUpdateView,
+    DefectUIDetailView,
 )
 
 app_name = "repairs"
@@ -15,6 +16,11 @@ app_name = "repairs"
 urlpatterns = [
     path("defects/", DefectListCreateView.as_view(), name="defect-create"),
     path("defects/<int:pk>/", DefectDetailView.as_view(), name="defect-detail"),
+    path(
+        "defects/<int:pk>/ui/",
+        DefectUIDetailView.as_view(),
+        name="defect-ui",
+    ),
     path(
         "defects/<int:pk>/history/",
         DefectHistoryView.as_view(),
