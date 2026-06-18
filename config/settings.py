@@ -59,6 +59,7 @@ INSTALLED_APPS = [
     "rest_framework",
     "django_filters",
     "common",
+    "storages",
 ]
 
 MIDDLEWARE = [
@@ -184,3 +185,50 @@ DEFAULT_FROM_EMAIL = os.getenv("DEFAULT_FROM_EMAIL", "no-reply@localhost")
 FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:3000")
 
 MAX_EXPORT_LIMIT = 10000
+
+STORAGE_PROVIDER = os.getenv("STORAGE_PROVIDER", "local")
+
+FILE_UPLOAD_PERMISSIONS = 0o644
+
+if STORAGE_PROVIDER == "s3":
+    DEFAULT_FILE_STORAGE = "storages.backends.s3boto3.S3Boto3Storage"
+    AWS_ACCESS_KEY_ID = os.getenv("AWS_ACCESS_KEY_ID")
+    AWS_SECRET_ACCESS_KEY = os.getenv("AWS_SECRET_ACCESS_KEY")
+    AWS_STORAGE_BUCKET_NAME = os.getenv("AWS_STORAGE_BUCKET_NAME")
+    AWS_S3_REGION_NAME = os.getenv("AWS_S3_REGION_NAME")
+
+    AWS_DEFAULT_ACL = None
+    AWS_QUERYSTRING_AUTH = True
+    AWS_S3_SIGNATURE_VERSION = "s3v4"
+    AWS_S3_FILE_OVERWRITE = False
+
+elif STORAGE_PROVIDER == "minio":
+    DEFAULT_FILE_STORAGE = "storages.backends.s3boto3.S3Boto3Storage"
+    AWS_ACCESS_KEY_ID = os.getenv("AWS_ACCESS_KEY_ID")
+    AWS_SECRET_ACCESS_KEY = os.getenv("AWS_SECRET_ACCESS_KEY")
+    AWS_STORAGE_BUCKET_NAME = os.getenv("AWS_STORAGE_BUCKET_NAME")
+    AWS_S3_ENDPOINT_URL = os.getenv("AWS_S3_ENDPOINT_URL")
+
+    AWS_DEFAULT_ACL = None
+    AWS_QUERYSTRING_AUTH = True
+    AWS_S3_FILE_OVERWRITE = False
+
+elif STORAGE_PROVIDER == "azure":
+    DEFAULT_FILE_STORAGE = "storages.backends.azure_storage.AzureStorage"
+    AZURE_ACCOUNT_NAME = os.getenv("AZURE_ACCOUNT_NAME")
+    AZURE_ACCOUNT_KEY = os.getenv("AZURE_ACCOUNT_KEY")
+    AZURE_CONTAINER_NAME = os.getenv("AZURE_CONTAINER_NAME")
+
+    AZURE_OVERWRITE_FILES = False
+
+elif STORAGE_PROVIDER == "gcs":
+    DEFAULT_FILE_STORAGE = "storages.backends.gcloud.GoogleCloudStorage"
+    GS_BUCKET_NAME = os.getenv("GS_BUCKET_NAME")
+    GS_CREDENTIALS = os.getenv("GS_CREDENTIALS")
+
+    GS_DEFAULT_ACL = "private"
+    GS_QUERYSTRING_AUTH = True
+    GS_FILE_OVERWRITE = False
+
+elif STORAGE_PROVIDER == "local":
+    DEFAULT_FILE_STORAGE = "django.core.files.storage.FileSystemStorage"

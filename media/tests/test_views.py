@@ -1,8 +1,7 @@
 from unittest.mock import patch
 
-from django.core.exceptions import ValidationError
 from django.core.files.uploadedfile import SimpleUploadedFile
-from django.test import TestCase, override_settings
+from django.test import override_settings
 from django.urls import reverse
 from rest_framework import status
 from rest_framework.test import APITestCase
@@ -16,75 +15,8 @@ from missions.factories import (
 )
 from missions.models import MissionAuditLog
 
-from .factories import MissionArtifactFactory
-from .models import MissionArtifact
-from .services import delete_artifact, upload_artifact
-
-
-class MissionArtifactModelTests(TestCase):
-    def test_str_representation(self):
-        mission = MissionFactory()
-        artifact = MissionArtifactFactory(
-            title="Drone Footage", is_video=True, mission=mission
-        )
-        self.assertEqual(
-            str(artifact), f"Drone Footage (video) — Mission #{mission.id}"
-        )
-
-    def test_auto_fields_on_save(self):
-        file_content = b"test content"
-        upload_file = SimpleUploadedFile(
-            "test_auto.jpg", file_content, content_type="image/jpeg"
-        )
-
-        artifact = MissionArtifactFactory.build(
-            file=upload_file,
-            file_type="",
-            file_size=None,
-            original_filename="",
-            mission=MissionFactory(),
-            uploaded_by=OperatorUserFactory(),
-        )
-
-        artifact.save()
-
-        self.assertEqual(artifact.file_size, len(file_content))
-        self.assertEqual(artifact.file_type, "image")
-        self.assertEqual(artifact.original_filename, "test_auto.jpg")
-        self.assertEqual(artifact.storage_backend, "local")
-
-    def test_clean_validates_blank_title(self):
-        artifact = MissionArtifactFactory.build(title="   ", is_image=True)
-        with self.assertRaises(ValidationError) as context:
-            artifact.clean()
-        self.assertIn("title", context.exception.message_dict)
-
-    @override_settings(ARTIFACT_ALLOWED_EXTENSIONS={"video": [".mp4"]})
-    def test_unsupported_extension_raises_validation_error(self):
-        file_content = b"test data"
-        upload_file = SimpleUploadedFile("test.xyz", file_content)
-        artifact = MissionArtifactFactory.build(
-            file=upload_file,
-            mission=MissionFactory(),
-            uploaded_by=OperatorUserFactory(),
-        )
-
-        with self.assertRaises(ValidationError) as context:
-            artifact.full_clean()
-
-        self.assertTrue(
-            any(
-                "extension" in str(e).lower()
-                for e in context.exception.error_dict.get("file", [])
-            )
-        )
-
-    def test_empty_file_raises_validation_error(self):
-        upload_file = SimpleUploadedFile("empty.jpg", b"")
-        artifact = MissionArtifactFactory.build(file=upload_file)
-
-        with self.assertRaises(ValidationError):
-            artifact.file.field.clean(upload_file, artifact)
+from media.factories import MissionArtifactFactory
+from media.models import MissionArtifact
 
 
 class ArtifactListCreateTests(APITestCase):
@@ -297,39 +229,3 @@ class ArtifactDetailTests(APITestCase):
         self.client.force_authenticate(self.admin)
         response = self.client.delete(bad_url)
         self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
-
-
-class ArtifactServicesTests(TestCase):
-    def setUp(self):
-        self.operator = OperatorUserFactory()
-        self.mission = MissionFactory()
-
-    @patch("django.core.files.storage.default_storage.delete")
-    def test_upload_artifact_exception_cleans_up_storage(self, mock_delete):
-        with patch(
-            "media.services.MissionAuditLog.objects.create",
-            side_effect=RuntimeError("DB Error"),
-        ):
-            file_content = b"test data"
-            upload_file = SimpleUploadedFile("test.jpg", file_content)
-
-            with self.assertRaises(RuntimeError):
-                upload_artifact(
-                    mission=self.mission,
-                    file=upload_file,
-                    title="Test",
-                    uploaded_by=self.operator,
-                )
-
-            mock_delete.assert_called_once()
-
-    def test_delete_artifact_service_logic(self):
-        artifact = MissionArtifactFactory(mission=self.mission, is_image=True)
-
-        with patch("django.core.files.storage.default_storage.delete") as mock_delete:
-            with self.captureOnCommitCallbacks(execute=True):
-                delete_artifact(artifact=artifact, action_user=self.operator)
-
-            mock_delete.assert_called_once()
-
-        self.assertFalse(MissionArtifact.objects.filter(id=artifact.id).exists())

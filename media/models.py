@@ -3,7 +3,6 @@ import uuid
 
 from django.conf import settings
 from django.core.exceptions import ValidationError
-from django.core.files.storage import default_storage
 from django.core.validators import FileExtensionValidator
 from django.db import models
 
@@ -53,21 +52,7 @@ def artifact_upload_path(instance, filename):
 
 
 def _detect_storage_backend():
-    storage = default_storage
-    if hasattr(storage, "_wrapped"):
-        try:
-            _ = storage.location
-        except AttributeError:
-            pass
-        storage = storage._wrapped
-    backend_class = type(storage).__name__
-    backend_map = {
-        "FileSystemStorage": "local",
-        "S3Boto3Storage": "s3",
-        "GoogleCloudStorage": "gcs",
-        "AzureStorage": "azure",
-    }
-    return backend_map.get(backend_class, backend_class.lower())
+    return getattr(settings, "STORAGE_PROVIDER", "local")
 
 
 class MissionArtifact(models.Model):
