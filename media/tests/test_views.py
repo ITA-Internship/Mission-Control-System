@@ -6,6 +6,8 @@ from django.urls import reverse
 from rest_framework import status
 from rest_framework.test import APITestCase
 
+from media.factories import MissionArtifactFactory
+from media.models import MissionArtifact
 from missions.factories import (
     AdminUserFactory,
     DispatcherUserFactory,
@@ -14,9 +16,6 @@ from missions.factories import (
     ViewerUserFactory,
 )
 from missions.models import MissionAuditLog
-
-from media.factories import MissionArtifactFactory
-from media.models import MissionArtifact
 
 
 class ArtifactListCreateTests(APITestCase):

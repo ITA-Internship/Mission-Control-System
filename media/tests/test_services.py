@@ -3,10 +3,10 @@ from unittest.mock import patch
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import TestCase
 
-from missions.factories import MissionFactory, OperatorUserFactory
 from media.factories import MissionArtifactFactory
 from media.models import MissionArtifact
 from media.services import delete_artifact, upload_artifact
+from missions.factories import MissionFactory, OperatorUserFactory
 
 
 class ArtifactServicesTests(TestCase):

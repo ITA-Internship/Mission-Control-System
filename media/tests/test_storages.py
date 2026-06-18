@@ -1,12 +1,12 @@
-from django.test import TransactionTestCase, override_settings, TestCase
-from django.core.files.uploadedfile import SimpleUploadedFile
 from unittest.mock import patch
 
+from django.core.files.uploadedfile import SimpleUploadedFile
+from django.test import TestCase, TransactionTestCase, override_settings
+from storages.backends.azure_storage import AzureStorage
 from storages.backends.gcloud import GoogleCloudStorage
 from storages.backends.s3boto3 import S3Boto3Storage
-from storages.backends.azure_storage import AzureStorage
 
-from media.services import upload_artifact, delete_artifact
+from media.services import delete_artifact, upload_artifact
 from missions.factories import MissionFactory, OperatorUserFactory
 
 
@@ -21,7 +21,7 @@ class CloudStorageIntegrationTests(TransactionTestCase):
 
     @override_settings(
         STORAGE_PROVIDER="s3",
-        STORAGES={"default": {"BACKEND": "storages.backends.s3boto3.S3Boto3Storage"}}
+        STORAGES={"default": {"BACKEND": "storages.backends.s3boto3.S3Boto3Storage"}},
     )
     @patch("storages.backends.s3boto3.S3Boto3Storage.__init__", return_value=None)
     @patch("storages.backends.s3boto3.S3Boto3Storage.save")
@@ -33,10 +33,10 @@ class CloudStorageIntegrationTests(TransactionTestCase):
             mission=self.mission,
             file=self.upload_file,
             title="S3 Mission Video",
-            uploaded_by=self.user
+            uploaded_by=self.user,
         )
 
-        self.assertEqual(artifact.storage_backend, 's3')
+        self.assertEqual(artifact.storage_backend, "s3")
         mock_save.assert_called_once()
 
         delete_artifact(artifact=artifact, action_user=self.user)
@@ -44,7 +44,7 @@ class CloudStorageIntegrationTests(TransactionTestCase):
 
     @override_settings(
         STORAGE_PROVIDER="minio",
-        STORAGES={"default": {"BACKEND": "storages.backends.s3boto3.S3Boto3Storage"}}
+        STORAGES={"default": {"BACKEND": "storages.backends.s3boto3.S3Boto3Storage"}},
     )
     @patch("storages.backends.s3boto3.S3Boto3Storage.__init__", return_value=None)
     @patch("storages.backends.s3boto3.S3Boto3Storage.save")
@@ -56,7 +56,7 @@ class CloudStorageIntegrationTests(TransactionTestCase):
             mission=self.mission,
             file=self.upload_file,
             title="MinIO Mission Video",
-            uploaded_by=self.user
+            uploaded_by=self.user,
         )
 
         self.assertEqual(artifact.storage_backend, "minio")
@@ -67,7 +67,9 @@ class CloudStorageIntegrationTests(TransactionTestCase):
 
     @override_settings(
         STORAGE_PROVIDER="azure",
-        STORAGES={"default": {"BACKEND": "storages.backends.azure_storage.AzureStorage"}}
+        STORAGES={
+            "default": {"BACKEND": "storages.backends.azure_storage.AzureStorage"}
+        },
     )
     @patch("storages.backends.azure_storage.AzureStorage.__init__", return_value=None)
     @patch("storages.backends.azure_storage.AzureStorage.save")
@@ -90,7 +92,9 @@ class CloudStorageIntegrationTests(TransactionTestCase):
 
     @override_settings(
         STORAGE_PROVIDER="gcs",
-        STORAGES={"default": {"BACKEND": "storages.backends.gcloud.GoogleCloudStorage"}}
+        STORAGES={
+            "default": {"BACKEND": "storages.backends.gcloud.GoogleCloudStorage"}
+        },
     )
     @patch("storages.backends.gcloud.GoogleCloudStorage.__init__", return_value=None)
     @patch("storages.backends.gcloud.GoogleCloudStorage.save")
@@ -118,7 +122,7 @@ class SecurityConfigurationTests(TestCase):
         AWS_DEFAULT_ACL=None,
         AWS_QUERYSTRING_AUTH=True,
         AWS_S3_FILE_OVERWRITE=False,
-        AWS_S3_SIGNATURE_VERSION='s3v4'
+        AWS_S3_SIGNATURE_VERSION="s3v4",
     )
     def test_s3_storage_security_parameters_are_applied(self):
 
@@ -131,9 +135,7 @@ class SecurityConfigurationTests(TestCase):
         self.assertFalse(storage.file_overwrite)
 
     @override_settings(
-        AWS_DEFAULT_ACL=None,
-        AWS_QUERYSTRING_AUTH = True,
-        AWS_S3_FILE_OVERWRITE = False
+        AWS_DEFAULT_ACL=None, AWS_QUERYSTRING_AUTH=True, AWS_S3_FILE_OVERWRITE=False
     )
     def test_minio_storage_security_parameters_are_applied(self):
         storage = S3Boto3Storage()
@@ -144,18 +146,14 @@ class SecurityConfigurationTests(TestCase):
 
         self.assertFalse(storage.file_overwrite)
 
-    @override_settings(
-        AZURE_OVERWRITE_FILES=False
-    )
+    @override_settings(AZURE_OVERWRITE_FILES=False)
     def test_azure_storage_security_parameters_are_applied(self):
         storage = AzureStorage()
 
         self.assertFalse(storage.overwrite_files)
 
     @override_settings(
-        GS_FILE_OVERWRITE=False,
-        GS_QUERYSTRING_AUTH=True,
-        GS_DEFAULT_ACL=None
+        GS_FILE_OVERWRITE=False, GS_QUERYSTRING_AUTH=True, GS_DEFAULT_ACL=None
     )
     def test_gcs_storage_security_parameters_are_applied(self):
         storage = GoogleCloudStorage()

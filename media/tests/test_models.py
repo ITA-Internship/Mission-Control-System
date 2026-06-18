@@ -2,8 +2,8 @@ from django.core.exceptions import ValidationError
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import TestCase, override_settings
 
-from missions.factories import MissionFactory, OperatorUserFactory
 from media.factories import MissionArtifactFactory
+from missions.factories import MissionFactory, OperatorUserFactory
 
 
 class MissionArtifactModelTests(TestCase):
