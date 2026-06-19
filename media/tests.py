@@ -15,8 +15,8 @@ from media.models import VideoMetadata
 from missions.factories import (
     AdminUserFactory,
     DispatcherUserFactory,
-    MissionFactory,
     MissionDroneFactory,
+    MissionFactory,
     OperatorUserFactory,
     ViewerUserFactory,
 )
@@ -289,6 +289,36 @@ class VideoMetadataAPITests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(len(response.data["results"]), 1)
         self.assertEqual(response.data["results"][0]["file_name"], "video_1.mp4")
+
+    @patch("media.permissions.MediaViewPermission.has_permission", return_value=True)
+    def test_video_browser_page_renders_filtered_results(self, mock_perm):
+        VideoMetadata.objects.create(
+            mission=self.mission,
+            drone=self.drone,
+            uploader=self.user,
+            file=self.video_file,
+            file_name="video_1.mp4",
+            file_size=100,
+        )
+        VideoMetadata.objects.create(
+            mission=self.other_mission,
+            drone=self.other_drone,
+            uploader=self.user,
+            file=SimpleUploadedFile(
+                name="flight_video_browser.mp4",
+                content=b"browser_fake_video_content_bytes",
+                content_type="video/mp4",
+            ),
+            file_name="video_2.mp4",
+            file_size=200,
+        )
+
+        browser_url = reverse("video_media:video-browser")
+        response = self.client.get(f"{browser_url}?mission_id={self.mission.id}")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertContains(response, "Mission Videos")
+        self.assertContains(response, "video_1.mp4")
+        self.assertNotContains(response, "video_2.mp4")
 
 
 @override_settings(

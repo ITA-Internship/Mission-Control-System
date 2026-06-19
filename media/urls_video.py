@@ -1,10 +1,13 @@
+from django.urls import path
 from rest_framework.routers import DefaultRouter
 
-from .views import VideoMetadataViewSet
+from .views import VideoMetadataBrowserView, VideoMetadataViewSet
 
 app_name = "video_media"
 
 router = DefaultRouter()
 router.register("videos", VideoMetadataViewSet, basename="video-metadata")
 
-urlpatterns = router.urls
+urlpatterns = [
+    path("videos/browser/", VideoMetadataBrowserView.as_view(), name="video-browser"),
+] + router.urls

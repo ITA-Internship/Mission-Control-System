@@ -1,6 +1,8 @@
 from django.db import transaction
 from django.db.models import ProtectedError
+from django.http import HttpResponseForbidden
 from django.utils.dateparse import parse_date
+from django.views.generic import TemplateView
 from rest_framework import generics, parsers, permissions, status, viewsets
 from rest_framework.exceptions import ValidationError
 from rest_framework.parsers import FormParser, MultiPartParser
@@ -23,6 +25,51 @@ from .serializers import (
     VideoUploadSerializer,
 )
 from .services import delete_artifact, upload_artifact
+
+
+def filter_video_metadata_queryset(params, queryset=None):
+    qs = (
+        queryset
+        or VideoMetadata.objects.select_related("mission", "drone", "uploader").all()
+    )
+
+    for param_names, field in (
+        (("mission_id", "mission"), "mission_id"),
+        (("drone_id", "drone"), "drone_id"),
+        (("uploader_id", "uploader"), "uploader_id"),
+    ):
+        value = None
+        for param in param_names:
+            value = params.get(param)
+            if value is not None:
+                break
+        if value:
+            if not value.isdigit():
+                raise ValidationError({param_names[0]: "Must be an integer."})
+            qs = qs.filter(**{field: int(value)})
+
+    status_value = params.get("status")
+    if status_value:
+        if status_value not in VideoMetadata.Status.values:
+            raise ValidationError(
+                {"status": f"Must be one of {VideoMetadata.Status.values}."}
+            )
+        qs = qs.filter(status=status_value)
+
+    for date_param, lookup in (
+        ("created_after", "created_at__date__gte"),
+        ("created_before", "created_at__date__lte"),
+        ("recorded_after", "recorded_at__date__gte"),
+        ("recorded_before", "recorded_at__date__lte"),
+    ):
+        raw_value = params.get(date_param)
+        if raw_value:
+            parsed = parse_date(raw_value)
+            if parsed is None:
+                raise ValidationError({date_param: "Expected format YYYY-MM-DD."})
+            qs = qs.filter(**{lookup: parsed})
+
+    return qs
 
 
 class _MissionArtifactMixin:
@@ -115,47 +162,7 @@ class VideoMetadataViewSet(viewsets.ModelViewSet):
         return VideoMetadataSerializer
 
     def get_queryset(self):
-        qs = VideoMetadata.objects.select_related("mission", "drone", "uploader").all()
-
-        params = self.request.query_params
-
-        for param_names, field in (
-            (("mission_id", "mission"), "mission_id"),
-            (("drone_id", "drone"), "drone_id"),
-            (("uploader_id", "uploader"), "uploader_id"),
-        ):
-            value = None
-            for param in param_names:
-                value = params.get(param)
-                if value is not None:
-                    break
-            if value:
-                if not value.isdigit():
-                    raise ValidationError({param_names[0]: "Must be an integer."})
-                qs = qs.filter(**{field: int(value)})
-
-        status_value = params.get("status")
-        if status_value:
-            if status_value not in VideoMetadata.Status.values:
-                raise ValidationError(
-                    {"status": f"Must be one of {VideoMetadata.Status.values}."}
-                )
-            qs = qs.filter(status=status_value)
-
-        for date_param, lookup in (
-            ("created_after", "created_at__date__gte"),
-            ("created_before", "created_at__date__lte"),
-            ("recorded_after", "recorded_at__date__gte"),
-            ("recorded_before", "recorded_at__date__lte"),
-        ):
-            raw_value = params.get(date_param)
-            if raw_value:
-                parsed = parse_date(raw_value)
-                if parsed is None:
-                    raise ValidationError({date_param: "Expected format YYYY-MM-DD."})
-                qs = qs.filter(**{lookup: parsed})
-
-        return qs
+        return filter_video_metadata_queryset(self.request.query_params)
 
     def get_permissions(self):
         if self.action in ["list", "retrieve"]:
@@ -183,3 +190,44 @@ class VideoMetadataViewSet(viewsets.ModelViewSet):
                     "it is protected by dependencies."
                 }
             )
+
+
+class VideoMetadataBrowserView(TemplateView):
+    template_name = "media/video_browser.html"
+
+    def dispatch(self, request, *args, **kwargs):
+        if not request.user or not request.user.is_authenticated:
+            return HttpResponseForbidden("Authentication required.")
+
+        permission_validator = MediaViewPermission()
+        if not permission_validator.has_permission(request, self):
+            return HttpResponseForbidden(
+                "You do not have permission to access video records."
+            )
+
+        return super().dispatch(request, *args, **kwargs)
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["mission_id"] = self.request.GET.get("mission_id", "")
+        context["drone_id"] = self.request.GET.get("drone_id", "")
+        context["videos"] = []
+        context["error"] = None
+
+        if not self.request.GET:
+            return context
+
+        try:
+            context["videos"] = filter_video_metadata_queryset(
+                self.request.GET
+            ).order_by("-created_at")
+        except ValidationError as exc:
+            if isinstance(exc.detail, dict):
+                context["error"] = " ".join(
+                    f"{field}: {' '.join(map(str, messages))}"
+                    for field, messages in exc.detail.items()
+                )
+            else:
+                context["error"] = str(exc.detail)
+
+        return context
