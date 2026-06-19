@@ -186,7 +186,7 @@ RUN_MIGRATIONS=True
 # Database settings
 DB_NAME=drone_fleet_db
 DB_USER=drone_fleet_user
-DB_PASSWORD=change-me
+DB_PASSWORD=replace-with-a-strong-database-password
 DB_HOST=localhost
 DB_PORT=5433
 
@@ -195,7 +195,7 @@ REDIS_URL=redis://redis:6379/0
 
 # pgAdmin
 PGADMIN_DEFAULT_EMAIL=admin@example.com
-PGADMIN_DEFAULT_PASSWORD=change-me
+PGADMIN_DEFAULT_PASSWORD=replace-with-a-strong-pgadmin-password
 ```
 
 Alternative Docker `web` container database settings:
@@ -406,6 +406,8 @@ docker compose exec web python manage.py createsuperuser
 
 The project includes a Django management command for loading representative demo data for the existing user, drone, and mission models.
 
+Security note: `seed_db` is intended for isolated local development only. Do not run it in shared, staging, or production-like environments.
+
 Run the full seed:
 
 ```bash
@@ -434,27 +436,7 @@ docker compose exec web python manage.py seed_db
 docker compose exec web python manage.py seed_db --clear
 ```
 
-Default seeded password for all demo accounts:
-
-```text
-Test@1234
-```
-
-Seeded demo accounts:
-
-| Role | Username |
-|------|----------|
-| Admin | `root.admin` |
-| Admin | `admin.ops` |
-| Commander | `commander.north` |
-| Commander | `commander.south` |
-| Operator | `operator.alpha` |
-| Operator | `operator.bravo` |
-| Operator | `operator.charlie` |
-| Technician | `tech.airframe` |
-| Technician | `tech.electro` |
-| Viewer | `viewer.ops` |
-| Viewer | `viewer.audit` |
+The seeded dataset includes demo accounts across the main system roles so that local RBAC flows can be tested quickly. Treat all seeded credentials as local-only development data and replace or disable them outside your own machine.
 
 Notes about the seeded dataset:
 
