@@ -265,6 +265,8 @@ If pgAdmin is enabled in Docker Compose, it should be available at:
 http://localhost:5050/
 ```
 
+For safer local development, the Docker Compose ports for PostgreSQL, Redis, and pgAdmin are bound to `127.0.0.1`, so they are reachable from the host machine only and are not exposed on the wider network by default.
+
 ## 💻 Running Locally
 
 Use this option if you want to run the Django project directly on your machine without Docker.
