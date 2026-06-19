@@ -109,6 +109,48 @@ class VideoMetadataAPITests(APITestCase):
         self.assertEqual(video_from_db.duration_seconds, 42)
 
     @patch("media.permissions.MediaUploadPermission.has_permission", return_value=True)
+    def test_upload_video_metadata_requires_mission(self, mock_perm):
+        data = {
+            "drone": self.drone.id,
+            "file": self.video_file,
+        }
+        response = self.client.post(self.list_url, data, format="multipart")
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("mission", response.data)
+
+    @patch("media.permissions.MediaUploadPermission.has_permission", return_value=True)
+    def test_upload_video_metadata_requires_drone(self, mock_perm):
+        data = {
+            "mission": self.mission.id,
+            "file": self.video_file,
+        }
+        response = self.client.post(self.list_url, data, format="multipart")
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("drone", response.data)
+
+    @patch("media.permissions.MediaUploadPermission.has_permission", return_value=True)
+    def test_upload_video_metadata_rejects_unknown_mission(self, mock_perm):
+        data = {
+            "mission": 999999,
+            "drone": self.drone.id,
+            "file": self.video_file,
+        }
+        response = self.client.post(self.list_url, data, format="multipart")
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("mission", response.data)
+
+    @patch("media.permissions.MediaUploadPermission.has_permission", return_value=True)
+    def test_upload_video_metadata_rejects_unknown_drone(self, mock_perm):
+        data = {
+            "mission": self.mission.id,
+            "drone": 999999,
+            "file": self.video_file,
+        }
+        response = self.client.post(self.list_url, data, format="multipart")
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("drone", response.data)
+
+    @patch("media.permissions.MediaUploadPermission.has_permission", return_value=True)
     def test_upload_video_metadata_rejects_drone_not_assigned_to_mission(
         self, mock_perm
     ):
@@ -160,6 +202,34 @@ class VideoMetadataAPITests(APITestCase):
         )
 
         response = self.client.get(f"{self.list_url}?mission={self.mission.id}")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data["results"]), 1)
+        self.assertEqual(response.data["results"][0]["file_name"], "video_1.mp4")
+
+    @patch("media.permissions.MediaViewPermission.has_permission", return_value=True)
+    def test_filter_video_metadata_by_drone_alias(self, mock_perm):
+        VideoMetadata.objects.create(
+            mission=self.mission,
+            drone=self.drone,
+            uploader=self.user,
+            file=self.video_file,
+            file_name="video_1.mp4",
+            file_size=100,
+        )
+        VideoMetadata.objects.create(
+            mission=self.other_mission,
+            drone=self.other_drone,
+            uploader=self.user,
+            file=SimpleUploadedFile(
+                name="flight_video_4.mp4",
+                content=b"fourth_fake_video_content_bytes",
+                content_type="video/mp4",
+            ),
+            file_name="video_2.mp4",
+            file_size=200,
+        )
+
+        response = self.client.get(f"{self.list_url}?drone={self.drone.id}")
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(len(response.data["results"]), 1)
         self.assertEqual(response.data["results"][0]["file_name"], "video_1.mp4")
