@@ -107,9 +107,10 @@ class WriteOffRecordAdmin(admin.ModelAdmin):
         "drone__serial_number",
         "drone__inventory_number",
         "reason",
+        "reason_description",
         "document_number",
     )
-    list_filter = ("written_off_at", "created_at")
+    list_filter = ("reason", "written_off_at", "created_at")
 
 
 @admin.register(DroneStatusHistory)
