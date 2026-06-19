@@ -68,6 +68,7 @@ class DroneModel(models.Model):
 class Drone(models.Model):
 
     STATUS_ACTIVE = "ACTIVE"
+    STATUS_IN_MISSION = "IN_MISSION"
     STATUS_DAMAGED = "DAMAGED"
     STATUS_LOST = "LOST"
     STATUS_MAINTENANCE = "MAINTENANCE"
@@ -78,6 +79,7 @@ class Drone(models.Model):
 
     STATUS_CHOICES = [
         (STATUS_ACTIVE, "Active"),
+        (STATUS_IN_MISSION, "In mission"),
         (STATUS_DAMAGED, "Damaged"),
         (STATUS_LOST, "Lost"),
         (STATUS_MAINTENANCE, "Maintenance"),
@@ -94,6 +96,53 @@ class Drone(models.Model):
         STATUS_WRITTEN_OFF,
     )
 
+    STATUS_UI = {
+        STATUS_ACTIVE: {
+            "label": "Active",
+            "indicator": "success",
+            "category": "available",
+        },
+        STATUS_IN_MISSION: {
+            "label": "In mission",
+            "indicator": "primary",
+            "category": "in_mission",
+        },
+        STATUS_DAMAGED: {
+            "label": "Damaged",
+            "indicator": "warning",
+            "category": "downtime",
+        },
+        STATUS_LOST: {
+            "label": "Lost",
+            "indicator": "danger",
+            "category": "downtime",
+        },
+        STATUS_MAINTENANCE: {
+            "label": "Maintenance",
+            "indicator": "warning",
+            "category": "repair",
+        },
+        STATUS_DECOMMISSIONED: {
+            "label": "Decommissioned",
+            "indicator": "secondary",
+            "category": "written_off",
+        },
+        STATUS_SOLD: {
+            "label": "Sold",
+            "indicator": "secondary",
+            "category": "written_off",
+        },
+        STATUS_TRANSFERRED: {
+            "label": "Transferred",
+            "indicator": "secondary",
+            "category": "written_off",
+        },
+        STATUS_WRITTEN_OFF: {
+            "label": "Written off",
+            "indicator": "danger",
+            "category": "written_off",
+        },
+    }
     CLASSIFICATION_RECONNAISSANCE = "RECONNAISSANCE"
     CLASSIFICATION_COMBAT = "COMBAT"
     CLASSIFICATION_TRANSPORT = "TRANSPORT"
@@ -129,6 +178,18 @@ class Drone(models.Model):
 
     def __str__(self) -> str:
         return f"{self.name} {self.drone_model} - {self.serial_number}"
+
+    @property
+    def status_label(self):
+        return self.STATUS_UI.get(self.status, {}).get("label", self.status)
+
+    @property
+    def status_indicator(self):
+        return self.STATUS_UI.get(self.status, {}).get("indicator", "secondary")
+
+    @property
+    def status_category(self):
+        return self.STATUS_UI.get(self.status, {}).get("category", "unknown")
 
     def clean(self):
         super().clean()
@@ -275,11 +336,27 @@ class DroneSpecChangeLog(models.Model):
 
 
 class WriteOffRecord(models.Model):
+    class Reason(models.TextChoices):
+        LOSS = "LOSS", "Loss"
+        DESTRUCTION = "DESTRUCTION", "Destruction"
+        DAMAGE = "DAMAGE", "Critical damage"
+        OTHER = "OTHER", "Other"
+
     drone = models.OneToOneField(
         Drone, on_delete=models.PROTECT, related_name="writeoff_record"
     )
-    reason = models.CharField(max_length=255)
-    reason_description = models.TextField(blank=True)
+    reason = models.CharField(
+        max_length=20,
+        choices=Reason.choices,
+        help_text="Canonical reason for writing off the drone.",
+    )
+    reason_description = models.TextField(
+        blank=True,
+        help_text=(
+            "Free-form details about the write-off. "
+            "Required when the reason is 'Other'."
+        ),
+    )
     authorized_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         null=True,
@@ -300,6 +377,32 @@ class WriteOffRecord(models.Model):
 
     def __str__(self) -> str:
         return f"Write-off record for {self.drone}"
+
+    @classmethod
+    def label_for(cls, reason_code):
+        return dict(cls.Reason.choices).get(reason_code, reason_code)
+
+    @property
+    def reason_label(self):
+        return self.label_for(self.reason)
+
+    def clean(self):
+        super().clean()
+
+        if self.reason == self.Reason.OTHER and not self.reason_description.strip():
+            raise ValidationError(
+                {
+                    "reason_description": (
+                        "A custom description is required when the reason is 'Other'."
+                    )
+                }
+            )
+
+    def save(self, *args, **kwargs):
+        if self._state.adding:
+            self.full_clean()
+
+        super().save(*args, **kwargs)
 
 
 class DroneStatusHistory(models.Model):
@@ -335,6 +438,9 @@ class DroneStatusHistory(models.Model):
         related_name="status_history_records",
     )
     created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at"]
 
     def __str__(self) -> str:
         return f"{self.drone}: {self.from_status} -> {self.to_status}"
