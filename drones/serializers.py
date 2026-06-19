@@ -2,7 +2,7 @@ from django.core.exceptions import ValidationError
 from rest_framework import serializers
 from rest_framework.serializers import as_serializer_error
 
-from missions.models import Mission
+from missions.models import Mission, MissionDrone
 
 from .models import (
     Drone,
@@ -463,7 +463,7 @@ class WriteOffRecordCreateSerializer(serializers.ModelSerializer):
             "drone",
             "reason",
             "reason_description",
-            "related_mission_id",
+            "related_mission",
             "document_number",
             "written_off_at",
             "created_at",
@@ -471,12 +471,56 @@ class WriteOffRecordCreateSerializer(serializers.ModelSerializer):
 
     def validate(self, attrs):
         drone = attrs.get("drone")
+        related_mission = attrs.get("related_mission")
+
+        if related_mission is not None:
+
+            mission_ids = list(
+                MissionDrone.objects.filter(drone=drone)
+                .order_by("-created_at")
+                .values_list("mission_id", flat=True)
+            )
+
+            if mission_ids:
+                latest_mission_id = mission_ids[0]
+
+                if related_mission.id != latest_mission_id:
+                    if related_mission.id in mission_ids:
+                        raise serializers.ValidationError(
+                            {
+                                "related_mission": (
+                                    f"Mission {related_mission.id} is not the latest. "
+                                    f"A drone can only be written off based on "
+                                    f"its latest mission."
+                                )
+                            }
+                        )
+                    else:
+                        raise serializers.ValidationError(
+                            {
+                                "related_mission": (
+                                    f"Drone {drone.id} is not assigned to "
+                                    f"mission {related_mission.id}."
+                                )
+                            }
+                        )
+
+            else:
+                raise serializers.ValidationError(
+                    {"related_mission": f"Drone {drone} has no related missions."}
+                )
+
+        if WriteOffRecord.objects.filter(drone=drone).exists():
+            raise serializers.ValidationError(
+                {"drone": "A write-off record for this drone already exists."}
+            )
 
         if drone.status in Drone.INACTIVE_STATUSES:
-            raise ValidationError(
+            raise serializers.ValidationError(
                 {
                     "drone": (
-                        f"Cannot write off drone with inactive status '{drone.status}'."
+                        f"Cannot write off a drone "
+                        f"with inactive status '{drone.status}'."
                     )
                 }
             )

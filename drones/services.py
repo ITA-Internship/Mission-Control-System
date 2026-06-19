@@ -457,7 +457,7 @@ def create_writeoff_record(
         from_status=old_status,
         to_status=drone.status,
         changed_by=user,
-        reason=f"Status changed from {old_status} to {drone.status}",
+        reason=writeoff_record.reason_label,
         related_mission=related_mission,
         related_writeoff=writeoff_record,
     )
