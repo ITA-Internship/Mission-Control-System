@@ -1,11 +1,116 @@
+import json
+import logging
 import os
+import subprocess
 
 from django.conf import settings
 from rest_framework import serializers
 
 from common.serializers import UserBriefSerializer
 
-from .models import MissionArtifact, _get_all_allowed_extensions
+from .models import MissionArtifact, VideoMetadata, _get_all_allowed_extensions
+
+logger = logging.getLogger(__name__)
+
+
+class VideoMetadataSerializer(serializers.ModelSerializer):
+    url = serializers.SerializerMethodField()
+    uploader_username = serializers.CharField(
+        source="uploader.username", read_only=True, default=None
+    )
+
+    class Meta:
+        model = VideoMetadata
+        fields = [
+            "id",
+            "mission",
+            "drone",
+            "uploader",
+            "uploader_username",
+            "file",
+            "file_name",
+            "file_size",
+            "content_type",
+            "status",
+            "checksum",
+            "duration_seconds",
+            "recorded_at",
+            "created_at",
+            "updated_at",
+            "url",
+        ]
+        read_only_fields = [
+            "id",
+            "file_size",
+            "content_type",
+            "status",
+            "created_at",
+            "updated_at",
+            "uploader",
+            "duration_seconds",
+        ]
+
+    def get_url(self, obj):
+        return obj.url
+
+
+class VideoUploadSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = VideoMetadata
+        fields = ["id", "mission", "drone", "file", "recorded_at", "checksum"]
+        read_only_fields = ["id"]
+
+    def create(self, validated_data):
+        file_obj = validated_data["file"]
+
+        validated_data["file_name"] = file_obj.name
+        validated_data["file_size"] = file_obj.size
+        content_type = getattr(file_obj, "content_type", "") or ""
+        validated_data["content_type"] = content_type
+
+        validated_data["uploader"] = self.context["request"].user
+        validated_data["status"] = VideoMetadata.Status.READY
+
+        if not content_type.startswith("video/"):
+            validated_data["duration_seconds"] = None
+            return super().create(validated_data)
+
+        instance = super().create(validated_data)
+
+        try:
+            file_path = instance.file.path
+
+            cmd = [
+                "ffprobe",
+                "-v",
+                "error",
+                "-show_entries",
+                "format=duration",
+                "-of",
+                "json",
+                file_path,
+            ]
+
+            result = subprocess.run(
+                cmd,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+                check=True,
+            )
+
+            probe_data = json.loads(result.stdout)
+            duration = float(probe_data["format"]["duration"])
+
+            instance.duration_seconds = int(duration)
+            instance.save(update_fields=["duration_seconds"])
+
+        except Exception as e:
+            logger.error(f"FFprobe failed to parse video duration: {str(e)}")
+            instance.duration_seconds = 0
+            instance.save(update_fields=["duration_seconds"])
+
+        return instance
 
 
 class MissionArtifactSerializer(serializers.ModelSerializer):

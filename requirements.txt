@@ -6,8 +6,11 @@ distlib==0.4.0
 Django==5.2.14
 django-filter==25.2
 djangorestframework==3.17.1
+factory_boy==3.3.3
+Faker==40.19.1
 filelock==3.29.0
 flake8==7.3.0
+gunicorn==26.0.0
 identify==2.6.19
 isort==8.0.1
 mccabe==0.7.0
@@ -28,8 +31,9 @@ pytokens==0.4.1
 PyYAML==6.0.3
 roles==1.0.0
 sqlparse==0.5.5
+tinytag==2.2.1
 tomli==2.4.1
 typing_extensions==4.15.0
 tzdata==2026.2
 virtualenv==21.3.1
-factory_boy>=3.3.0
+whitenoise==6.12.0
