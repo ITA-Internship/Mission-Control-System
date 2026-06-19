@@ -76,8 +76,17 @@ class DronePermission(BasePermission):
 class WriteOffHistoryPermission(BasePermission):
     message = "You do not have permission to view write-off history."
 
+    def _has_permission(self, user):
+        if not user or not user.is_authenticated:
+            return False
+
+        if getattr(user, "is_staff", False):
+            return True
+
+        return user_has_permission(user, PERMISSION_WRITEOFF_VIEW)
+
     def has_permission(self, request, view):
         if request.method not in SAFE_METHODS:
             return False
 
-        return user_has_permission(request.user, PERMISSION_WRITEOFF_VIEW)
+        return self._has_permission(request.user)

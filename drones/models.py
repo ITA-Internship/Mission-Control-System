@@ -335,14 +335,44 @@ class DroneSpecChangeLog(models.Model):
 
     def __str__(self) -> str:
         return f"Spec changes for {self.drone_spec.drone}"
+    
+    
+class ImmutableWriteOffRecordQuerySet(models.QuerySet):
+    def update(self, **kwargs):
+        raise ValidationError(
+            "Write-off records are immutable and cannot be edited after creation."
+        )
+
+    def delete(self):
+        raise ValidationError(
+            "Write-off records are immutable and cannot be deleted."
+        )
 
 
 class WriteOffRecord(models.Model):
+    class Reason(models.TextChoices):
+        LOSS = "LOSS", "Loss"
+        DESTRUCTION = "DESTRUCTION", "Destruction"
+        DAMAGE = "DAMAGE", "Critical damage"
+        OTHER = "OTHER", "Other"
+        
+    objects = ImmutableWriteOffRecordQuerySet.as_manager()
+
     drone = models.OneToOneField(
         Drone, on_delete=models.PROTECT, related_name="writeoff_record"
     )
-    reason = models.CharField(max_length=255)
-    reason_description = models.TextField(blank=True)
+    reason = models.CharField(
+        max_length=20,
+        choices=Reason.choices,
+        help_text="Canonical reason for writing off the drone.",
+    )
+    reason_description = models.TextField(
+        blank=True,
+        help_text=(
+            "Free-form details about the write-off. "
+            "Required when the reason is 'Other'."
+        ),
+    )
     authorized_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         null=True,
@@ -371,12 +401,34 @@ class WriteOffRecord(models.Model):
 
     def __str__(self) -> str:
         return f"Write-off record for {self.drone}"
+    
+    @classmethod
+    def label_for(cls, reason_code):
+        return dict(cls.Reason.choices).get(reason_code, reason_code)
+
+    @property
+    def reason_label(self):
+        return self.label_for(self.reason)
+
+    def clean(self):
+        super().clean()
+
+        if self.reason == self.Reason.OTHER and not self.reason_description.strip():
+            raise ValidationError(
+                {
+                    "reason_description": (
+                        "A custom description is required when the reason is 'Other'."
+                    )
+                }
+            )
 
     def save(self, *args, **kwargs):
         if self.pk and type(self).objects.filter(pk=self.pk).exists():
             raise ValidationError(
                 "Write-off records are immutable and cannot be edited after creation."
             )
+
+        self.full_clean()
         super().save(*args, **kwargs)
 
     def delete(self, *args, **kwargs):

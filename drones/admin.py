@@ -114,6 +114,7 @@ class WriteOffRecordAdmin(admin.ModelAdmin):
         "authorized_by__username",
     )
     list_filter = (
+        "reason",
         "written_off_at",
         "created_at",
         "authorized_by",

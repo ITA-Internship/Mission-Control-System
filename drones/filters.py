@@ -51,11 +51,11 @@ class WriteOffRecordFilter(django_filters.FilterSet):
     authorized_by = django_filters.NumberFilter(field_name="authorized_by_id")
     related_mission = django_filters.NumberFilter(field_name="related_mission_id")
 
-    written_off_at_after = django_filters.DateTimeFilter(
+    written_off_at_after = django_filters.DateFilter(
         field_name="written_off_at",
         lookup_expr="gte",
     )
-    written_off_at_before = django_filters.DateTimeFilter(
+    written_off_at_before = django_filters.DateFilter(
         field_name="written_off_at",
         lookup_expr="lte",
     )
