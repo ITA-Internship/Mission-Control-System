@@ -1,4 +1,6 @@
-from django.test import TestCase
+from django.core.management import call_command
+from django.core.management.base import CommandError
+from django.test import TestCase, override_settings
 
 from roles.models import ADMIN_CODE, OPERATOR_CODE, Role
 
@@ -54,3 +56,13 @@ class UpdateUserRoleTests(TestCase):
                 result=AuditLog.ResultStatus.SUCCESS,
             ).exists()
         )
+
+
+class SeedDbSecurityTests(TestCase):
+    @override_settings(DEBUG=False)
+    def test_seed_db_is_blocked_outside_debug_mode(self):
+        with self.assertRaisesMessage(
+            CommandError,
+            "seed_db is allowed only in local development when DEBUG=True.",
+        ):
+            call_command("seed_db", module="users")

@@ -1,4 +1,5 @@
-from django.core.management.base import BaseCommand
+from django.conf import settings
+from django.core.management.base import BaseCommand, CommandError
 from django.db import connection, transaction
 
 from accounts.models import (
@@ -34,6 +35,11 @@ class Command(BaseCommand):
 
     @transaction.atomic
     def handle(self, *args, **options):
+        if not settings.DEBUG:
+            raise CommandError(
+                "seed_db is allowed only in local development when DEBUG=True."
+            )
+
         if options["clear"]:
             self._clear_seed_data()
 
