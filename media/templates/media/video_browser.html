@@ -7,7 +7,7 @@
 <body>
     <h1>Mission Videos</h1>
 
-    <form method="get">
+    <form method="get" id="video-filter-form">
         <label for="mission_id">Mission ID:</label>
         <input
             type="number"
@@ -79,5 +79,16 @@
     {% else %}
         <p>Enter a mission ID or drone ID to view matching videos.</p>
     {% endif %}
+
+    <script>
+        document.getElementById("video-filter-form").addEventListener("submit", function () {
+            ["mission_id", "drone_id"].forEach(function (fieldName) {
+                var field = document.getElementById(fieldName);
+                if (field && !field.value.trim()) {
+                    field.disabled = true;
+                }
+            });
+        });
+    </script>
 </body>
 </html>
