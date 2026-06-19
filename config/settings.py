@@ -126,11 +126,17 @@ AUTH_PASSWORD_VALIDATORS = [
 
 AUTH_USER_MODEL = "accounts.User"
 
+default_authentication_classes = [
+    "rest_framework.authentication.SessionAuthentication",
+]
+
+if DEBUG:
+    default_authentication_classes.append(
+        "rest_framework.authentication.BasicAuthentication"
+    )
+
 REST_FRAMEWORK = {
-    "DEFAULT_AUTHENTICATION_CLASSES": [
-        "rest_framework.authentication.SessionAuthentication",
-        "rest_framework.authentication.BasicAuthentication",
-    ],
+    "DEFAULT_AUTHENTICATION_CLASSES": default_authentication_classes,
     "DEFAULT_THROTTLE_RATES": {
         "account_activation": os.getenv("THROTTLE_ACCOUNT_ACTIVATION", "5/hour"),
         "password_reset_request": os.getenv(
