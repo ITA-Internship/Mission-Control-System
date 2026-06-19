@@ -292,6 +292,7 @@ class VideoMetadataAPITests(APITestCase):
 
     @patch("media.permissions.MediaViewPermission.has_permission", return_value=True)
     def test_video_browser_page_renders_filtered_results(self, mock_perm):
+        self.client.force_login(self.user)
         VideoMetadata.objects.create(
             mission=self.mission,
             drone=self.drone,
