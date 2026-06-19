@@ -131,6 +131,18 @@ REST_FRAMEWORK = {
         "rest_framework.authentication.SessionAuthentication",
         "rest_framework.authentication.BasicAuthentication",
     ],
+    "DEFAULT_THROTTLE_RATES": {
+        "account_activation": os.getenv("THROTTLE_ACCOUNT_ACTIVATION", "5/hour"),
+        "password_reset_request": os.getenv(
+            "THROTTLE_PASSWORD_RESET_REQUEST",
+            "5/hour",
+        ),
+        "password_reset_confirm": os.getenv(
+            "THROTTLE_PASSWORD_RESET_CONFIRM",
+            "5/hour",
+        ),
+        "audit_export": os.getenv("THROTTLE_AUDIT_EXPORT", "10/hour"),
+    },
 }
 
 

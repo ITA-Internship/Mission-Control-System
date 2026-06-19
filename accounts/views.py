@@ -71,6 +71,8 @@ class UserRoleUpdateAPIView(APIView):
 
 class ActivateAccountAPIView(APIView):
     permission_classes = [AllowAny]
+    throttle_classes = [ScopedRateThrottle]
+    throttle_scope = "account_activation"
 
     def post(self, request, user_id, token):
         user = get_object_or_404(User, pk=user_id)
@@ -318,6 +320,8 @@ class ChangePasswordView(APIView):
 
 class PasswordResetRequestView(APIView):
     permission_classes = [permissions.AllowAny]
+    throttle_classes = [ScopedRateThrottle]
+    throttle_scope = "password_reset_request"
 
     def post(self, request):
         serializer = PasswordResetRequestSerializer(data=request.data)
@@ -364,6 +368,8 @@ class PasswordResetRequestView(APIView):
 
 class PasswordResetConfirmView(APIView):
     permission_classes = [permissions.AllowAny]
+    throttle_classes = [ScopedRateThrottle]
+    throttle_scope = "password_reset_confirm"
 
     def post(self, request, uidb64, token):
 
