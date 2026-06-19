@@ -1,3 +1,6 @@
+import os
+import secrets
+
 from django.conf import settings
 from django.core.management.base import BaseCommand, CommandError
 from django.db import connection, transaction
@@ -32,6 +35,10 @@ class Command(BaseCommand):
             choices=("users", "missions", "drones", "repairs"),
             help="Seed only one module.",
         )
+        parser.add_argument(
+            "--password",
+            help="Password to assign to seeded demo users.",
+        )
 
     @transaction.atomic
     def handle(self, *args, **options):
@@ -44,11 +51,18 @@ class Command(BaseCommand):
             self._clear_seed_data()
 
         module = options.get("module")
+        seed_password = None
 
         if module is None or module == "users":
+            seed_password = self._resolve_seed_password(options.get("password"))
             self.stdout.write("Seeding users...")
-            user_stats = seed_users()
+            user_stats = seed_users(seed_password=seed_password)
             self.stdout.write(self.style.SUCCESS(self._format_stats(user_stats)))
+            self.stdout.write(
+                self.style.WARNING(
+                    "Seeded users were marked with must_change_password=True."
+                )
+            )
 
         if module is None or module == "missions":
             self.stdout.write("Seeding missions...")
@@ -66,6 +80,13 @@ class Command(BaseCommand):
             self.stdout.write(self.style.SUCCESS(self._format_stats(repair_stats)))
 
         self.stdout.write(self.style.SUCCESS("Database seeding complete."))
+
+        if seed_password is not None:
+            self.stdout.write(
+                self.style.WARNING(
+                    f"Seeded user password for this run: {seed_password}"
+                )
+            )
 
     def _clear_seed_data(self) -> None:
         self.stdout.write(self.style.WARNING("Clearing existing seed data..."))
@@ -99,3 +120,12 @@ class Command(BaseCommand):
 
     def _format_stats(self, stats: dict[str, int]) -> str:
         return ", ".join(f"{key}={value}" for key, value in stats.items())
+
+    def _resolve_seed_password(self, password_option: str | None) -> str:
+        if password_option:
+            return password_option
+
+        if env_password := os.getenv("SEED_DEFAULT_PASSWORD"):
+            return env_password
+
+        return secrets.token_urlsafe(12)

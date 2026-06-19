@@ -91,7 +91,8 @@ class ActivateAccountAPIView(APIView):
             )
 
         user.set_password(new_password)
-        user.save()
+        user.must_change_password = False
+        user.save(update_fields=["password", "must_change_password"])
 
         create_audit_log(
             actor=user,
@@ -289,7 +290,8 @@ class ChangePasswordView(APIView):
         if serializer.is_valid():
             user = request.user
             user.set_password(serializer.validated_data["new_password"])
-            user.save()
+            user.must_change_password = False
+            user.save(update_fields=["password", "must_change_password"])
 
             invalidate_user_sessions(user)
 
@@ -386,7 +388,8 @@ class PasswordResetConfirmView(APIView):
 
             new_password = serializer.validated_data["new_password"]
             user.set_password(new_password)
-            user.save()
+            user.must_change_password = False
+            user.save(update_fields=["password", "must_change_password"])
 
             invalidate_user_sessions(user)
 

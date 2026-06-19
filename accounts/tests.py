@@ -10,6 +10,7 @@ from rest_framework import status
 from rest_framework.test import APITestCase
 
 from roles.models import ADMIN_CODE, OPERATOR_CODE, Role
+from seed_data.users import seed_users
 
 from .models import AuditLog, User, UserRoleAuditLog
 from .services import update_user_role
@@ -88,6 +89,16 @@ class SeedDbSecurityTests(TestCase):
         ):
             call_command("seed_db", module="users")
 
+    def test_seed_users_use_provided_password_and_require_password_change(self):
+        seed_password = "TemporarySeedPassword@123"
+
+        stats = seed_users(seed_password=seed_password)
+        seeded_user = User.objects.get(username="root.admin")
+
+        self.assertEqual(stats["users_created"], 11)
+        self.assertTrue(seeded_user.check_password(seed_password))
+        self.assertTrue(seeded_user.must_change_password)
+
 
 @override_settings(
     REST_FRAMEWORK=THROTTLE_TEST_SETTINGS,
@@ -144,6 +155,34 @@ class PublicAuthThrottleTests(APITestCase):
         self.assertEqual(
             second_response.status_code, status.HTTP_429_TOO_MANY_REQUESTS
         )
+
+
+class PasswordChangeSecurityTests(APITestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(
+            username="must.change.user",
+            email="must.change.user@example.com",
+            password="OldStrongPassword@1234",
+            is_active=True,
+            must_change_password=True,
+        )
+
+    def test_change_password_clears_must_change_password_flag(self):
+        self.client.force_authenticate(self.user)
+
+        response = self.client.post(
+            reverse("accounts:change-password"),
+            {
+                "old_password": "OldStrongPassword@1234",
+                "new_password": "NewStrongPassword@1234",
+            },
+            format="json",
+        )
+
+        self.user.refresh_from_db()
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertFalse(self.user.must_change_password)
 
     def test_password_reset_confirm_endpoint_is_throttled(self):
         self.user.is_active = True

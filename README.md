@@ -431,6 +431,14 @@ python manage.py seed_db --module drones
 python manage.py seed_db --module repairs
 ```
 
+Use a specific temporary password for seeded users:
+
+```bash
+python manage.py seed_db --module users --password "LocalSeedPassword123!"
+```
+
+Or set `SEED_DEFAULT_PASSWORD` in your local `.env` before running the command. If no password is provided, `seed_db` generates a random password and prints it once in the console for that run.
+
 Docker usage:
 
 ```bash
@@ -439,6 +447,8 @@ docker compose exec web python manage.py seed_db --clear
 ```
 
 The seeded dataset includes demo accounts across the main system roles so that local RBAC flows can be tested quickly. Treat all seeded credentials as local-only development data and replace or disable them outside your own machine.
+
+Seeded users are marked with `must_change_password=True`. That flag is cleared after the user sets a new password through activation, password reset, or the change-password endpoint.
 
 Notes about the seeded dataset:
 
