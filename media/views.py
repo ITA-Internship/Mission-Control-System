@@ -119,15 +119,19 @@ class VideoMetadataViewSet(viewsets.ModelViewSet):
 
         params = self.request.query_params
 
-        for param, field in (
-            ("mission", "mission_id"),
-            ("drone", "drone_id"),
-            ("uploader", "uploader_id"),
+        for param_names, field in (
+            (("mission_id", "mission"), "mission_id"),
+            (("drone_id", "drone"), "drone_id"),
+            (("uploader_id", "uploader"), "uploader_id"),
         ):
-            value = params.get(param)
+            value = None
+            for param in param_names:
+                value = params.get(param)
+                if value is not None:
+                    break
             if value:
                 if not value.isdigit():
-                    raise ValidationError({param: "Must be an integer."})
+                    raise ValidationError({param_names[0]: "Must be an integer."})
                 qs = qs.filter(**{field: int(value)})
 
         status_value = params.get("status")
