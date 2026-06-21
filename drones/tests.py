@@ -833,6 +833,13 @@ class WriteOffHistoryAuditTests(APITestCase):
         self.assertContains(response, "Write-off event log")
         self.assertContains(response, "WO-REPORT-001")
 
+    def test_writeoff_history_report_view_is_protected_for_unauthenticated_user(self):
+        self.create_writeoff_record(document_number="WO-REPORT-001")
+
+        response = self.client.get(self.report_url)
+
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
 
 class DroneWriteOffReasonTests(APITestCase):
     def setUp(self):
