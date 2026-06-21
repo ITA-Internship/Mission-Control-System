@@ -3,9 +3,9 @@ import uuid
 from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.db import models
-from django.utils import timezone
 from django.db.models.signals import pre_delete
 from django.dispatch import receiver
+from django.utils import timezone
 
 
 class DroneModel(models.Model):
@@ -335,8 +335,8 @@ class DroneSpecChangeLog(models.Model):
 
     def __str__(self) -> str:
         return f"Spec changes for {self.drone_spec.drone}"
-    
-    
+
+
 class ImmutableWriteOffRecordQuerySet(models.QuerySet):
     def update(self, **kwargs):
         raise ValidationError(
@@ -344,22 +344,22 @@ class ImmutableWriteOffRecordQuerySet(models.QuerySet):
         )
 
     def delete(self):
-        raise ValidationError(
-            "Write-off records are immutable and cannot be deleted."
-        )
+        raise ValidationError("Write-off records are immutable and cannot be deleted.")
 
 
 class WriteOffRecord(models.Model):
+    objects = ImmutableWriteOffRecordQuerySet.as_manager()
+
     class Reason(models.TextChoices):
         LOSS = "LOSS", "Loss"
         DESTRUCTION = "DESTRUCTION", "Destruction"
         DAMAGE = "DAMAGE", "Critical damage"
         OTHER = "OTHER", "Other"
-        
-    objects = ImmutableWriteOffRecordQuerySet.as_manager()
 
     drone = models.OneToOneField(
-        Drone, on_delete=models.PROTECT, related_name="writeoff_record"
+        Drone,
+        on_delete=models.PROTECT,
+        related_name="writeoff_record",
     )
     reason = models.CharField(
         max_length=20,
@@ -401,7 +401,7 @@ class WriteOffRecord(models.Model):
 
     def __str__(self) -> str:
         return f"Write-off record for {self.drone}"
-    
+
     @classmethod
     def label_for(cls, reason_code):
         return dict(cls.Reason.choices).get(reason_code, reason_code)
@@ -432,16 +432,12 @@ class WriteOffRecord(models.Model):
         super().save(*args, **kwargs)
 
     def delete(self, *args, **kwargs):
-        raise ValidationError(
-            "Write-off records are immutable and cannot be deleted."
-        )
+        raise ValidationError("Write-off records are immutable and cannot be deleted.")
 
 
 @receiver(pre_delete, sender=WriteOffRecord)
 def prevent_writeoff_record_delete(sender, instance, **kwargs):
-    raise ValidationError(
-        "Write-off records are immutable and cannot be deleted."
-    )
+    raise ValidationError("Write-off records are immutable and cannot be deleted.")
 
 
 class DroneStatusHistory(models.Model):

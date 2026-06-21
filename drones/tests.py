@@ -696,8 +696,8 @@ class DroneUpdateAndDecommissionTests(APITestCase):
 
         with self.assertRaises(ValidationError):
             change_log.full_clean()
-            
-            
+
+
 class WriteOffHistoryAuditTests(APITestCase):
     def setUp(self):
         self.admin_user = AdminUserFactory()
@@ -819,10 +819,13 @@ class WriteOffHistoryAuditTests(APITestCase):
             ),
         )
 
-    def test_writeoff_history_report_view_returns_html_for_authorized_user(self):
+    def test_writeoff_history_report_view_returns_html_for_staff_user(self):
         self.create_writeoff_record(document_number="WO-REPORT-001")
 
-        self.client.force_authenticate(self.viewer_user)
+        self.admin_user.is_staff = True
+        self.admin_user.save(update_fields=["is_staff"])
+
+        self.client.force_login(self.admin_user)
 
         response = self.client.get(self.report_url)
 

@@ -440,12 +440,16 @@ class DroneModelSerializer(serializers.ModelSerializer):
 
         return attrs
 
-    
+
 class WriteOffAuditSerializer(serializers.ModelSerializer):
     drone_id = serializers.IntegerField(source="drone.id", read_only=True)
     drone_name = serializers.CharField(source="drone.name", read_only=True)
-    drone_serial_number = serializers.CharField(source="drone.serial_number", read_only=True)
-    drone_inventory_number = serializers.CharField(source="drone.inventory_number", read_only=True)
+    drone_serial_number = serializers.CharField(
+        source="drone.serial_number", read_only=True
+    )
+    drone_inventory_number = serializers.CharField(
+        source="drone.inventory_number", read_only=True
+    )
     authorized_by_username = serializers.CharField(
         source="authorized_by.username",
         read_only=True,

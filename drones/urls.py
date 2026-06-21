@@ -15,7 +15,6 @@ app_name = "drones"
 
 urlpatterns = [
     path("", DroneListCreateView.as_view(), name="drone-create"),
-
     path(
         "write-offs/report/",
         WriteOffHistoryReportView.as_view(),

@@ -1,6 +1,7 @@
 import csv
 
 from django.conf import settings
+from django.core.exceptions import PermissionDenied
 from django.db.models import Max, Min
 from django.http import (
     HttpResponse,
@@ -8,9 +9,8 @@ from django.http import (
     HttpResponseForbidden,
     StreamingHttpResponse,
 )
-from django.views.generic import TemplateView, ListView
+from django.views.generic import ListView, TemplateView
 from django_filters.rest_framework import DjangoFilterBackend
-from django.core.exceptions import PermissionDenied
 from rest_framework import filters, generics, status
 from rest_framework.response import Response
 
@@ -225,8 +225,8 @@ class DroneModelListCreateView(generics.ListCreateAPIView):
     serializer_class = DroneModelSerializer
     permission_classes = [DronePermission]
     queryset = DroneModel.objects.all()
-    
-    
+
+
 class WriteOffHistoryListView(generics.ListAPIView):
     serializer_class = WriteOffAuditSerializer
     permission_classes = [WriteOffHistoryPermission]
@@ -256,19 +256,17 @@ class WriteOffHistoryListView(generics.ListAPIView):
     ordering = ("-created_at",)
 
     def get_queryset(self):
-        queryset = (
-            WriteOffRecord.objects
-            .select_related("drone", "authorized_by", "related_mission")
-            .order_by("-created_at")
-        )
+        queryset = WriteOffRecord.objects.select_related(
+            "drone", "authorized_by", "related_mission"
+        ).order_by("-created_at")
 
         drone_pk = self.kwargs.get("drone_pk")
         if drone_pk is not None:
             queryset = queryset.filter(drone_id=drone_pk)
 
         return queryset
-    
-    
+
+
 class WriteOffHistoryReportView(ListView):
     model = WriteOffRecord
     template_name = "drones/writeoff_history_report.html"
@@ -293,14 +291,11 @@ class WriteOffHistoryReportView(ListView):
         return super().dispatch(request, *args, **kwargs)
 
     def get_queryset(self):
-        queryset = (
-            WriteOffRecord.objects.select_related(
-                "drone",
-                "authorized_by",
-                "related_mission",
-            )
-            .order_by("-created_at")
-        )
+        queryset = WriteOffRecord.objects.select_related(
+            "drone",
+            "authorized_by",
+            "related_mission",
+        ).order_by("-created_at")
 
         drone_pk = self.kwargs.get("drone_pk")
         if drone_pk is not None:
