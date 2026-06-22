@@ -1,18 +1,24 @@
-from rest_framework import generics, permissions, status
+from django_filters import rest_framework as filters
+from rest_framework import generics, permissions, status, viewsets
 from rest_framework.parsers import FormParser, MultiPartParser
 from rest_framework.response import Response
 
 from common.pagination import StandardResultsSetPagination
 from missions.models import Mission
 
-from .models import MissionArtifact
+from .models import MediaAuditLog, MissionArtifact
 from .permissions import (
     MediaDeletePermission,
     MediaUploadPermission,
+    MediaViewLogsPermission,
     MediaViewPermission,
 )
-from .serializers import MissionArtifactSerializer, MissionArtifactUploadSerializer
-from .services import delete_artifact, upload_artifact
+from .serializers import (
+    MediaAuditLogSerializer,
+    MissionArtifactSerializer,
+    MissionArtifactUploadSerializer,
+)
+from .services import delete_artifact, record_artifact_view, upload_artifact
 
 
 class _MissionArtifactMixin:
@@ -59,6 +65,7 @@ class ArtifactListCreateView(_MissionArtifactMixin, generics.ListCreateAPIView):
             uploaded_by=request.user,
             description=serializer.validated_data.get("description"),
             captured_at=serializer.validated_data.get("captured_at"),
+            request=request,
         )
 
         response_serializer = MissionArtifactSerializer(artifact)
@@ -84,8 +91,40 @@ class ArtifactDetailView(_MissionArtifactMixin, generics.RetrieveDestroyAPIView)
             "uploaded_by"
         )
 
+    def retrieve(self, request, *args, **kwargs):
+        instance = self.get_object()
+        record_artifact_view(
+            user=request.user,
+            artifact=instance,
+            request=request,
+        )
+        serializer = self.get_serializer(instance)
+        return Response(serializer.data)
+
     def perform_destroy(self, instance):
         delete_artifact(
             artifact=instance,
             action_user=self.request.user,
+            request=self.request,
         )
+
+
+class MediaAuditLogFilter(filters.FilterSet):
+    start_date = filters.DateTimeFilter(field_name="created_at", lookup_expr="gte")
+    end_date = filters.DateTimeFilter(field_name="created_at", lookup_expr="lte")
+
+    class Meta:
+        model = MediaAuditLog
+        fields = ["action", "user", "mission", "artifact"]
+
+
+class MediaAuditLogViewSet(viewsets.ReadOnlyModelViewSet):
+
+    serializer_class = MediaAuditLogSerializer
+    permission_classes = [permissions.IsAuthenticated, MediaViewLogsPermission]
+    pagination_class = StandardResultsSetPagination
+    filter_backends = [filters.DjangoFilterBackend]
+    filterset_class = MediaAuditLogFilter
+    queryset = MediaAuditLog.objects.select_related(
+        "artifact", "mission", "user"
+    ).all()

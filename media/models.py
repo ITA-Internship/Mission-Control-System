@@ -147,3 +147,63 @@ class MissionArtifact(models.Model):
 
     def __str__(self):
         return f"{self.title} ({self.file_type}) — Mission #{self.mission_id}"
+
+
+class MediaAuditLog(models.Model):
+    class Action(models.TextChoices):
+        VIEW = "view", "View"
+        UPLOAD = "upload", "Upload"
+        UPDATE = "update", "Update"
+        DELETE = "delete", "Delete"
+
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="media_audit_logs",
+    )
+
+    artifact = models.ForeignKey(
+        "media.MissionArtifact",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="audit_logs",
+        help_text="Null after the referenced artifact is deleted.",
+    )
+
+    mission = models.ForeignKey(
+        "missions.Mission",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="media_audit_logs",
+    )
+
+    action = models.CharField(
+        max_length=10,
+        choices=Action.choices,
+    )
+
+    changes = models.JSONField(default=dict, blank=True)
+
+    ip_address = models.GenericIPAddressField(null=True, blank=True)
+
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "media_audit_logs"
+        ordering = ["-created_at"]
+        indexes = [
+            models.Index(fields=["artifact"]),
+            models.Index(fields=["mission"]),
+            models.Index(fields=["action"]),
+            models.Index(fields=["created_at"]),
+        ]
+
+    def __str__(self):
+        return (
+            f"[{self.action}] artifact #{self.artifact_id} "
+            f"(Mission #{self.mission_id}) by {self.user}"
+        )

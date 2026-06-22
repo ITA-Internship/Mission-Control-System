@@ -5,7 +5,7 @@ from rest_framework import serializers
 
 from common.serializers import UserBriefSerializer
 
-from .models import MissionArtifact, _get_all_allowed_extensions
+from .models import MediaAuditLog, MissionArtifact, _get_all_allowed_extensions
 
 
 class MissionArtifactSerializer(serializers.ModelSerializer):
@@ -38,6 +38,25 @@ class MissionArtifactSerializer(serializers.ModelSerializer):
             "storage_backend",
             "uploaded_at",
         ]
+
+
+class MediaAuditLogSerializer(serializers.ModelSerializer):
+
+    user = UserBriefSerializer(read_only=True)
+
+    class Meta:
+        model = MediaAuditLog
+        fields = [
+            "id",
+            "action",
+            "artifact",
+            "mission",
+            "user",
+            "changes",
+            "ip_address",
+            "created_at",
+        ]
+        read_only_fields = fields
 
 
 class MissionArtifactUploadSerializer(serializers.Serializer):
