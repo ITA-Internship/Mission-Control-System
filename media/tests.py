@@ -17,7 +17,7 @@ from missions.factories import (
 from missions.models import MissionAuditLog
 
 from .factories import MissionArtifactFactory
-from .models import MissionArtifact
+from .models import MediaAuditLog, MissionArtifact
 from .services import delete_artifact, upload_artifact
 
 
@@ -333,3 +333,226 @@ class ArtifactServicesTests(TestCase):
             mock_delete.assert_called_once()
 
         self.assertFalse(MissionArtifact.objects.filter(id=artifact.id).exists())
+
+
+class MediaAuditLoggingTests(APITestCase):
+    def setUp(self):
+        self.admin = AdminUserFactory()
+        self.operator = OperatorUserFactory()
+        self.viewer = ViewerUserFactory()
+        self.mission = MissionFactory()
+        self.artifact = MissionArtifactFactory(
+            mission=self.mission, uploaded_by=self.operator, is_video=True
+        )
+        self.detail_url = reverse(
+            "missions:media:artifact-detail",
+            kwargs={"mission_pk": self.mission.pk, "artifact_pk": self.artifact.pk},
+        )
+        self.list_url = reverse(
+            "missions:media:artifact-list-create",
+            kwargs={"mission_pk": self.mission.pk},
+        )
+
+    def get_valid_payload(self):
+        upload_file = SimpleUploadedFile(
+            "clip.mp4", b"video bytes", content_type="video/mp4"
+        )
+        return {"title": "Mission Clip", "file": upload_file}
+
+    def test_retrieve_logs_view_action_with_user_and_ip(self):
+        self.client.force_authenticate(self.viewer)
+        response = self.client.get(self.detail_url)
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        log = MediaAuditLog.objects.get(action=MediaAuditLog.Action.VIEW)
+        self.assertEqual(log.user, self.viewer)
+        self.assertEqual(log.artifact, self.artifact)
+        self.assertEqual(log.mission_id, self.mission.id)
+        self.assertEqual(log.ip_address, "127.0.0.1")
+
+    def test_each_retrieve_creates_a_separate_view_log(self):
+        self.client.force_authenticate(self.viewer)
+        self.client.get(self.detail_url)
+        self.client.get(self.detail_url)
+
+        self.assertEqual(
+            MediaAuditLog.objects.filter(action=MediaAuditLog.Action.VIEW).count(), 2
+        )
+
+    def test_view_logging_failure_does_not_break_retrieve(self):
+        self.client.force_authenticate(self.viewer)
+        with patch(
+            "media.services.MediaAuditLog.objects.create",
+            side_effect=RuntimeError("logging down"),
+        ):
+            response = self.client.get(self.detail_url)
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+    def test_upload_writes_to_both_audit_logs(self):
+        self.client.force_authenticate(self.operator)
+        response = self.client.post(
+            self.list_url, self.get_valid_payload(), format="multipart"
+        )
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+
+        artifact_id = response.data["id"]
+
+        media_log = MediaAuditLog.objects.get(action=MediaAuditLog.Action.UPLOAD)
+        self.assertEqual(media_log.user, self.operator)
+        self.assertEqual(media_log.artifact_id, artifact_id)
+        self.assertEqual(media_log.mission_id, self.mission.id)
+        self.assertEqual(media_log.changes["title"], "Mission Clip")
+
+        self.assertTrue(
+            MissionAuditLog.objects.filter(
+                action="artifact_uploaded", target_id=artifact_id
+            ).exists()
+        )
+
+    def test_delete_writes_to_both_audit_logs(self):
+        self.client.force_authenticate(self.admin)
+
+        with self.captureOnCommitCallbacks(execute=True):
+            with patch("django.core.files.storage.default_storage.delete"):
+                response = self.client.delete(self.detail_url)
+
+        self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
+
+        media_log = MediaAuditLog.objects.get(action=MediaAuditLog.Action.DELETE)
+        self.assertEqual(media_log.user, self.admin)
+        self.assertEqual(media_log.mission_id, self.mission.id)
+        # Artifact FK is nulled by SET_NULL once the artifact row is deleted,
+        # but the reference is preserved in `changes`.
+        self.assertIsNone(media_log.artifact)
+        self.assertEqual(media_log.changes["artifact_id"], self.artifact.id)
+
+        self.assertTrue(
+            MissionAuditLog.objects.filter(action="artifact_deleted").exists()
+        )
+
+
+class MediaAuditLogTransactionTests(TestCase):
+    def setUp(self):
+        self.operator = OperatorUserFactory()
+        self.mission = MissionFactory()
+
+    @patch("django.core.files.storage.default_storage.delete")
+    def test_media_audit_log_failure_rolls_back_upload(self, mock_delete):
+        with patch(
+            "media.services.MediaAuditLog.objects.create",
+            side_effect=RuntimeError("DB Error"),
+        ):
+            upload_file = SimpleUploadedFile("clip.mp4", b"video bytes")
+
+            with self.assertRaises(RuntimeError):
+                upload_artifact(
+                    mission=self.mission,
+                    file=upload_file,
+                    title="Rollback Clip",
+                    uploaded_by=self.operator,
+                )
+
+            mock_delete.assert_called_once()
+
+        # The whole atomic block is rolled back: no artifact and no logs.
+        self.assertEqual(MissionArtifact.objects.count(), 0)
+        self.assertEqual(MissionAuditLog.objects.count(), 0)
+        self.assertEqual(MediaAuditLog.objects.count(), 0)
+
+
+class MediaAuditLogEndpointTests(APITestCase):
+    def setUp(self):
+        self.admin = AdminUserFactory()
+        self.dispatcher = DispatcherUserFactory()
+        self.operator = OperatorUserFactory()
+        self.viewer = ViewerUserFactory()
+
+        self.mission = MissionFactory()
+        self.other_mission = MissionFactory()
+        self.artifact = MissionArtifactFactory(mission=self.mission, is_video=True)
+
+        self.view_log = MediaAuditLog.objects.create(
+            user=self.operator,
+            artifact=self.artifact,
+            mission=self.mission,
+            action=MediaAuditLog.Action.VIEW,
+            ip_address="127.0.0.1",
+        )
+        self.upload_log = MediaAuditLog.objects.create(
+            user=self.operator,
+            artifact=self.artifact,
+            mission=self.mission,
+            action=MediaAuditLog.Action.UPLOAD,
+        )
+        self.other_mission_log = MediaAuditLog.objects.create(
+            user=self.admin,
+            mission=self.other_mission,
+            action=MediaAuditLog.Action.VIEW,
+        )
+
+        self.url = reverse("media-audit-log-list")
+
+    def test_admin_can_list_logs(self):
+        self.client.force_authenticate(self.admin)
+        response = self.client.get(self.url)
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["count"], 3)
+
+    def test_operator_cannot_list_logs(self):
+        self.client.force_authenticate(self.operator)
+        response = self.client.get(self.url)
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_viewer_cannot_list_logs(self):
+        self.client.force_authenticate(self.viewer)
+        response = self.client.get(self.url)
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_dispatcher_cannot_list_logs(self):
+        self.client.force_authenticate(self.dispatcher)
+        response = self.client.get(self.url)
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_unauthenticated_cannot_list_logs(self):
+        response = self.client.get(self.url)
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_filter_by_action(self):
+        self.client.force_authenticate(self.admin)
+        response = self.client.get(self.url, {"action": MediaAuditLog.Action.UPLOAD})
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["count"], 1)
+        self.assertEqual(response.data["results"][0]["id"], self.upload_log.id)
+
+    def test_filter_by_mission(self):
+        self.client.force_authenticate(self.admin)
+        response = self.client.get(self.url, {"mission": self.other_mission.id})
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["count"], 1)
+        self.assertEqual(response.data["results"][0]["id"], self.other_mission_log.id)
+
+    def test_filter_by_user(self):
+        self.client.force_authenticate(self.admin)
+        response = self.client.get(self.url, {"user": self.operator.id})
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["count"], 2)
+
+    def test_admin_can_retrieve_log_detail(self):
+        self.client.force_authenticate(self.admin)
+        detail_url = reverse("media-audit-log-detail", kwargs={"pk": self.view_log.id})
+        response = self.client.get(detail_url)
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["id"], self.view_log.id)
+        self.assertEqual(response.data["action"], MediaAuditLog.Action.VIEW)
+
+    def test_endpoint_is_read_only(self):
+        self.client.force_authenticate(self.admin)
+        response = self.client.post(self.url, {"action": "view"}, format="json")
+        self.assertEqual(response.status_code, status.HTTP_405_METHOD_NOT_ALLOWED)

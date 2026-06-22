@@ -125,6 +125,4 @@ class MediaAuditLogViewSet(viewsets.ReadOnlyModelViewSet):
     pagination_class = StandardResultsSetPagination
     filter_backends = [filters.DjangoFilterBackend]
     filterset_class = MediaAuditLogFilter
-    queryset = MediaAuditLog.objects.select_related(
-        "artifact", "mission", "user"
-    ).all()
+    queryset = MediaAuditLog.objects.select_related("artifact", "mission", "user").all()
