@@ -4,6 +4,7 @@ import datetime
 from decimal import Decimal
 
 from django.core.exceptions import ValidationError
+from django.conf import settings
 from django.db import IntegrityError, transaction
 
 from accounts.models import MilitaryUnit
@@ -273,6 +274,9 @@ def import_drones_csv(drones_csv_file, user=None):
         "Acquired At",
     }
 
+    max_rows = getattr(settings, "DRONES_IMPORT_MAX_ROWS", 10000)
+    batch_size = getattr(settings, "DRONES_IMPORT_BATCH_SIZE", 1000)
+
     try:
         decoded_file = codecs.iterdecode(drones_csv_file, "utf-8")
         reader_iterator = csv.DictReader(decoded_file)
@@ -286,15 +290,14 @@ def import_drones_csv(drones_csv_file, user=None):
                 f"{', '.join(required_columns)}",
             }
 
-        MAX_ROWS = 10000
         rows = []
 
         for count, row in enumerate(reader_iterator):
-            if count >= MAX_ROWS:
+            if count >= max_rows:
                 return {
                     "success": False,
                     "error": f"File is too large. "
-                    f"Maximum allowed is {MAX_ROWS} rows per import.",
+                    f"Maximum allowed is {max_rows} rows per import.",
                 }
             rows.append(row)
 
@@ -433,7 +436,6 @@ def import_drones_csv(drones_csv_file, user=None):
         existing_serials.add(serial_number)
         existing_invs.add(inventory_number)
 
-    BATCH_SIZE = 1000
     success_cnt = 0
     auth_user = _get_authenticated_user(user) if user else None
 
@@ -454,8 +456,8 @@ def import_drones_csv(drones_csv_file, user=None):
         k: _serialize_audit_value(v) for k, v in dummy_spec_data.items()
     }
 
-    for i in range(0, len(valid_drones_data), BATCH_SIZE):
-        batch = valid_drones_data[i : i + BATCH_SIZE]
+    for i in range(0, len(valid_drones_data), batch_size):
+        batch = valid_drones_data[i : i + batch_size]
 
         try:
             with transaction.atomic():
@@ -465,14 +467,14 @@ def import_drones_csv(drones_csv_file, user=None):
                 ]
 
                 created_drones = Drone.objects.bulk_create(
-                    drones_to_create, batch_size=BATCH_SIZE
+                    drones_to_create, batch_size=batch_size
                 )
 
                 specs_to_create = [
                     DroneSpec(drone=d, **dummy_spec_data) for d in created_drones
                 ]
                 created_specs = DroneSpec.objects.bulk_create(
-                    specs_to_create, batch_size=BATCH_SIZE
+                    specs_to_create, batch_size=batch_size
                 )
 
                 logs_to_create = [
@@ -486,7 +488,7 @@ def import_drones_csv(drones_csv_file, user=None):
                     for spec in created_specs
                 ]
                 DroneSpecChangeLog.objects.bulk_create(
-                    logs_to_create, batch_size=BATCH_SIZE
+                    logs_to_create, batch_size=batch_size
                 )
 
                 success_cnt += len(batch)

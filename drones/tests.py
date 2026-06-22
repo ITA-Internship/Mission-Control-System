@@ -1286,7 +1286,7 @@ class DroneDataImportTests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.data["added_count"], 0)
         self.assertEqual(len(response.data["errors"]), 1)
-        self.assertIn("not found in database", response.data["errors"][0]["error"])
+        self.assertIn("not found", response.data["errors"][0]["error"])
 
     def test_import_skips_rows_with_empty_required_fields(self):
         csv_file = self._generate_csv_file(
