@@ -1,9 +1,8 @@
 import csv
 
 from django.conf import settings
-from django.contrib.auth.mixins import LoginRequiredMixin
+from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
 from django.http import StreamingHttpResponse
-from django.shortcuts import get_object_or_404
 from django.views.generic import DetailView
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import filters, generics, status
@@ -71,13 +70,11 @@ class DefectStatusUpdateView(APIView):
     permission_classes = [RepairPermission]
 
     def post(self, request, pk):
-        defect = get_object_or_404(DefectReport, pk=pk)
-
         serializer = DefectStatusUpdateSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
         event = update_defect_status(
-            defect=defect,
+            defect_id=pk,
             new_status=serializer.validated_data["status"],
             action_taken=serializer.validated_data["action_taken"],
             user=request.user,
@@ -182,7 +179,11 @@ class ComponentReplacementExportView(generics.GenericAPIView):
         return response
 
 
-class DefectUIDetailView(LoginRequiredMixin, DetailView):
+class DefectUIDetailView(LoginRequiredMixin, UserPassesTestMixin, DetailView):
     model = DefectReport
     template_name = "repairs/defect_detail.html"
     context_object_name = "defect"
+
+    def test_func(self):
+        permission = RepairPermission()
+        return permission.has_permission(self.request, self)

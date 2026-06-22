@@ -1,6 +1,7 @@
 from django.conf import settings
 from django.core.mail import send_mail
 from django.db import transaction
+from django.shortcuts import get_object_or_404
 from rest_framework.exceptions import PermissionDenied, ValidationError
 
 from roles.models import ADMIN_CODE, COMMANDER_CODE, TECHNICIAN_CODE
@@ -35,9 +36,12 @@ def create_defect_report(
 
 
 @transaction.atomic
-def update_defect_status(
-    *, defect: DefectReport, new_status: str, action_taken: str, user
-):
+def update_defect_status(*, defect_id: int, new_status: str, action_taken: str, user):
+    defect = get_object_or_404(
+        DefectReport.objects.select_related("drone", "reporter").select_for_update(),
+        pk=defect_id,
+    )
+
     old_status = defect.status
 
     if old_status == new_status:
