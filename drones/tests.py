@@ -979,6 +979,21 @@ class DroneSearchTests(APITestCase):
         self.assertIn(matching_drone.id, results_ids)
         self.assertNotIn(non_matching_drone.id, results_ids)
 
+    def test_pagination_max_offset_exceeded(self):
+        response = self.client.get(self.create_url, {"page": 1002, "page_size": 10})
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("page", response.data)
+        self.assertIn("Max pagination depth exceeded", str(response.data["page"]))
+
+    def test_pagination_empty_page_parameter_handled_gracefully(self):
+        response = self.client.get(self.create_url, {"page": ""})
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        self.assertEqual(response.data["count"], self.page_size + 1)
+        self.assertIsNotNone(response.data["next"])
+
 
 class DroneModelTests(APITestCase):
     def setUp(self):

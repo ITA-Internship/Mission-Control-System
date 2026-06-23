@@ -75,7 +75,10 @@ class MissionListCreateView(generics.ListCreateAPIView):
                 )
 
             user = self.request.user
-            queryset = queryset.filter(mission_drones__operator_id=user.id).distinct()
+            user_mission_ids = MissionDrone.objects.filter(operator_id=user.id).values(
+                "mission_id"
+            )
+            queryset = queryset.filter(id__in=user_mission_ids)
 
         return queryset
 

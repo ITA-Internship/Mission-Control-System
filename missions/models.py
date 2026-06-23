@@ -1,6 +1,7 @@
 from django.conf import settings
 from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
+from django.db.models import Prefetch
 
 
 def get_default_changes():
@@ -35,7 +36,12 @@ class Condition(models.TextChoices):
 
 class MissionQuerySet(models.QuerySet):
     def with_related(self):
-        return self.select_related("commander", "created_by")
+        return self.select_related("commander", "created_by").prefetch_related(
+            Prefetch(
+                "mission_drones",
+                queryset=MissionDrone.objects.select_related("drone", "operator"),
+            )
+        )
 
 
 class Mission(models.Model):

@@ -1,5 +1,7 @@
 from datetime import timedelta
 
+from django.db import connection
+from django.test.utils import CaptureQueriesContext
 from django.urls import reverse
 from django.utils import timezone
 from rest_framework import status
@@ -854,6 +856,48 @@ class MissionListTests(APITestCase):
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(len(response.data["results"]), 3)
+
+    def test_filter_assigned_to_me(self):
+        operator = OperatorUserFactory()
+
+        mission_assigned = MissionFactory()
+        MissionDroneFactory(mission=mission_assigned, operator=operator)
+        MissionDroneFactory(mission=mission_assigned, operator=operator)
+
+        mission_not_assigned = MissionFactory()
+        MissionDroneFactory(mission=mission_not_assigned)
+
+        self.client.force_authenticate(operator)
+
+        response = self.client.get(self.url, {"assigned_to": "me"})
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["count"], 1)
+        self.assertEqual(response.data["results"][0]["id"], mission_assigned.id)
+
+    def test_invalid_assigned_to_filter_rejected(self):
+        self.client.force_authenticate(self.dispatcher)
+
+        response = self.client.get(self.url, {"assigned_to": "other_user"})
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("assigned_to", response.data)
+
+    def test_mission_list_avoids_n_plus_one_queries(self):
+        self.client.force_authenticate(self.dispatcher)
+
+        for _ in range(5):
+            mission = MissionFactory()
+            MissionDroneFactory.create_batch(3, mission=mission)
+
+        with CaptureQueriesContext(connection) as queries:
+            response = self.client.get(self.url)
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        self.assertLess(
+            len(queries), 8, "Виявлено проблему N+1 запитів у MissionListCreateView!"
+        )
 
 
 class MissionDetailTests(APITestCase):

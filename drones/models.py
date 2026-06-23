@@ -96,6 +96,14 @@ class Drone(models.Model):
         STATUS_WRITTEN_OFF,
     )
 
+    ACTIVE_STATUSES = (
+        STATUS_ACTIVE,
+        STATUS_IN_MISSION,
+        STATUS_DAMAGED,
+        STATUS_LOST,
+        STATUS_MAINTENANCE,
+    )
+
     STATUS_UI = {
         STATUS_ACTIVE: {
             "label": "Active",

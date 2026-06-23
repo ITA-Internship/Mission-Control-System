@@ -86,8 +86,6 @@ class ComponentReplacementExportView(generics.GenericAPIView):
     def get(self, request, *args, **kwargs):
         max_export_limit = getattr(settings, "MAX_EXPORT_LIMIT", 10000)
         queryset = self.filter_queryset(self.get_queryset())
-        total_count = queryset.count()
-        export_truncated = total_count > max_export_limit
 
         def generate_csv():
             writer = csv.writer(EchoBuffer())
@@ -138,5 +136,5 @@ class ComponentReplacementExportView(generics.GenericAPIView):
             'attachment; filename="component_replacements.csv"'
         )
         response["X-Export-Limit"] = str(max_export_limit)
-        response["X-Export-Truncated"] = str(export_truncated).lower()
+
         return response

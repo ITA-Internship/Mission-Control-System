@@ -190,10 +190,8 @@ class DroneListCreateView(generics.ListCreateAPIView):
     ordering_fields = ["created_at", "status", "name", "classification"]
 
     def get_queryset(self):
-        return (
-            Drone.objects.select_related("military_unit", "spec")
-            .prefetch_related("status_history")
-            .order_by("id")
+        return Drone.objects.select_related("military_unit", "drone_model").order_by(
+            "id"
         )
 
     def get_serializer_class(self):
@@ -205,7 +203,7 @@ class DroneListCreateView(generics.ListCreateAPIView):
 
 class DroneDetailView(generics.RetrieveUpdateAPIView):
     queryset = (
-        Drone.objects.select_related("military_unit", "spec")
+        Drone.objects.select_related("military_unit", "drone_model", "spec")
         .prefetch_related("status_history")
         .all()
     )
