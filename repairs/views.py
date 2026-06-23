@@ -6,6 +6,7 @@ from django.http import StreamingHttpResponse
 from django.views.generic import DetailView
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import filters, generics, status
+from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
@@ -67,7 +68,7 @@ class DefectHistoryView(generics.ListAPIView):
 
 
 class DefectStatusUpdateView(APIView):
-    permission_classes = [RepairPermission]
+    permission_classes = [IsAuthenticated, RepairPermission]
 
     def post(self, request, pk):
         serializer = DefectStatusUpdateSerializer(data=request.data)

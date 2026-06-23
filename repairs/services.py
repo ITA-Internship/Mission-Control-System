@@ -1,8 +1,7 @@
 from django.conf import settings
 from django.core.mail import send_mail
 from django.db import transaction
-from django.shortcuts import get_object_or_404
-from rest_framework.exceptions import PermissionDenied, ValidationError
+from rest_framework.exceptions import NotFound, PermissionDenied, ValidationError
 
 from roles.models import ADMIN_CODE, COMMANDER_CODE, TECHNICIAN_CODE
 
@@ -37,21 +36,6 @@ def create_defect_report(
 
 @transaction.atomic
 def update_defect_status(*, defect_id: int, new_status: str, action_taken: str, user):
-    defect = get_object_or_404(
-        DefectReport.objects.select_related("drone", "reporter").select_for_update(),
-        pk=defect_id,
-    )
-
-    old_status = defect.status
-
-    if old_status == new_status:
-        raise ValidationError({"status": "The defect is already in this status."})
-
-    if new_status == RepairStatus.VERIFIED and old_status != RepairStatus.FIXED:
-        raise ValidationError(
-            {"status": "A defect can only be verified if its current status is FIXED."}
-        )
-
     role_code = (
         getattr(user.role, "code", None) if user and hasattr(user, "role") else None
     )
@@ -65,6 +49,25 @@ def update_defect_status(*, defect_id: int, new_status: str, action_taken: str, 
     if new_status == RepairStatus.VERIFIED:
         if role_code not in [COMMANDER_CODE, ADMIN_CODE]:
             raise PermissionDenied("Only Commanders can verify repairs.")
+
+    try:
+        defect = (
+            DefectReport.objects.select_related("drone", "reporter")
+            .select_for_update()
+            .get(pk=defect_id)
+        )
+    except DefectReport.DoesNotExist:
+        raise NotFound("Defect report not found.")
+
+    old_status = defect.status
+
+    if old_status == new_status:
+        raise ValidationError({"status": "The defect is already in this status."})
+
+    if new_status == RepairStatus.VERIFIED and old_status != RepairStatus.FIXED:
+        raise ValidationError(
+            {"status": "A defect can only be verified if its current status is FIXED."}
+        )
 
     defect.status = new_status
     defect.save(update_fields=["status", "updated_at"])
