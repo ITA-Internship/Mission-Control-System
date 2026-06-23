@@ -3,7 +3,13 @@ from datetime import timedelta
 from django.utils import timezone
 from rest_framework import serializers
 
-from .models import ComponentReplacement, ComponentType, DefectReport
+from .models import (
+    ComponentReplacement,
+    ComponentType,
+    DefectReport,
+    RepairEvent,
+    RepairStatus,
+)
 from .services import create_component_replacement, create_defect_report
 
 DESCRIPTION_MIN_LENGTH = 10
@@ -62,6 +68,30 @@ class DefectReportListSerializer(serializers.ModelSerializer):
             "created_at",
         )
         read_only_fields = fields
+
+
+class RepairEventSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = RepairEvent
+        fields = (
+            "id",
+            "from_status",
+            "to_status",
+            "action_taken",
+            "technician",
+            "created_at",
+        )
+        read_only_fields = fields
+
+
+class DefectStatusUpdateSerializer(serializers.Serializer):
+    status = serializers.ChoiceField(choices=RepairStatus.choices)
+    action_taken = serializers.CharField(trim_whitespace=True)
+
+    def validate_action_taken(self, value):
+        if not value:
+            raise serializers.ValidationError("Action taken comment is required.")
+        return value
 
 
 class ComponentReplacementSerializer(serializers.ModelSerializer):

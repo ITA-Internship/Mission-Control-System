@@ -1,22 +1,30 @@
 import csv
 
 from django.conf import settings
+from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
 from django.http import StreamingHttpResponse
+from django.views.generic import DetailView
 from django_filters.rest_framework import DjangoFilterBackend
-from rest_framework import filters, generics
+from rest_framework import filters, generics, status
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.response import Response
+from rest_framework.views import APIView
 
 from common.pagination import StandardResultsSetPagination
 from common.utils import EchoBuffer
 
 from .filters import ComponentReplacementFilter, DefectFilter
-from .models import ComponentReplacement, DefectReport
+from .models import ComponentReplacement, DefectReport, RepairEvent
 from .permissions import RepairPermission
 from .serializers import (
     ComponentReplacementListSerializer,
     ComponentReplacementSerializer,
     DefectReportListSerializer,
     DefectReportSerializer,
+    DefectStatusUpdateSerializer,
+    RepairEventSerializer,
 )
+from .services import update_defect_status
 
 
 class DefectListCreateView(generics.ListCreateAPIView):
@@ -45,6 +53,36 @@ class DefectDetailView(generics.RetrieveAPIView):
     serializer_class = DefectReportSerializer
     permission_classes = [RepairPermission]
     http_method_names = ["get", "head", "options"]
+
+
+class DefectHistoryView(generics.ListAPIView):
+    serializer_class = RepairEventSerializer
+    permission_classes = [RepairPermission]
+    pagination_class = StandardResultsSetPagination
+
+    def get_queryset(self):
+        defect_id = self.kwargs.get("pk")
+        return RepairEvent.objects.select_related("technician").filter(
+            defect_report_id=defect_id
+        )
+
+
+class DefectStatusUpdateView(APIView):
+    permission_classes = [IsAuthenticated, RepairPermission]
+
+    def post(self, request, pk):
+        serializer = DefectStatusUpdateSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        event = update_defect_status(
+            defect_id=pk,
+            new_status=serializer.validated_data["status"],
+            action_taken=serializer.validated_data["action_taken"],
+            user=request.user,
+        )
+
+        response_serializer = RepairEventSerializer(event)
+        return Response(response_serializer.data, status=status.HTTP_200_OK)
 
 
 class ComponentReplacementListCreateView(generics.ListCreateAPIView):
@@ -140,3 +178,13 @@ class ComponentReplacementExportView(generics.GenericAPIView):
         response["X-Export-Limit"] = str(max_export_limit)
         response["X-Export-Truncated"] = str(export_truncated).lower()
         return response
+
+
+class DefectUIDetailView(LoginRequiredMixin, UserPassesTestMixin, DetailView):
+    model = DefectReport
+    template_name = "repairs/defect_detail.html"
+    context_object_name = "defect"
+
+    def test_func(self):
+        permission = RepairPermission()
+        return permission.has_permission(self.request, self)
