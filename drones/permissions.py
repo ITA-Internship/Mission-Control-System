@@ -18,9 +18,6 @@ class DronePermission(BasePermission):
         if not user or not user.is_authenticated:
             return False
 
-        if getattr(user, "is_staff", False):
-            return True
-
         return user_has_permission(user, permission_code)
 
     def _get_requested_status(self, request):
