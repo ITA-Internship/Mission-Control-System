@@ -89,13 +89,11 @@ class DefectStatusUpdateView(APIView):
     permission_classes = [RepairPermission]
 
     def post(self, request, pk):
-        defect = get_object_or_404(DefectReport, pk=pk)
-
         serializer = DefectStatusUpdateSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
         event = update_defect_status(
-            defect=defect,
+            defect_id=pk,
             new_status=serializer.validated_data["status"],
             action_taken=serializer.validated_data["action_taken"],
             user=request.user,

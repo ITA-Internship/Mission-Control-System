@@ -50,9 +50,16 @@ def create_defect_report(
 
 @transaction.atomic
 def update_defect_status(
-    *, defect: DefectReport, new_status: str, action_taken: str, user
+    *, defect_id: int, new_status: str, action_taken: str, user
 ):
-    defect = DefectReport.objects.select_for_update().get(pk=defect.pk)
+    try:
+        defect = (
+            DefectReport.objects.select_related("drone", "reporter")
+            .select_for_update()
+            .get(pk=defect_id)
+        )
+    except DefectReport.DoesNotExist:
+        raise ValidationError({"detail": "Defect report not found."})
     old_status = defect.status
 
     if old_status == new_status:
