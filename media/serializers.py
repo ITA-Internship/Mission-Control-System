@@ -48,6 +48,8 @@ class VideoMetadataSerializer(serializers.ModelSerializer):
             "updated_at",
             "uploader",
             "duration_seconds",
+            "file",
+            "file_name",
         ]
 
     def get_url(self, obj):
