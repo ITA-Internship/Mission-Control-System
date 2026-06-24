@@ -14,6 +14,7 @@ import os
 from pathlib import Path
 
 from decouple import config
+from django.core.exceptions import ImproperlyConfigured
 from dotenv import load_dotenv
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
@@ -186,16 +187,24 @@ FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:3000")
 
 MAX_EXPORT_LIMIT = 10000
 
+
+def get_env_or_raise(var_name):
+    value = os.getenv(var_name)
+    if not value:
+        raise ImproperlyConfigured(f"Missing required environment variable: {var_name}")
+    return value
+
+
 STORAGE_PROVIDER = os.getenv("STORAGE_PROVIDER", "local")
 
 FILE_UPLOAD_PERMISSIONS = 0o644
 
 if STORAGE_PROVIDER == "s3":
     DEFAULT_FILE_STORAGE = "storages.backends.s3boto3.S3Boto3Storage"
-    AWS_ACCESS_KEY_ID = os.getenv("AWS_ACCESS_KEY_ID")
-    AWS_SECRET_ACCESS_KEY = os.getenv("AWS_SECRET_ACCESS_KEY")
-    AWS_STORAGE_BUCKET_NAME = os.getenv("AWS_STORAGE_BUCKET_NAME")
-    AWS_S3_REGION_NAME = os.getenv("AWS_S3_REGION_NAME")
+    AWS_ACCESS_KEY_ID = get_env_or_raise("AWS_ACCESS_KEY_ID")
+    AWS_SECRET_ACCESS_KEY = get_env_or_raise("AWS_SECRET_ACCESS_KEY")
+    AWS_STORAGE_BUCKET_NAME = get_env_or_raise("AWS_STORAGE_BUCKET_NAME")
+    AWS_S3_REGION_NAME = get_env_or_raise("AWS_S3_REGION_NAME")
 
     AWS_DEFAULT_ACL = None
     AWS_QUERYSTRING_AUTH = True
@@ -204,10 +213,10 @@ if STORAGE_PROVIDER == "s3":
 
 elif STORAGE_PROVIDER == "minio":
     DEFAULT_FILE_STORAGE = "storages.backends.s3boto3.S3Boto3Storage"
-    AWS_ACCESS_KEY_ID = os.getenv("AWS_ACCESS_KEY_ID")
-    AWS_SECRET_ACCESS_KEY = os.getenv("AWS_SECRET_ACCESS_KEY")
-    AWS_STORAGE_BUCKET_NAME = os.getenv("AWS_STORAGE_BUCKET_NAME")
-    AWS_S3_ENDPOINT_URL = os.getenv("AWS_S3_ENDPOINT_URL")
+    AWS_ACCESS_KEY_ID = get_env_or_raise("AWS_ACCESS_KEY_ID")
+    AWS_SECRET_ACCESS_KEY = get_env_or_raise("AWS_SECRET_ACCESS_KEY")
+    AWS_STORAGE_BUCKET_NAME = get_env_or_raise("AWS_STORAGE_BUCKET_NAME")
+    AWS_S3_ENDPOINT_URL = get_env_or_raise("AWS_S3_ENDPOINT_URL")
 
     AWS_DEFAULT_ACL = None
     AWS_QUERYSTRING_AUTH = True
@@ -215,16 +224,16 @@ elif STORAGE_PROVIDER == "minio":
 
 elif STORAGE_PROVIDER == "azure":
     DEFAULT_FILE_STORAGE = "storages.backends.azure_storage.AzureStorage"
-    AZURE_ACCOUNT_NAME = os.getenv("AZURE_ACCOUNT_NAME")
-    AZURE_ACCOUNT_KEY = os.getenv("AZURE_ACCOUNT_KEY")
-    AZURE_CONTAINER_NAME = os.getenv("AZURE_CONTAINER_NAME")
+    AZURE_ACCOUNT_NAME = get_env_or_raise("AZURE_ACCOUNT_NAME")
+    AZURE_ACCOUNT_KEY = get_env_or_raise("AZURE_ACCOUNT_KEY")
+    AZURE_CONTAINER_NAME = get_env_or_raise("AZURE_CONTAINER_NAME")
 
     AZURE_OVERWRITE_FILES = False
 
 elif STORAGE_PROVIDER == "gcs":
     DEFAULT_FILE_STORAGE = "storages.backends.gcloud.GoogleCloudStorage"
-    GS_BUCKET_NAME = os.getenv("GS_BUCKET_NAME")
-    GS_CREDENTIALS = os.getenv("GS_CREDENTIALS")
+    GS_BUCKET_NAME = get_env_or_raise("GS_BUCKET_NAME")
+    GS_CREDENTIALS = get_env_or_raise("GS_CREDENTIALS")
 
     GS_DEFAULT_ACL = "private"
     GS_QUERYSTRING_AUTH = True
@@ -232,3 +241,6 @@ elif STORAGE_PROVIDER == "gcs":
 
 elif STORAGE_PROVIDER == "local":
     DEFAULT_FILE_STORAGE = "django.core.files.storage.FileSystemStorage"
+
+else:
+    raise ImproperlyConfigured(f"Unknown STORAGE_PROVIDER: {STORAGE_PROVIDER}")

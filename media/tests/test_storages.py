@@ -1,4 +1,4 @@
-from unittest.mock import patch
+from unittest.mock import PropertyMock, patch
 
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import TestCase, TransactionTestCase, override_settings
@@ -119,47 +119,65 @@ class CloudStorageIntegrationTests(TransactionTestCase):
 class SecurityConfigurationTests(TestCase):
 
     @override_settings(
+        AWS_ACCESS_KEY_ID="fake-key",
+        AWS_SECRET_ACCESS_KEY="fake-secret",
         AWS_DEFAULT_ACL=None,
         AWS_QUERYSTRING_AUTH=True,
         AWS_S3_FILE_OVERWRITE=False,
         AWS_S3_SIGNATURE_VERSION="s3v4",
     )
-    def test_s3_storage_security_parameters_are_applied(self):
-
+    @patch(
+        "storages.backends.s3boto3.S3Boto3Storage.connection", new_callable=PropertyMock
+    )
+    def test_s3_storage_security_parameters_are_applied(self, mock_connection):
         storage = S3Boto3Storage()
 
         self.assertIsNone(storage.default_acl)
-
         self.assertTrue(storage.querystring_auth)
-
         self.assertFalse(storage.file_overwrite)
 
     @override_settings(
-        AWS_DEFAULT_ACL=None, AWS_QUERYSTRING_AUTH=True, AWS_S3_FILE_OVERWRITE=False
+        AWS_ACCESS_KEY_ID="fake-key",
+        AWS_SECRET_ACCESS_KEY="fake-secret",
+        AWS_DEFAULT_ACL=None,
+        AWS_QUERYSTRING_AUTH=True,
+        AWS_S3_FILE_OVERWRITE=False,
     )
-    def test_minio_storage_security_parameters_are_applied(self):
+    @patch(
+        "storages.backends.s3boto3.S3Boto3Storage.connection", new_callable=PropertyMock
+    )
+    def test_minio_storage_security_parameters_are_applied(self, mock_connection):
         storage = S3Boto3Storage()
 
         self.assertIsNone(storage.default_acl)
-
         self.assertTrue(storage.querystring_auth)
-
         self.assertFalse(storage.file_overwrite)
 
-    @override_settings(AZURE_OVERWRITE_FILES=False)
-    def test_azure_storage_security_parameters_are_applied(self):
+    @override_settings(
+        AZURE_ACCOUNT_NAME="fake-account",
+        AZURE_ACCOUNT_KEY="fake-key",
+        AZURE_OVERWRITE_FILES=False,
+    )
+    @patch(
+        "storages.backends.azure_storage.AzureStorage.client", new_callable=PropertyMock
+    )
+    def test_azure_storage_security_parameters_are_applied(self, mock_client):
         storage = AzureStorage()
 
         self.assertFalse(storage.overwrite_files)
 
     @override_settings(
-        GS_FILE_OVERWRITE=False, GS_QUERYSTRING_AUTH=True, GS_DEFAULT_ACL=None
+        GS_CREDENTIALS="fake-credentials",
+        GS_FILE_OVERWRITE=False,
+        GS_QUERYSTRING_AUTH=True,
+        GS_DEFAULT_ACL=None,
     )
-    def test_gcs_storage_security_parameters_are_applied(self):
+    @patch(
+        "storages.backends.gcloud.GoogleCloudStorage.client", new_callable=PropertyMock
+    )
+    def test_gcs_storage_security_parameters_are_applied(self, mock_client):
         storage = GoogleCloudStorage()
 
         self.assertIsNone(storage.default_acl)
-
         self.assertTrue(storage.querystring_auth)
-
         self.assertFalse(storage.file_overwrite)
