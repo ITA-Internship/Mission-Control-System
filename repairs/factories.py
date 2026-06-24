@@ -2,10 +2,7 @@ import datetime
 
 import factory
 
-from drones.factories import (
-    AdminUserFactory,
-    DroneFactory,
-)
+from drones.factories import AdminUserFactory, DroneFactory
 
 from .models import ComponentType, DefectType, RepairOrderStatus, Severity
 
