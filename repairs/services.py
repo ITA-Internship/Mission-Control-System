@@ -54,7 +54,7 @@ def update_defect_status(
 ):
     try:
         defect = (
-            DefectReport.objects.select_related("drone", "reporter")
+            DefectReport.objects
             .select_for_update()
             .get(pk=defect_id)
         )

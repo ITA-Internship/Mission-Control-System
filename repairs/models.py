@@ -186,7 +186,7 @@ class RepairOrder(models.Model):
 class RepairEvent(models.Model):
     defect_report = models.ForeignKey(
         DefectReport,
-        on_delete=models.CASCADE,
+        on_delete=models.PROTECT,
         related_name="repair_events",
     )
     from_status = models.CharField(max_length=20, choices=RepairStatus.choices)
