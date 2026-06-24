@@ -1,5 +1,5 @@
 from django.db import transaction
-from django.db.models.signals import post_delete, pre_save
+from django.db.models.signals import post_delete, post_init, pre_save
 from django.dispatch import receiver
 
 from .models import VideoMetadata
@@ -13,12 +13,16 @@ def _safe_delete_file(storage, file_name):
         pass
 
 
+@receiver(post_init, sender=VideoMetadata)
+def store_initial_file(sender, instance, **kwargs):
+    instance._initial_file_name = instance.file.name if instance.file else None
+
+
 @receiver(post_delete, sender=VideoMetadata)
 def delete_file_on_metadata_delete(sender, instance, **kwargs):
     if instance.file:
         storage = instance.file.storage
         file_name = instance.file.name
-
         transaction.on_commit(lambda: _safe_delete_file(storage, file_name))
 
 
@@ -27,17 +31,8 @@ def delete_old_file_on_replace(sender, instance, **kwargs):
     if not instance.pk:
         return
 
-    try:
-        old_instance = VideoMetadata.objects.filter(pk=instance.pk).first()
-        if not old_instance:
-            return
+    initial_file_name = getattr(instance, "_initial_file_name", None)
 
-        old_file = old_instance.file
-    except Exception:
-        return
-
-    if old_file and old_file.name != instance.file.name:
-        storage = old_file.storage
-        old_file_name = old_file.name
-
-        transaction.on_commit(lambda: _safe_delete_file(storage, old_file_name))
+    if initial_file_name and instance.file and initial_file_name != instance.file.name:
+        storage = instance.file.storage
+        transaction.on_commit(lambda: _safe_delete_file(storage, initial_file_name))
