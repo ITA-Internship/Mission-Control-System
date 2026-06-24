@@ -115,8 +115,7 @@ class VideoMetadataViewSet(viewsets.ModelViewSet):
         return VideoMetadataSerializer
 
     def get_queryset(self):
-        qs = VideoMetadata.objects.select_related("mission", "drone", "uploader").all()
-
+        qs = super().get_queryset()
         params = self.request.query_params
 
         for param, field in (
@@ -165,8 +164,7 @@ class VideoMetadataViewSet(viewsets.ModelViewSet):
         return [permission() for permission in permission_classes]
 
     def perform_create(self, serializer):
-        with transaction.atomic():
-            serializer.save()
+        serializer.save(uploader=self.request.user)
 
     def perform_destroy(self, instance):
         try:
