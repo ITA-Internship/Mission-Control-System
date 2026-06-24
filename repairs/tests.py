@@ -1481,6 +1481,9 @@ class RepairOrderProtectTests(APITestCase):
             order.drone.delete()
 
 
+# ─── Defect Status Update Tests (from develop) ─────────────────────
+
+
 class DefectStatusUpdateTests(APITestCase):
     def setUp(self):
         self.drone = DroneFactory()

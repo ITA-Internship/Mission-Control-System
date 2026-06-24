@@ -7,6 +7,7 @@ from .views import (
     DroneDetailView,
     DroneListCreateView,
     DroneModelListCreateView,
+    WriteOffRecordListCreateView,
 )
 
 app_name = "drones"
@@ -18,4 +19,7 @@ urlpatterns = [
     path("models/", DroneModelListCreateView.as_view(), name="drone-model-create"),
     path("import/", DroneDataImportView.as_view(), name="drone-import"),
     path("export/", DroneDataExportView.as_view(), name="drone-export"),
+    path(
+        "write-offs/", WriteOffRecordListCreateView.as_view(), name="write-off-create"
+    ),
 ]

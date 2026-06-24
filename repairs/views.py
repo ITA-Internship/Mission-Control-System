@@ -200,10 +200,13 @@ class ComponentReplacementExportView(generics.GenericAPIView):
         return response
 
 
-class DefectUIDetailView(LoginRequiredMixin, DetailView):
+class DefectUIDetailView(LoginRequiredMixin, UserPassesTestMixin, DetailView):
     model = DefectReport
     template_name = "repairs/defect_detail.html"
     context_object_name = "defect"
+
+    def test_func(self):
+        return user_has_permission(self.request.user, PERMISSION_REPAIRS_VIEW)
 
 
 class RepairOrderListCreateView(generics.ListCreateAPIView):
