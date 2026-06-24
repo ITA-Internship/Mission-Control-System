@@ -4,6 +4,7 @@ from django.utils import timezone
 from rest_framework import serializers
 
 from .models import (
+    REPAIR_ORDER_TRANSITIONS,
     ComponentReplacement,
     ComponentType,
     DefectReport,
@@ -11,7 +12,6 @@ from .models import (
     RepairOrder,
     RepairOrderStatus,
     RepairStatus,
-    REPAIR_ORDER_TRANSITIONS,
 )
 from .services import (
     add_component_replacement,
@@ -33,7 +33,9 @@ class DateRangeSerializer(serializers.Serializer):
         date_from = attrs.get("date_from")
         date_to = attrs.get("date_to")
         if date_from and date_to and date_from > date_to:
-            raise serializers.ValidationError("date_from must be before or equal to date_to.")
+            raise serializers.ValidationError(
+                "date_from must be before or equal to date_to."
+            )
         return attrs
 
 

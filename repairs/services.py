@@ -12,13 +12,13 @@ from accounts.rbac import PERMISSION_REPAIRS_MANAGE, PERMISSION_REPAIRS_VERIFY
 from common.utils import EchoBuffer
 
 from .models import (
+    REPAIR_ORDER_TRANSITIONS,
     ComponentReplacement,
     DefectReport,
     RepairEvent,
     RepairOrder,
     RepairOrderStatus,
     RepairStatus,
-    REPAIR_ORDER_TRANSITIONS,
 )
 
 
@@ -49,15 +49,9 @@ def create_defect_report(
 
 
 @transaction.atomic
-def update_defect_status(
-    *, defect_id: int, new_status: str, action_taken: str, user
-):
+def update_defect_status(*, defect_id: int, new_status: str, action_taken: str, user):
     try:
-        defect = (
-            DefectReport.objects
-            .select_for_update()
-            .get(pk=defect_id)
-        )
+        defect = DefectReport.objects.select_for_update().get(pk=defect_id)
     except DefectReport.DoesNotExist:
         raise ValidationError({"detail": "Defect report not found."})
     old_status = defect.status
@@ -259,7 +253,10 @@ def get_drone_repair_history(
                 {
                     "event_type": "status_change",
                     "timestamp": e.created_at,
-                    "summary": f"Defect #{e.defect_report_id}: {e.from_status} -> {e.to_status}",
+                    "summary": (
+                        f"Defect #{e.defect_report_id}: "
+                        f"{e.from_status} -> {e.to_status}"
+                    ),
                     "details": {
                         "id": e.id,
                         "defect_report_id": e.defect_report_id,

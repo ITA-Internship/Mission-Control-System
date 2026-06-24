@@ -2,7 +2,7 @@ import csv
 
 from django.conf import settings
 from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
-from django.http import HttpResponseForbidden, StreamingHttpResponse
+from django.http import StreamingHttpResponse
 from django.shortcuts import get_object_or_404
 from django.views.generic import DetailView, TemplateView
 from django_filters.rest_framework import DjangoFilterBackend

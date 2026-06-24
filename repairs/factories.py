@@ -5,8 +5,6 @@ import factory
 from drones.factories import (
     AdminUserFactory,
     DroneFactory,
-    MilitaryUnitFactory,
-    ViewerUserFactory,
 )
 
 from .models import ComponentType, DefectType, RepairOrderStatus, Severity
