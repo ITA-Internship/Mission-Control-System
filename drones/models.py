@@ -3,8 +3,6 @@ import uuid
 from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.db import models
-from django.db.models.signals import pre_delete
-from django.dispatch import receiver
 from django.utils import timezone
 
 
@@ -423,7 +421,7 @@ class WriteOffRecord(models.Model):
             )
 
     def save(self, *args, **kwargs):
-        if self.pk and type(self).objects.filter(pk=self.pk).exists():
+        if not self._state.adding:
             raise ValidationError(
                 "Write-off records are immutable and cannot be edited after creation."
             )
@@ -433,11 +431,6 @@ class WriteOffRecord(models.Model):
 
     def delete(self, *args, **kwargs):
         raise ValidationError("Write-off records are immutable and cannot be deleted.")
-
-
-@receiver(pre_delete, sender=WriteOffRecord)
-def prevent_writeoff_record_delete(sender, instance, **kwargs):
-    raise ValidationError("Write-off records are immutable and cannot be deleted.")
 
 
 class DroneStatusHistory(models.Model):

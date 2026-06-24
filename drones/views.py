@@ -14,8 +14,8 @@ from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import filters, generics, status
 from rest_framework.response import Response
 
-from accounts.permissions import HasRBACPermission, user_has_permission
-from accounts.rbac import PERMISSION_SPECIFICATIONS_COMPARE, PERMISSION_WRITEOFF_VIEW
+from accounts.permissions import HasRBACPermission
+from accounts.rbac import PERMISSION_SPECIFICATIONS_COMPARE
 from common.pagination import StandardResultsSetPagination
 
 from .filters import DroneFilter, WriteOffRecordFilter
@@ -273,20 +273,11 @@ class WriteOffHistoryReportView(ListView):
     context_object_name = "writeoff_records"
     paginate_by = 50
 
-    def has_writeoff_history_permission(self, user):
-        if not user or not user.is_authenticated:
-            return False
-
-        if getattr(user, "is_staff", False):
-            return True
-
-        return user_has_permission(user, PERMISSION_WRITEOFF_VIEW)
-
     def dispatch(self, request, *args, **kwargs):
-        if not self.has_writeoff_history_permission(request.user):
-            raise PermissionDenied(
-                "You do not have permission to view write-off history."
-            )
+        permission = WriteOffHistoryPermission()
+
+        if not permission._has_permission(request.user):
+            raise PermissionDenied(permission.message)
 
         return super().dispatch(request, *args, **kwargs)
 
