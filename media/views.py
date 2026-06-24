@@ -23,6 +23,7 @@ from .serializers import (
     VideoUploadSerializer,
 )
 from .services import delete_artifact, upload_artifact
+from .tasks import extract_video_duration_task
 
 
 class _MissionArtifactMixin:
@@ -164,7 +165,9 @@ class VideoMetadataViewSet(viewsets.ModelViewSet):
         return [permission() for permission in permission_classes]
 
     def perform_create(self, serializer):
-        serializer.save(uploader=self.request.user)
+        instance = serializer.save(uploader=self.request.user, status="PROCESSING")
+
+        extract_video_duration_task.delay(instance.id)
 
     def perform_destroy(self, instance):
         try:
