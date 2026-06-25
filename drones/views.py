@@ -221,6 +221,7 @@ class DroneModelListCreateView(generics.ListCreateAPIView):
     serializer_class = DroneModelSerializer
     permission_classes = [DronePermission]
     queryset = DroneModel.objects.all()
+    pagination_class = StandardResultsSetPagination
 
 
 class DroneDataExportView(generics.ListAPIView):

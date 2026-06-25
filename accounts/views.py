@@ -1,14 +1,13 @@
 import csv
 
 from django.conf import settings
+from django.contrib.auth import update_session_auth_hash
 from django.contrib.auth.tokens import default_token_generator
-from django.contrib.sessions.models import Session
 from django.core.exceptions import ValidationError as DjangoValidationError
 from django.core.mail import send_mail
 from django.db.models import Q
 from django.http import StreamingHttpResponse
 from django.shortcuts import get_object_or_404
-from django.utils import timezone
 from django.utils.encoding import force_bytes, force_str
 from django.utils.http import urlsafe_base64_decode, urlsafe_base64_encode
 from django_filters import rest_framework as filters
@@ -239,9 +238,6 @@ class UserStatusUpdateView(APIView):
             request=request,
         )
 
-        if not new_status:
-            invalidate_user_sessions(target_user)
-
         return Response(
             {"detail": "User status updated successfully.", "is_active": new_status},
             status=status.HTTP_200_OK,
@@ -268,14 +264,6 @@ class UserMeView(generics.RetrieveUpdateAPIView):
         )
 
 
-def invalidate_user_sessions(user):
-    active_sessions = Session.objects.filter(expire_date__gte=timezone.now())
-    for session in active_sessions:
-        data = session.get_decoded()
-        if str(user.pk) == str(data.get("_auth_user_id")):
-            session.delete()
-
-
 class ChangePasswordView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
@@ -289,7 +277,7 @@ class ChangePasswordView(APIView):
             user.set_password(serializer.validated_data["new_password"])
             user.save()
 
-            invalidate_user_sessions(user)
+            update_session_auth_hash(request, user)
 
             create_audit_log(
                 actor=user,
@@ -381,8 +369,6 @@ class PasswordResetConfirmView(APIView):
             new_password = serializer.validated_data["new_password"]
             user.set_password(new_password)
             user.save()
-
-            invalidate_user_sessions(user)
 
             create_audit_log(
                 actor=user,

@@ -1,7 +1,6 @@
 from django.db import transaction
 from rest_framework import generics, permissions
 from rest_framework.exceptions import ValidationError
-from rest_framework.pagination import PageNumberPagination
 
 from accounts.permissions import HasRBACPermission
 from accounts.rbac import (
@@ -9,6 +8,7 @@ from accounts.rbac import (
     PERMISSION_MISSIONS_RECORD_OUTCOME,
     PERMISSION_MISSIONS_UPDATE_STATUS,
 )
+from common.pagination import StandardResultsSetPagination
 
 from .models import Mission, MissionAuditLog, MissionDrone, Status
 from .permissions import (
@@ -38,16 +38,10 @@ class MissionsRecordConditionRBAC(HasRBACPermission):
     required_permission = PERMISSION_MISSIONS_RECORD_CONDITION
 
 
-class MissionPagination(PageNumberPagination):
-    page_size = 10
-    page_size_query_param = "page_size"
-    max_page_size = 50
-
-
 class MissionListCreateView(generics.ListCreateAPIView):
     serializer_class = MissionSerializer
     permission_classes = [permissions.IsAuthenticated, IsDispatcherOrAdmin]
-    pagination_class = MissionPagination
+    pagination_class = StandardResultsSetPagination
 
     def get_queryset(self):
         queryset = Mission.objects.with_related()
@@ -152,6 +146,7 @@ class MissionStatusUpdateView(generics.RetrieveUpdateAPIView):
 class MissionAssignmentListCreateView(generics.ListCreateAPIView):
     serializer_class = MissionDroneSerializer
     permission_classes = [permissions.IsAuthenticated, IsDispatcherOrAdmin]
+    pagination_class = StandardResultsSetPagination
 
     def get_mission(self):
         if not hasattr(self, "_mission"):

@@ -2,6 +2,7 @@ from datetime import timedelta
 
 from django.contrib.auth import get_user_model
 from django.db import IntegrityError, transaction
+from django.db.models import Q
 from django.utils import timezone
 from rest_framework import serializers
 
@@ -20,7 +21,6 @@ from .models import (
     Status,
 )
 from .services import (
-    _check_overlap,
     assign_drone_to_mission,
     record_drone_condition,
     record_mission_outcome,
@@ -212,25 +212,33 @@ class MissionSerializer(serializers.ModelSerializer):
             drones_to_check, operators_to_check = [], []
 
         if drones_to_check or operators_to_check:
-            # Reuse the service-layer overlap rule so the two paths cannot
-            # drift. _check_overlap reads started_at/ended_at off the mission
-            # and excludes ``mission`` itself, so we hand it an in-memory probe
-            # carrying the resolved time window. On create there is no mission
-            # yet; id=0 excludes a row that can never exist (real ids start
-            # at 1), matching the "exclude nothing" behaviour we want.
-            probe = Mission(
-                id=self.instance.id if self.instance else 0,
-                started_at=started_at,
-                ended_at=ended_at,
+
+            drone_ids = [d.id for d in drones_to_check]
+            operator_ids = [o.id for o in operators_to_check]
+            mission_id = self.instance.id if self.instance else 0
+
+            time_filter = Q()
+            if ended_at:
+                time_filter &= Q(mission__started_at__lt=ended_at)
+            if started_at:
+                time_filter &= Q(mission__ended_at__gt=started_at) | Q(
+                    mission__ended_at__isnull=True
+                )
+
+            conflicts = (
+                MissionDrone.objects.filter(
+                    mission__status__in=[Status.ACTIVE, Status.PLANNED]
+                )
+                .exclude(mission_id=mission_id)
+                .filter(time_filter)
+                .filter(Q(drone_id__in=drone_ids) | Q(operator_id__in=operator_ids))
+                .select_related("drone", "operator")
             )
 
             busy_drones = sorted(
-                {
-                    drone.name
-                    for drone in drones_to_check
-                    if _check_overlap(probe, drone=drone)
-                }
+                {md.drone.name for md in conflicts if md.drone_id in drone_ids}
             )
+
             if busy_drones:
                 raise serializers.ValidationError(
                     "The following drones are already booked "
@@ -239,11 +247,12 @@ class MissionSerializer(serializers.ModelSerializer):
 
             busy_operators = sorted(
                 {
-                    operator.username
-                    for operator in operators_to_check
-                    if _check_overlap(probe, operator=operator)
+                    md.operator.username
+                    for md in conflicts
+                    if md.operator_id in operator_ids
                 }
             )
+
             if busy_operators:
                 raise serializers.ValidationError(
                     "The following operators are already assigned"
