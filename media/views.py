@@ -25,6 +25,7 @@ from .serializers import (
     VideoUploadSerializer,
 )
 from .services import delete_artifact, upload_artifact
+from .tasks import extract_video_duration_task
 
 
 def filter_video_metadata_queryset(params, queryset=None):
@@ -162,7 +163,42 @@ class VideoMetadataViewSet(viewsets.ModelViewSet):
         return VideoMetadataSerializer
 
     def get_queryset(self):
-        return filter_video_metadata_queryset(self.request.query_params)
+        qs = super().get_queryset()
+        params = self.request.query_params
+
+        for param, field in (
+            ("mission", "mission_id"),
+            ("drone", "drone_id"),
+            ("uploader", "uploader_id"),
+        ):
+            value = params.get(param)
+            if value:
+                if not value.isdigit():
+                    raise ValidationError({param: "Must be an integer."})
+                qs = qs.filter(**{field: int(value)})
+
+        status_value = params.get("status")
+        if status_value:
+            if status_value not in VideoMetadata.Status.values:
+                raise ValidationError(
+                    {"status": f"Must be one of {VideoMetadata.Status.values}."}
+                )
+            qs = qs.filter(status=status_value)
+
+        for date_param, lookup in (
+            ("created_after", "created_at__date__gte"),
+            ("created_before", "created_at__date__lte"),
+            ("recorded_after", "recorded_at__date__gte"),
+            ("recorded_before", "recorded_at__date__lte"),
+        ):
+            raw_value = params.get(date_param)
+            if raw_value:
+                parsed = parse_date(raw_value)
+                if parsed is None:
+                    raise ValidationError({date_param: "Expected format YYYY-MM-DD."})
+                qs = qs.filter(**{lookup: parsed})
+
+        return qs
 
     def get_permissions(self):
         if self.action in ["list", "retrieve"]:
@@ -176,8 +212,9 @@ class VideoMetadataViewSet(viewsets.ModelViewSet):
         return [permission() for permission in permission_classes]
 
     def perform_create(self, serializer):
-        with transaction.atomic():
-            serializer.save()
+        instance = serializer.save(uploader=self.request.user, status="PROCESSING")
+
+        extract_video_duration_task.delay(instance.id)
 
     def perform_destroy(self, instance):
         try:
