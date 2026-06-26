@@ -11,9 +11,6 @@ class RepairPermission(BasePermission):
         if not user or not user.is_authenticated:
             return False
 
-        if getattr(user, "is_staff", False):
-            return True
-
         return user_has_permission(user, permission_code)
 
     def has_permission(self, request, view):
