@@ -159,6 +159,12 @@ MEDIA_ROOT = BASE_DIR / "mediafiles"
 # Artifact upload limits (configurable via environment)
 ARTIFACT_MAX_FILE_SIZE_MB = int(os.getenv("ARTIFACT_MAX_FILE_SIZE_MB", "50"))
 
+# Number of trusted reverse proxies (e.g. nginx, load balancer) sitting in front
+# of Django. Used to safely resolve the real client IP from X-Forwarded-For:
+# only the rightmost `TRUSTED_PROXY_COUNT` entries are appended by our own infra
+# and can be trusted. Set to 0 when Django is exposed directly (no proxy).
+TRUSTED_PROXY_COUNT = int(os.getenv("TRUSTED_PROXY_COUNT", "0"))
+
 # Allowed file extensions for artifact uploads, grouped by file type.
 ARTIFACT_ALLOWED_EXTENSIONS = {
     "video": [".mp4", ".avi", ".mov"],
