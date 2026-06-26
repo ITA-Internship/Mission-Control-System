@@ -760,11 +760,40 @@ class MissionCreateTests(APITestCase):
         self.assertEqual(Mission.objects.get().status, "planned")
 
 
+class MissionAssignmentAccessTests(APITestCase):
+    def setUp(self):
+        self.dispatcher = DispatcherUserFactory()
+        self.viewer = ViewerUserFactory()
+        self.mission = MissionFactory()
+        MissionDroneFactory(mission=self.mission)
+        self.url = reverse(
+            "missions:mission-assignment-list-create",
+            kwargs={"mission_pk": self.mission.pk},
+        )
+
+    def test_dispatcher_can_list_assignments(self):
+        self.client.force_authenticate(self.dispatcher)
+
+        response = self.client.get(self.url)
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data), 1)
+
+    def test_viewer_cannot_list_assignments(self):
+        self.client.force_authenticate(self.viewer)
+
+        response = self.client.get(self.url)
+
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+
 class MissionListTests(APITestCase):
     """GET /api/missions/ — list, status filter, pagination."""
 
     def setUp(self):
+        self.commander = CommanderUserFactory()
         self.dispatcher = DispatcherUserFactory()
+        self.operator = OperatorUserFactory()
         self.viewer = ViewerUserFactory()
 
         self.url = reverse("missions:mission-list-create")
@@ -776,16 +805,50 @@ class MissionListTests(APITestCase):
 
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
 
-    def test_authenticated_user_can_list(self):
+    def test_dispatcher_can_list_all_missions(self):
         MissionFactory()
+        MissionFactory()
+
+        self.client.force_authenticate(self.dispatcher)
+
+        response = self.client.get(self.url)
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["count"], 2)
+
+    def test_commander_can_list_all_missions(self):
+        MissionFactory()
+        MissionFactory()
+
+        self.client.force_authenticate(self.commander)
+
+        response = self.client.get(self.url)
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["count"], 2)
+
+    def test_operator_only_sees_assigned_missions(self):
+        assigned_mission = MissionFactory()
+        other_mission = MissionFactory()
+        MissionDroneFactory(mission=assigned_mission, operator=self.operator)
+        MissionDroneFactory(mission=other_mission)
+
+        self.client.force_authenticate(self.operator)
+
+        response = self.client.get(self.url)
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["count"], 1)
+        self.assertEqual(response.data["results"][0]["id"], assigned_mission.id)
+
+    def test_viewer_cannot_list_missions(self):
         MissionFactory()
 
         self.client.force_authenticate(self.viewer)
 
         response = self.client.get(self.url)
 
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(response.data["count"], 2)
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
 
     def test_filter_by_status(self):
         MissionFactory(status="planned")
@@ -860,8 +923,15 @@ class MissionDetailTests(APITestCase):
     """GET /api/missions/{id}/ — retrieve detail."""
 
     def setUp(self):
+        self.dispatcher = DispatcherUserFactory()
+        self.operator = OperatorUserFactory()
+        self.other_operator = OperatorUserFactory()
         self.viewer = ViewerUserFactory()
         self.mission = MissionFactory(title="Detail Mission")
+        self.assignment = MissionDroneFactory(
+            mission=self.mission,
+            operator=self.operator,
+        )
 
         self.url = reverse(
             "missions:mission-detail",
@@ -873,8 +943,8 @@ class MissionDetailTests(APITestCase):
 
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
 
-    def test_authenticated_user_can_retrieve(self):
-        self.client.force_authenticate(self.viewer)
+    def test_dispatcher_can_retrieve(self):
+        self.client.force_authenticate(self.dispatcher)
 
         response = self.client.get(self.url)
 
@@ -882,8 +952,30 @@ class MissionDetailTests(APITestCase):
         self.assertEqual(response.data["id"], self.mission.pk)
         self.assertEqual(response.data["title"], "Detail Mission")
 
-    def test_nonexistent_mission_returns_404(self):
+    def test_assigned_operator_can_retrieve(self):
+        self.client.force_authenticate(self.operator)
+
+        response = self.client.get(self.url)
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["id"], self.mission.pk)
+
+    def test_unassigned_operator_gets_404(self):
+        self.client.force_authenticate(self.other_operator)
+
+        response = self.client.get(self.url)
+
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+
+    def test_viewer_cannot_retrieve(self):
         self.client.force_authenticate(self.viewer)
+
+        response = self.client.get(self.url)
+
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_nonexistent_mission_returns_404(self):
+        self.client.force_authenticate(self.dispatcher)
 
         url = reverse("missions:mission-detail", kwargs={"pk": 99999})
 

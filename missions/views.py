@@ -9,9 +9,11 @@ from accounts.rbac import (
     PERMISSION_MISSIONS_RECORD_OUTCOME,
     PERMISSION_MISSIONS_UPDATE_STATUS,
 )
+from roles.models import OPERATOR_CODE
 
 from .models import Mission, MissionAuditLog, MissionDrone, Status
 from .permissions import (
+    CanViewMission,
     CanUpdateMissionStatus,
     IsAssignedOperatorOrAdmin,
     IsDispatcherOrAdmin,
@@ -46,11 +48,23 @@ class MissionPagination(PageNumberPagination):
 
 class MissionListCreateView(generics.ListCreateAPIView):
     serializer_class = MissionSerializer
-    permission_classes = [permissions.IsAuthenticated, IsDispatcherOrAdmin]
     pagination_class = MissionPagination
+
+    def get_permissions(self):
+        if self.request.method in permissions.SAFE_METHODS:
+            permission_classes = [permissions.IsAuthenticated, CanViewMission]
+        else:
+            permission_classes = [permissions.IsAuthenticated, IsDispatcherOrAdmin]
+        return [permission() for permission in permission_classes]
 
     def get_queryset(self):
         queryset = Mission.objects.with_related()
+        user = self.request.user
+
+        role_code = getattr(getattr(user, "role", None), "code", None)
+        if role_code == OPERATOR_CODE:
+            queryset = queryset.filter(mission_drones__operator_id=user.id).distinct()
+
         status = self.request.query_params.get("status")
         if status:
             if status not in Status.values:
@@ -74,7 +88,6 @@ class MissionListCreateView(generics.ListCreateAPIView):
                     }
                 )
 
-            user = self.request.user
             queryset = queryset.filter(mission_drones__operator_id=user.id).distinct()
 
         return queryset
@@ -85,8 +98,17 @@ class MissionListCreateView(generics.ListCreateAPIView):
 
 class MissionDetailView(generics.RetrieveAPIView):
     serializer_class = MissionSerializer
-    permission_classes = [permissions.IsAuthenticated]
-    queryset = Mission.objects.with_related()
+    permission_classes = [permissions.IsAuthenticated, CanViewMission]
+
+    def get_queryset(self):
+        queryset = Mission.objects.with_related()
+        user = self.request.user
+        role_code = getattr(getattr(user, "role", None), "code", None)
+
+        if role_code == OPERATOR_CODE:
+            return queryset.filter(mission_drones__operator_id=user.id).distinct()
+
+        return queryset
 
 
 class MissionOutcomeView(generics.UpdateAPIView):
