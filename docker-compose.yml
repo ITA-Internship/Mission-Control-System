@@ -42,13 +42,13 @@ services:
     build: .
     container_name: mission_control_web
     restart: unless-stopped
-    command: ["gunicorn", "--bind", "0.0.0.0:8000", "--workers", "4", "config.wsgi:application"]
+    command: ["gunicorn", "--bind", "0.0.0.0:8000", "--workers", "4", "--timeout", "30", "--graceful-timeout", "15", "--keep-alive", "5", "--access-logfile", "-", "--error-logfile", "-", "config.wsgi:application"]
     volumes:
       - .:/app
       - static_data:/app/staticfiles
       - media_data:/app/mediafiles
-    ports:
-      - "8000:8000"
+    expose:
+      - "8000"
     env_file:
       - .env
     environment:
@@ -66,6 +66,19 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+    networks:
+      - mission_control_network
+
+  nginx:
+    image: nginx:1.27-alpine
+    container_name: mission_control_nginx
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:8000:80"
+    volumes:
+      - ./deploy/nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on:
+      - web
     networks:
       - mission_control_network
 

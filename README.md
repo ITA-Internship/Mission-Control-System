@@ -255,6 +255,8 @@ The application should be available at:
 http://localhost:8000/
 ```
 
+Docker Compose exposes `Nginx` on port `8000`. `Gunicorn` stays inside the Docker network and is no longer reachable directly from the host.
+
 The Django admin panel should be available at:
 
 ```text
@@ -267,9 +269,11 @@ If pgAdmin is enabled in Docker Compose, it should be available at:
 http://localhost:5050/
 ```
 
-For safer local development, the Docker Compose ports for PostgreSQL, Redis, and pgAdmin are bound to `127.0.0.1`, so they are reachable from the host machine only and are not exposed on the wider network by default.
+For safer local development, the Docker Compose ports for PostgreSQL, Redis, pgAdmin, and Nginx are bound to `127.0.0.1`, so they are reachable from the host machine only and are not exposed on the wider network by default.
 
 Redis is also configured with `requirepass`, so local tools that connect to it must use the password from `REDIS_PASSWORD`.
+
+Nginx sits in front of Gunicorn and applies basic request buffering and timeout limits to reduce exposure to slow-header, slow-body, and connection-exhaustion style attacks during local Docker-based runs.
 
 ## 💻 Running Locally
 
