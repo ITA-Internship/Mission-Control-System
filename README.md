@@ -191,7 +191,7 @@ DB_HOST=localhost
 DB_PORT=5433
 
 # Redis
-REDIS_URL=redis://redis:6379/0
+REDIS_PASSWORD=replace-with-a-strong-redis-password
 
 # pgAdmin
 PGADMIN_DEFAULT_EMAIL=admin@example.com
@@ -206,6 +206,8 @@ DB_PORT=5432
 ```
 
 For Docker-based development, the `web` container uses `DB_HOST=db` and `DB_PORT=5432`, because `db` is the PostgreSQL service name inside Docker Compose.
+
+When Redis is enabled in Docker Compose, the `web` container builds its internal `REDIS_URL` from `REDIS_PASSWORD`, so set a strong local password in `.env`.
 
 For local development without Docker, `DB_HOST` should usually be set to `localhost`.
 
@@ -266,6 +268,8 @@ http://localhost:5050/
 ```
 
 For safer local development, the Docker Compose ports for PostgreSQL, Redis, and pgAdmin are bound to `127.0.0.1`, so they are reachable from the host machine only and are not exposed on the wider network by default.
+
+Redis is also configured with `requirepass`, so local tools that connect to it must use the password from `REDIS_PASSWORD`.
 
 ## 💻 Running Locally
 
