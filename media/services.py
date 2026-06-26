@@ -14,7 +14,7 @@ logger = logging.getLogger(__name__)
 def _get_client_ip(request):
     if request is None:
         return None
-    
+
     trusted = getattr(settings, "TRUSTED_PROXY_COUNT", 0)
     x_forwarded_for = request.META.get("HTTP_X_FORWARDED_FOR")
     if x_forwarded_for and trusted > 0:
