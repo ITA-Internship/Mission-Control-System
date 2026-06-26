@@ -275,6 +275,14 @@ Redis is also configured with `requirepass`, so local tools that connect to it m
 
 Nginx sits in front of Gunicorn and applies basic request buffering and timeout limits to reduce exposure to slow-header, slow-body, and connection-exhaustion style attacks during local Docker-based runs.
 
+The bundled Nginx config also adds:
+- basic per-IP connection limits
+- stricter rate limiting for account activation and password reset routes
+- proxy buffering for upstream requests
+- common security headers such as `X-Frame-Options` and `X-Content-Type-Options`
+
+TLS is still a deployment concern. For a real production setup, terminate HTTPS in front of this stack with valid certificates and enable HSTS only after HTTPS is working end-to-end.
+
 ## 💻 Running Locally
 
 Use this option if you want to run the Django project directly on your machine without Docker.
