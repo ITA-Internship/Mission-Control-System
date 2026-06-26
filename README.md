@@ -426,6 +426,8 @@ The project includes a Django management command for loading representative demo
 
 Security note: `seed_db` is intended for isolated local development only. Do not run it in shared, staging, or production-like environments.
 
+When the app starts with `DEBUG=False`, the container entrypoint also runs `python manage.py disable_seeded_users` to deactivate any previously created seeded demo accounts.
+
 Run the full seed:
 
 ```bash

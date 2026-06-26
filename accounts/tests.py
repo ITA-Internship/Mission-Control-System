@@ -6,6 +6,7 @@ from django.test import TestCase, override_settings
 from django.urls import reverse
 from django.utils.encoding import force_bytes
 from django.utils.http import urlsafe_base64_encode
+from io import StringIO
 from rest_framework import status
 from rest_framework.test import APITestCase
 
@@ -98,6 +99,21 @@ class SeedDbSecurityTests(TestCase):
         self.assertEqual(stats["users_created"], 11)
         self.assertTrue(seeded_user.check_password(seed_password))
         self.assertTrue(seeded_user.must_change_password)
+
+    def test_disable_seeded_users_deactivates_existing_seeded_accounts(self):
+        seed_users(seed_password="TemporarySeedPassword@123")
+        out = StringIO()
+
+        call_command("disable_seeded_users", stdout=out)
+
+        seeded_user = User.objects.get(username="root.admin")
+        operator_user = User.objects.get(username="operator.alpha")
+
+        self.assertFalse(seeded_user.is_active)
+        self.assertFalse(seeded_user.is_staff)
+        self.assertFalse(seeded_user.is_superuser)
+        self.assertFalse(operator_user.is_active)
+        self.assertIn("Disabled 11 seeded user(s)", out.getvalue())
 
 
 @override_settings(
