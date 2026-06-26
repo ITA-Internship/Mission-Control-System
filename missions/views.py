@@ -8,6 +8,7 @@ from accounts.rbac import (
     PERMISSION_MISSIONS_RECORD_CONDITION,
     PERMISSION_MISSIONS_RECORD_OUTCOME,
     PERMISSION_MISSIONS_UPDATE_STATUS,
+    PERMISSION_MISSIONS_VIEW,
 )
 
 from .models import Mission, MissionAuditLog, MissionDrone, Status
@@ -38,6 +39,10 @@ class MissionsRecordConditionRBAC(HasRBACPermission):
     required_permission = PERMISSION_MISSIONS_RECORD_CONDITION
 
 
+class MissionsViewRBAC(HasRBACPermission):
+    required_permission = PERMISSION_MISSIONS_VIEW
+
+
 class MissionPagination(PageNumberPagination):
     page_size = 10
     page_size_query_param = "page_size"
@@ -46,7 +51,11 @@ class MissionPagination(PageNumberPagination):
 
 class MissionListCreateView(generics.ListCreateAPIView):
     serializer_class = MissionSerializer
-    permission_classes = [permissions.IsAuthenticated, IsDispatcherOrAdmin]
+    permission_classes = [
+        permissions.IsAuthenticated,
+        MissionsViewRBAC,
+        IsDispatcherOrAdmin,
+    ]
     pagination_class = MissionPagination
 
     def get_queryset(self):
@@ -85,7 +94,7 @@ class MissionListCreateView(generics.ListCreateAPIView):
 
 class MissionDetailView(generics.RetrieveAPIView):
     serializer_class = MissionSerializer
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [permissions.IsAuthenticated, MissionsViewRBAC]
     queryset = Mission.objects.with_related()
 
 
@@ -148,7 +157,11 @@ class MissionStatusUpdateView(generics.RetrieveUpdateAPIView):
 
 class MissionAssignmentListCreateView(generics.ListCreateAPIView):
     serializer_class = MissionDroneSerializer
-    permission_classes = [permissions.IsAuthenticated, IsDispatcherOrAdmin]
+    permission_classes = [
+        permissions.IsAuthenticated,
+        MissionsViewRBAC,
+        IsDispatcherOrAdmin,
+    ]
 
     def get_mission(self):
         if not hasattr(self, "_mission"):

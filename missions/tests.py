@@ -5,7 +5,9 @@ from django.utils import timezone
 from rest_framework import status
 from rest_framework.test import APITestCase
 
+from accounts.models import User
 from drones.models import Drone, DroneStatusHistory, WriteOffRecord
+from roles.models import TECHNICIAN_CODE, Role
 
 from .factories import (
     AdminUserFactory,
@@ -575,6 +577,27 @@ def _future_datetime(hours=1):
     return timezone.now() + timedelta(hours=hours)
 
 
+def _create_technician_user():
+    technician_role, _ = Role.objects.get_or_create(
+        code=TECHNICIAN_CODE,
+        defaults={"name": "Technician"},
+    )
+    return User.objects.create_user(
+        username="technician_user",
+        email="technician_user@example.com",
+        password="password",
+        role=technician_role,
+    )
+
+
+def _create_user_without_role():
+    return User.objects.create_user(
+        username="user_without_role",
+        email="user_without_role@example.com",
+        password="password",
+    )
+
+
 class MissionCreateTests(APITestCase):
     """POST /api/missions/ — create endpoint, validation, permissions."""
 
@@ -766,6 +789,8 @@ class MissionListTests(APITestCase):
     def setUp(self):
         self.dispatcher = DispatcherUserFactory()
         self.viewer = ViewerUserFactory()
+        self.technician = _create_technician_user()
+        self.user_without_role = _create_user_without_role()
 
         self.url = reverse("missions:mission-list-create")
 
@@ -855,6 +880,18 @@ class MissionListTests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(len(response.data["results"]), 3)
 
+    def test_technician_without_missions_view_cannot_list(self):
+        MissionFactory()
+        self.client.force_authenticate(self.technician)
+        response = self.client.get(self.url)
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_user_without_role_cannot_list(self):
+        MissionFactory()
+        self.client.force_authenticate(self.user_without_role)
+        response = self.client.get(self.url)
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
 
 class MissionDetailTests(APITestCase):
     """GET /api/missions/{id}/ — retrieve detail."""
@@ -862,6 +899,8 @@ class MissionDetailTests(APITestCase):
     def setUp(self):
         self.viewer = ViewerUserFactory()
         self.mission = MissionFactory(title="Detail Mission")
+        self.technician = _create_technician_user()
+        self.user_without_role = _create_user_without_role()
 
         self.url = reverse(
             "missions:mission-detail",
@@ -890,3 +929,13 @@ class MissionDetailTests(APITestCase):
         response = self.client.get(url)
 
         self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+
+    def test_technician_without_missions_view_cannot_retrieve(self):
+        self.client.force_authenticate(self.technician)
+        response = self.client.get(self.url)
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_user_without_role_cannot_retrieve(self):
+        self.client.force_authenticate(self.user_without_role)
+        response = self.client.get(self.url)
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
