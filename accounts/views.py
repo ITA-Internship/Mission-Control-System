@@ -5,7 +5,6 @@ from django.contrib.auth import update_session_auth_hash
 from django.contrib.auth.tokens import default_token_generator
 from django.core.exceptions import ValidationError as DjangoValidationError
 from django.core.mail import send_mail
-from django.db.models import Q
 from django.http import StreamingHttpResponse
 from django.shortcuts import get_object_or_404
 from django.utils.encoding import force_bytes, force_str
@@ -134,9 +133,15 @@ class AuditLogViewSet(viewsets.ReadOnlyModelViewSet):
         if user.is_staff or user.is_superuser:
             return AuditLog.objects.all().select_related("actor", "target_user")
 
-        return AuditLog.objects.filter(
-            Q(actor=user) | Q(target_user=user)
-        ).select_related("actor", "target_user")
+        logs_as_actor = AuditLog.objects.select_related("actor", "target_user").filter(
+            actor=user
+        )
+
+        logs_as_target_user = AuditLog.objects.select_related(
+            "actor", "target_user"
+        ).filter(target_user=user)
+
+        return logs_as_actor.union(logs_as_target_user).order_by("-created_at")
 
     @action(
         detail=False,

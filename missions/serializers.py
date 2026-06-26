@@ -8,8 +8,7 @@ from rest_framework import serializers
 
 from accounts.permissions import get_user_role_code
 from common.serializers import UserBriefSerializer
-from drones.models import Drone
-from drones.services import update_drone
+from drones.models import Drone, DroneStatusHistory
 from roles.models import COMMANDER_CODE, OPERATOR_CODE
 
 from .models import (
@@ -419,31 +418,48 @@ class MissionStatusUpdateSerializer(serializers.ModelSerializer):
                 instance.status = new_status
                 instance.save(update_fields=["status", "updated_at"])
 
-                assignments = instance.mission_drones.select_related("drone")
+                assignments = instance.mission_drones.all().select_related("drone")
 
                 if old_status == Status.PLANNED and new_status == Status.ACTIVE:
-                    for assignment in assignments:
-                        update_drone(
-                            drone=assignment.drone,
-                            drone_data={"status": Drone.STATUS_IN_MISSION},
+
+                    drones_to_update = [
+                        {
+                            "id": a.drone_id,
+                            "old_status": a.drone.status,
+                            "new_status": Drone.STATUS_IN_MISSION,
+                        }
+                        for a in assignments
+                    ]
+
+                    if drones_to_update:
+                        self._bulk_update_drones(
+                            drones_data=drones_to_update,
                             user=user,
-                            related_mission=instance,
-                            status_change_reason="Mission started",
+                            mission=instance,
+                            reason="Mission started",
                         )
 
                 elif old_status == Status.ACTIVE and new_status in (
                     Status.COMPLETED,
                     Status.ABORTED,
                 ):
-                    for assignment in assignments:
-                        if assignment.drone.status == Drone.STATUS_IN_MISSION:
-                            update_drone(
-                                drone=assignment.drone,
-                                drone_data={"status": Drone.STATUS_ACTIVE},
-                                user=user,
-                                related_mission=instance,
-                                status_change_reason="Mission finished",
-                            )
+                    drones_to_update = [
+                        {
+                            "id": a.drone_id,
+                            "old_status": a.drone.status,
+                            "new_status": Drone.STATUS_ACTIVE,
+                        }
+                        for a in assignments
+                        if a.drone.status == Drone.STATUS_IN_MISSION
+                    ]
+
+                    if drones_to_update:
+                        self._bulk_update_drones(
+                            drones_data=drones_to_update,
+                            user=user,
+                            mission=instance,
+                            reason="Mission finished",
+                        )
 
         except IntegrityError as exc:
             raise serializers.ValidationError(
@@ -455,6 +471,27 @@ class MissionStatusUpdateSerializer(serializers.ModelSerializer):
             ) from exc
 
         return instance
+
+    def _bulk_update_drones(self, drones_data, user, mission, reason):
+        drone_ids = [d["id"] for d in drones_data]
+
+        Drone.objects.filter(id__in=drone_ids).update(
+            status=drones_data[0]["new_status"], updated_at=timezone.now()
+        )
+
+        history_records = [
+            DroneStatusHistory(
+                drone_id=d["id"],
+                from_status=d["old_status"],
+                to_status=d["new_status"],
+                changed_by=user,
+                reason=reason,
+                related_mission=mission,
+                related_writeoff=None,
+            )
+            for d in drones_data
+        ]
+        DroneStatusHistory.objects.bulk_create(history_records)
 
 
 class MissionDroneSerializer(serializers.ModelSerializer):

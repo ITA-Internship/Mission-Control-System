@@ -149,6 +149,9 @@ class MissionDrone(models.Model):
                 fields=["mission", "drone"], name="unique_mission_drone"
             ),
         ]
+        indexes = [
+            models.Index(fields=["operator", "mission"], name="operator_mission_idx"),
+        ]
 
     def __str__(self):
         return f"{self.mission.title} - {self.drone} (Operator: {self.operator})"
