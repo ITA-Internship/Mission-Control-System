@@ -104,9 +104,13 @@ class Mission(models.Model):
     class Meta:
         db_table = "missions"
         ordering = ["-created_at"]
+
         indexes = [
-            models.Index(fields=["status"]),
             models.Index(fields=["started_at"]),
+            models.Index(
+                fields=["status", "started_at","ended_at"],
+                name="mission_overlap_idx"
+                         ),
         ]
 
     def __str__(self):
