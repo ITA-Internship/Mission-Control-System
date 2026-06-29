@@ -427,9 +427,13 @@ class DroneStatusHistory(models.Model):
         on_delete=models.SET_NULL,
         related_name="drone_status_history_records",
     )
-    related_repair_order_id = models.PositiveIntegerField(
-        null=True, blank=True
-    )  # temporary stub
+    related_repair_order = models.ForeignKey(
+        "repairs.RepairOrder",
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="status_history_records",
+    )
     related_writeoff = models.ForeignKey(
         WriteOffRecord,
         null=True,

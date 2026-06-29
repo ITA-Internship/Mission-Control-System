@@ -18,14 +18,16 @@ from accounts.rbac import PERMISSION_SPECIFICATIONS_COMPARE
 from common.pagination import StandardResultsSetPagination
 
 from .filters import DroneFilter
-from .models import Drone, DroneModel
-from .permissions import DronePermission
+from .models import Drone, DroneModel, WriteOffRecord
+from .permissions import DronePermission, WriteOffPermission
 from .serializers import (
     DroneImportSerializer,
     DroneListSerializer,
     DroneModelSerializer,
     DroneSerializer,
     DroneUpdateSerializer,
+    WriteOffRecordCreateSerializer,
+    WriteOffRecordSerializer,
 )
 from .services import generate_drones_csv, import_drones_csv
 
@@ -283,3 +285,19 @@ class DroneDataImportView(generics.GenericAPIView):
             },
             status=status.HTTP_200_OK,
         )
+
+
+class WriteOffRecordListCreateView(generics.ListCreateAPIView):
+    permission_classes = [WriteOffPermission]
+
+    def get_queryset(self):
+        return WriteOffRecord.objects.select_related(
+            "drone",
+            "authorized_by",
+            "related_mission",
+        ).order_by("-written_off_at")
+
+    def get_serializer_class(self):
+        if self.request.method == "POST":
+            return WriteOffRecordCreateSerializer
+        return WriteOffRecordSerializer

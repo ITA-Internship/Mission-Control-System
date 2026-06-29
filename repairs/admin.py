@@ -1,6 +1,6 @@
 from django.contrib import admin
 
-from .models import ComponentReplacement, DefectReport
+from .models import ComponentReplacement, DefectReport, RepairOrder
 
 
 @admin.register(DefectReport)
@@ -15,6 +15,25 @@ class DefectReportAdmin(admin.ModelAdmin):
         "created_at",
     )
     list_filter = ("severity", "defect_type", "detected_at")
+    search_fields = (
+        "drone__serial_number",
+        "drone__inventory_number",
+        "description",
+    )
+
+
+@admin.register(RepairOrder)
+class RepairOrderAdmin(admin.ModelAdmin):
+    list_display = (
+        "id",
+        "drone",
+        "status",
+        "defect_report",
+        "assigned_to",
+        "created_by",
+        "created_at",
+    )
+    list_filter = ("status", "created_at")
     search_fields = (
         "drone__serial_number",
         "drone__inventory_number",

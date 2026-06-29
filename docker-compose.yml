@@ -82,6 +82,34 @@ services:
     networks:
       - mission_control_network
 
+  celery:
+    build: .
+    container_name: mission_control_celery
+    restart: unless-stopped
+    command: ["celery", "-A", "config", "worker", "--loglevel=info"]
+    volumes:
+      - .:/app
+      - static_data:/app/staticfiles
+      - media_data:/app/mediafiles
+    env_file:
+      - .env
+    environment:
+      DEBUG: ${DEBUG:-True}
+      DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY}
+      DB_NAME: ${DB_NAME}
+      DB_USER: ${DB_USER}
+      DB_PASSWORD: ${DB_PASSWORD}
+      DB_HOST: db
+      DB_PORT: "5432"
+      REDIS_URL: redis://redis:6379/0
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - mission_control_network
+
   pgadmin:
     image: dpage/pgadmin4:latest
     container_name: mission_control_pgadmin
