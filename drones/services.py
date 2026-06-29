@@ -425,3 +425,41 @@ def import_drones_csv(drones_csv_file, user=None):
         "added_count": success_cnt,
         "errors": errors,
     }
+
+
+@transaction.atomic
+def create_writeoff_record(
+    *,
+    drone,
+    user,
+    reason,
+    reason_description="",
+    document_number="",
+    related_mission=None,
+):
+    user = _get_authenticated_user(user)
+
+    old_status = drone.status
+    drone.status = Drone.STATUS_WRITTEN_OFF
+    drone.save(update_fields=["status"])
+
+    writeoff_record = WriteOffRecord.objects.create(
+        drone=drone,
+        reason=reason,
+        reason_description=reason_description,
+        authorized_by=user,
+        related_mission=related_mission,
+        document_number=document_number,
+    )
+
+    DroneStatusHistory.objects.create(
+        drone=drone,
+        from_status=old_status,
+        to_status=drone.status,
+        changed_by=user,
+        reason=writeoff_record.reason_label,
+        related_mission=related_mission,
+        related_writeoff=writeoff_record,
+    )
+
+    return writeoff_record
