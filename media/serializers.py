@@ -7,6 +7,7 @@ from django.conf import settings
 from rest_framework import serializers
 
 from common.serializers import UserBriefSerializer
+from missions.models import MissionDrone
 
 from .models import MissionArtifact, VideoMetadata, _get_all_allowed_extensions
 
@@ -61,6 +62,17 @@ class VideoUploadSerializer(serializers.ModelSerializer):
         model = VideoMetadata
         fields = ["id", "mission", "drone", "file", "recorded_at", "checksum"]
         read_only_fields = ["id"]
+
+    def validate(self, attrs):
+        attrs = super().validate(attrs)
+        if not MissionDrone.objects.filter(
+            mission=attrs["mission"],
+            drone=attrs["drone"],
+        ).exists():
+            raise serializers.ValidationError(
+                {"drone": "Drone must be assigned to the selected mission."}
+            )
+        return attrs
 
     def create(self, validated_data):
         file_obj = validated_data["file"]

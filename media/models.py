@@ -8,7 +8,7 @@ from django.core.validators import FileExtensionValidator
 from django.db import models
 
 from drones.models import Drone
-from missions.models import Mission
+from missions.models import Mission, MissionDrone
 
 VIDEO_ALLOWED_EXTENSIONS = ["mp4", "avi", "mov", "mkv"]
 
@@ -260,6 +260,17 @@ class VideoMetadata(models.Model):
                 name="uq_video_metadata_file",
             ),
         ]
+
+    def clean(self):
+        super().clean()
+        if self.mission_id and self.drone_id:
+            if not MissionDrone.objects.filter(
+                mission_id=self.mission_id,
+                drone_id=self.drone_id,
+            ).exists():
+                raise ValidationError(
+                    {"drone": "Drone must be assigned to the selected mission."}
+                )
 
     def __str__(self):
         return (
