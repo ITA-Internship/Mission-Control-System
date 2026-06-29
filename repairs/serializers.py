@@ -4,16 +4,39 @@ from django.utils import timezone
 from rest_framework import serializers
 
 from .models import (
+    REPAIR_ORDER_TRANSITIONS,
     ComponentReplacement,
     ComponentType,
     DefectReport,
     RepairEvent,
+    RepairOrder,
+    RepairOrderStatus,
     RepairStatus,
 )
-from .services import create_component_replacement, create_defect_report
+from .services import (
+    add_component_replacement,
+    create_component_replacement,
+    create_defect_report,
+    create_repair_order,
+    update_repair_order_status,
+)
 
 DESCRIPTION_MIN_LENGTH = 10
 DETECTED_AT_GRACE_PERIOD = timedelta(seconds=60)
+
+
+class DateRangeSerializer(serializers.Serializer):
+    date_from = serializers.DateTimeField(required=False, allow_null=True)
+    date_to = serializers.DateTimeField(required=False, allow_null=True)
+
+    def validate(self, attrs):
+        date_from = attrs.get("date_from")
+        date_to = attrs.get("date_to")
+        if date_from and date_to and date_from > date_to:
+            raise serializers.ValidationError(
+                "date_from must be before or equal to date_to."
+            )
+        return attrs
 
 
 class DefectReportSerializer(serializers.ModelSerializer):
@@ -177,3 +200,134 @@ class ComponentReplacementListSerializer(serializers.ModelSerializer):
             "created_at",
         )
         read_only_fields = fields
+
+
+class RepairOrderSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = RepairOrder
+        fields = (
+            "id",
+            "drone",
+            "defect_report",
+            "status",
+            "description",
+            "assigned_to",
+            "started_at",
+            "completed_at",
+            "notes",
+            "created_by",
+            "created_at",
+            "updated_at",
+        )
+        read_only_fields = fields
+
+
+class RepairOrderListSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = RepairOrder
+        fields = (
+            "id",
+            "drone",
+            "defect_report",
+            "status",
+            "assigned_to",
+            "created_by",
+            "created_at",
+        )
+        read_only_fields = fields
+
+
+class RepairOrderCreateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = RepairOrder
+        fields = (
+            "id",
+            "drone",
+            "defect_report",
+            "description",
+            "assigned_to",
+        )
+        read_only_fields = ("id",)
+
+    def validate_description(self, value):
+        stripped = (value or "").strip()
+        if not stripped:
+            raise serializers.ValidationError("Description is required.")
+        if len(stripped) < DESCRIPTION_MIN_LENGTH:
+            raise serializers.ValidationError(
+                f"Description must be at least {DESCRIPTION_MIN_LENGTH} "
+                "characters long."
+            )
+        return stripped
+
+    def create(self, validated_data):
+        request = self.context.get("request")
+        created_by = getattr(request, "user", None)
+
+        return create_repair_order(
+            created_by=created_by,
+            **validated_data,
+        )
+
+
+class RepairOrderStatusUpdateSerializer(serializers.Serializer):
+    status = serializers.ChoiceField(choices=RepairOrderStatus.choices)
+    notes = serializers.CharField(required=False, allow_blank=True, default="")
+
+    def validate_status(self, value):
+        repair_order = self.context["repair_order"]
+        allowed = REPAIR_ORDER_TRANSITIONS.get(repair_order.status, [])
+        if value not in allowed:
+            raise serializers.ValidationError(
+                f"Cannot transition from {repair_order.status} to {value}. "
+                f"Allowed: {[s.value for s in allowed]}"
+            )
+        return value
+
+    def save(self):
+        repair_order = self.context["repair_order"]
+        request = self.context.get("request")
+        user = getattr(request, "user", None)
+
+        return update_repair_order_status(
+            repair_order=repair_order,
+            new_status=self.validated_data["status"],
+            user=user,
+            notes=self.validated_data.get("notes", ""),
+        )
+
+
+class RepairHistoryTimelineSerializer(serializers.Serializer):
+    event_type = serializers.ChoiceField(
+        choices=["defect", "status_change", "repair", "replacement"],
+    )
+    timestamp = serializers.DateTimeField()
+    summary = serializers.CharField()
+    details = serializers.DictField()
+
+
+class RepairOrderReplacementSerializer(ComponentReplacementSerializer):
+    class Meta(ComponentReplacementSerializer.Meta):
+        fields = (
+            "id",
+            "component_type",
+            "component_name",
+            "old_serial_number",
+            "new_serial_number",
+            "reason",
+            "replaced_at",
+            "replaced_by",
+            "created_at",
+            "updated_at",
+        )
+        read_only_fields = ("id", "replaced_by", "created_at", "updated_at")
+
+    def create(self, validated_data):
+        repair_order = validated_data.pop("repair_order")
+        request = self.context.get("request")
+        replaced_by = getattr(request, "user", None)
+        return add_component_replacement(
+            repair_order=repair_order,
+            replaced_by=replaced_by,
+            **validated_data,
+        )

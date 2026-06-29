@@ -161,7 +161,7 @@ class DroneStatusHistorySerializer(serializers.ModelSerializer):
             "reason",
             "event_type",
             "related_mission_id",
-            "related_repair_order_id",  # must be changed
+            "related_repair_order",
             "related_writeoff",
             "created_at",
         )
