@@ -220,5 +220,5 @@ __marimo__/
 
 .DS_Store
 **/.DS_Store
-media/artifacts
-media/missions
+media/artifacts/
+media/missions/

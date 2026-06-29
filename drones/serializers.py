@@ -1,7 +1,8 @@
 from django.core.exceptions import ValidationError
 from rest_framework import serializers
+from rest_framework.serializers import as_serializer_error
 
-from missions.models import Mission
+from missions.models import Mission, MissionDrone
 
 from .models import (
     Drone,
@@ -13,6 +14,7 @@ from .models import (
 )
 from .services import (
     create_drone_with_spec,
+    create_writeoff_record,
     update_drone,
     validate_drone_classification,
 )
@@ -125,12 +127,14 @@ class DroneSpecUpdateSerializer(DroneSpecValidationMixin, serializers.ModelSeria
 
 class WriteOffRecordSerializer(serializers.ModelSerializer):
     related_mission_id = serializers.IntegerField(read_only=True)
+    reason_label = serializers.CharField(read_only=True)
 
     class Meta:
         model = WriteOffRecord
         fields = (
             "id",
             "reason",
+            "reason_label",
             "reason_description",
             "authorized_by",
             "related_mission_id",
@@ -157,7 +161,7 @@ class DroneStatusHistorySerializer(serializers.ModelSerializer):
             "reason",
             "event_type",
             "related_mission_id",
-            "related_repair_order_id",  # must be changed
+            "related_repair_order",
             "related_writeoff",
             "created_at",
         )
@@ -222,7 +226,8 @@ class DroneSerializer(serializers.ModelSerializer):
 class DroneUpdateSerializer(serializers.ModelSerializer):
     spec = DroneSpecUpdateSerializer(required=False)
 
-    writeoff_reason = serializers.CharField(
+    writeoff_reason = serializers.ChoiceField(
+        choices=WriteOffRecord.Reason.choices,
         write_only=True,
         required=False,
         allow_blank=True,
@@ -338,18 +343,35 @@ class DroneUpdateSerializer(serializers.ModelSerializer):
         request = self.context.get("request")
         user = getattr(request, "user", None)
 
-        return update_drone(
-            drone=instance,
-            drone_data=validated_data,
-            spec_data=spec_data,
-            user=user,
-            writeoff_reason=writeoff_reason,
-            writeoff_reason_description=writeoff_reason_description,
-            document_number=document_number,
-            written_off_at=written_off_at,
-            related_mission=related_mission,
-            status_change_reason=status_change_reason,
-        )
+        try:
+            return update_drone(
+                drone=instance,
+                drone_data=validated_data,
+                spec_data=spec_data,
+                user=user,
+                writeoff_reason=writeoff_reason,
+                writeoff_reason_description=writeoff_reason_description,
+                document_number=document_number,
+                written_off_at=written_off_at,
+                related_mission=related_mission,
+                status_change_reason=status_change_reason,
+            )
+        except ValidationError as exc:
+            raise serializers.ValidationError(self._map_writeoff_errors(exc))
+
+    WRITEOFF_FIELD_MAP = {
+        "reason": "writeoff_reason",
+        "reason_description": "writeoff_reason_description",
+    }
+
+    @classmethod
+    def _map_writeoff_errors(cls, exc):
+        error_detail = as_serializer_error(exc)
+
+        return {
+            cls.WRITEOFF_FIELD_MAP.get(field, field): messages
+            for field, messages in error_detail.items()
+        }
 
     def to_representation(self, instance):
         return DroneSerializer(instance, context=self.context).data
@@ -418,3 +440,94 @@ class DroneModelSerializer(serializers.ModelSerializer):
             )
 
         return attrs
+
+
+class DroneImportSerializer(serializers.Serializer):
+    file = serializers.FileField(
+        help_text="CSV file with drone inventory data.",
+    )
+
+    def validate_file(self, file):
+        if not file.name.endswith(".csv"):
+            raise serializers.ValidationError(
+                "Only files with the extension .csv are allowed"
+            )
+        return file
+
+
+class WriteOffRecordCreateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = WriteOffRecord
+        fields = (
+            "id",
+            "drone",
+            "reason",
+            "reason_description",
+            "related_mission",
+            "document_number",
+            "written_off_at",
+            "created_at",
+        )
+
+    def validate(self, attrs):
+        drone = attrs.get("drone")
+        related_mission = attrs.get("related_mission")
+
+        if related_mission is not None:
+
+            mission_ids = list(
+                MissionDrone.objects.filter(drone=drone)
+                .order_by("-created_at")
+                .values_list("mission_id", flat=True)
+            )
+
+            if mission_ids:
+                latest_mission_id = mission_ids[0]
+
+                if related_mission.id != latest_mission_id:
+                    if related_mission.id in mission_ids:
+                        raise serializers.ValidationError(
+                            {
+                                "related_mission": (
+                                    f"Mission {related_mission.id} is not the latest. "
+                                    f"A drone can only be written off based on "
+                                    f"its latest mission."
+                                )
+                            }
+                        )
+                    else:
+                        raise serializers.ValidationError(
+                            {
+                                "related_mission": (
+                                    f"Drone {drone.id} is not assigned to "
+                                    f"mission {related_mission.id}."
+                                )
+                            }
+                        )
+
+            else:
+                raise serializers.ValidationError(
+                    {"related_mission": f"Drone {drone} has no related missions."}
+                )
+
+        if WriteOffRecord.objects.filter(drone=drone).exists():
+            raise serializers.ValidationError(
+                {"drone": "A write-off record for this drone already exists."}
+            )
+
+        if drone.status in Drone.INACTIVE_STATUSES:
+            raise serializers.ValidationError(
+                {
+                    "drone": (
+                        f"Cannot write off a drone "
+                        f"with inactive status '{drone.status}'."
+                    )
+                }
+            )
+
+        return attrs
+
+    def create(self, validated_data):
+        user = self.context["request"].user
+
+        return create_writeoff_record(user=user, **validated_data)

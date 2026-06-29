@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Defect Repair Tracking</title>
+    <style>
+        table { border-collapse: collapse; width: 100%; margin-top: 15px; }
+        th, td { border: 1px solid black; padding: 10px; text-align: left; }
+        thead { background-color: #f2f2f2; }
+        .form-group { margin-bottom: 15px; }
+        .alert-error { color: red; font-weight: bold; }
+        .alert-success { color: green; font-weight: bold; }
+    </style>
+</head>
+<body>
+
+    <h1>Repair Tracking for Drone: {{ defect.drone.name }}</h1>
+
+    <div>
+        <p><strong>Current Status:</strong> <span id="currentStatus">{{ defect.status }}</span></p>
+        <p><strong>Description:</strong> {{ defect.description }}</p>
+        <p><strong>Reported By:</strong> {{ defect.reporter.username }}</p>
+        <p><strong>Severity:</strong> {{ defect.severity }}</p>
+    </div>
+
+    <hr>
+
+    <h2>Update Status</h2>
+    <div id="messageBox"></div>
+
+    <form id="updateStatusForm">
+        {% csrf_token %}
+        <div class="form-group">
+            <label for="newStatus"><strong>New Status:</strong></label><br>
+            <select id="newStatus" required>
+                <option value="" disabled selected>Select status...</option>
+                <option value="IN_PROGRESS">In Progress</option>
+                <option value="FIXED">Fixed</option>
+                <option value="VERIFIED">Verified</option>
+            </select>
+        </div>
+
+        <div class="form-group">
+            <label for="actionTaken"><strong>Action Taken:</strong></label><br>
+            <textarea id="actionTaken" rows="4" cols="50" required placeholder="Describe the repair actions..."></textarea>
+        </div>
+
+        <button type="submit">Submit Update</button>
+    </form>
+
+    <hr>
+
+    <h2>Repair History</h2>
+    <table id="historyTable">
+        <thead>
+            <tr>
+                <th>Date & Time</th>
+                <th>From Status</th>
+                <th>To Status</th>
+                <th>Technician ID</th>
+                <th>Action Taken</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr><td colspan="5">Loading history...</td></tr>
+        </tbody>
+    </table>
+
+    <script>
+        const defectId = "{{ defect.id }}";
+        const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+
+        function loadHistory() {
+            fetch(`/api/repairs/defects/${defectId}/history/`)
+                .then(response => response.json())
+                .then(data => {
+                    const tbody = document.querySelector('#historyTable tbody');
+                    tbody.innerHTML = '';
+
+                    const historyItems = data.results || data;
+
+                    if (historyItems.length === 0) {
+                        tbody.innerHTML = '<tr><td colspan="5">No repair history found.</td></tr>';
+                        return;
+                    }
+
+                    historyItems.forEach(event => {
+                        const date = new Date(event.created_at).toLocaleString();
+                        const techName = event.technician ? event.technician : 'System';
+
+                        tbody.innerHTML += `
+                            <tr>
+                                <td>${date}</td>
+                                <td>${event.from_status}</td>
+                                <td>${event.to_status}</td>
+                                <td>${techName}</td>
+                                <td>${event.action_taken}</td>
+                            </tr>
+                        `;
+                    });
+                })
+                .catch(error => console.error(error));
+        }
+
+        document.getElementById('updateStatusForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+
+            const newStatus = document.getElementById('newStatus').value;
+            const actionTaken = document.getElementById('actionTaken').value;
+            const messageBox = document.getElementById('messageBox');
+
+            fetch(`/api/repairs/defects/${defectId}/update-status/`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': csrfToken
+                },
+                body: JSON.stringify({
+                    status: newStatus,
+                    action_taken: actionTaken
+                })
+            })
+            .then(async response => {
+                const data = await response.json();
+                if (!response.ok) {
+                    const errorMsg = data.detail || data.status || "An error occurred.";
+                    messageBox.innerHTML = `<p class="alert-error">Error: ${errorMsg}</p>`;
+                } else {
+                    messageBox.innerHTML = `<p class="alert-success">Status updated successfully!</p>`;
+                    document.getElementById('currentStatus').innerText = newStatus;
+                    document.getElementById('actionTaken').value = '';
+                    loadHistory();
+                }
+            })
+            .catch(error => {
+                messageBox.innerHTML = `<p class="alert-error">Network error. Please try again.</p>`;
+            });
+        });
+
+        loadHistory();
+    </script>
+</body>
+</html>

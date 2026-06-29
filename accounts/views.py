@@ -20,9 +20,16 @@ from rest_framework.response import Response
 from rest_framework.throttling import ScopedRateThrottle
 from rest_framework.views import APIView
 
+from common.utils import EchoBuffer
+
 from .models import AuditLog, User, UserStatusLog
-from .permissions import HasRBACPermission, IsSystemAdmin
-from .rbac import PERMISSION_USERS_CREATE, PERMISSION_USERS_MANAGE_ROLES
+from .permissions import HasRBACPermission, IsSystemAdmin, user_has_permission
+from .rbac import (
+    PERMISSION_AUDIT_LOGS_VIEW_ALL,
+    PERMISSION_AUDIT_LOGS_VIEW_OWN,
+    PERMISSION_USERS_CREATE,
+    PERMISSION_USERS_MANAGE_ROLES,
+)
 from .serializers import (
     AuditLogSerializer,
     ChangePasswordSerializer,
@@ -119,11 +126,6 @@ class AuditLogFilter(filters.FilterSet):
         fields = ["actor", "target_user", "action_type", "result"]
 
 
-class Echo:
-    def write(self, value):
-        return value
-
-
 class AuditLogViewSet(viewsets.ReadOnlyModelViewSet):
     serializer_class = AuditLogSerializer
     permission_classes = [permissions.IsAuthenticated]
@@ -135,12 +137,15 @@ class AuditLogViewSet(viewsets.ReadOnlyModelViewSet):
 
     def get_queryset(self):
         user = self.request.user
-        if user.is_staff or user.is_superuser:
+        if user_has_permission(user, PERMISSION_AUDIT_LOGS_VIEW_ALL):
             return AuditLog.objects.all().select_related("actor", "target_user")
 
-        return AuditLog.objects.filter(
-            Q(actor=user) | Q(target_user=user)
-        ).select_related("actor", "target_user")
+        if user_has_permission(user, PERMISSION_AUDIT_LOGS_VIEW_OWN):
+            return AuditLog.objects.filter(
+                Q(actor=user) | Q(target_user=user)
+            ).select_related("actor", "target_user")
+
+        return AuditLog.objects.none()
 
     @action(
         detail=False,
@@ -153,7 +158,7 @@ class AuditLogViewSet(viewsets.ReadOnlyModelViewSet):
         queryset = self.filter_queryset(self.get_queryset())[:MAX_EXPORT_LIMIT]
 
         def generate_csv():
-            writer = csv.writer(Echo())
+            writer = csv.writer(EchoBuffer())
 
             yield writer.writerow(
                 [

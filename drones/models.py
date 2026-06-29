@@ -336,11 +336,27 @@ class DroneSpecChangeLog(models.Model):
 
 
 class WriteOffRecord(models.Model):
+    class Reason(models.TextChoices):
+        LOSS = "LOSS", "Loss"
+        DESTRUCTION = "DESTRUCTION", "Destruction"
+        DAMAGE = "DAMAGE", "Critical damage"
+        OTHER = "OTHER", "Other"
+
     drone = models.OneToOneField(
         Drone, on_delete=models.PROTECT, related_name="writeoff_record"
     )
-    reason = models.CharField(max_length=255)
-    reason_description = models.TextField(blank=True)
+    reason = models.CharField(
+        max_length=20,
+        choices=Reason.choices,
+        help_text="Canonical reason for writing off the drone.",
+    )
+    reason_description = models.TextField(
+        blank=True,
+        help_text=(
+            "Free-form details about the write-off. "
+            "Required when the reason is 'Other'."
+        ),
+    )
     authorized_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         null=True,
@@ -361,6 +377,32 @@ class WriteOffRecord(models.Model):
 
     def __str__(self) -> str:
         return f"Write-off record for {self.drone}"
+
+    @classmethod
+    def label_for(cls, reason_code):
+        return dict(cls.Reason.choices).get(reason_code, reason_code)
+
+    @property
+    def reason_label(self):
+        return self.label_for(self.reason)
+
+    def clean(self):
+        super().clean()
+
+        if self.reason == self.Reason.OTHER and not self.reason_description.strip():
+            raise ValidationError(
+                {
+                    "reason_description": (
+                        "A custom description is required when the reason is 'Other'."
+                    )
+                }
+            )
+
+    def save(self, *args, **kwargs):
+        if self._state.adding:
+            self.full_clean()
+
+        super().save(*args, **kwargs)
 
 
 class DroneStatusHistory(models.Model):
@@ -385,9 +427,13 @@ class DroneStatusHistory(models.Model):
         on_delete=models.SET_NULL,
         related_name="drone_status_history_records",
     )
-    related_repair_order_id = models.PositiveIntegerField(
-        null=True, blank=True
-    )  # temporary stub
+    related_repair_order = models.ForeignKey(
+        "repairs.RepairOrder",
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="status_history_records",
+    )
     related_writeoff = models.ForeignKey(
         WriteOffRecord,
         null=True,
