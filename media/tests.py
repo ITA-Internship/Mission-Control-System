@@ -1,12 +1,17 @@
 from unittest.mock import patch
 
+from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import TestCase, override_settings
 from django.urls import reverse
+from django.utils import timezone
 from rest_framework import status
 from rest_framework.test import APITestCase
 
+from accounts.models import MilitaryUnit
+from drones.models import Drone, DroneModel
+from media.models import VideoMetadata
 from missions.factories import (
     AdminUserFactory,
     DispatcherUserFactory,
@@ -14,13 +19,139 @@ from missions.factories import (
     OperatorUserFactory,
     ViewerUserFactory,
 )
-from missions.models import MissionAuditLog
+from missions.models import Mission, MissionAuditLog
 
 from .factories import MissionArtifactFactory
 from .models import MissionArtifact
 from .services import delete_artifact, upload_artifact
 
+User = get_user_model()
 
+
+class VideoMetadataAPITests(APITestCase):
+
+    def setUp(self):
+        self.user = User.objects.create_user(
+            username="operator_travis",
+            email="travis@example.com",
+            password="securepassword123",
+        )
+        self.mission = Mission.objects.create(title="Test Mission Alpha")
+        self.other_mission = Mission.objects.create(title="Test Mission Beta")
+        self.military_unit = MilitaryUnit.objects.create(id=1, name="Unit 101")
+        self.drone_model = DroneModel.objects.create(
+            name="Mavic 3 Pro",
+            manufacturer="DJI",
+            supported_classifications=["RECONNAISSANCE", "SURVEILLANCE"],
+        )
+
+        drones_to_create = [
+            Drone(
+                id=1,
+                name="Mavic Alpha",
+                serial_number="SN-MAVIC-001",
+                inventory_number="INV-DRONE-001",
+                drone_model=self.drone_model,
+                classification="RECONNAISSANCE",
+                status="ACTIVE",
+                military_unit=self.military_unit,
+                acquired_at=timezone.localdate(),
+            ),
+            Drone(
+                id=2,
+                name="Mavic Beta",
+                serial_number="SN-MAVIC-002",
+                inventory_number="INV-DRONE-002",
+                drone_model=self.drone_model,
+                classification="SURVEILLANCE",
+                status="ACTIVE",
+                military_unit=self.military_unit,
+                acquired_at=timezone.localdate(),
+            ),
+        ]
+        Drone.objects.bulk_create(drones_to_create)
+        self.drone = Drone.objects.get(id=1)
+        self.other_drone = Drone.objects.get(id=2)
+
+        self.video_file = SimpleUploadedFile(
+            name="flight_video.mp4",
+            content=b"fake_video_content_bytes",
+            content_type="video/mp4",
+        )
+        self.list_url = reverse("video_media:video-metadata-list")
+        self.client.force_authenticate(user=self.user)
+
+    @patch("media.permissions.MediaUploadPermission.has_permission", return_value=True)
+    @patch("subprocess.run")
+    def test_upload_video_metadata_success(self, mock_subproc, mock_perm):
+        class MockResult:
+            stdout = '{"format": {"duration": "42.0"}}'
+            stderr = ""
+
+        mock_subproc.return_value = MockResult()
+
+        data = {
+            "mission": self.mission.id,
+            "drone": self.drone.id,
+            "file": self.video_file,
+            "checksum": "sha256_mock_hash_value",
+            "recorded_at": timezone.now().isoformat(),
+        }
+        response = self.client.post(self.list_url, data, format="multipart")
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+
+        video_from_db = VideoMetadata.objects.get(id=response.data["id"])
+        self.assertEqual(video_from_db.duration_seconds, 42)
+
+    @patch("media.permissions.MediaViewPermission.has_permission", return_value=True)
+    def test_get_video_metadata_list_with_pagination(self, mock_perm):
+        VideoMetadata.objects.create(
+            mission=self.mission,
+            drone=self.drone,
+            uploader=self.user,
+            file=self.video_file,
+            file_name="video_1.mp4",
+            file_size=100,
+        )
+
+        response = self.client.get(self.list_url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertIn("results", response.data)
+        self.assertEqual(len(response.data["results"]), 1)
+
+    @patch("media.permissions.MediaViewPermission.has_permission", return_value=True)
+    def test_filter_video_metadata_by_mission(self, mock_perm):
+        VideoMetadata.objects.create(
+            mission=self.mission,
+            drone=self.drone,
+            uploader=self.user,
+            file=self.video_file,
+            file_name="video_1.mp4",
+            file_size=100,
+        )
+        VideoMetadata.objects.create(
+            mission=self.other_mission,
+            drone=self.other_drone,
+            uploader=self.user,
+            file=self.video_file,
+            file_name="video_2.mp4",
+            file_size=200,
+        )
+
+        response = self.client.get(f"{self.list_url}?mission={self.mission.id}")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data["results"]), 1)
+        self.assertEqual(response.data["results"][0]["file_name"], "video_1.mp4")
+
+
+@override_settings(
+    ARTIFACT_ALLOWED_EXTENSIONS={
+        "image": [".jpg", ".jpeg", ".png"],
+        "video": [".mp4", ".avi", ".mov"],
+        "data": [".json", ".csv", ".xml"],
+    },
+    ARTIFACT_MAX_FILE_SIZE_MB=10,
+)
 class MissionArtifactModelTests(TestCase):
     def test_str_representation(self):
         mission = MissionFactory()
@@ -87,6 +218,14 @@ class MissionArtifactModelTests(TestCase):
             artifact.file.field.clean(upload_file, artifact)
 
 
+@override_settings(
+    ARTIFACT_ALLOWED_EXTENSIONS={
+        "image": [".jpg", ".jpeg", ".png"],
+        "video": [".mp4", ".avi", ".mov"],
+        "data": [".json", ".csv", ".xml"],
+    },
+    ARTIFACT_MAX_FILE_SIZE_MB=10,
+)
 class ArtifactListCreateTests(APITestCase):
     def setUp(self):
         self.admin = AdminUserFactory()
@@ -200,7 +339,7 @@ class ArtifactListCreateTests(APITestCase):
         MissionArtifactFactory(mission=self.mission, is_image=True)
         MissionArtifactFactory(mission=self.mission, is_video=True)
         MissionArtifactFactory(mission=self.mission, is_data=True)
-        MissionArtifactFactory(is_image=True)  # Different mission
+        MissionArtifactFactory(is_image=True)
 
         self.client.force_authenticate(self.viewer)
         response = self.client.get(self.url)
