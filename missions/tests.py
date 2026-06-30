@@ -939,3 +939,60 @@ class MissionDetailTests(APITestCase):
         self.client.force_authenticate(self.user_without_role)
         response = self.client.get(self.url)
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+
+class MissionAssignmentListCreatePermissionTests(APITestCase):
+    def setUp(self):
+        self.admin = AdminUserFactory()
+        self.dispatcher = DispatcherUserFactory()
+        self.viewer = ViewerUserFactory()
+        self.operator = OperatorUserFactory()
+        self.mission = MissionFactory()
+        self.drone = DroneFactory(status=Drone.STATUS_ACTIVE)
+
+        self.url = reverse(
+            "missions:mission-assignment-list-create",
+            kwargs={"mission_pk": self.mission.pk},
+        )
+
+    def test_viewer_can_list_assignments_with_missions_view(self):
+        MissionDroneFactory(
+            mission=self.mission,
+            drone=self.drone,
+            operator=self.operator,
+        )
+
+        self.client.force_authenticate(self.viewer)
+        response = self.client.get(self.url)
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+    def test_viewer_cannot_create_assignment_with_only_missions_view(self):
+        self.client.force_authenticate(self.viewer)
+
+        response = self.client.post(
+            self.url,
+            {
+                "drone": self.drone.id,
+                "operator": self.operator.id,
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertEqual(MissionDrone.objects.count(), 0)
+
+    def test_dispatcher_can_create_assignment(self):
+        self.client.force_authenticate(self.dispatcher)
+
+        response = self.client.post(
+            self.url,
+            {
+                "drone": self.drone.id,
+                "operator": self.operator.id,
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(MissionDrone.objects.count(), 1)
