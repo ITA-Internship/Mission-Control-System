@@ -43,6 +43,9 @@ PERMISSION_WRITEOFF_AUTHORIZE = "writeoff.authorize"
 # Repairs
 PERMISSION_REPAIRS_VIEW = "repairs.view"
 PERMISSION_REPAIRS_CREATE = "repairs.create"
+PERMISSION_REPAIRS_MANAGE = "repairs.manage"
+PERMISSION_REPAIRS_EXPORT = "repairs.export"
+PERMISSION_REPAIRS_VERIFY = "repairs.verify"
 
 # Media
 PERMISSION_MEDIA_UPLOAD = "media.upload"
@@ -104,6 +107,9 @@ def admin_permissions():
         PERMISSION_WRITEOFF_AUTHORIZE,
         PERMISSION_REPAIRS_VIEW,
         PERMISSION_REPAIRS_CREATE,
+        PERMISSION_REPAIRS_MANAGE,
+        PERMISSION_REPAIRS_EXPORT,
+        PERMISSION_REPAIRS_VERIFY,
         PERMISSION_AUDIT_LOGS_VIEW_ALL,
         PERMISSION_SPECIFICATIONS_COMPARE,
     }
@@ -125,6 +131,8 @@ def commander_permissions():
             PERMISSION_WRITEOFF_VIEW,
             PERMISSION_WRITEOFF_AUTHORIZE,
             PERMISSION_REPAIRS_VIEW,
+            PERMISSION_REPAIRS_EXPORT,
+            PERMISSION_REPAIRS_VERIFY,
         }
     )
 
@@ -162,6 +170,7 @@ def operator_permissions():
             PERMISSION_MEDIA_VIEW,
             PERMISSION_REPAIRS_VIEW,
             PERMISSION_REPAIRS_CREATE,
+            PERMISSION_REPAIRS_MANAGE,
             PERMISSION_SPECIFICATIONS_COMPARE,
         }
     )
@@ -181,6 +190,8 @@ def technician_permissions():
             PERMISSION_WRITEOFF_CREATE,
             PERMISSION_REPAIRS_VIEW,
             PERMISSION_REPAIRS_CREATE,
+            PERMISSION_REPAIRS_MANAGE,
+            PERMISSION_REPAIRS_EXPORT,
             PERMISSION_SPECIFICATIONS_COMPARE,
         }
     )

@@ -1,6 +1,6 @@
 import django_filters
 
-from .models import ComponentReplacement, DefectReport
+from .models import ComponentReplacement, DefectReport, RepairOrder
 
 
 class DefectFilter(django_filters.FilterSet):
@@ -30,4 +30,16 @@ class ComponentReplacementFilter(django_filters.FilterSet):
             "drone": ["exact"],
             "component_type": ["exact"],
             "replaced_by": ["exact"],
+        }
+
+
+class RepairOrderFilter(django_filters.FilterSet):
+    class Meta:
+        model = RepairOrder
+        fields = {
+            "drone": ["exact"],
+            "status": ["exact"],
+            "defect_report": ["exact"],
+            "assigned_to": ["exact"],
+            "created_at": ["gte", "lte"],
         }

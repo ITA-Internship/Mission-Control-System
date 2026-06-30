@@ -29,7 +29,7 @@ urlpatterns = [
     path("api/roles/", include("roles.urls")),
     path("api/missions/", include("missions.urls")),
     path("api/repairs/", include("repairs.urls")),
-    path("api/media/", include(media_audit_urlpatterns)),
+    path("api/media/", include("media.urls_video")),
 ]
 
 if settings.DEBUG:

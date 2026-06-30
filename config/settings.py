@@ -164,16 +164,14 @@ ARTIFACT_MAX_FILE_SIZE_MB = int(os.getenv("ARTIFACT_MAX_FILE_SIZE_MB", "50"))
 # only the rightmost `TRUSTED_PROXY_COUNT` entries are appended by our own infra
 # and can be trusted. Set to 0 when Django is exposed directly (no proxy).
 TRUSTED_PROXY_COUNT = int(os.getenv("TRUSTED_PROXY_COUNT", "0"))
+VIDEO_MAX_FILE_SIZE_MB = int(os.getenv("VIDEO_MAX_FILE_SIZE_MB", "200"))
 
 # Allowed file extensions for artifact uploads, grouped by file type.
 ARTIFACT_ALLOWED_EXTENSIONS = {
-    "video": [".mp4", ".avi", ".mov"],
+    # video upload is only available through api/media/videos/
     "image": [".jpg", ".jpeg", ".png"],
     "data": [".csv", ".json"],
 }
-
-MEDIA_URL = "/media/"
-MEDIA_ROOT = BASE_DIR / "media"
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
@@ -189,4 +187,7 @@ EMAIL_HOST_PASSWORD = os.getenv("EMAIL_HOST_PASSWORD")
 DEFAULT_FROM_EMAIL = os.getenv("DEFAULT_FROM_EMAIL", "no-reply@localhost")
 FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:3000")
 
+
+CELERY_BROKER_URL = os.environ.get("REDIS_URL", "redis://localhost:6379/0")
+CELERY_RESULT_BACKEND = os.environ.get("REDIS_URL", "redis://localhost:6379/0")
 MAX_EXPORT_LIMIT = 10000
