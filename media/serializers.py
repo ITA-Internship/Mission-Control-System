@@ -9,7 +9,12 @@ from rest_framework import serializers
 from common.serializers import UserBriefSerializer
 from missions.models import MissionDrone
 
-from .models import MissionArtifact, VideoMetadata, MediaAuditLog, _get_all_allowed_extensions
+from .models import (
+    MediaAuditLog,
+    MissionArtifact,
+    VideoMetadata,
+    _get_all_allowed_extensions,
+)
 
 logger = logging.getLogger(__name__)
 
