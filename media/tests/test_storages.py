@@ -1,7 +1,7 @@
 from unittest.mock import PropertyMock, patch
 
 from django.core.files.uploadedfile import SimpleUploadedFile
-from django.test import TestCase, TransactionTestCase, override_settings
+from django.test import TestCase, override_settings
 from storages.backends.azure_storage import AzureStorage
 from storages.backends.gcloud import GoogleCloudStorage
 from storages.backends.s3boto3 import S3Boto3Storage
@@ -9,8 +9,10 @@ from storages.backends.s3boto3 import S3Boto3Storage
 from media.services import delete_artifact, upload_artifact
 from missions.factories import MissionFactory, OperatorUserFactory
 
+from media.models import MissionArtifact
 
-class CloudStorageIntegrationTests(TransactionTestCase):
+
+class CloudStorageIntegrationTests(TestCase):
     def setUp(self):
         self.mission = MissionFactory()
         self.user = OperatorUserFactory()
@@ -39,7 +41,13 @@ class CloudStorageIntegrationTests(TransactionTestCase):
         self.assertEqual(artifact.storage_backend, "s3")
         mock_save.assert_called_once()
 
-        delete_artifact(artifact=artifact, action_user=self.user)
+        self.assertTrue(MissionArtifact.objects.filter(id=artifact.id).exists())
+
+        with self.captureOnCommitCallbacks(execute=True):
+            delete_artifact(artifact=artifact, action_user=self.user)
+
+        self.assertFalse(MissionArtifact.objects.filter(id=artifact.id).exists())
+
         mock_delete.assert_called_once()
 
     @override_settings(
@@ -62,7 +70,13 @@ class CloudStorageIntegrationTests(TransactionTestCase):
         self.assertEqual(artifact.storage_backend, "minio")
         mock_save.assert_called_once()
 
-        delete_artifact(artifact=artifact, action_user=self.user)
+        self.assertTrue(MissionArtifact.objects.filter(id=artifact.id).exists())
+
+        with self.captureOnCommitCallbacks(execute=True):
+            delete_artifact(artifact=artifact, action_user=self.user)
+
+        self.assertFalse(MissionArtifact.objects.filter(id=artifact.id).exists())
+
         mock_delete.assert_called_once()
 
     @override_settings(
@@ -87,7 +101,13 @@ class CloudStorageIntegrationTests(TransactionTestCase):
         self.assertEqual(artifact.storage_backend, "azure")
         mock_save.assert_called_once()
 
-        delete_artifact(artifact=artifact, action_user=self.user)
+        self.assertTrue(MissionArtifact.objects.filter(id=artifact.id).exists())
+
+        with self.captureOnCommitCallbacks(execute=True):
+            delete_artifact(artifact=artifact, action_user=self.user)
+
+        self.assertFalse(MissionArtifact.objects.filter(id=artifact.id).exists())
+
         mock_delete.assert_called_once()
 
     @override_settings(
@@ -112,7 +132,13 @@ class CloudStorageIntegrationTests(TransactionTestCase):
         self.assertEqual(artifact.storage_backend, "gcs")
         mock_save.assert_called_once()
 
-        delete_artifact(artifact=artifact, action_user=self.user)
+        self.assertTrue(MissionArtifact.objects.filter(id=artifact.id).exists())
+
+        with self.captureOnCommitCallbacks(execute=True):
+            delete_artifact(artifact=artifact, action_user=self.user)
+
+        self.assertFalse(MissionArtifact.objects.filter(id=artifact.id).exists())
+
         mock_delete.assert_called_once()
 
 
