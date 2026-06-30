@@ -1,9 +1,11 @@
 import logging
+
 from django.apps import AppConfig
 from django.conf import settings
 from django.core.exceptions import ImproperlyConfigured
 
 logger = logging.getLogger(__name__)
+
 
 class MediaConfig(AppConfig):
     default_auto_field = "django.db.models.BigAutoField"
@@ -32,7 +34,8 @@ class MediaConfig(AppConfig):
 
         if expected_backend and actual_backend != expected_backend:
             error_msg = (
-                f"STORAGE MISCONFIGURATION: STORAGE_PROVIDER is '{configured_provider}', "
+                f"STORAGE MISCONFIGURATION: "
+                f"STORAGE_PROVIDER is '{configured_provider}', "
                 f"which expects backend '{expected_backend}', but DEFAULT_FILE_STORAGE "
                 f"is actually set to '{actual_backend}'. This breaks self-verification."
             )

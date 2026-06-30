@@ -6,10 +6,9 @@ from storages.backends.azure_storage import AzureStorage
 from storages.backends.gcloud import GoogleCloudStorage
 from storages.backends.s3boto3 import S3Boto3Storage
 
+from media.models import MissionArtifact
 from media.services import delete_artifact, upload_artifact
 from missions.factories import MissionFactory, OperatorUserFactory
-
-from media.models import MissionArtifact
 
 
 class CloudStorageIntegrationTests(TestCase):
@@ -84,7 +83,8 @@ class CloudStorageIntegrationTests(TestCase):
     @override_settings(
         STORAGE_PROVIDER="azure",
         STORAGES={
-            "default": {"BACKEND": "storages.backends.azure_storage.AzureStorage"}},
+            "default": {"BACKEND": "storages.backends.azure_storage.AzureStorage"}
+        },
         ARTIFACT_ALLOWED_EXTENSIONS={"video": [".mp4"]},
     )
     @patch("storages.backends.azure_storage.AzureStorage.__init__", return_value=None)
@@ -115,7 +115,8 @@ class CloudStorageIntegrationTests(TestCase):
     @override_settings(
         STORAGE_PROVIDER="gcs",
         STORAGES={
-            "default": {"BACKEND": "storages.backends.gcloud.GoogleCloudStorage"}},
+            "default": {"BACKEND": "storages.backends.gcloud.GoogleCloudStorage"}
+        },
         ARTIFACT_ALLOWED_EXTENSIONS={"video": [".mp4"]},
     )
     @patch("storages.backends.gcloud.GoogleCloudStorage.__init__", return_value=None)
