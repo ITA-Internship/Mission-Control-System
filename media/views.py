@@ -3,6 +3,7 @@ from django.db.models import ProtectedError
 from django.http import HttpResponseForbidden
 from django.utils.dateparse import parse_date
 from django.views.generic import TemplateView
+from django_filters import rest_framework as filters
 from rest_framework import generics, parsers, permissions, status, viewsets
 from rest_framework.exceptions import ValidationError
 from rest_framework.parsers import FormParser, MultiPartParser
@@ -12,19 +13,21 @@ from rest_framework.response import Response
 from common.pagination import StandardResultsSetPagination
 from missions.models import Mission
 
-from .models import MissionArtifact, VideoMetadata
+from .models import MediaAuditLog, MissionArtifact, VideoMetadata
 from .permissions import (
     MediaDeletePermission,
     MediaUploadPermission,
+    MediaViewLogsPermission,
     MediaViewPermission,
 )
 from .serializers import (
+    MediaAuditLogSerializer,
     MissionArtifactSerializer,
     MissionArtifactUploadSerializer,
     VideoMetadataSerializer,
     VideoUploadSerializer,
 )
-from .services import delete_artifact, upload_artifact
+from .services import delete_artifact, record_artifact_view, upload_artifact
 from .tasks import extract_video_duration_task
 
 
@@ -117,6 +120,7 @@ class ArtifactListCreateView(_MissionArtifactMixin, generics.ListCreateAPIView):
             uploaded_by=request.user,
             description=serializer.validated_data.get("description"),
             captured_at=serializer.validated_data.get("captured_at"),
+            request=request,
         )
 
         response_serializer = MissionArtifactSerializer(artifact)
@@ -142,11 +146,40 @@ class ArtifactDetailView(_MissionArtifactMixin, generics.RetrieveDestroyAPIView)
             "uploaded_by"
         )
 
+    def retrieve(self, request, *args, **kwargs):
+        instance = self.get_object()
+        record_artifact_view(
+            user=request.user,
+            artifact=instance,
+            request=request,
+        )
+        serializer = self.get_serializer(instance)
+        return Response(serializer.data)
+
     def perform_destroy(self, instance):
         delete_artifact(
             artifact=instance,
             action_user=self.request.user,
+            request=self.request,
         )
+
+
+class MediaAuditLogFilter(filters.FilterSet):
+    start_date = filters.DateTimeFilter(field_name="created_at", lookup_expr="gte")
+    end_date = filters.DateTimeFilter(field_name="created_at", lookup_expr="lte")
+
+    class Meta:
+        model = MediaAuditLog
+        fields = ["action", "user", "mission", "artifact"]
+
+
+class MediaAuditLogViewSet(viewsets.ReadOnlyModelViewSet):
+    serializer_class = MediaAuditLogSerializer
+    permission_classes = [permissions.IsAuthenticated, MediaViewLogsPermission]
+    pagination_class = StandardResultsSetPagination
+    filter_backends = [filters.DjangoFilterBackend]
+    filterset_class = MediaAuditLogFilter
+    queryset = MediaAuditLog.objects.select_related("artifact", "mission", "user").all()
 
 
 class VideoMetadataViewSet(viewsets.ModelViewSet):
