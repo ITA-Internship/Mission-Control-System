@@ -30,6 +30,7 @@ urlpatterns = [
     path("api/missions/", include("missions.urls")),
     path("api/repairs/", include("repairs.urls")),
     path("api/media/", include("media.urls_video")),
+    path("api/media/", include(media_audit_urlpatterns)),
 ]
 
 if settings.DEBUG:

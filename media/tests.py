@@ -659,7 +659,7 @@ class MediaAuditLoggingTests(APITestCase):
         self.viewer = ViewerUserFactory()
         self.mission = MissionFactory()
         self.artifact = MissionArtifactFactory(
-            mission=self.mission, uploaded_by=self.operator, is_video=True
+            mission=self.mission, uploaded_by=self.operator, is_image=True
         )
         self.detail_url = reverse(
             "missions:media:artifact-detail",
@@ -672,7 +672,7 @@ class MediaAuditLoggingTests(APITestCase):
 
     def get_valid_payload(self):
         upload_file = SimpleUploadedFile(
-            "clip.mp4", b"video bytes", content_type="video/mp4"
+            "clip.jpg", b"image bytes", content_type="image/jpeg"
         )
         return {"title": "Mission Clip", "file": upload_file}
 
@@ -761,7 +761,7 @@ class MediaAuditLogTransactionTests(TestCase):
             "media.services.MediaAuditLog.objects.create",
             side_effect=RuntimeError("DB Error"),
         ):
-            upload_file = SimpleUploadedFile("clip.mp4", b"video bytes")
+            upload_file = SimpleUploadedFile("clip.jpg", b"image bytes")
 
             with self.assertRaises(RuntimeError):
                 upload_artifact(
@@ -788,7 +788,7 @@ class MediaAuditLogEndpointTests(APITestCase):
 
         self.mission = MissionFactory()
         self.other_mission = MissionFactory()
-        self.artifact = MissionArtifactFactory(mission=self.mission, is_video=True)
+        self.artifact = MissionArtifactFactory(mission=self.mission, is_image=True)
 
         self.view_log = MediaAuditLog.objects.create(
             user=self.operator,
