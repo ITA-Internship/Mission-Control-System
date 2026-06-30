@@ -424,6 +424,7 @@ Seed a single module:
 python manage.py seed_db --module users
 python manage.py seed_db --module missions
 python manage.py seed_db --module drones
+python manage.py seed_db --module repairs
 ```
 
 Docker usage:

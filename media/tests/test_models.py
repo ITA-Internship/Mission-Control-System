@@ -6,6 +6,14 @@ from media.factories import MissionArtifactFactory
 from missions.factories import MissionFactory, OperatorUserFactory
 
 
+@override_settings(
+    ARTIFACT_ALLOWED_EXTENSIONS={
+        "image": [".jpg", ".jpeg", ".png"],
+        "video": [".mp4", ".avi", ".mov"],
+        "data": [".json", ".csv", ".xml"],
+    },
+    ARTIFACT_MAX_FILE_SIZE_MB=10,
+)
 class MissionArtifactModelTests(TestCase):
     def test_str_representation(self):
         mission = MissionFactory()

@@ -24,6 +24,7 @@ class CloudStorageIntegrationTests(TestCase):
     @override_settings(
         STORAGE_PROVIDER="s3",
         STORAGES={"default": {"BACKEND": "storages.backends.s3boto3.S3Boto3Storage"}},
+        ARTIFACT_ALLOWED_EXTENSIONS={"video": [".mp4"]},
     )
     @patch("storages.backends.s3boto3.S3Boto3Storage.__init__", return_value=None)
     @patch("storages.backends.s3boto3.S3Boto3Storage.save")
@@ -53,6 +54,7 @@ class CloudStorageIntegrationTests(TestCase):
     @override_settings(
         STORAGE_PROVIDER="minio",
         STORAGES={"default": {"BACKEND": "storages.backends.s3boto3.S3Boto3Storage"}},
+        ARTIFACT_ALLOWED_EXTENSIONS={"video": [".mp4"]},
     )
     @patch("storages.backends.s3boto3.S3Boto3Storage.__init__", return_value=None)
     @patch("storages.backends.s3boto3.S3Boto3Storage.save")
@@ -82,8 +84,8 @@ class CloudStorageIntegrationTests(TestCase):
     @override_settings(
         STORAGE_PROVIDER="azure",
         STORAGES={
-            "default": {"BACKEND": "storages.backends.azure_storage.AzureStorage"}
-        },
+            "default": {"BACKEND": "storages.backends.azure_storage.AzureStorage"}},
+        ARTIFACT_ALLOWED_EXTENSIONS={"video": [".mp4"]},
     )
     @patch("storages.backends.azure_storage.AzureStorage.__init__", return_value=None)
     @patch("storages.backends.azure_storage.AzureStorage.save")
@@ -113,8 +115,8 @@ class CloudStorageIntegrationTests(TestCase):
     @override_settings(
         STORAGE_PROVIDER="gcs",
         STORAGES={
-            "default": {"BACKEND": "storages.backends.gcloud.GoogleCloudStorage"}
-        },
+            "default": {"BACKEND": "storages.backends.gcloud.GoogleCloudStorage"}},
+        ARTIFACT_ALLOWED_EXTENSIONS={"video": [".mp4"]},
     )
     @patch("storages.backends.gcloud.GoogleCloudStorage.__init__", return_value=None)
     @patch("storages.backends.gcloud.GoogleCloudStorage.save")

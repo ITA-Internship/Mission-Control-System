@@ -11,6 +11,8 @@ class MediaConfig(AppConfig):
     verbose_name = "Mission Media Artifacts"
 
     def ready(self):
+        import media.signals  # noqa: F401
+
         self._verify_storage_configuration()
 
     def _verify_storage_configuration(self):

@@ -25,6 +25,7 @@ from drones.models import (
     DroneStatusHistory,
     WriteOffRecord,
 )
+from missions.factories import MissionDroneFactory, MissionFactory
 
 
 class DroneCreateTests(APITestCase):
@@ -478,7 +479,7 @@ class DroneUpdateAndDecommissionTests(APITestCase):
             self.detail_url,
             {
                 "status": "WRITTEN_OFF",
-                "writeoff_reason": "Destroyed during mission",
+                "writeoff_reason": WriteOffRecord.Reason.DESTRUCTION,
                 "writeoff_reason_description": "The drone cannot be repaired.",
                 "document_number": "WO-2026-001",
                 "written_off_at": "2026-05-17",
@@ -498,7 +499,10 @@ class DroneUpdateAndDecommissionTests(APITestCase):
         writeoff_record = WriteOffRecord.objects.get(drone=self.drone)
         status_history = DroneStatusHistory.objects.get(drone=self.drone)
 
-        self.assertEqual(writeoff_record.reason, "Destroyed during mission")
+        self.assertEqual(writeoff_record.reason, WriteOffRecord.Reason.DESTRUCTION)
+        self.assertEqual(
+            writeoff_record.reason_description, "The drone cannot be repaired."
+        )
         self.assertEqual(writeoff_record.document_number, "WO-2026-001")
         self.assertEqual(status_history.from_status, "ACTIVE")
         self.assertEqual(status_history.to_status, "WRITTEN_OFF")
@@ -620,7 +624,7 @@ class DroneUpdateAndDecommissionTests(APITestCase):
             self.detail_url,
             {
                 "status": "WRITTEN_OFF",
-                "writeoff_reason": "Destroyed during mission",
+                "writeoff_reason": WriteOffRecord.Reason.DESTRUCTION,
             },
             format="json",
         )
@@ -635,7 +639,7 @@ class DroneUpdateAndDecommissionTests(APITestCase):
             self.detail_url,
             {
                 "status": "WRITTEN_OFF",
-                "writeoff_reason": "Original reason",
+                "writeoff_reason": WriteOffRecord.Reason.LOSS,
                 "document_number": "WO-2026-001",
                 "written_off_at": "2026-05-17",
             },
@@ -646,7 +650,7 @@ class DroneUpdateAndDecommissionTests(APITestCase):
             self.detail_url,
             {
                 "status": "WRITTEN_OFF",
-                "writeoff_reason": "Changed reason",
+                "writeoff_reason": WriteOffRecord.Reason.DAMAGE,
                 "document_number": "WO-2026-999",
                 "written_off_at": "2026-05-18",
             },
@@ -656,7 +660,7 @@ class DroneUpdateAndDecommissionTests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
 
         writeoff_record = WriteOffRecord.objects.get(drone=self.drone)
-        self.assertEqual(writeoff_record.reason, "Original reason")
+        self.assertEqual(writeoff_record.reason, WriteOffRecord.Reason.LOSS)
         self.assertEqual(writeoff_record.document_number, "WO-2026-001")
         self.assertEqual(str(writeoff_record.written_off_at), "2026-05-17")
 
@@ -692,6 +696,181 @@ class DroneUpdateAndDecommissionTests(APITestCase):
 
         with self.assertRaises(ValidationError):
             change_log.full_clean()
+
+
+class DroneWriteOffReasonTests(APITestCase):
+    def setUp(self):
+        self.admin_user = AdminUserFactory()
+
+        self.drone = DroneFactory(status="ACTIVE")
+        DroneSpecFactory(drone=self.drone)
+
+        self.detail_url = reverse("drones:drone-detail", kwargs={"pk": self.drone.pk})
+        self.client.force_authenticate(self.admin_user)
+
+    def _write_off(self, **overrides):
+        payload = {
+            "status": "WRITTEN_OFF",
+            "writeoff_reason": WriteOffRecord.Reason.LOSS,
+            "written_off_at": "2026-05-17",
+        }
+        payload.update(overrides)
+
+        return self.client.patch(self.detail_url, payload, format="json")
+
+    def test_each_canonical_reason_can_be_selected_and_saved(self):
+        canonical_reasons = [
+            WriteOffRecord.Reason.LOSS,
+            WriteOffRecord.Reason.DESTRUCTION,
+            WriteOffRecord.Reason.DAMAGE,
+        ]
+
+        for reason in canonical_reasons:
+            with self.subTest(reason=reason):
+                drone = DroneFactory(status="ACTIVE")
+                DroneSpecFactory(drone=drone)
+                detail_url = reverse("drones:drone-detail", kwargs={"pk": drone.pk})
+
+                response = self.client.patch(
+                    detail_url,
+                    {
+                        "status": "WRITTEN_OFF",
+                        "writeoff_reason": reason,
+                        "written_off_at": "2026-05-17",
+                    },
+                    format="json",
+                )
+
+                self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+                writeoff_record = WriteOffRecord.objects.get(drone=drone)
+                self.assertEqual(writeoff_record.reason, reason)
+
+    def test_reason_and_notes_are_saved(self):
+        response = self._write_off(
+            writeoff_reason=WriteOffRecord.Reason.DAMAGE,
+            writeoff_reason_description="Severe frame damage beyond repair.",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        writeoff_record = WriteOffRecord.objects.get(drone=self.drone)
+        self.assertEqual(writeoff_record.reason, WriteOffRecord.Reason.DAMAGE)
+        self.assertEqual(
+            writeoff_record.reason_description,
+            "Severe frame damage beyond repair.",
+        )
+
+    def test_reason_is_visible_from_writeoff_record_in_detail(self):
+        self._write_off(
+            writeoff_reason=WriteOffRecord.Reason.DESTRUCTION,
+            writeoff_reason_description="Destroyed by enemy fire.",
+        )
+
+        response = self.client.get(self.detail_url)
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        writeoff_data = response.data["writeoff_record"]
+        self.assertEqual(writeoff_data["reason"], WriteOffRecord.Reason.DESTRUCTION)
+        self.assertEqual(writeoff_data["reason_label"], "Destruction")
+        self.assertEqual(
+            writeoff_data["reason_description"],
+            "Destroyed by enemy fire.",
+        )
+
+    def test_other_reason_with_custom_description_is_accepted(self):
+        response = self._write_off(
+            writeoff_reason=WriteOffRecord.Reason.OTHER,
+            writeoff_reason_description="Repurposed for spare parts.",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        writeoff_record = WriteOffRecord.objects.get(drone=self.drone)
+        self.assertEqual(writeoff_record.reason, WriteOffRecord.Reason.OTHER)
+        self.assertEqual(
+            writeoff_record.reason_description,
+            "Repurposed for spare parts.",
+        )
+
+    def test_other_reason_requires_custom_description(self):
+        response = self._write_off(writeoff_reason=WriteOffRecord.Reason.OTHER)
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("writeoff_reason_description", response.data)
+        self.assertFalse(WriteOffRecord.objects.filter(drone=self.drone).exists())
+
+    def test_other_reason_with_blank_description_is_rejected(self):
+        response = self._write_off(
+            writeoff_reason=WriteOffRecord.Reason.OTHER,
+            writeoff_reason_description="   ",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("writeoff_reason_description", response.data)
+
+    def test_invalid_reason_code_is_rejected(self):
+        response = self._write_off(writeoff_reason="NOT_A_REAL_REASON")
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("writeoff_reason", response.data)
+        self.assertFalse(WriteOffRecord.objects.filter(drone=self.drone).exists())
+
+    def test_blank_reason_is_rejected(self):
+        response = self._write_off(writeoff_reason="")
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("writeoff_reason", response.data)
+        self.assertIn(
+            "required when drone is decommissioned",
+            str(response.data["writeoff_reason"][0]),
+        )
+        self.assertFalse(WriteOffRecord.objects.filter(drone=self.drone).exists())
+
+    def test_status_history_uses_human_readable_reason_label(self):
+        self._write_off(writeoff_reason=WriteOffRecord.Reason.DAMAGE)
+
+        history = DroneStatusHistory.objects.get(drone=self.drone)
+        self.assertEqual(history.reason, "Critical damage")
+
+
+class WriteOffRecordModelTests(APITestCase):
+    def setUp(self):
+        self.drone = DroneFactory(status="ACTIVE")
+
+    def test_model_rejects_invalid_reason_code(self):
+        record = WriteOffRecord(drone=self.drone, reason="BOGUS")
+
+        with self.assertRaises(ValidationError) as ctx:
+            record.full_clean()
+
+        self.assertIn("reason", ctx.exception.error_dict)
+
+    def test_model_rejects_blank_reason(self):
+        record = WriteOffRecord(drone=self.drone, reason="")
+
+        with self.assertRaises(ValidationError) as ctx:
+            record.full_clean()
+
+        self.assertIn("reason", ctx.exception.error_dict)
+
+    def test_model_requires_description_for_other_reason(self):
+        record = WriteOffRecord(drone=self.drone, reason=WriteOffRecord.Reason.OTHER)
+
+        with self.assertRaises(ValidationError) as ctx:
+            record.full_clean()
+
+        self.assertIn("reason_description", ctx.exception.error_dict)
+
+    def test_model_accepts_canonical_reason(self):
+        record = WriteOffRecord(drone=self.drone, reason=WriteOffRecord.Reason.LOSS)
+        record.save()
+
+        self.assertEqual(record.reason_label, "Loss")
+        self.assertTrue(
+            WriteOffRecord.objects.filter(pk=record.pk).exists(),
+        )
 
 
 class DroneSearchTests(APITestCase):
@@ -1124,3 +1303,151 @@ class DroneDataImportTests(APITestCase):
         self.assertIn(
             "Missing one or more required fields", response.data["errors"][0]["error"]
         )
+
+
+class WriteOffRecordTests(APITestCase):
+    def setUp(self):
+        self.create_url = reverse("drones:write-off-create")
+        self.drone = DroneFactory()
+        self.admin_user = AdminUserFactory()
+        self.viewer = ViewerUserFactory()
+
+    def test_create_valid_write_off_record_as_admin(self):
+        self.client.force_authenticate(self.admin_user)
+        payload = {
+            "drone": self.drone.id,
+            "reason": WriteOffRecord.Reason.LOSS,
+            "reason_description": "Write Off Reason Description",
+        }
+        response = self.client.post(self.create_url, payload, format="json")
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+
+        self.drone.refresh_from_db()
+
+        self.assertEqual(self.drone.status, "WRITTEN_OFF")
+        self.assertEqual(WriteOffRecord.objects.count(), 1)
+        self.assertEqual(DroneStatusHistory.objects.count(), 1)
+
+        writeoff_record = WriteOffRecord.objects.get(drone=self.drone)
+        status_history = DroneStatusHistory.objects.get(drone=self.drone)
+
+        self.assertEqual(writeoff_record.reason, WriteOffRecord.Reason.LOSS)
+        self.assertEqual(writeoff_record.authorized_by, self.admin_user)
+
+        self.assertEqual(status_history.from_status, "ACTIVE")
+        self.assertEqual(status_history.to_status, "WRITTEN_OFF")
+        self.assertEqual(status_history.related_writeoff, writeoff_record)
+
+    def test_create_write_off_fails_as_viewer(self):
+        self.client.force_authenticate(self.viewer)
+        payload = {"drone": self.drone.id, "reason": WriteOffRecord.Reason.LOSS}
+        response = self.client.post(self.create_url, payload, format="json")
+
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_list_write_off_as_viewer(self):
+        self.client.force_authenticate(self.viewer)
+
+        response = self.client.get(self.create_url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+    def test_create_write_off_fails_with_empty_reason(self):
+        self.client.force_authenticate(self.admin_user)
+        payload = {"drone": self.drone.id, "reason": ""}
+
+        response = self.client.post(self.create_url, payload, format="json")
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("reason", response.data)
+
+    def test_create_write_off_fails_when_drone_has_inactive_status(self):
+        self.client.force_authenticate(self.admin_user)
+        written_off_drone = DroneFactory(status=Drone.STATUS_SOLD)
+        payload = {
+            "drone": written_off_drone.id,
+            "reason": WriteOffRecord.Reason.LOSS,
+        }
+
+        response = self.client.post(self.create_url, payload, format="json")
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("drone", response.data)
+
+    def test_create_write_off_record_with_related_mission(self):
+        self.client.force_authenticate(self.admin_user)
+        mission_drone = MissionDroneFactory()
+        payload = {
+            "drone": mission_drone.drone.id,
+            "reason": WriteOffRecord.Reason.LOSS,
+            "related_mission": mission_drone.mission.id,
+        }
+
+        response = self.client.post(self.create_url, payload, format="json")
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+
+        writeoff = WriteOffRecord.objects.first()
+        self.assertEqual(writeoff.drone_id, mission_drone.drone.id)
+        self.assertEqual(writeoff.related_mission_id, mission_drone.mission.id)
+
+    def test_create_fails_when_drone_has_no_missions(self):
+        self.client.force_authenticate(self.admin_user)
+        mission = MissionFactory()
+        payload = {
+            "drone": self.drone.id,
+            "reason": WriteOffRecord.Reason.LOSS,
+            "related_mission": mission.id,
+        }
+
+        response = self.client.post(self.create_url, payload, format="json")
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("related_mission", response.data)
+
+    def test_create_fails_when_drone_belongs_to_another_mission(self):
+        self.client.force_authenticate(self.admin_user)
+        mission = MissionFactory()
+        mission_drone = MissionDroneFactory()
+        payload = {
+            "drone": mission_drone.drone.id,
+            "reason": WriteOffRecord.Reason.LOSS,
+            "related_mission": mission.id,
+        }
+
+        response = self.client.post(self.create_url, payload, format="json")
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("related_mission", response.data)
+
+    def test_create_with_latest_drone_mission(self):
+        self.client.force_authenticate(self.admin_user)
+        mission_drones = MissionDroneFactory.create_batch(3, drone=self.drone)
+
+        payload = {
+            "drone": self.drone.id,
+            "reason": WriteOffRecord.Reason.LOSS,
+            "related_mission": mission_drones[2].mission.id,
+        }
+
+        response = self.client.post(self.create_url, payload, format="json")
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+
+        writeoff = WriteOffRecord.objects.first()
+        self.assertEqual(writeoff.drone_id, self.drone.id)
+        self.assertEqual(writeoff.related_mission_id, mission_drones[2].mission.id)
+
+    def test_create_fails_when_drone_mission_is_not_the_latest(self):
+        self.client.force_authenticate(self.admin_user)
+        mission_drones = MissionDroneFactory.create_batch(3, drone=self.drone)
+
+        payload = {
+            "drone": self.drone.id,
+            "reason": WriteOffRecord.Reason.LOSS,
+            "related_mission": mission_drones[0].mission.id,
+        }
+
+        response = self.client.post(self.create_url, payload, format="json")
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("related_mission", response.data)

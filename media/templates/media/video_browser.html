@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Mission Videos</title>
+</head>
+<body>
+    <h1>Mission Videos</h1>
+
+    <form method="get" id="video-filter-form">
+        <label for="mission_id">Mission ID:</label>
+        <input
+            type="number"
+            id="mission_id"
+            name="mission_id"
+            min="1"
+            value="{{ mission_id }}"
+        >
+
+        <label for="drone_id">Drone ID:</label>
+        <input
+            type="number"
+            id="drone_id"
+            name="drone_id"
+            min="1"
+            value="{{ drone_id }}"
+        >
+
+        <button type="submit">Filter</button>
+        <a href="{% url 'video_media:video-browser' %}">Reset</a>
+    </form>
+
+    <p>
+        You can filter videos by mission, drone, or both.
+        Example: <code>?mission_id=1&amp;drone_id=2</code>
+    </p>
+
+    {% if error %}
+        <p style="color: red;"><strong>Error:</strong> {{ error }}</p>
+    {% endif %}
+
+    {% if videos %}
+        <table border="1" cellpadding="10" cellspacing="0">
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Mission ID</th>
+                    <th>Drone ID</th>
+                    <th>File Name</th>
+                    <th>Status</th>
+                    <th>Uploader</th>
+                    <th>Recorded At</th>
+                    <th>Created At</th>
+                    <th>File URL</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for video in videos %}
+                    <tr>
+                        <td>{{ video.id }}</td>
+                        <td>{{ video.mission_id }}</td>
+                        <td>{{ video.drone_id }}</td>
+                        <td>{{ video.file_name }}</td>
+                        <td>{{ video.status }}</td>
+                        <td>{{ video.uploader.username|default:"N/A" }}</td>
+                        <td>{{ video.recorded_at|default:"N/A" }}</td>
+                        <td>{{ video.created_at }}</td>
+                        <td>
+                            <a href="{{ video.url }}" target="_blank" rel="noopener noreferrer">
+                                Open file
+                            </a>
+                        </td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    {% elif mission_id or drone_id %}
+        <p>No videos found for the selected filters.</p>
+    {% else %}
+        <p>Enter a mission ID or drone ID to view matching videos.</p>
+    {% endif %}
+
+    <script>
+        document.getElementById("video-filter-form").addEventListener("submit", function () {
+            ["mission_id", "drone_id"].forEach(function (fieldName) {
+                var field = document.getElementById(fieldName);
+                if (field && !field.value.trim()) {
+                    field.disabled = true;
+                }
+            });
+        });
+    </script>
+</body>
+</html>
