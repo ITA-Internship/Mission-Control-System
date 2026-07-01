@@ -1048,7 +1048,7 @@ class MissionAssignmentListCreatePermissionTests(APITestCase):
             kwargs={"mission_pk": self.mission.pk},
         )
 
-    def test_viewer_can_list_assignments_with_missions_view(self):
+    def test_viewer_cannot_list_assignments_without_missions_view(self):
         MissionDroneFactory(
             mission=self.mission,
             drone=self.drone,
@@ -1058,7 +1058,7 @@ class MissionAssignmentListCreatePermissionTests(APITestCase):
         self.client.force_authenticate(self.viewer)
         response = self.client.get(self.url)
 
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
 
     def test_viewer_cannot_create_assignment_with_only_missions_view(self):
         self.client.force_authenticate(self.viewer)

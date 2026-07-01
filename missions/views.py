@@ -107,12 +107,6 @@ class MissionListCreateView(generics.ListCreateAPIView):
 
         return queryset
 
-    def get_queryset(self):
-        if self.request.method in permissions.SAFE_METHODS:
-            return self.get_queryset_for_list()
-
-        return Mission.objects.none()
-
     def perform_create(self, serializer):
         serializer.save(created_by=self.request.user)
 
