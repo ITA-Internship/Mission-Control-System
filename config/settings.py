@@ -59,6 +59,7 @@ INSTALLED_APPS = [
     "rest_framework",
     "django_filters",
     "common",
+    "drf_spectacular",
 ]
 
 MIDDLEWARE = [
@@ -131,6 +132,7 @@ REST_FRAMEWORK = {
         "rest_framework.authentication.SessionAuthentication",
         "rest_framework.authentication.BasicAuthentication",
     ],
+    "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
 }
 
 
@@ -191,3 +193,10 @@ FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:3000")
 CELERY_BROKER_URL = os.environ.get("REDIS_URL", "redis://localhost:6379/0")
 CELERY_RESULT_BACKEND = os.environ.get("REDIS_URL", "redis://localhost:6379/0")
 MAX_EXPORT_LIMIT = 10000
+
+
+SPECTACULAR_SETTINGS = {
+    "TITLE": "Mission Control System API",
+    "DESCRIPTION": "Documentation for Mission-Control-System",
+    "SERVE_INCLUDE_SCHEMA": False,
+}
