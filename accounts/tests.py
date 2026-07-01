@@ -22,6 +22,9 @@ THROTTLE_TEST_SETTINGS = {
         "rest_framework.authentication.SessionAuthentication",
         "rest_framework.authentication.BasicAuthentication",
     ],
+    "DEFAULT_THROTTLE_CLASSES": [
+        "rest_framework.throttling.ScopedRateThrottle",
+    ],
     "DEFAULT_THROTTLE_RATES": {
         "account_activation": "1/minute",
         "password_reset_request": "1/minute",
@@ -173,6 +176,7 @@ class PublicAuthThrottleTests(APITestCase):
         )
 
 
+@override_settings(REST_FRAMEWORK=THROTTLE_TEST_SETTINGS)
 class PasswordChangeSecurityTests(APITestCase):
     def setUp(self):
         self.user = User.objects.create_user(

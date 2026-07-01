@@ -42,6 +42,11 @@ from .serializers import (
     UserStatusUpdateSerializer,
 )
 from .services import create_audit_log, update_user_role
+from .throttles import (
+    AccountActivationThrottle,
+    PasswordResetConfirmThrottle,
+    PasswordResetRequestThrottle,
+)
 
 
 class UserRegistrationView(generics.CreateAPIView):
@@ -76,8 +81,7 @@ class UserRoleUpdateAPIView(APIView):
 
 class ActivateAccountAPIView(APIView):
     permission_classes = [AllowAny]
-    throttle_classes = [ScopedRateThrottle]
-    throttle_scope = "account_activation"
+    throttle_classes = [AccountActivationThrottle]
 
     def post(self, request, user_id, token):
         user = get_object_or_404(User, pk=user_id)
@@ -330,8 +334,7 @@ class ChangePasswordView(APIView):
 
 class PasswordResetRequestView(APIView):
     permission_classes = [permissions.AllowAny]
-    throttle_classes = [ScopedRateThrottle]
-    throttle_scope = "password_reset_request"
+    throttle_classes = [PasswordResetRequestThrottle]
 
     def post(self, request):
         serializer = PasswordResetRequestSerializer(data=request.data)
@@ -378,8 +381,7 @@ class PasswordResetRequestView(APIView):
 
 class PasswordResetConfirmView(APIView):
     permission_classes = [permissions.AllowAny]
-    throttle_classes = [ScopedRateThrottle]
-    throttle_scope = "password_reset_confirm"
+    throttle_classes = [PasswordResetConfirmThrottle]
 
     def post(self, request, uidb64, token):
 
