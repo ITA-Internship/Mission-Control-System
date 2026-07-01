@@ -69,7 +69,11 @@ class MissionListCreateView(generics.ListCreateAPIView):
         if self.request.method in permissions.SAFE_METHODS:
             permission_classes = [permissions.IsAuthenticated, CanViewMission]
         else:
-            permission_classes = [permissions.IsAuthenticated, IsDispatcherOrAdmin]
+            permission_classes = [
+                permissions.IsAuthenticated,
+                IsDispatcherOrAdmin,
+                MissionsCreateRBAC,
+            ]
         return [permission() for permission in permission_classes]
 
     def get_queryset(self):
@@ -236,7 +240,11 @@ class MissionAssignmentListCreateView(generics.ListCreateAPIView):
 
 
 class MissionAssignmentDetailView(generics.DestroyAPIView):
-    permission_classes = [permissions.IsAuthenticated, IsDispatcherOrAdmin]
+    permission_classes = [
+        permissions.IsAuthenticated,
+        IsDispatcherOrAdmin,
+        MissionsAssignRBAC,
+    ]
     lookup_url_kwarg = "pk"
 
     def get_queryset(self):
