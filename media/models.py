@@ -3,7 +3,6 @@ import uuid
 
 from django.conf import settings
 from django.core.exceptions import ValidationError
-from django.core.files.storage import default_storage
 from django.core.validators import FileExtensionValidator
 from django.db import models
 
@@ -74,21 +73,7 @@ def validate_video_file_size(value):
 
 
 def _detect_storage_backend():
-    storage = default_storage
-    if hasattr(storage, "_wrapped"):
-        try:
-            _ = storage.location
-        except AttributeError:
-            pass
-        storage = storage._wrapped
-    backend_class = type(storage).__name__
-    backend_map = {
-        "FileSystemStorage": "local",
-        "S3Boto3Storage": "s3",
-        "GoogleCloudStorage": "gcs",
-        "AzureStorage": "azure",
-    }
-    return backend_map.get(backend_class, backend_class.lower())
+    return getattr(settings, "STORAGE_PROVIDER", "local")
 
 
 class MissionArtifact(models.Model):
@@ -168,6 +153,66 @@ class MissionArtifact(models.Model):
 
     def __str__(self):
         return f"{self.title} ({self.file_type}) — Mission #{self.mission_id}"
+
+
+class MediaAuditLog(models.Model):
+    class Action(models.TextChoices):
+        VIEW = "view", "View"
+        UPLOAD = "upload", "Upload"
+        UPDATE = "update", "Update"
+        DELETE = "delete", "Delete"
+
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="media_audit_logs",
+    )
+
+    artifact = models.ForeignKey(
+        "media.MissionArtifact",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="audit_logs",
+        help_text="Null after the referenced artifact is deleted.",
+    )
+
+    mission = models.ForeignKey(
+        "missions.Mission",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="media_audit_logs",
+    )
+
+    action = models.CharField(
+        max_length=10,
+        choices=Action.choices,
+    )
+
+    changes = models.JSONField(default=dict, blank=True)
+
+    ip_address = models.GenericIPAddressField(null=True, blank=True)
+
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "media_audit_logs"
+        ordering = ["-created_at"]
+        indexes = [
+            models.Index(fields=["artifact"]),
+            models.Index(fields=["mission"]),
+            models.Index(fields=["action"]),
+            models.Index(fields=["created_at"]),
+        ]
+
+    def __str__(self):
+        return (
+            f"[{self.action}] artifact #{self.artifact_id} "
+            f"(Mission #{self.mission_id}) by {self.user}"
+        )
 
 
 class VideoMetadata(models.Model):

@@ -1,7 +1,7 @@
 from django.contrib import admin
 from django.template.defaultfilters import filesizeformat
 
-from .models import MissionArtifact
+from .models import MediaAuditLog, MissionArtifact
 
 
 @admin.register(MissionArtifact)
@@ -33,3 +33,29 @@ class MissionArtifactAdmin(admin.ModelAdmin):
     @admin.display(description="File Size", ordering="file_size")
     def formatted_file_size(self, obj):
         return filesizeformat(obj.file_size)
+
+
+@admin.register(MediaAuditLog)
+class MediaAuditLogAdmin(admin.ModelAdmin):
+    list_display = (
+        "id",
+        "action",
+        "artifact",
+        "mission",
+        "user",
+        "ip_address",
+        "created_at",
+    )
+    list_display_links = ("id",)
+    list_filter = ("action", "created_at")
+    search_fields = ("user__username", "ip_address", "changes")
+    list_select_related = ("artifact", "mission", "user")
+    date_hierarchy = "created_at"
+    ordering = ("-created_at",)
+    readonly_fields = [f.name for f in MediaAuditLog._meta.fields]
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False

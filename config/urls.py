@@ -20,6 +20,8 @@ from django.conf.urls.static import static
 from django.contrib import admin
 from django.urls import include, path
 
+from media.urls import audit_urlpatterns as media_audit_urlpatterns
+
 urlpatterns = [
     path("admin/", admin.site.urls),
     path("api/accounts/", include("accounts.urls")),
@@ -28,6 +30,7 @@ urlpatterns = [
     path("api/missions/", include("missions.urls")),
     path("api/repairs/", include("repairs.urls")),
     path("api/media/", include("media.urls_video")),
+    path("api/media/", include(media_audit_urlpatterns)),
 ]
 
 if settings.DEBUG:
