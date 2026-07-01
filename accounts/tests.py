@@ -1,12 +1,13 @@
+from io import StringIO
+
+from django.contrib.auth.tokens import default_token_generator
+from django.core.cache import cache
 from django.core.management import call_command
 from django.core.management.base import CommandError
-from django.core.cache import cache
-from django.contrib.auth.tokens import default_token_generator
 from django.test import TestCase, override_settings
 from django.urls import reverse
 from django.utils.encoding import force_bytes
 from django.utils.http import urlsafe_base64_encode
-from io import StringIO
 from rest_framework import status
 from rest_framework.test import APITestCase
 
@@ -15,7 +16,6 @@ from seed_data.users import seed_users
 
 from .models import AuditLog, User, UserRoleAuditLog
 from .services import update_user_role
-
 
 THROTTLE_TEST_SETTINGS = {
     "DEFAULT_AUTHENTICATION_CLASSES": [
@@ -152,9 +152,7 @@ class PublicAuthThrottleTests(APITestCase):
         )
 
         self.assertEqual(first_response.status_code, status.HTTP_200_OK)
-        self.assertEqual(
-            second_response.status_code, status.HTTP_429_TOO_MANY_REQUESTS
-        )
+        self.assertEqual(second_response.status_code, status.HTTP_429_TOO_MANY_REQUESTS)
 
     def test_password_reset_request_endpoint_is_throttled(self):
         url = reverse("accounts:password-reset-request")
@@ -171,9 +169,7 @@ class PublicAuthThrottleTests(APITestCase):
         )
 
         self.assertEqual(first_response.status_code, status.HTTP_200_OK)
-        self.assertEqual(
-            second_response.status_code, status.HTTP_429_TOO_MANY_REQUESTS
-        )
+        self.assertEqual(second_response.status_code, status.HTTP_429_TOO_MANY_REQUESTS)
 
 
 @override_settings(REST_FRAMEWORK=THROTTLE_TEST_SETTINGS)
@@ -227,6 +223,4 @@ class PasswordChangeSecurityTests(APITestCase):
         )
 
         self.assertEqual(first_response.status_code, status.HTTP_200_OK)
-        self.assertEqual(
-            second_response.status_code, status.HTTP_429_TOO_MANY_REQUESTS
-        )
+        self.assertEqual(second_response.status_code, status.HTTP_429_TOO_MANY_REQUESTS)

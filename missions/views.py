@@ -16,8 +16,8 @@ from roles.models import OPERATOR_CODE
 
 from .models import Mission, MissionAuditLog, MissionDrone, Status
 from .permissions import (
-    CanViewMission,
     CanUpdateMissionStatus,
+    CanViewMission,
     IsAssignedOperatorOrAdmin,
     IsDispatcherOrAdmin,
 )
