@@ -300,7 +300,8 @@ class MissionDroneConditionTests(APITestCase):
         writeoff = WriteOffRecord.objects.get(drone=self.drone)
         self.assertEqual(writeoff.reason, "LOSS")
         self.assertEqual(writeoff.related_mission, self.mission)
-        self.assertIn("lost", writeoff.reason_description.lower())
+        self.assertEqual(writeoff.reason, WriteOffRecord.Reason.LOSS)
+        self.assertEqual(writeoff.reason_description, "Lost over water.")
 
         history = DroneStatusHistory.objects.get(drone=self.drone)
         self.assertEqual(history.from_status, "ACTIVE")

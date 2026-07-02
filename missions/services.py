@@ -4,7 +4,7 @@ from django.db.models import Q
 from django.utils import timezone
 from rest_framework import serializers
 
-from drones.models import Drone
+from drones.models import Drone, WriteOffRecord
 from drones.services import update_drone
 
 from .models import Condition, Mission, MissionAuditLog, MissionDrone, Status
@@ -288,8 +288,10 @@ def record_drone_condition(
         writeoff_kwargs = {}
         if condition_after == Condition.LOST:
             writeoff_kwargs = {
-                "writeoff_reason": "LOSS",
-                "writeoff_reason_description": "Mission outcome: drone marked as lost",
+                "writeoff_reason": WriteOffRecord.Reason.LOSS,
+                "writeoff_reason_description": (
+                    condition_description or "Mission outcome: drone marked as lost"
+                ),
                 "written_off_at": timezone.localdate(),
             }
 
