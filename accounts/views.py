@@ -1,4 +1,5 @@
 import csv
+import mimetypes
 
 from django.conf import settings
 from django.contrib.auth.tokens import default_token_generator
@@ -6,7 +7,7 @@ from django.contrib.sessions.models import Session
 from django.core.exceptions import ValidationError as DjangoValidationError
 from django.core.mail import send_mail
 from django.db.models import Q
-from django.http import StreamingHttpResponse
+from django.http import FileResponse, HttpResponse, StreamingHttpResponse
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from django.utils.encoding import force_bytes, force_str
@@ -429,3 +430,40 @@ class PasswordResetConfirmView(APIView):
             {"detail": "The reset link is invalid or has expired."},
             status=status.HTTP_400_BAD_REQUEST,
         )
+
+
+class ProtectedProfilePictureView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request, user_id):
+        user = get_object_or_404(User, pk=user_id)
+
+        if request.user != user and not request.user.is_staff:
+            return Response(
+                {"detail": "You do not have permission to view this profile picture."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        if not hasattr(user, "profile") or not user.profile.profile_picture:
+            return Response(
+                {"detail": "User does not have a profile picture."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        file_field = user.profile.profile_picture
+
+        content_type, _ = mimetypes.guess_type(file_field.name)
+        content_type = content_type or "application/octet-stream"
+        filename = file_field.name.split("/")[-1]
+
+        if settings.DEBUG:
+            response = FileResponse(file_field.open("rb"), content_type=content_type)
+        else:
+            response = HttpResponse(content_type=content_type)
+
+            internal_path = f"/internal-media/{file_field.name}"
+            response["X-Accel-Redirect"] = internal_path
+
+        response["Content-Disposition"] = f'inline; filename="{filename}"'
+
+        return response

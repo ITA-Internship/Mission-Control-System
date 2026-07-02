@@ -7,6 +7,7 @@ from .views import (
     ChangePasswordView,
     PasswordResetConfirmView,
     PasswordResetRequestView,
+    ProtectedProfilePictureView,
     UserMeView,
     UserRegistrationView,
     UserRoleUpdateAPIView,
@@ -55,5 +56,10 @@ urlpatterns = [
         "users/<int:pk>/status/",
         UserStatusUpdateView.as_view(),
         name="user-status-update",
+    ),
+    path(
+        "users/<int:user_id>/profile-picture/",
+        ProtectedProfilePictureView.as_view(),
+        name="user-profile-picture",
     ),
 ]
