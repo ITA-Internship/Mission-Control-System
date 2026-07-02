@@ -26,6 +26,7 @@ from drones.models import (
     DroneStatusHistory,
     WriteOffRecord,
 )
+from missions.factories import MissionDroneFactory, MissionFactory
 
 
 class DroneCreateTests(APITestCase):
@@ -1446,3 +1447,151 @@ class DroneDataImportTests(APITestCase):
         self.assertIn(
             "Missing one or more required fields", response.data["errors"][0]["error"]
         )
+
+
+class WriteOffRecordTests(APITestCase):
+    def setUp(self):
+        self.create_url = reverse("drones:write-off-create")
+        self.drone = DroneFactory()
+        self.admin_user = AdminUserFactory()
+        self.viewer = ViewerUserFactory()
+
+    def test_create_valid_write_off_record_as_admin(self):
+        self.client.force_authenticate(self.admin_user)
+        payload = {
+            "drone": self.drone.id,
+            "reason": WriteOffRecord.Reason.LOSS,
+            "reason_description": "Write Off Reason Description",
+        }
+        response = self.client.post(self.create_url, payload, format="json")
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+
+        self.drone.refresh_from_db()
+
+        self.assertEqual(self.drone.status, "WRITTEN_OFF")
+        self.assertEqual(WriteOffRecord.objects.count(), 1)
+        self.assertEqual(DroneStatusHistory.objects.count(), 1)
+
+        writeoff_record = WriteOffRecord.objects.get(drone=self.drone)
+        status_history = DroneStatusHistory.objects.get(drone=self.drone)
+
+        self.assertEqual(writeoff_record.reason, WriteOffRecord.Reason.LOSS)
+        self.assertEqual(writeoff_record.authorized_by, self.admin_user)
+
+        self.assertEqual(status_history.from_status, "ACTIVE")
+        self.assertEqual(status_history.to_status, "WRITTEN_OFF")
+        self.assertEqual(status_history.related_writeoff, writeoff_record)
+
+    def test_create_write_off_fails_as_viewer(self):
+        self.client.force_authenticate(self.viewer)
+        payload = {"drone": self.drone.id, "reason": WriteOffRecord.Reason.LOSS}
+        response = self.client.post(self.create_url, payload, format="json")
+
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_list_write_off_as_viewer(self):
+        self.client.force_authenticate(self.viewer)
+
+        response = self.client.get(self.create_url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+    def test_create_write_off_fails_with_empty_reason(self):
+        self.client.force_authenticate(self.admin_user)
+        payload = {"drone": self.drone.id, "reason": ""}
+
+        response = self.client.post(self.create_url, payload, format="json")
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("reason", response.data)
+
+    def test_create_write_off_fails_when_drone_has_inactive_status(self):
+        self.client.force_authenticate(self.admin_user)
+        written_off_drone = DroneFactory(status=Drone.STATUS_SOLD)
+        payload = {
+            "drone": written_off_drone.id,
+            "reason": WriteOffRecord.Reason.LOSS,
+        }
+
+        response = self.client.post(self.create_url, payload, format="json")
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("drone", response.data)
+
+    def test_create_write_off_record_with_related_mission(self):
+        self.client.force_authenticate(self.admin_user)
+        mission_drone = MissionDroneFactory()
+        payload = {
+            "drone": mission_drone.drone.id,
+            "reason": WriteOffRecord.Reason.LOSS,
+            "related_mission": mission_drone.mission.id,
+        }
+
+        response = self.client.post(self.create_url, payload, format="json")
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+
+        writeoff = WriteOffRecord.objects.first()
+        self.assertEqual(writeoff.drone_id, mission_drone.drone.id)
+        self.assertEqual(writeoff.related_mission_id, mission_drone.mission.id)
+
+    def test_create_fails_when_drone_has_no_missions(self):
+        self.client.force_authenticate(self.admin_user)
+        mission = MissionFactory()
+        payload = {
+            "drone": self.drone.id,
+            "reason": WriteOffRecord.Reason.LOSS,
+            "related_mission": mission.id,
+        }
+
+        response = self.client.post(self.create_url, payload, format="json")
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("related_mission", response.data)
+
+    def test_create_fails_when_drone_belongs_to_another_mission(self):
+        self.client.force_authenticate(self.admin_user)
+        mission = MissionFactory()
+        mission_drone = MissionDroneFactory()
+        payload = {
+            "drone": mission_drone.drone.id,
+            "reason": WriteOffRecord.Reason.LOSS,
+            "related_mission": mission.id,
+        }
+
+        response = self.client.post(self.create_url, payload, format="json")
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("related_mission", response.data)
+
+    def test_create_with_latest_drone_mission(self):
+        self.client.force_authenticate(self.admin_user)
+        mission_drones = MissionDroneFactory.create_batch(3, drone=self.drone)
+
+        payload = {
+            "drone": self.drone.id,
+            "reason": WriteOffRecord.Reason.LOSS,
+            "related_mission": mission_drones[2].mission.id,
+        }
+
+        response = self.client.post(self.create_url, payload, format="json")
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+
+        writeoff = WriteOffRecord.objects.first()
+        self.assertEqual(writeoff.drone_id, self.drone.id)
+        self.assertEqual(writeoff.related_mission_id, mission_drones[2].mission.id)
+
+    def test_create_fails_when_drone_mission_is_not_the_latest(self):
+        self.client.force_authenticate(self.admin_user)
+        mission_drones = MissionDroneFactory.create_batch(3, drone=self.drone)
+
+        payload = {
+            "drone": self.drone.id,
+            "reason": WriteOffRecord.Reason.LOSS,
+            "related_mission": mission_drones[0].mission.id,
+        }
+
+        response = self.client.post(self.create_url, payload, format="json")
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("related_mission", response.data)

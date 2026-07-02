@@ -1,0 +1,729 @@
+from unittest.mock import patch
+
+from django.contrib.auth import get_user_model
+from django.core.files.uploadedfile import SimpleUploadedFile
+from django.test import override_settings
+from django.urls import reverse
+from django.utils import timezone
+from rest_framework import status
+from rest_framework.test import APITestCase
+
+from accounts.models import MilitaryUnit
+from drones.models import Drone, DroneModel
+from media.factories import MissionArtifactFactory
+from media.models import MediaAuditLog, MissionArtifact, VideoMetadata
+from missions.factories import (
+    AdminUserFactory,
+    DispatcherUserFactory,
+    MissionDroneFactory,
+    MissionFactory,
+    OperatorUserFactory,
+    ViewerUserFactory,
+)
+from missions.models import Mission, MissionAuditLog
+
+User = get_user_model()
+
+
+class VideoMetadataAPITests(APITestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(
+            username="operator_travis",
+            email="travis@example.com",
+            password="securepassword123",
+        )
+        self.mission = Mission.objects.create(title="Test Mission Alpha")
+        self.other_mission = Mission.objects.create(title="Test Mission Beta")
+        self.military_unit = MilitaryUnit.objects.create(id=1, name="Unit 101")
+        self.drone_model = DroneModel.objects.create(
+            name="Mavic 3 Pro",
+            manufacturer="DJI",
+            supported_classifications=["RECONNAISSANCE", "SURVEILLANCE"],
+        )
+
+        drones_to_create = [
+            Drone(
+                id=1,
+                name="Mavic Alpha",
+                serial_number="SN-MAVIC-001",
+                inventory_number="INV-DRONE-001",
+                drone_model=self.drone_model,
+                classification="RECONNAISSANCE",
+                status="ACTIVE",
+                military_unit=self.military_unit,
+                acquired_at=timezone.localdate(),
+            ),
+            Drone(
+                id=2,
+                name="Mavic Beta",
+                serial_number="SN-MAVIC-002",
+                inventory_number="INV-DRONE-002",
+                drone_model=self.drone_model,
+                classification="SURVEILLANCE",
+                status="ACTIVE",
+                military_unit=self.military_unit,
+                acquired_at=timezone.localdate(),
+            ),
+        ]
+        Drone.objects.bulk_create(drones_to_create)
+        self.drone = Drone.objects.get(id=1)
+        self.other_drone = Drone.objects.get(id=2)
+        MissionDroneFactory(mission=self.mission, drone=self.drone, operator=self.user)
+        MissionDroneFactory(
+            mission=self.other_mission, drone=self.other_drone, operator=self.user
+        )
+
+        self.video_file = SimpleUploadedFile(
+            name="flight_video.mp4",
+            content=b"fake_video_content_bytes",
+            content_type="video/mp4",
+        )
+        self.list_url = reverse("video_media:video-metadata-list")
+        self.client.force_authenticate(user=self.user)
+
+    @patch("media.permissions.MediaUploadPermission.has_permission", return_value=True)
+    @patch("subprocess.run")
+    def test_upload_video_metadata_success(self, mock_subproc, mock_perm):
+        class MockResult:
+            stdout = '{"format": {"duration": "42.0"}}'
+            stderr = ""
+
+        mock_subproc.return_value = MockResult()
+
+        data = {
+            "mission": self.mission.id,
+            "drone": self.drone.id,
+            "file": self.video_file,
+            "checksum": "sha256_mock_hash_value",
+            "recorded_at": timezone.now().isoformat(),
+        }
+        response = self.client.post(self.list_url, data, format="multipart")
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+
+        video_from_db = VideoMetadata.objects.get(id=response.data["id"])
+        self.assertEqual(video_from_db.duration_seconds, 42)
+
+    @patch("media.permissions.MediaUploadPermission.has_permission", return_value=True)
+    def test_upload_video_metadata_requires_mission(self, mock_perm):
+        data = {
+            "drone": self.drone.id,
+            "file": self.video_file,
+        }
+        response = self.client.post(self.list_url, data, format="multipart")
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("mission", response.data)
+
+    @patch("media.permissions.MediaUploadPermission.has_permission", return_value=True)
+    def test_upload_video_metadata_requires_drone(self, mock_perm):
+        data = {
+            "mission": self.mission.id,
+            "file": self.video_file,
+        }
+        response = self.client.post(self.list_url, data, format="multipart")
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("drone", response.data)
+
+    @patch("media.permissions.MediaUploadPermission.has_permission", return_value=True)
+    def test_upload_video_metadata_rejects_unknown_mission(self, mock_perm):
+        data = {
+            "mission": 999999,
+            "drone": self.drone.id,
+            "file": self.video_file,
+        }
+        response = self.client.post(self.list_url, data, format="multipart")
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("mission", response.data)
+
+    @patch("media.permissions.MediaUploadPermission.has_permission", return_value=True)
+    def test_upload_video_metadata_rejects_unknown_drone(self, mock_perm):
+        data = {
+            "mission": self.mission.id,
+            "drone": 999999,
+            "file": self.video_file,
+        }
+        response = self.client.post(self.list_url, data, format="multipart")
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("drone", response.data)
+
+    @patch("media.permissions.MediaUploadPermission.has_permission", return_value=True)
+    def test_upload_video_metadata_rejects_drone_not_assigned_to_mission(
+        self, mock_perm
+    ):
+        data = {
+            "mission": self.mission.id,
+            "drone": self.other_drone.id,
+            "file": self.video_file,
+        }
+        response = self.client.post(self.list_url, data, format="multipart")
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(
+            response.data["drone"][0],
+            "Drone must be assigned to the selected mission.",
+        )
+
+    @patch("media.permissions.MediaViewPermission.has_permission", return_value=True)
+    def test_get_video_metadata_list_with_pagination(self, mock_perm):
+        VideoMetadata.objects.create(
+            mission=self.mission,
+            drone=self.drone,
+            uploader=self.user,
+            file=self.video_file,
+            file_name="video_1.mp4",
+            file_size=100,
+        )
+
+        response = self.client.get(self.list_url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertIn("results", response.data)
+        self.assertEqual(len(response.data["results"]), 1)
+
+    @patch("media.permissions.MediaViewPermission.has_permission", return_value=True)
+    def test_filter_video_metadata_by_mission(self, mock_perm):
+        VideoMetadata.objects.create(
+            mission=self.mission,
+            drone=self.drone,
+            uploader=self.user,
+            file=self.video_file,
+            file_name="video_1.mp4",
+            file_size=100,
+        )
+        VideoMetadata.objects.create(
+            mission=self.other_mission,
+            drone=self.other_drone,
+            uploader=self.user,
+            file=self.video_file,
+            file_name="video_2.mp4",
+            file_size=200,
+        )
+
+        response = self.client.get(f"{self.list_url}?mission={self.mission.id}")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data["results"]), 1)
+        self.assertEqual(response.data["results"][0]["file_name"], "video_1.mp4")
+
+    @patch("media.permissions.MediaViewPermission.has_permission", return_value=True)
+    def test_filter_video_metadata_by_drone_alias(self, mock_perm):
+        VideoMetadata.objects.create(
+            mission=self.mission,
+            drone=self.drone,
+            uploader=self.user,
+            file=self.video_file,
+            file_name="video_1.mp4",
+            file_size=100,
+        )
+        VideoMetadata.objects.create(
+            mission=self.other_mission,
+            drone=self.other_drone,
+            uploader=self.user,
+            file=SimpleUploadedFile(
+                name="flight_video_4.mp4",
+                content=b"fourth_fake_video_content_bytes",
+                content_type="video/mp4",
+            ),
+            file_name="video_2.mp4",
+            file_size=200,
+        )
+
+        response = self.client.get(f"{self.list_url}?drone={self.drone.id}")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data["results"]), 1)
+        self.assertEqual(response.data["results"][0]["file_name"], "video_1.mp4")
+
+    @patch("media.permissions.MediaViewPermission.has_permission", return_value=True)
+    def test_filter_video_metadata_by_drone_id(self, mock_perm):
+        VideoMetadata.objects.create(
+            mission=self.mission,
+            drone=self.drone,
+            uploader=self.user,
+            file=self.video_file,
+            file_name="video_1.mp4",
+            file_size=100,
+        )
+        VideoMetadata.objects.create(
+            mission=self.other_mission,
+            drone=self.other_drone,
+            uploader=self.user,
+            file=SimpleUploadedFile(
+                name="flight_video_2.mp4",
+                content=b"other_fake_video_content_bytes",
+                content_type="video/mp4",
+            ),
+            file_name="video_2.mp4",
+            file_size=200,
+        )
+
+        response = self.client.get(f"{self.list_url}?drone_id={self.drone.id}")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data["results"]), 1)
+        self.assertEqual(response.data["results"][0]["file_name"], "video_1.mp4")
+
+    @patch("media.permissions.MediaViewPermission.has_permission", return_value=True)
+    def test_filter_video_metadata_by_mission_id_alias(self, mock_perm):
+        VideoMetadata.objects.create(
+            mission=self.mission,
+            drone=self.drone,
+            uploader=self.user,
+            file=self.video_file,
+            file_name="video_1.mp4",
+            file_size=100,
+        )
+        VideoMetadata.objects.create(
+            mission=self.other_mission,
+            drone=self.other_drone,
+            uploader=self.user,
+            file=SimpleUploadedFile(
+                name="flight_video_3.mp4",
+                content=b"third_fake_video_content_bytes",
+                content_type="video/mp4",
+            ),
+            file_name="video_2.mp4",
+            file_size=200,
+        )
+
+        response = self.client.get(f"{self.list_url}?mission_id={self.mission.id}")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data["results"]), 1)
+        self.assertEqual(response.data["results"][0]["file_name"], "video_1.mp4")
+
+    @patch("media.permissions.MediaViewPermission.has_permission", return_value=True)
+    def test_video_browser_page_renders_filtered_results(self, mock_perm):
+        self.client.force_login(self.user)
+        VideoMetadata.objects.create(
+            mission=self.mission,
+            drone=self.drone,
+            uploader=self.user,
+            file=self.video_file,
+            file_name="video_1.mp4",
+            file_size=100,
+        )
+        VideoMetadata.objects.create(
+            mission=self.other_mission,
+            drone=self.other_drone,
+            uploader=self.user,
+            file=SimpleUploadedFile(
+                name="flight_video_browser.mp4",
+                content=b"browser_fake_video_content_bytes",
+                content_type="video/mp4",
+            ),
+            file_name="video_2.mp4",
+            file_size=200,
+        )
+
+        browser_url = reverse("video_media:video-browser")
+        response = self.client.get(f"{browser_url}?mission_id={self.mission.id}")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertContains(response, "Mission Videos")
+        self.assertContains(response, "video_1.mp4")
+        self.assertNotContains(response, "video_2.mp4")
+
+
+@override_settings(
+    ARTIFACT_ALLOWED_EXTENSIONS={
+        "image": [".jpg", ".jpeg", ".png"],
+        "video": [".mp4", ".avi", ".mov"],
+        "data": [".json", ".csv", ".xml"],
+    },
+    ARTIFACT_MAX_FILE_SIZE_MB=10,
+)
+class ArtifactListCreateTests(APITestCase):
+    def setUp(self):
+        self.admin = AdminUserFactory()
+        self.dispatcher = DispatcherUserFactory()
+        self.operator = OperatorUserFactory()
+        self.viewer = ViewerUserFactory()
+
+        self.mission = MissionFactory()
+        self.url = reverse(
+            "missions:media:artifact-list-create",
+            kwargs={"mission_pk": self.mission.pk},
+        )
+
+    def get_valid_payload(self):
+        file_content = b"test image content"
+        upload_file = SimpleUploadedFile(
+            "test.jpg", file_content, content_type="image/jpeg"
+        )
+        return {
+            "title": "Test Artifact",
+            "description": "Test description",
+            "file": upload_file,
+        }
+
+    def test_operator_can_upload_artifact(self):
+        self.client.force_authenticate(self.operator)
+        payload = self.get_valid_payload()
+
+        response = self.client.post(self.url, payload, format="multipart")
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(MissionArtifact.objects.count(), 1)
+
+        artifact = MissionArtifact.objects.get()
+        self.assertEqual(artifact.title, "Test Artifact")
+        self.assertEqual(artifact.uploaded_by, self.operator)
+        self.assertEqual(artifact.mission, self.mission)
+        self.assertEqual(artifact.file_type, "image")
+
+    def test_admin_can_upload_artifact(self):
+        self.client.force_authenticate(self.admin)
+        response = self.client.post(
+            self.url, self.get_valid_payload(), format="multipart"
+        )
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+
+    def test_dispatcher_can_upload_artifact(self):
+        self.client.force_authenticate(self.dispatcher)
+        response = self.client.post(
+            self.url, self.get_valid_payload(), format="multipart"
+        )
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+
+    def test_viewer_cannot_upload_artifact(self):
+        self.client.force_authenticate(self.viewer)
+        response = self.client.post(
+            self.url, self.get_valid_payload(), format="multipart"
+        )
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertEqual(MissionArtifact.objects.count(), 0)
+
+    def test_unauthenticated_cannot_upload(self):
+        response = self.client.post(
+            self.url, self.get_valid_payload(), format="multipart"
+        )
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_upload_creates_audit_log(self):
+        self.client.force_authenticate(self.operator)
+        self.client.post(self.url, self.get_valid_payload(), format="multipart")
+
+        log = MissionAuditLog.objects.get(action="artifact_uploaded")
+        self.assertEqual(log.target_model, "MissionArtifact")
+        self.assertEqual(log.user, self.operator)
+        self.assertEqual(log.changes["mission_id"], self.mission.id)
+        self.assertEqual(log.changes["title"], "Test Artifact")
+
+    def test_missing_file_rejected(self):
+        self.client.force_authenticate(self.operator)
+        payload = {"title": "No File"}
+        response = self.client.post(self.url, payload, format="multipart")
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("file", response.data)
+
+    def test_empty_file_rejected(self):
+        self.client.force_authenticate(self.operator)
+        payload = self.get_valid_payload()
+        payload["file"] = SimpleUploadedFile("empty.jpg", b"")
+        response = self.client.post(self.url, payload, format="multipart")
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("file", response.data)
+
+    def test_unsupported_file_extension_rejected(self):
+        self.client.force_authenticate(self.operator)
+        payload = self.get_valid_payload()
+        payload["file"] = SimpleUploadedFile("bad.xyz", b"content")
+        response = self.client.post(self.url, payload, format="multipart")
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("file", response.data)
+
+    @override_settings(ARTIFACT_MAX_FILE_SIZE_MB=0)
+    def test_file_too_large_rejected(self):
+        self.client.force_authenticate(self.operator)
+        response = self.client.post(
+            self.url, self.get_valid_payload(), format="multipart"
+        )
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("file", response.data)
+
+    def test_list_artifacts_for_mission(self):
+        MissionArtifactFactory(mission=self.mission, is_image=True)
+        MissionArtifactFactory(mission=self.mission, is_video=True)
+        MissionArtifactFactory(mission=self.mission, is_data=True)
+        MissionArtifactFactory(is_image=True)
+
+        self.client.force_authenticate(self.viewer)
+        response = self.client.get(self.url)
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["count"], 3)
+        file_types = {item["file_type"] for item in response.data["results"]}
+        self.assertEqual(file_types, {"image", "video", "data"})
+
+    def test_unauthenticated_cannot_list(self):
+        response = self.client.get(self.url)
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+
+class ArtifactDetailTests(APITestCase):
+    def setUp(self):
+        self.admin = AdminUserFactory()
+        self.dispatcher = DispatcherUserFactory()
+        self.operator = OperatorUserFactory()
+        self.viewer = ViewerUserFactory()
+
+        self.mission = MissionFactory()
+        self.artifact = MissionArtifactFactory(
+            mission=self.mission, uploaded_by=self.operator, is_image=True
+        )
+        self.url = reverse(
+            "missions:media:artifact-detail",
+            kwargs={"mission_pk": self.mission.pk, "artifact_pk": self.artifact.pk},
+        )
+
+    def test_viewer_can_retrieve(self):
+        self.client.force_authenticate(self.viewer)
+        response = self.client.get(self.url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["id"], self.artifact.id)
+
+    def test_unauthenticated_cannot_retrieve(self):
+        response = self.client.get(self.url)
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_admin_can_delete(self):
+        self.client.force_authenticate(self.admin)
+        response = self.client.delete(self.url)
+        self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
+        self.assertFalse(MissionArtifact.objects.filter(id=self.artifact.id).exists())
+
+    def test_operator_cannot_delete(self):
+        self.client.force_authenticate(self.operator)
+        response = self.client.delete(self.url)
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertTrue(MissionArtifact.objects.filter(id=self.artifact.id).exists())
+
+    def test_dispatcher_cannot_delete(self):
+        self.client.force_authenticate(self.dispatcher)
+        response = self.client.delete(self.url)
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertTrue(MissionArtifact.objects.filter(id=self.artifact.id).exists())
+
+    def test_viewer_cannot_delete(self):
+        self.client.force_authenticate(self.viewer)
+        response = self.client.delete(self.url)
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertTrue(MissionArtifact.objects.filter(id=self.artifact.id).exists())
+
+    def test_delete_creates_audit_log(self):
+        self.client.force_authenticate(self.admin)
+        self.client.delete(self.url)
+
+        log = MissionAuditLog.objects.get(action="artifact_deleted")
+        self.assertEqual(log.target_model, "MissionArtifact")
+        self.assertEqual(log.user, self.admin)
+        self.assertEqual(log.changes["mission_id"], self.mission.id)
+        self.assertEqual(
+            log.changes["original_filename"], self.artifact.original_filename
+        )
+
+    @patch("django.core.files.storage.default_storage.delete")
+    def test_delete_removes_file_from_storage(self, mock_delete):
+        self.client.force_authenticate(self.admin)
+
+        with self.captureOnCommitCallbacks(execute=True):
+            response = self.client.delete(self.url)
+
+        self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
+        mock_delete.assert_called_once()
+
+    def test_delete_wrong_mission_returns_404(self):
+        other_mission = MissionFactory()
+        bad_url = reverse(
+            "missions:media:artifact-detail",
+            kwargs={"mission_pk": other_mission.pk, "artifact_pk": self.artifact.pk},
+        )
+
+        self.client.force_authenticate(self.admin)
+        response = self.client.delete(bad_url)
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+
+
+class MediaAuditLoggingTests(APITestCase):
+    def setUp(self):
+        self.admin = AdminUserFactory()
+        self.operator = OperatorUserFactory()
+        self.viewer = ViewerUserFactory()
+        self.mission = MissionFactory()
+        self.artifact = MissionArtifactFactory(
+            mission=self.mission, uploaded_by=self.operator, is_image=True
+        )
+        self.detail_url = reverse(
+            "missions:media:artifact-detail",
+            kwargs={"mission_pk": self.mission.pk, "artifact_pk": self.artifact.pk},
+        )
+        self.list_url = reverse(
+            "missions:media:artifact-list-create",
+            kwargs={"mission_pk": self.mission.pk},
+        )
+
+    def get_valid_payload(self):
+        upload_file = SimpleUploadedFile(
+            "clip.jpg", b"image bytes", content_type="image/jpeg"
+        )
+        return {"title": "Mission Clip", "file": upload_file}
+
+    def test_retrieve_logs_view_action_with_user_and_ip(self):
+        self.client.force_authenticate(self.viewer)
+        response = self.client.get(self.detail_url)
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        log = MediaAuditLog.objects.get(action=MediaAuditLog.Action.VIEW)
+        self.assertEqual(log.user, self.viewer)
+        self.assertEqual(log.artifact, self.artifact)
+        self.assertEqual(log.mission_id, self.mission.id)
+        self.assertEqual(log.ip_address, "127.0.0.1")
+
+    def test_each_retrieve_creates_a_separate_view_log(self):
+        self.client.force_authenticate(self.viewer)
+        self.client.get(self.detail_url)
+        self.client.get(self.detail_url)
+
+        self.assertEqual(
+            MediaAuditLog.objects.filter(action=MediaAuditLog.Action.VIEW).count(), 2
+        )
+
+    def test_view_logging_failure_does_not_break_retrieve(self):
+        self.client.force_authenticate(self.viewer)
+        with patch(
+            "media.services.MediaAuditLog.objects.create",
+            side_effect=RuntimeError("logging down"),
+        ):
+            response = self.client.get(self.detail_url)
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+    def test_upload_writes_to_both_audit_logs(self):
+        self.client.force_authenticate(self.operator)
+        response = self.client.post(
+            self.list_url, self.get_valid_payload(), format="multipart"
+        )
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+
+        artifact_id = response.data["id"]
+
+        media_log = MediaAuditLog.objects.get(action=MediaAuditLog.Action.UPLOAD)
+        self.assertEqual(media_log.user, self.operator)
+        self.assertEqual(media_log.artifact_id, artifact_id)
+        self.assertEqual(media_log.mission_id, self.mission.id)
+        self.assertEqual(media_log.changes["title"], "Mission Clip")
+
+        self.assertTrue(
+            MissionAuditLog.objects.filter(
+                action="artifact_uploaded", target_id=artifact_id
+            ).exists()
+        )
+
+    def test_delete_writes_to_both_audit_logs(self):
+        self.client.force_authenticate(self.admin)
+
+        with self.captureOnCommitCallbacks(execute=True):
+            with patch("django.core.files.storage.default_storage.delete"):
+                response = self.client.delete(self.detail_url)
+
+        self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
+
+        media_log = MediaAuditLog.objects.get(action=MediaAuditLog.Action.DELETE)
+        self.assertEqual(media_log.user, self.admin)
+        self.assertEqual(media_log.mission_id, self.mission.id)
+        self.assertIsNone(media_log.artifact)
+        self.assertEqual(media_log.changes["artifact_id"], self.artifact.id)
+
+        self.assertTrue(
+            MissionAuditLog.objects.filter(action="artifact_deleted").exists()
+        )
+
+
+class MediaAuditLogEndpointTests(APITestCase):
+    def setUp(self):
+        self.admin = AdminUserFactory()
+        self.dispatcher = DispatcherUserFactory()
+        self.operator = OperatorUserFactory()
+        self.viewer = ViewerUserFactory()
+
+        self.mission = MissionFactory()
+        self.other_mission = MissionFactory()
+        self.artifact = MissionArtifactFactory(mission=self.mission, is_image=True)
+
+        self.view_log = MediaAuditLog.objects.create(
+            user=self.operator,
+            artifact=self.artifact,
+            mission=self.mission,
+            action=MediaAuditLog.Action.VIEW,
+            ip_address="127.0.0.1",
+        )
+        self.upload_log = MediaAuditLog.objects.create(
+            user=self.operator,
+            artifact=self.artifact,
+            mission=self.mission,
+            action=MediaAuditLog.Action.UPLOAD,
+        )
+        self.other_mission_log = MediaAuditLog.objects.create(
+            user=self.admin,
+            mission=self.other_mission,
+            action=MediaAuditLog.Action.VIEW,
+        )
+
+        self.url = reverse("media-audit-log-list")
+
+    def test_admin_can_list_logs(self):
+        self.client.force_authenticate(self.admin)
+        response = self.client.get(self.url)
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["count"], 3)
+
+    def test_operator_cannot_list_logs(self):
+        self.client.force_authenticate(self.operator)
+        response = self.client.get(self.url)
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_viewer_cannot_list_logs(self):
+        self.client.force_authenticate(self.viewer)
+        response = self.client.get(self.url)
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_dispatcher_cannot_list_logs(self):
+        self.client.force_authenticate(self.dispatcher)
+        response = self.client.get(self.url)
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_unauthenticated_cannot_list_logs(self):
+        response = self.client.get(self.url)
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_filter_by_action(self):
+        self.client.force_authenticate(self.admin)
+        response = self.client.get(self.url, {"action": MediaAuditLog.Action.UPLOAD})
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["count"], 1)
+        self.assertEqual(response.data["results"][0]["id"], self.upload_log.id)
+
+    def test_filter_by_mission(self):
+        self.client.force_authenticate(self.admin)
+        response = self.client.get(self.url, {"mission": self.other_mission.id})
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["count"], 1)
+        self.assertEqual(response.data["results"][0]["id"], self.other_mission_log.id)
+
+    def test_filter_by_user(self):
+        self.client.force_authenticate(self.admin)
+        response = self.client.get(self.url, {"user": self.operator.id})
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["count"], 2)
+
+    def test_admin_can_retrieve_log_detail(self):
+        self.client.force_authenticate(self.admin)
+        detail_url = reverse("media-audit-log-detail", kwargs={"pk": self.view_log.id})
+        response = self.client.get(detail_url)
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["id"], self.view_log.id)
+        self.assertEqual(response.data["action"], MediaAuditLog.Action.VIEW)
+
+    def test_endpoint_is_read_only(self):
+        self.client.force_authenticate(self.admin)
+        response = self.client.post(self.url, {"action": "view"}, format="json")
+        self.assertEqual(response.status_code, status.HTTP_405_METHOD_NOT_ALLOWED)

@@ -1,6 +1,7 @@
 import datetime
 
 from django.contrib.auth.models import AnonymousUser
+from django.core import mail
 from django.core.exceptions import ValidationError
 from django.db.models import ProtectedError
 from django.urls import reverse
@@ -9,12 +10,14 @@ from rest_framework import status
 from rest_framework.test import APITestCase
 
 from common.pagination import StandardResultsSetPagination
+from roles.models import COMMANDER_CODE, TECHNICIAN_CODE, VIEWER_CODE, Role
 
 from .factories import (
     AdminUserFactory,
     ComponentReplacementFactory,
     DefectReportFactory,
     DroneFactory,
+    RepairOrderFactory,
     ViewerUserFactory,
 )
 from .models import (
@@ -22,9 +25,19 @@ from .models import (
     ComponentType,
     DefectReport,
     DefectType,
+    RepairEvent,
+    RepairOrder,
+    RepairOrderStatus,
+    RepairStatus,
     Severity,
 )
-from .services import create_component_replacement, create_defect_report
+from .services import (
+    create_component_replacement,
+    create_defect_report,
+    create_repair_order,
+    get_drone_repair_history,
+    update_repair_order_status,
+)
 
 
 def _base_payload(drone):
@@ -35,6 +48,30 @@ def _base_payload(drone):
         "description": "Rear-left motor stutters under load and overheats.",
         "detected_at": "2026-06-03T14:30:00Z",
     }
+
+
+def _replacement_payload(drone):
+    return {
+        "drone": drone.id,
+        "component_type": ComponentType.MOTOR,
+        "old_serial_number": "MOTOR-OLD-001",
+        "new_serial_number": "MOTOR-NEW-001",
+        "reason": "Motor replaced after vibration and overheating.",
+        "replaced_at": "2026-06-10T11:00:00Z",
+    }
+
+
+def _repair_order_payload(drone, defect=None):
+    payload = {
+        "drone": drone.id,
+        "description": "Replaced damaged motor after mission impact.",
+    }
+    if defect:
+        payload["defect_report"] = defect.id
+    return payload
+
+
+# ─── Defect Report Tests (existing, preserved) ─────────────────────
 
 
 class DefectReportCreateTests(APITestCase):
@@ -219,7 +256,6 @@ class DefectReportAuthTests(APITestCase):
         )
 
     def test_role_without_create_permission_cannot_post(self):
-        # Viewer has repairs.view but not repairs.create.
         viewer = ViewerUserFactory()
         self.client.force_authenticate(viewer)
 
@@ -238,7 +274,6 @@ class DefectReportAuthTests(APITestCase):
         self.assertEqual(detail_response.status_code, status.HTTP_200_OK)
 
     def test_role_without_view_permission_is_forbidden(self):
-        # A user with no role has neither repairs.view nor repairs.create.
         roleless_user = AdminUserFactory(role=None)
         self.client.force_authenticate(roleless_user)
 
@@ -329,7 +364,6 @@ class DefectReportListTests(APITestCase):
         response = self.client.get(self.url)
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        # The slim list serializer omits description / updated_at.
         first = response.data["results"][0]
         self.assertNotIn("description", first)
         self.assertNotIn("updated_at", first)
@@ -370,9 +404,6 @@ class DefectReportDetailTests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
 
     def test_update_is_not_allowed(self):
-        # The detail view exposes no write verbs. RepairPermission denies any
-        # non-SAFE, non-POST method, so the request is rejected at the
-        # permission layer (403) before the 405 routing check is ever reached.
         for method in ("put", "patch", "delete"):
             with self.subTest(method=method):
                 response = getattr(self.client, method)(
@@ -457,15 +488,7 @@ class DefectReportFactoryIntegrityTests(APITestCase):
         defect.full_clean()
 
 
-def _replacement_payload(drone):
-    return {
-        "drone": drone.id,
-        "component_type": ComponentType.MOTOR,
-        "old_serial_number": "MOTOR-OLD-001",
-        "new_serial_number": "MOTOR-NEW-001",
-        "reason": "Motor replaced after vibration and overheating.",
-        "replaced_at": "2026-06-10T11:00:00Z",
-    }
+# ─── Component Replacement Tests (from PR #65) ─────────────────────
 
 
 class ComponentReplacementCreateTests(APITestCase):
@@ -1039,3 +1062,566 @@ class ComponentReplacementReportTests(APITestCase):
             response.status_code,
             (status.HTTP_401_UNAUTHORIZED, status.HTTP_403_FORBIDDEN),
         )
+
+
+# ─── Repair Order Tests (from task #66) ─────────────────────────────
+
+
+class RepairOrderCreateTests(APITestCase):
+    def setUp(self):
+        self.url = reverse("repairs:repair-order-list")
+        self.drone = DroneFactory()
+        self.user = AdminUserFactory()
+        self.client.force_authenticate(self.user)
+
+    def test_create_repair_order(self):
+        response = self.client.post(
+            self.url,
+            _repair_order_payload(self.drone),
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(RepairOrder.objects.count(), 1)
+
+        order = RepairOrder.objects.get()
+        self.assertEqual(order.drone, self.drone)
+        self.assertEqual(order.status, RepairOrderStatus.PENDING)
+        self.assertEqual(order.created_by, self.user)
+
+    def test_create_with_defect_report(self):
+        defect = DefectReportFactory(drone=self.drone)
+        response = self.client.post(
+            self.url,
+            _repair_order_payload(self.drone, defect),
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        order = RepairOrder.objects.get()
+        self.assertEqual(order.defect_report, defect)
+
+    def test_short_description_rejected(self):
+        payload = _repair_order_payload(self.drone)
+        payload["description"] = "short"
+
+        response = self.client.post(self.url, payload, format="json")
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_viewer_cannot_create(self):
+        viewer = ViewerUserFactory()
+        self.client.force_authenticate(viewer)
+
+        response = self.client.post(
+            self.url,
+            _repair_order_payload(self.drone),
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+
+class RepairOrderListTests(APITestCase):
+    def setUp(self):
+        self.url = reverse("repairs:repair-order-list")
+        self.user = AdminUserFactory()
+        self.client.force_authenticate(self.user)
+        self.drone = DroneFactory()
+
+    def test_list_returns_paginated_results(self):
+        RepairOrderFactory(drone=self.drone)
+        RepairOrderFactory(drone=self.drone)
+
+        response = self.client.get(self.url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["count"], 2)
+
+    def test_filter_by_drone(self):
+        RepairOrderFactory(drone=self.drone)
+        other_drone = DroneFactory()
+        RepairOrderFactory(drone=other_drone)
+
+        response = self.client.get(self.url, {"drone": self.drone.id})
+        self.assertEqual(response.data["count"], 1)
+
+    def test_filter_by_status(self):
+        RepairOrderFactory(drone=self.drone, status=RepairOrderStatus.PENDING)
+        RepairOrderFactory(drone=self.drone, status=RepairOrderStatus.COMPLETED)
+
+        response = self.client.get(self.url, {"status": RepairOrderStatus.PENDING})
+        self.assertEqual(response.data["count"], 1)
+
+
+class RepairOrderDetailTests(APITestCase):
+    def setUp(self):
+        self.user = AdminUserFactory()
+        self.client.force_authenticate(self.user)
+        self.order = RepairOrderFactory()
+        self.detail_url = reverse(
+            "repairs:repair-order-detail", kwargs={"pk": self.order.pk}
+        )
+
+    def test_retrieve_returns_order(self):
+        response = self.client.get(self.detail_url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+    def test_retrieve_unknown_returns_404(self):
+        url = reverse("repairs:repair-order-detail", kwargs={"pk": 9999999})
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+
+
+class RepairOrderStatusUpdateTests(APITestCase):
+    def setUp(self):
+        self.user = AdminUserFactory()
+        self.client.force_authenticate(self.user)
+
+    def test_transition_pending_to_in_progress(self):
+        order = RepairOrderFactory(status=RepairOrderStatus.PENDING)
+        url = reverse("repairs:repair-order-detail", kwargs={"pk": order.pk})
+
+        response = self.client.patch(
+            url,
+            {"status": RepairOrderStatus.IN_PROGRESS},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        order.refresh_from_db()
+        self.assertEqual(order.status, RepairOrderStatus.IN_PROGRESS)
+        self.assertIsNotNone(order.started_at)
+
+    def test_transition_in_progress_to_completed(self):
+        order = RepairOrderFactory(status=RepairOrderStatus.IN_PROGRESS)
+        url = reverse("repairs:repair-order-detail", kwargs={"pk": order.pk})
+
+        response = self.client.patch(
+            url,
+            {"status": RepairOrderStatus.COMPLETED},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        order.refresh_from_db()
+        self.assertEqual(order.status, RepairOrderStatus.COMPLETED)
+        self.assertIsNotNone(order.completed_at)
+
+    def test_invalid_transition_rejected(self):
+        order = RepairOrderFactory(status=RepairOrderStatus.COMPLETED)
+        url = reverse("repairs:repair-order-detail", kwargs={"pk": order.pk})
+
+        response = self.client.patch(
+            url,
+            {"status": RepairOrderStatus.PENDING},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_viewer_cannot_update_status(self):
+        viewer = ViewerUserFactory()
+        self.client.force_authenticate(viewer)
+
+        order = RepairOrderFactory(status=RepairOrderStatus.PENDING)
+        url = reverse("repairs:repair-order-detail", kwargs={"pk": order.pk})
+
+        response = self.client.patch(
+            url,
+            {"status": RepairOrderStatus.IN_PROGRESS},
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+
+# ─── Timeline & Export Tests ────────────────────────────────────────
+
+
+class DroneRepairHistoryTests(APITestCase):
+    def setUp(self):
+        self.user = AdminUserFactory()
+        self.client.force_authenticate(self.user)
+        self.drone = DroneFactory()
+        self.url = reverse(
+            "repairs:drone-repair-history",
+            kwargs={"drone_id": self.drone.id},
+        )
+
+    def test_empty_timeline(self):
+        response = self.client.get(self.url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["count"], 0)
+
+    def test_timeline_includes_defects(self):
+        DefectReportFactory(drone=self.drone)
+
+        response = self.client.get(self.url)
+        self.assertEqual(response.data["count"], 1)
+        self.assertEqual(response.data["results"][0]["event_type"], "defect")
+
+    def test_timeline_includes_repairs(self):
+        RepairOrderFactory(drone=self.drone)
+
+        response = self.client.get(self.url)
+        self.assertEqual(response.data["count"], 1)
+        self.assertEqual(response.data["results"][0]["event_type"], "repair")
+
+    def test_timeline_includes_replacements(self):
+        ComponentReplacementFactory(drone=self.drone)
+
+        response = self.client.get(self.url)
+        types = [r["event_type"] for r in response.data["results"]]
+        self.assertIn("replacement", types)
+
+    def test_timeline_aggregates_all_types(self):
+        DefectReportFactory(drone=self.drone)
+        RepairOrderFactory(drone=self.drone)
+        ComponentReplacementFactory(drone=self.drone)
+
+        response = self.client.get(self.url)
+        types = {r["event_type"] for r in response.data["results"]}
+        self.assertEqual(types, {"defect", "repair", "replacement"})
+
+    def test_filter_by_event_type(self):
+        DefectReportFactory(drone=self.drone)
+        RepairOrderFactory(drone=self.drone)
+
+        response = self.client.get(self.url, {"event_type": "defect"})
+        self.assertEqual(response.data["count"], 1)
+        self.assertEqual(response.data["results"][0]["event_type"], "defect")
+
+    def test_nonexistent_drone_returns_404(self):
+        url = reverse(
+            "repairs:drone-repair-history",
+            kwargs={"drone_id": 9999999},
+        )
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+
+    def test_timeline_sorted_by_timestamp_desc(self):
+        DefectReportFactory(
+            drone=self.drone,
+            detected_at=datetime.datetime(
+                2026,
+                6,
+                1,
+                10,
+                0,
+                tzinfo=datetime.timezone.utc,
+            ),
+        )
+        DefectReportFactory(
+            drone=self.drone,
+            detected_at=datetime.datetime(
+                2026,
+                6,
+                10,
+                10,
+                0,
+                tzinfo=datetime.timezone.utc,
+            ),
+        )
+
+        response = self.client.get(self.url)
+        timestamps = [r["timestamp"] for r in response.data["results"]]
+        self.assertEqual(timestamps, sorted(timestamps, reverse=True))
+
+    def test_does_not_include_other_drones(self):
+        other_drone = DroneFactory()
+        DefectReportFactory(drone=other_drone)
+        DefectReportFactory(drone=self.drone)
+
+        response = self.client.get(self.url)
+        self.assertEqual(response.data["count"], 1)
+
+
+class RepairHistoryExportTests(APITestCase):
+    def setUp(self):
+        self.user = AdminUserFactory()
+        self.client.force_authenticate(self.user)
+        self.drone = DroneFactory()
+        self.url = reverse(
+            "repairs:drone-repair-history-export",
+            kwargs={"drone_id": self.drone.id},
+        )
+
+    def test_export_returns_csv(self):
+        DefectReportFactory(drone=self.drone)
+
+        response = self.client.get(self.url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response["Content-Type"], "text/csv")
+        self.assertIn("attachment", response["Content-Disposition"])
+
+    def test_export_contains_header_row(self):
+        response = self.client.get(self.url)
+        content = b"".join(response.streaming_content).decode("utf-8")
+        self.assertIn("Date", content)
+        self.assertIn("Event Type", content)
+        self.assertIn("Summary", content)
+
+    def test_export_contains_data(self):
+        DefectReportFactory(drone=self.drone)
+
+        response = self.client.get(self.url)
+        content = b"".join(response.streaming_content).decode("utf-8")
+        lines = content.strip().split("\n")
+        self.assertEqual(len(lines), 2)
+
+    def test_export_nonexistent_drone_returns_404(self):
+        url = reverse(
+            "repairs:drone-repair-history-export",
+            kwargs={"drone_id": 9999999},
+        )
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+
+    def test_viewer_cannot_export(self):
+        viewer = ViewerUserFactory()
+        self.client.force_authenticate(viewer)
+
+        response = self.client.get(self.url)
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+
+# ─── Service Layer Tests ────────────────────────────────────────────
+
+
+class RepairOrderServiceTests(APITestCase):
+    def setUp(self):
+        self.drone = DroneFactory()
+        self.user = AdminUserFactory()
+
+    def test_create_repair_order(self):
+        order = create_repair_order(
+            drone=self.drone,
+            description="Replace damaged propeller after collision.",
+            created_by=self.user,
+        )
+
+        self.assertEqual(RepairOrder.objects.count(), 1)
+        self.assertEqual(order.drone, self.drone)
+        self.assertEqual(order.status, RepairOrderStatus.PENDING)
+        self.assertEqual(order.created_by, self.user)
+
+    def test_update_status_valid_transition(self):
+        order = RepairOrderFactory(drone=self.drone, status=RepairOrderStatus.PENDING)
+
+        updated = update_repair_order_status(
+            repair_order=order,
+            new_status=RepairOrderStatus.IN_PROGRESS,
+            user=self.user,
+        )
+
+        self.assertEqual(updated.status, RepairOrderStatus.IN_PROGRESS)
+        self.assertIsNotNone(updated.started_at)
+
+    def test_update_status_invalid_transition_raises(self):
+        order = RepairOrderFactory(drone=self.drone, status=RepairOrderStatus.COMPLETED)
+
+        with self.assertRaises(ValueError):
+            update_repair_order_status(
+                repair_order=order,
+                new_status=RepairOrderStatus.PENDING,
+            )
+
+
+class RepairHistoryServiceTests(APITestCase):
+    def setUp(self):
+        self.drone = DroneFactory()
+
+    def test_empty_history(self):
+        result = get_drone_repair_history(self.drone.id)
+        self.assertEqual(result, [])
+
+    def test_aggregation_includes_all_types(self):
+        DefectReportFactory(drone=self.drone)
+        RepairOrderFactory(drone=self.drone)
+        ComponentReplacementFactory(drone=self.drone)
+
+        result = get_drone_repair_history(self.drone.id)
+        types = {event["event_type"] for event in result}
+        self.assertEqual(types, {"defect", "repair", "replacement"})
+
+    def test_filter_by_event_type(self):
+        DefectReportFactory(drone=self.drone)
+        RepairOrderFactory(drone=self.drone)
+
+        result = get_drone_repair_history(self.drone.id, event_types=["repair"])
+        self.assertTrue(all(e["event_type"] == "repair" for e in result))
+
+    def test_sorted_by_timestamp_descending(self):
+        DefectReportFactory(
+            drone=self.drone,
+            detected_at=datetime.datetime(2026, 6, 1, tzinfo=datetime.timezone.utc),
+        )
+        DefectReportFactory(
+            drone=self.drone,
+            detected_at=datetime.datetime(2026, 6, 10, tzinfo=datetime.timezone.utc),
+        )
+
+        result = get_drone_repair_history(self.drone.id)
+        timestamps = [e["timestamp"] for e in result]
+        self.assertEqual(timestamps, sorted(timestamps, reverse=True))
+
+
+# ─── Factory & Protect Tests ───────────────────────────────────────
+
+
+class RepairOrderFactoryTests(APITestCase):
+    def test_factory_produces_valid_row(self):
+        order = RepairOrderFactory()
+        self.assertIsNotNone(order.pk)
+        self.assertEqual(RepairOrder.objects.count(), 1)
+
+
+class RepairOrderProtectTests(APITestCase):
+    def test_drone_with_repair_orders_cannot_be_deleted(self):
+        order = RepairOrderFactory()
+
+        with self.assertRaises(ProtectedError):
+            order.drone.delete()
+
+
+# ─── Defect Status Update Tests (from develop) ─────────────────────
+
+
+class DefectStatusUpdateTests(APITestCase):
+    def setUp(self):
+        self.drone = DroneFactory()
+        self.reporter = AdminUserFactory(email="reporter@example.com")
+        self.defect = DefectReportFactory(
+            drone=self.drone, reporter=self.reporter, status=RepairStatus.REPORTED
+        )
+        self.url = reverse(
+            "repairs:defect-update-status", kwargs={"pk": self.defect.pk}
+        )
+
+        self.role, _ = Role.objects.get_or_create(code=COMMANDER_CODE, name="Commander")
+        self.user = AdminUserFactory()
+        self.user.role = self.role
+        self.user.is_staff = True
+        self.user.save()
+        self.client.force_authenticate(self.user)
+
+    def test_successful_status_update_creates_history(self):
+        payload = {
+            "status": RepairStatus.IN_PROGRESS,
+            "action_taken": "Starting diagnostics.",
+        }
+        response = self.client.post(self.url, payload, format="json")
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        self.defect.refresh_from_db()
+        self.assertEqual(self.defect.status, RepairStatus.IN_PROGRESS)
+
+        events = RepairEvent.objects.filter(defect_report=self.defect)
+        self.assertEqual(events.count(), 1)
+
+        event = events.first()
+        self.assertEqual(event.from_status, RepairStatus.REPORTED)
+        self.assertEqual(event.to_status, RepairStatus.IN_PROGRESS)
+        self.assertEqual(event.action_taken, "Starting diagnostics.")
+        self.assertEqual(event.technician, self.user)
+
+    def test_status_update_sends_email(self):
+        payload = {
+            "status": RepairStatus.FIXED,
+            "action_taken": "Replaced the broken part.",
+        }
+        self.client.post(self.url, payload, format="json")
+
+        self.assertEqual(len(mail.outbox), 1)
+        self.assertEqual(mail.outbox[0].to, [self.reporter.email])
+        self.assertIn("Status Update", mail.outbox[0].subject)
+        self.assertIn(RepairStatus.FIXED, mail.outbox[0].body)
+        self.assertIn("Replaced the broken part.", mail.outbox[0].body)
+
+    def test_same_status_update_is_rejected(self):
+        payload = {"status": RepairStatus.REPORTED, "action_taken": "Doing nothing."}
+        response = self.client.post(self.url, payload, format="json")
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_verified_must_come_from_fixed(self):
+        payload = {
+            "status": RepairStatus.VERIFIED,
+            "action_taken": "Skipping to verified.",
+        }
+        response = self.client.post(self.url, payload, format="json")
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+
+class DefectStatusUpdateRBACTests(APITestCase):
+    def setUp(self):
+        self.drone = DroneFactory()
+        self.defect = DefectReportFactory(
+            drone=self.drone, status=RepairStatus.REPORTED
+        )
+        self.url = reverse(
+            "repairs:defect-update-status", kwargs={"pk": self.defect.pk}
+        )
+
+        self.tech_role, _ = Role.objects.get_or_create(
+            code=TECHNICIAN_CODE, name="Technician"
+        )
+        self.cmd_role, _ = Role.objects.get_or_create(
+            code=COMMANDER_CODE, name="Commander"
+        )
+        self.viewer_role, _ = Role.objects.get_or_create(
+            code=VIEWER_CODE, name="Viewer"
+        )
+
+    def test_viewer_cannot_update_status(self):
+        user = AdminUserFactory()
+        user.role = self.viewer_role
+        user.is_staff = True
+        user.save()
+        self.client.force_authenticate(user)
+
+        payload = {"status": RepairStatus.IN_PROGRESS, "action_taken": "Try to update"}
+        response = self.client.post(self.url, payload, format="json")
+
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_technician_can_update_to_in_progress_but_not_verified(self):
+        tech = AdminUserFactory()
+        tech.role = self.tech_role
+        tech.is_staff = True
+        tech.save()
+        self.client.force_authenticate(tech)
+
+        payload_progress = {
+            "status": RepairStatus.IN_PROGRESS,
+            "action_taken": "Work started",
+        }
+        response_progress = self.client.post(self.url, payload_progress, format="json")
+        self.assertEqual(response_progress.status_code, status.HTTP_200_OK)
+
+        self.defect.status = RepairStatus.FIXED
+        self.defect.save()
+
+        payload_verified = {
+            "status": RepairStatus.VERIFIED,
+            "action_taken": "Looks good",
+        }
+        response_verified = self.client.post(self.url, payload_verified, format="json")
+        self.assertEqual(response_verified.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_commander_can_verify(self):
+        cmd = AdminUserFactory()
+        cmd.role = self.cmd_role
+        cmd.is_staff = True
+        cmd.save()
+        self.client.force_authenticate(cmd)
+
+        self.defect.status = RepairStatus.FIXED
+        self.defect.save()
+
+        payload = {
+            "status": RepairStatus.VERIFIED,
+            "action_taken": "Checked and approved.",
+        }
+        response = self.client.post(self.url, payload, format="json")
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)

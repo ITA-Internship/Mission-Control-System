@@ -9,6 +9,7 @@ from .views import (
     DroneModelListCreateView,
     WriteOffHistoryListView,
     WriteOffHistoryReportView,
+    WriteOffRecordListCreateView,
 )
 
 app_name = "drones"
@@ -16,24 +17,29 @@ app_name = "drones"
 urlpatterns = [
     path("", DroneListCreateView.as_view(), name="drone-create"),
     path(
-        "write-offs/report/",
-        WriteOffHistoryReportView.as_view(),
-        name="writeoff-history-report",
+        "write-offs/",
+        WriteOffRecordListCreateView.as_view(),
+        name="write-off-create",
     ),
     path(
-        "write-offs/",
+        "write-offs/history/",
         WriteOffHistoryListView.as_view(),
         name="writeoff-history",
     ),
     path(
-        "<int:drone_pk>/write-offs/report/",
+        "write-offs/history/report/",
         WriteOffHistoryReportView.as_view(),
-        name="drone-writeoff-history-report",
+        name="writeoff-history-report",
     ),
     path(
-        "<int:drone_pk>/write-offs/",
+        "<int:drone_pk>/write-offs/history/",
         WriteOffHistoryListView.as_view(),
         name="drone-writeoff-history",
+    ),
+    path(
+        "<int:drone_pk>/write-offs/history/report/",
+        WriteOffHistoryReportView.as_view(),
+        name="drone-writeoff-history-report",
     ),
     path("compare/", DroneComparisonView.as_view(), name="drone-compare"),
     path("models/", DroneModelListCreateView.as_view(), name="drone-model-create"),
