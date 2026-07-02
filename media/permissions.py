@@ -3,6 +3,7 @@ from accounts.rbac import (
     PERMISSION_MEDIA_DELETE,
     PERMISSION_MEDIA_UPLOAD,
     PERMISSION_MEDIA_VIEW,
+    PERMISSION_MEDIA_VIEW_LOGS,
 )
 from roles.models import ADMIN_CODE
 
@@ -42,3 +43,7 @@ class MediaDeletePermission(HasRBACPermission):
             return True
 
         return False
+
+
+class MediaViewLogsPermission(HasRBACPermission):
+    required_permission = PERMISSION_MEDIA_VIEW_LOGS

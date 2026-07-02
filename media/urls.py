@@ -1,6 +1,12 @@
 from django.urls import path
+from rest_framework.routers import DefaultRouter
 
-from .views import ArtifactDetailView, ArtifactListCreateView, ProtectedMediaView
+from .views import (
+    ArtifactDetailView,
+    ArtifactListCreateView,
+    MediaAuditLogViewSet,
+    ProtectedMediaView,
+)
 
 app_name = "media"
 
@@ -21,3 +27,7 @@ urlpatterns = [
         name="artifact-download",
     ),
 ]
+
+_router = DefaultRouter()
+_router.register("audit-logs", MediaAuditLogViewSet, basename="media-audit-log")
+audit_urlpatterns = _router.urls

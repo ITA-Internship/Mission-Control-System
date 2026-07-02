@@ -32,6 +32,27 @@ class RepairStatus(models.TextChoices):
     VERIFIED = "VERIFIED", "Verified"
 
 
+class RepairOrderStatus(models.TextChoices):
+    PENDING = "PENDING", "Pending"
+    IN_PROGRESS = "IN_PROGRESS", "In progress"
+    COMPLETED = "COMPLETED", "Completed"
+    CANCELLED = "CANCELLED", "Cancelled"
+
+
+REPAIR_ORDER_TRANSITIONS = {
+    RepairOrderStatus.PENDING: [
+        RepairOrderStatus.IN_PROGRESS,
+        RepairOrderStatus.CANCELLED,
+    ],
+    RepairOrderStatus.IN_PROGRESS: [
+        RepairOrderStatus.COMPLETED,
+        RepairOrderStatus.CANCELLED,
+    ],
+    RepairOrderStatus.COMPLETED: [],
+    RepairOrderStatus.CANCELLED: [],
+}
+
+
 class ComponentType(models.TextChoices):
     MOTOR = "MOTOR", "Motor"
     BATTERY = "BATTERY", "Battery"
@@ -104,6 +125,64 @@ class DefectReport(models.Model):
         )
 
 
+class RepairOrder(models.Model):
+    drone = models.ForeignKey(
+        "drones.Drone",
+        on_delete=models.PROTECT,
+        related_name="repair_orders",
+    )
+    defect_report = models.ForeignKey(
+        DefectReport,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="repair_orders",
+    )
+    status = models.CharField(
+        max_length=20,
+        choices=RepairOrderStatus.choices,
+        default=RepairOrderStatus.PENDING,
+        db_index=True,
+    )
+    description = models.TextField()
+    assigned_to = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="assigned_repairs",
+    )
+    started_at = models.DateTimeField(null=True, blank=True)
+    completed_at = models.DateTimeField(null=True, blank=True)
+    notes = models.TextField(blank=True)
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="created_repairs",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "repair_orders"
+        ordering = ("-created_at",)
+        indexes = [
+            models.Index(
+                fields=["drone", "-created_at"],
+                name="repair_drone_created_idx",
+            ),
+            models.Index(
+                fields=["status"],
+                name="repair_status_idx",
+            ),
+        ]
+
+    def __str__(self) -> str:
+        return f"Repair #{self.pk} [{self.get_status_display()}] " f"on {self.drone}"
+
+
 class RepairEvent(models.Model):
     defect_report = models.ForeignKey(
         DefectReport,
@@ -134,6 +213,13 @@ class ComponentReplacement(models.Model):
     drone = models.ForeignKey(
         "drones.Drone",
         on_delete=models.PROTECT,
+        related_name="component_replacements",
+    )
+    repair_order = models.ForeignKey(
+        RepairOrder,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
         related_name="component_replacements",
     )
     component_type = models.CharField(

@@ -99,18 +99,53 @@ class WriteOffRecordAdmin(admin.ModelAdmin):
         "drone",
         "reason",
         "authorized_by",
+        "related_mission",
         "document_number",
         "written_off_at",
         "created_at",
     )
     search_fields = (
+        "drone__name",
         "drone__serial_number",
         "drone__inventory_number",
         "reason",
         "reason_description",
         "document_number",
+        "authorized_by__username",
     )
-    list_filter = ("reason", "written_off_at", "created_at")
+    list_filter = (
+        "reason",
+        "written_off_at",
+        "created_at",
+        "authorized_by",
+    )
+    readonly_fields = (
+        "drone",
+        "reason",
+        "reason_description",
+        "authorized_by",
+        "related_mission",
+        "document_number",
+        "written_off_at",
+        "created_at",
+    )
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+    def has_view_permission(self, request, obj=None):
+        return super().has_view_permission(
+            request, obj
+        ) or super().has_change_permission(
+            request,
+            obj,
+        )
+
+    def has_delete_permission(self, request, obj=None):
+        return False
 
 
 @admin.register(DroneStatusHistory)
