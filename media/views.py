@@ -1,6 +1,14 @@
+import mimetypes
+import os
+
+from django.conf import settings
+from django.http import FileResponse, Http404, HttpResponse
+from django.shortcuts import get_object_or_404
 from rest_framework import generics, permissions, status
 from rest_framework.parsers import FormParser, MultiPartParser
+from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
+from rest_framework.views import APIView
 
 from common.pagination import StandardResultsSetPagination
 from missions.models import Mission
@@ -89,3 +97,31 @@ class ArtifactDetailView(_MissionArtifactMixin, generics.RetrieveDestroyAPIView)
             artifact=instance,
             action_user=self.request.user,
         )
+
+
+class ProtectedMediaView(APIView):
+    permission_classes = [IsAuthenticated, MediaViewPermission]
+
+    def get(self, request, artifact_pk):
+        artifact = get_object_or_404(MissionArtifact, pk=artifact_pk)
+
+        self.check_object_permissions(request, artifact)
+
+        file_field = artifact.file
+        if not file_field or not os.path.exists(file_field.path):
+            raise Http404("File not found on server.")
+
+        content_type, _ = mimetypes.guess_type(file_field.name)
+        content_type = content_type or "application/octet-stream"
+        filename = artifact.original_filename or os.path.basename(file_field.name)
+
+        if settings.DEBUG:
+            response = FileResponse(file_field.open("rb"), content_type=content_type)
+        else:
+            response = HttpResponse(content_type=content_type)
+
+            internal_path = f"/internal-media/{file_field.name}"
+            response["X-Accel-Redirect"] = internal_path
+
+        response["Content-Disposition"] = f'attachment; filename="{filename}"'
+        return response

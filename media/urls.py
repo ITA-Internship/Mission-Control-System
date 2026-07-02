@@ -1,6 +1,6 @@
 from django.urls import path
 
-from .views import ArtifactDetailView, ArtifactListCreateView
+from .views import ArtifactDetailView, ArtifactListCreateView, ProtectedMediaView
 
 app_name = "media"
 
@@ -14,5 +14,10 @@ urlpatterns = [
         "<int:artifact_pk>/",
         ArtifactDetailView.as_view(),
         name="artifact-detail",
+    ),
+    path(
+        "<int:artifact_pk>/download/",
+        ProtectedMediaView.as_view(),
+        name="artifact-download",
     ),
 ]
