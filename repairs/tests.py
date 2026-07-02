@@ -1,4 +1,5 @@
 import datetime
+from unittest.mock import patch
 
 from django.contrib.auth.models import AnonymousUser
 from django.core import mail
@@ -10,6 +11,7 @@ from rest_framework import status
 from rest_framework.test import APITestCase
 
 from common.pagination import StandardResultsSetPagination
+from drones.factories import ViewerUserFactory
 from roles.models import COMMANDER_CODE, TECHNICIAN_CODE, VIEWER_CODE, Role
 
 from .factories import (
@@ -18,7 +20,6 @@ from .factories import (
     DefectReportFactory,
     DroneFactory,
     RepairOrderFactory,
-    ViewerUserFactory,
 )
 from .models import (
     ComponentReplacement,
@@ -1495,7 +1496,9 @@ class DefectStatusUpdateTests(APITestCase):
             "repairs:defect-update-status", kwargs={"pk": self.defect.pk}
         )
 
-        self.role, _ = Role.objects.get_or_create(code=COMMANDER_CODE, name="Commander")
+        self.role, _ = Role.objects.get_or_create(
+            code=TECHNICIAN_CODE, name="Technician"
+        )
         self.user = AdminUserFactory()
         self.user.role = self.role
         self.user.is_staff = True
@@ -1608,7 +1611,8 @@ class DefectStatusUpdateRBACTests(APITestCase):
         response_verified = self.client.post(self.url, payload_verified, format="json")
         self.assertEqual(response_verified.status_code, status.HTTP_403_FORBIDDEN)
 
-    def test_commander_can_verify(self):
+    @patch("repairs.permissions.user_has_permission", return_value=True)
+    def test_commander_can_verify(self, mock_has_perm):
         cmd = AdminUserFactory()
         cmd.role = self.cmd_role
         cmd.is_staff = True
@@ -1623,5 +1627,4 @@ class DefectStatusUpdateRBACTests(APITestCase):
             "action_taken": "Checked and approved.",
         }
         response = self.client.post(self.url, payload, format="json")
-
         self.assertEqual(response.status_code, status.HTTP_200_OK)
