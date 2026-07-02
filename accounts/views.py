@@ -4,7 +4,6 @@ from django.conf import settings
 from django.contrib.auth.tokens import default_token_generator
 from django.contrib.sessions.models import Session
 from django.core.exceptions import ValidationError as DjangoValidationError
-from django.core.mail import send_mail
 from django.db.models import Q
 from django.http import StreamingHttpResponse
 from django.shortcuts import get_object_or_404
@@ -42,6 +41,7 @@ from .serializers import (
     UserStatusUpdateSerializer,
 )
 from .services import create_audit_log, update_user_role
+from .tasks import send_email_task
 
 
 class UserRegistrationView(generics.CreateAPIView):
@@ -277,11 +277,27 @@ class UserMeView(generics.RetrieveUpdateAPIView):
 
 
 def invalidate_user_sessions(user):
-    active_sessions = Session.objects.filter(expire_date__gte=timezone.now())
-    for session in active_sessions:
-        data = session.get_decoded()
-        if str(user.pk) == str(data.get("_auth_user_id")):
-            session.delete()
+    from .models import UserSession
+
+    tracked = UserSession.objects.filter(user=user)
+    session_keys = list(tracked.values_list("session_key", flat=True))
+
+    if session_keys:
+        Session.objects.filter(session_key__in=session_keys).delete()
+        tracked.delete()
+    else:
+        # Fallback: scan sessions if UserSession tracking wasn't populated yet
+        active_sessions = Session.objects.filter(expire_date__gte=timezone.now())
+        user_pk_str = str(user.pk)
+
+        keys_to_delete = []
+        for session in active_sessions.iterator(chunk_size=500):
+            data = session.get_decoded()
+            if user_pk_str == str(data.get("_auth_user_id")):
+                keys_to_delete.append(session.session_key)
+
+        if keys_to_delete:
+            Session.objects.filter(session_key__in=keys_to_delete).delete()
 
 
 class ChangePasswordView(APIView):
@@ -342,13 +358,11 @@ class PasswordResetRequestView(APIView):
 
                 reset_link = f"{settings.FRONTEND_URL}/reset-password/{uid}/{token}/"
 
-                send_mail(
+                send_email_task.delay(
                     subject="Password Reset Request",
                     message=f"You requested a password reset. "
                     f"Click the link below to reset your password:\n\n{reset_link}",
-                    from_email=settings.DEFAULT_FROM_EMAIL,
                     recipient_list=[user.email],
-                    fail_silently=False,
                 )
 
                 create_audit_log(
@@ -401,13 +415,11 @@ class PasswordResetConfirmView(APIView):
                 request=request,
             )
 
-            send_mail(
+            send_email_task.delay(
                 subject="Password Changed Successfully",
                 message="Your password has been successfully updated. "
                 "If you did not make this change, contact support immediately.",
-                from_email=settings.DEFAULT_FROM_EMAIL,
                 recipient_list=[user.email],
-                fail_silently=True,
             )
 
             return Response(

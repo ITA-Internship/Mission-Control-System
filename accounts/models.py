@@ -221,3 +221,23 @@ class AuditLog(models.Model):
 
     def delete(self, *args, **kwargs):
         raise ValueError("AuditLog entries are immutable and cannot be deleted.")
+
+
+class UserSession(models.Model):
+
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="tracked_sessions",
+    )
+    session_key = models.CharField(max_length=40, unique=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        indexes = [
+            models.Index(fields=["user", "created_at"]),
+        ]
+
+    def __str__(self):
+        return f"Session {self.session_key[:8]}… for {self.user}"
+

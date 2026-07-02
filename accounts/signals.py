@@ -23,6 +23,16 @@ def log_user_login(sender, request, user, **kwargs):
         request=request,
     )
 
+    # Track session_key → user mapping for O(1) session invalidation
+    from .models import UserSession
+
+    session_key = request.session.session_key
+    if session_key:
+        UserSession.objects.update_or_create(
+            session_key=session_key,
+            defaults={"user": user},
+        )
+
 
 @receiver(user_login_failed)
 def log_user_login_failed(sender, credentials, request, **kwargs):

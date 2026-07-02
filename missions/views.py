@@ -1,4 +1,5 @@
 from django.db import transaction
+from django.db.models import Prefetch
 from rest_framework import generics, permissions
 from rest_framework.exceptions import ValidationError
 from rest_framework.pagination import PageNumberPagination
@@ -132,7 +133,7 @@ class MissionOutcomeView(generics.UpdateAPIView):
         MissionsRecordOutcomeRBAC,
         IsAssignedOperatorOrAdmin,
     ]
-    queryset = Mission.objects.with_related().prefetch_related("mission_drones")
+    queryset = Mission.objects.with_related()
     http_method_names = ["patch", "options", "head"]
 
 
@@ -155,7 +156,12 @@ class MissionDroneConditionView(generics.UpdateAPIView):
 class MissionStatusUpdateView(generics.RetrieveUpdateAPIView):
     serializer_class = MissionStatusUpdateSerializer
     permission_classes = [permissions.IsAuthenticated, CanUpdateMissionStatus]
-    queryset = Mission.objects.prefetch_related("mission_drones")
+    queryset = Mission.objects.prefetch_related(
+        Prefetch(
+            "mission_drones",
+            queryset=MissionDrone.objects.select_related("drone", "operator"),
+        )
+    )
 
     def update(self, request, *args, **kwargs):
         with transaction.atomic():

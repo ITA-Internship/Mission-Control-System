@@ -32,9 +32,9 @@ class IsAssignedOperatorOrAdmin(permissions.BasePermission):
         if role_code != OPERATOR_CODE:
             return False
         if isinstance(obj, Mission):
-            return any(
-                md.operator_id == request.user.id for md in obj.mission_drones.all()
-            )
+            return obj.mission_drones.filter(
+                operator_id=request.user.id
+            ).exists()
         if isinstance(obj, MissionDrone):
             return obj.operator_id == request.user.id
         return False
@@ -55,8 +55,8 @@ class CanUpdateMissionStatus(permissions.BasePermission):
             return True
 
         if user_role == OPERATOR_CODE:
-            return any(
-                md.operator_id == request.user.id for md in obj.mission_drones.all()
-            )
+            return obj.mission_drones.filter(
+                operator_id=request.user.id
+            ).exists()
 
         return False

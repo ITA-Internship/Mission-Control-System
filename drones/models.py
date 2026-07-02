@@ -1,6 +1,7 @@
 import uuid
 
 from django.conf import settings
+from django.contrib.postgres.indexes import GinIndex
 from django.core.exceptions import ValidationError
 from django.db import models
 from django.utils import timezone
@@ -207,8 +208,23 @@ class Drone(models.Model):
                     }
                 )
 
+    class Meta:
+        indexes = [
+            GinIndex(
+                fields=["serial_number"],
+                opclasses=["gin_trgm_ops"],
+                name="drone_serial_trgm_idx",
+            ),
+            GinIndex(
+                fields=["inventory_number"],
+                opclasses=["gin_trgm_ops"],
+                name="drone_invnum_trgm_idx",
+            ),
+        ]
+
     def save(self, *args, **kwargs):
-        self.full_clean()
+        if not kwargs.get("update_fields"):
+            self.full_clean()
         super().save(*args, **kwargs)
 
 
@@ -445,6 +461,12 @@ class DroneStatusHistory(models.Model):
 
     class Meta:
         ordering = ["-created_at"]
+        indexes = [
+            models.Index(
+                fields=["drone", "-created_at"],
+                name="dsh_drone_created_idx",
+            ),
+        ]
 
     def __str__(self) -> str:
         return f"{self.drone}: {self.from_status} -> {self.to_status}"

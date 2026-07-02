@@ -1,14 +1,17 @@
 import csv
 
 from django.conf import settings
-from django.db.models import Max, Min
+from django.db.models import Max, Min, Prefetch
 from django.http import (
     HttpResponse,
     HttpResponseBadRequest,
     HttpResponseForbidden,
     StreamingHttpResponse,
 )
+from django.utils.decorators import method_decorator
+from django.views.decorators.cache import cache_page
 from django.views.generic import TemplateView
+
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import filters, generics, status
 from rest_framework.response import Response
@@ -18,13 +21,15 @@ from accounts.rbac import PERMISSION_SPECIFICATIONS_COMPARE
 from common.pagination import StandardResultsSetPagination
 
 from .filters import DroneFilter
-from .models import Drone, DroneModel, WriteOffRecord
+from .models import Drone, DroneModel, DroneSpecChangeLog, DroneStatusHistory, WriteOffRecord
 from .permissions import DronePermission, WriteOffPermission
 from .serializers import (
     DroneImportSerializer,
     DroneListSerializer,
     DroneModelSerializer,
     DroneSerializer,
+    DroneSpecChangeLogSerializer,
+    DroneStatusHistorySerializer,
     DroneUpdateSerializer,
     WriteOffRecordCreateSerializer,
     WriteOffRecordSerializer,
@@ -193,8 +198,7 @@ class DroneListCreateView(generics.ListCreateAPIView):
 
     def get_queryset(self):
         return (
-            Drone.objects.select_related("military_unit", "spec")
-            .prefetch_related("status_history")
+            Drone.objects.select_related("military_unit", "spec", "drone_model")
             .order_by("id")
         )
 
@@ -206,13 +210,12 @@ class DroneListCreateView(generics.ListCreateAPIView):
 
 
 class DroneDetailView(generics.RetrieveUpdateAPIView):
-    queryset = (
-        Drone.objects.select_related("military_unit", "spec")
-        .prefetch_related("status_history")
-        .all()
-    )
     permission_classes = [DronePermission]
     http_method_names = ["get", "patch", "head", "options"]
+
+    queryset = Drone.objects.select_related(
+        "military_unit", "spec", "drone_model"
+    )
 
     def get_serializer_class(self):
         if self.request.method == "PATCH":
@@ -221,10 +224,50 @@ class DroneDetailView(generics.RetrieveUpdateAPIView):
         return DroneSerializer
 
 
+class DroneStatusHistoryPagination(StandardResultsSetPagination):
+    page_size = 50
+    max_page_size = 200
+
+
+class DroneStatusHistoryListView(generics.ListAPIView):
+    serializer_class = DroneStatusHistorySerializer
+    permission_classes = [DronePermission]
+    pagination_class = DroneStatusHistoryPagination
+
+    def get_queryset(self):
+        return (
+            DroneStatusHistory.objects.filter(drone_id=self.kwargs["pk"])
+            .select_related("changed_by")
+            .order_by("-created_at")
+        )
+
+
+class DroneSpecChangeLogPagination(StandardResultsSetPagination):
+    page_size = 20
+    max_page_size = 100
+
+
+class DroneSpecChangeLogListView(generics.ListAPIView):
+    serializer_class = DroneSpecChangeLogSerializer
+    permission_classes = [DronePermission]
+    pagination_class = DroneSpecChangeLogPagination
+
+    def get_queryset(self):
+        return (
+            DroneSpecChangeLog.objects.filter(drone_spec__drone_id=self.kwargs["pk"])
+            .select_related("changed_by")
+            .order_by("-created_at")
+        )
+
+
 class DroneModelListCreateView(generics.ListCreateAPIView):
     serializer_class = DroneModelSerializer
     permission_classes = [DronePermission]
     queryset = DroneModel.objects.all()
+
+    @method_decorator(cache_page(60 * 5))  # 5 min cache for rarely-changing data
+    def list(self, request, *args, **kwargs):
+        return super().list(request, *args, **kwargs)
 
 
 class DroneDataExportView(generics.ListAPIView):

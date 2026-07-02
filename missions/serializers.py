@@ -8,6 +8,7 @@ from rest_framework import serializers
 from accounts.permissions import get_user_role_code
 from common.serializers import UserBriefSerializer
 from drones.models import Drone
+from drones.models import DroneStatusHistory
 from drones.services import update_drone
 from roles.models import COMMANDER_CODE, OPERATOR_CODE
 
@@ -410,31 +411,58 @@ class MissionStatusUpdateSerializer(serializers.ModelSerializer):
                 instance.status = new_status
                 instance.save(update_fields=["status", "updated_at"])
 
-                assignments = instance.mission_drones.select_related("drone")
+                assignments = list(
+                    instance.mission_drones.select_related("drone")
+                )
 
                 if old_status == Status.PLANNED and new_status == Status.ACTIVE:
-                    for assignment in assignments:
-                        update_drone(
-                            drone=assignment.drone,
-                            drone_data={"status": Drone.STATUS_IN_MISSION},
-                            user=user,
-                            related_mission=instance,
-                            status_change_reason="Mission started",
-                        )
+                    old_drone_statuses = {
+                        a.drone_id: a.drone.status for a in assignments
+                    }
+                    drone_ids = [a.drone_id for a in assignments]
+                    Drone.objects.filter(id__in=drone_ids).update(
+                        status=Drone.STATUS_IN_MISSION
+                    )
+                    DroneStatusHistory.objects.bulk_create(
+                        [
+                            DroneStatusHistory(
+                                drone=a.drone,
+                                from_status=old_drone_statuses[a.drone_id],
+                                to_status=Drone.STATUS_IN_MISSION,
+                                changed_by=user,
+                                reason="Mission started",
+                                related_mission=instance,
+                            )
+                            for a in assignments
+                        ]
+                    )
 
                 elif old_status == Status.ACTIVE and new_status in (
                     Status.COMPLETED,
                     Status.ABORTED,
                 ):
-                    for assignment in assignments:
-                        if assignment.drone.status == Drone.STATUS_IN_MISSION:
-                            update_drone(
-                                drone=assignment.drone,
-                                drone_data={"status": Drone.STATUS_ACTIVE},
-                                user=user,
+                    in_mission = [
+                        a
+                        for a in assignments
+                        if a.drone.status == Drone.STATUS_IN_MISSION
+                    ]
+                    drone_ids = [a.drone_id for a in in_mission]
+                    Drone.objects.filter(id__in=drone_ids).update(
+                        status=Drone.STATUS_ACTIVE
+                    )
+                    DroneStatusHistory.objects.bulk_create(
+                        [
+                            DroneStatusHistory(
+                                drone=a.drone,
+                                from_status=Drone.STATUS_IN_MISSION,
+                                to_status=Drone.STATUS_ACTIVE,
+                                changed_by=user,
+                                reason="Mission finished",
                                 related_mission=instance,
-                                status_change_reason="Mission finished",
                             )
+                            for a in in_mission
+                        ]
+                    )
 
         except IntegrityError as exc:
             raise serializers.ValidationError(

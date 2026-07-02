@@ -193,7 +193,6 @@ class DroneStatusHistorySerializer(serializers.ModelSerializer):
 class DroneSerializer(serializers.ModelSerializer):
     spec = DroneSpecSerializer()
     writeoff_record = WriteOffRecordSerializer(read_only=True)
-    status_history = DroneStatusHistorySerializer(many=True, read_only=True)
     status_label = serializers.CharField(read_only=True)
     status_indicator = serializers.CharField(read_only=True)
     status_category = serializers.CharField(read_only=True)
