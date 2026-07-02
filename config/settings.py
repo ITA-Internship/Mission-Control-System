@@ -166,9 +166,6 @@ ARTIFACT_ALLOWED_EXTENSIONS = {
     "data": [".csv", ".json"],
 }
 
-MEDIA_URL = "/media/"
-MEDIA_ROOT = BASE_DIR / "media"
-
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 EMAIL_BACKEND = os.getenv(
