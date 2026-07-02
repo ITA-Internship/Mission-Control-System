@@ -12,6 +12,7 @@ from accounts.models import MilitaryUnit
 from drones.models import Drone, DroneModel
 from media.factories import MissionArtifactFactory
 from media.models import MediaAuditLog, MissionArtifact, VideoMetadata
+from media.tasks import extract_video_duration_task
 from missions.factories import (
     AdminUserFactory,
     DispatcherUserFactory,
@@ -81,9 +82,12 @@ class VideoMetadataAPITests(APITestCase):
         self.list_url = reverse("video_media:video-metadata-list")
         self.client.force_authenticate(user=self.user)
 
+    @patch("media.views.extract_video_duration_task.delay")
     @patch("media.permissions.MediaUploadPermission.has_permission", return_value=True)
     @patch("subprocess.run")
-    def test_upload_video_metadata_success(self, mock_subproc, mock_perm):
+    def test_upload_video_metadata_success(self, mock_subproc, mock_perm, mock_delay):
+        mock_delay.side_effect = extract_video_duration_task
+
         class MockResult:
             stdout = '{"format": {"duration": "42.0"}}'
             stderr = ""
@@ -252,7 +256,7 @@ class VideoMetadataAPITests(APITestCase):
             file_size=200,
         )
 
-        response = self.client.get(f"{self.list_url}?drone_id={self.drone.id}")
+        response = self.client.get(f"{self.list_url}?drone={self.drone.id}")
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(len(response.data["results"]), 1)
         self.assertEqual(response.data["results"][0]["file_name"], "video_1.mp4")
@@ -280,7 +284,7 @@ class VideoMetadataAPITests(APITestCase):
             file_size=200,
         )
 
-        response = self.client.get(f"{self.list_url}?mission_id={self.mission.id}")
+        response = self.client.get(f"{self.list_url}?mission={self.mission.id}")
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(len(response.data["results"]), 1)
         self.assertEqual(response.data["results"][0]["file_name"], "video_1.mp4")
