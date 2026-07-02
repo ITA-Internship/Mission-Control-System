@@ -288,7 +288,8 @@ def record_drone_condition(
         writeoff_kwargs = {}
         if condition_after == Condition.LOST:
             writeoff_kwargs = {
-                "writeoff_reason": "Mission outcome: drone marked as lost",
+                "writeoff_reason": "LOSS",
+                "writeoff_reason_description": "Mission outcome: drone marked as lost",
                 "written_off_at": timezone.localdate(),
             }
 
