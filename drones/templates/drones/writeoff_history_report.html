@@ -1,0 +1,200 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>Write-off history report</title>
+</head>
+<body>
+    <h1>Write-off event log</h1>
+
+    {% if drone_pk %}
+        <p>Showing write-off history for drone #{{ drone_pk }}.</p>
+    {% else %}
+        <p>Showing write-off history for all drones.</p>
+    {% endif %}
+
+    <p>
+        This is a read-only audit report. Write-off records cannot be edited or deleted.
+    </p>
+
+    <hr>
+
+    <h2>Filters</h2>
+
+    <form method="get">
+        <p>
+            <label for="id_drone">Drone ID:</label><br>
+            <input
+                type="number"
+                id="id_drone"
+                name="drone"
+                value="{{ request.GET.drone|default:'' }}"
+            >
+        </p>
+
+        <p>
+            <label for="id_drone_serial_number">Serial number:</label><br>
+            <input
+                type="text"
+                id="id_drone_serial_number"
+                name="drone_serial_number"
+                value="{{ request.GET.drone_serial_number|default:'' }}"
+            >
+        </p>
+
+        <p>
+            <label for="id_drone_inventory_number">Inventory number:</label><br>
+            <input
+                type="text"
+                id="id_drone_inventory_number"
+                name="drone_inventory_number"
+                value="{{ request.GET.drone_inventory_number|default:'' }}"
+            >
+        </p>
+
+        <p>
+            <label for="id_reason">Reason:</label><br>
+            <input
+                type="text"
+                id="id_reason"
+                name="reason"
+                value="{{ request.GET.reason|default:'' }}"
+            >
+        </p>
+
+        <p>
+            <label for="id_document_number">Document number:</label><br>
+            <input
+                type="text"
+                id="id_document_number"
+                name="document_number"
+                value="{{ request.GET.document_number|default:'' }}"
+            >
+        </p>
+
+        <p>
+            <label for="id_written_off_at_after">Written off after:</label><br>
+            <input
+                type="date"
+                id="id_written_off_at_after"
+                name="written_off_at_after"
+                value="{{ request.GET.written_off_at_after|default:'' }}"
+            >
+        </p>
+
+        <p>
+            <label for="id_written_off_at_before">Written off before:</label><br>
+            <input
+                type="date"
+                id="id_written_off_at_before"
+                name="written_off_at_before"
+                value="{{ request.GET.written_off_at_before|default:'' }}"
+            >
+        </p>
+
+        <button type="submit">Apply filters</button>
+        <a href="{{ request.path }}">Reset</a>
+    </form>
+
+    <hr>
+
+    <h2>Records</h2>
+
+    <table border="1" cellpadding="6" cellspacing="0">
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Written off at</th>
+                <th>Drone</th>
+                <th>Serial number</th>
+                <th>Inventory number</th>
+                <th>Reason</th>
+                <th>Description</th>
+                <th>Authorized by</th>
+                <th>Related mission</th>
+                <th>Document number</th>
+                <th>Created at</th>
+            </tr>
+        </thead>
+
+        <tbody>
+            {% for record in writeoff_records %}
+                <tr>
+                    <td>{{ record.id }}</td>
+                    <td>{{ record.written_off_at|date:"Y-m-d" }}</td>
+
+                    <td>
+                        {{ record.drone.name }}<br>
+                        <small>ID: {{ record.drone_id }}</small>
+                    </td>
+
+                    <td>{{ record.drone.serial_number }}</td>
+                    <td>{{ record.drone.inventory_number }}</td>
+
+                    <td>
+                        {% firstof record.reason_label record.reason %}
+                    </td>
+
+                    <td>
+                        {% if record.reason_description %}
+                            {{ record.reason_description }}
+                        {% else %}
+                            —
+                        {% endif %}
+                    </td>
+
+                    <td>
+                        {% if record.authorized_by %}
+                            {{ record.authorized_by.username }}
+                        {% else %}
+                            —
+                        {% endif %}
+                    </td>
+
+                    <td>
+                        {% if record.related_mission %}
+                            {{ record.related_mission }}
+                        {% else %}
+                            —
+                        {% endif %}
+                    </td>
+
+                    <td>
+                        {% if record.document_number %}
+                            {{ record.document_number }}
+                        {% else %}
+                            —
+                        {% endif %}
+                    </td>
+
+                    <td>{{ record.created_at|date:"Y-m-d H:i" }}</td>
+                </tr>
+            {% empty %}
+                <tr>
+                    <td colspan="11">No write-off records found.</td>
+                </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    {% if is_paginated %}
+        <hr>
+
+        <p>
+            {% if page_obj.has_previous %}
+                <a href="?page={{ page_obj.previous_page_number }}{% if querystring %}&{{ querystring }}{% endif %}">
+                    Previous
+                </a>
+            {% endif %}
+
+            Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}
+
+            {% if page_obj.has_next %}
+                <a href="?page={{ page_obj.next_page_number }}{% if querystring %}&{{ querystring }}{% endif %}">
+                    Next
+                </a>
+            {% endif %}
+        </p>
+    {% endif %}
+</body>
+</html>

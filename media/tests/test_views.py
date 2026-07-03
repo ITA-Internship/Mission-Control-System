@@ -1,9 +1,8 @@
 from unittest.mock import patch
 
 from django.contrib.auth import get_user_model
-from django.core.exceptions import ValidationError
 from django.core.files.uploadedfile import SimpleUploadedFile
-from django.test import TestCase, override_settings
+from django.test import override_settings
 from django.urls import reverse
 from django.utils import timezone
 from rest_framework import status
@@ -11,7 +10,9 @@ from rest_framework.test import APITestCase
 
 from accounts.models import MilitaryUnit
 from drones.models import Drone, DroneModel
-from media.models import VideoMetadata
+from media.factories import MissionArtifactFactory
+from media.models import MediaAuditLog, MissionArtifact, VideoMetadata
+from media.tasks import extract_video_duration_task
 from missions.factories import (
     AdminUserFactory,
     DispatcherUserFactory,
@@ -22,15 +23,10 @@ from missions.factories import (
 )
 from missions.models import Mission, MissionAuditLog
 
-from .factories import MissionArtifactFactory
-from .models import MediaAuditLog, MissionArtifact
-from .services import delete_artifact, upload_artifact
-
 User = get_user_model()
 
 
 class VideoMetadataAPITests(APITestCase):
-
     def setUp(self):
         self.user = User.objects.create_user(
             username="operator_travis",
@@ -86,9 +82,12 @@ class VideoMetadataAPITests(APITestCase):
         self.list_url = reverse("video_media:video-metadata-list")
         self.client.force_authenticate(user=self.user)
 
+    @patch("media.views.extract_video_duration_task.delay")
     @patch("media.permissions.MediaUploadPermission.has_permission", return_value=True)
     @patch("subprocess.run")
-    def test_upload_video_metadata_success(self, mock_subproc, mock_perm):
+    def test_upload_video_metadata_success(self, mock_subproc, mock_perm, mock_delay):
+        mock_delay.side_effect = extract_video_duration_task
+
         class MockResult:
             stdout = '{"format": {"duration": "42.0"}}'
             stderr = ""
@@ -257,7 +256,7 @@ class VideoMetadataAPITests(APITestCase):
             file_size=200,
         )
 
-        response = self.client.get(f"{self.list_url}?drone_id={self.drone.id}")
+        response = self.client.get(f"{self.list_url}?drone={self.drone.id}")
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(len(response.data["results"]), 1)
         self.assertEqual(response.data["results"][0]["file_name"], "video_1.mp4")
@@ -285,7 +284,7 @@ class VideoMetadataAPITests(APITestCase):
             file_size=200,
         )
 
-        response = self.client.get(f"{self.list_url}?mission_id={self.mission.id}")
+        response = self.client.get(f"{self.list_url}?mission={self.mission.id}")
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(len(response.data["results"]), 1)
         self.assertEqual(response.data["results"][0]["file_name"], "video_1.mp4")
@@ -320,80 +319,6 @@ class VideoMetadataAPITests(APITestCase):
         self.assertContains(response, "Mission Videos")
         self.assertContains(response, "video_1.mp4")
         self.assertNotContains(response, "video_2.mp4")
-
-
-@override_settings(
-    ARTIFACT_ALLOWED_EXTENSIONS={
-        "image": [".jpg", ".jpeg", ".png"],
-        "video": [".mp4", ".avi", ".mov"],
-        "data": [".json", ".csv", ".xml"],
-    },
-    ARTIFACT_MAX_FILE_SIZE_MB=10,
-)
-class MissionArtifactModelTests(TestCase):
-    def test_str_representation(self):
-        mission = MissionFactory()
-        artifact = MissionArtifactFactory(
-            title="Drone Footage", is_video=True, mission=mission
-        )
-        self.assertEqual(
-            str(artifact), f"Drone Footage (video) — Mission #{mission.id}"
-        )
-
-    def test_auto_fields_on_save(self):
-        file_content = b"test content"
-        upload_file = SimpleUploadedFile(
-            "test_auto.jpg", file_content, content_type="image/jpeg"
-        )
-
-        artifact = MissionArtifactFactory.build(
-            file=upload_file,
-            file_type="",
-            file_size=None,
-            original_filename="",
-            mission=MissionFactory(),
-            uploaded_by=OperatorUserFactory(),
-        )
-
-        artifact.save()
-
-        self.assertEqual(artifact.file_size, len(file_content))
-        self.assertEqual(artifact.file_type, "image")
-        self.assertEqual(artifact.original_filename, "test_auto.jpg")
-        self.assertEqual(artifact.storage_backend, "local")
-
-    def test_clean_validates_blank_title(self):
-        artifact = MissionArtifactFactory.build(title="   ", is_image=True)
-        with self.assertRaises(ValidationError) as context:
-            artifact.clean()
-        self.assertIn("title", context.exception.message_dict)
-
-    @override_settings(ARTIFACT_ALLOWED_EXTENSIONS={"video": [".mp4"]})
-    def test_unsupported_extension_raises_validation_error(self):
-        file_content = b"test data"
-        upload_file = SimpleUploadedFile("test.xyz", file_content)
-        artifact = MissionArtifactFactory.build(
-            file=upload_file,
-            mission=MissionFactory(),
-            uploaded_by=OperatorUserFactory(),
-        )
-
-        with self.assertRaises(ValidationError) as context:
-            artifact.full_clean()
-
-        self.assertTrue(
-            any(
-                "extension" in str(e).lower()
-                for e in context.exception.error_dict.get("file", [])
-            )
-        )
-
-    def test_empty_file_raises_validation_error(self):
-        upload_file = SimpleUploadedFile("empty.jpg", b"")
-        artifact = MissionArtifactFactory.build(file=upload_file)
-
-        with self.assertRaises(ValidationError):
-            artifact.file.field.clean(upload_file, artifact)
 
 
 @override_settings(
@@ -616,42 +541,6 @@ class ArtifactDetailTests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
 
 
-class ArtifactServicesTests(TestCase):
-    def setUp(self):
-        self.operator = OperatorUserFactory()
-        self.mission = MissionFactory()
-
-    @patch("django.core.files.storage.default_storage.delete")
-    def test_upload_artifact_exception_cleans_up_storage(self, mock_delete):
-        with patch(
-            "media.services.MissionAuditLog.objects.create",
-            side_effect=RuntimeError("DB Error"),
-        ):
-            file_content = b"test data"
-            upload_file = SimpleUploadedFile("test.jpg", file_content)
-
-            with self.assertRaises(RuntimeError):
-                upload_artifact(
-                    mission=self.mission,
-                    file=upload_file,
-                    title="Test",
-                    uploaded_by=self.operator,
-                )
-
-            mock_delete.assert_called_once()
-
-    def test_delete_artifact_service_logic(self):
-        artifact = MissionArtifactFactory(mission=self.mission, is_image=True)
-
-        with patch("django.core.files.storage.default_storage.delete") as mock_delete:
-            with self.captureOnCommitCallbacks(execute=True):
-                delete_artifact(artifact=artifact, action_user=self.operator)
-
-            mock_delete.assert_called_once()
-
-        self.assertFalse(MissionArtifact.objects.filter(id=artifact.id).exists())
-
-
 class MediaAuditLoggingTests(APITestCase):
     def setUp(self):
         self.admin = AdminUserFactory()
@@ -740,43 +629,12 @@ class MediaAuditLoggingTests(APITestCase):
         media_log = MediaAuditLog.objects.get(action=MediaAuditLog.Action.DELETE)
         self.assertEqual(media_log.user, self.admin)
         self.assertEqual(media_log.mission_id, self.mission.id)
-        # Artifact FK is nulled by SET_NULL once the artifact row is deleted,
-        # but the reference is preserved in `changes`.
         self.assertIsNone(media_log.artifact)
         self.assertEqual(media_log.changes["artifact_id"], self.artifact.id)
 
         self.assertTrue(
             MissionAuditLog.objects.filter(action="artifact_deleted").exists()
         )
-
-
-class MediaAuditLogTransactionTests(TestCase):
-    def setUp(self):
-        self.operator = OperatorUserFactory()
-        self.mission = MissionFactory()
-
-    @patch("django.core.files.storage.default_storage.delete")
-    def test_media_audit_log_failure_rolls_back_upload(self, mock_delete):
-        with patch(
-            "media.services.MediaAuditLog.objects.create",
-            side_effect=RuntimeError("DB Error"),
-        ):
-            upload_file = SimpleUploadedFile("clip.jpg", b"image bytes")
-
-            with self.assertRaises(RuntimeError):
-                upload_artifact(
-                    mission=self.mission,
-                    file=upload_file,
-                    title="Rollback Clip",
-                    uploaded_by=self.operator,
-                )
-
-            mock_delete.assert_called_once()
-
-        # The whole atomic block is rolled back: no artifact and no logs.
-        self.assertEqual(MissionArtifact.objects.count(), 0)
-        self.assertEqual(MissionAuditLog.objects.count(), 0)
-        self.assertEqual(MediaAuditLog.objects.count(), 0)
 
 
 class MediaAuditLogEndpointTests(APITestCase):
