@@ -147,6 +147,9 @@ class MissionDroneConditionView(generics.UpdateAPIView):
     http_method_names = ["patch", "options", "head"]
 
     def get_queryset(self):
+        # Scope assignments to the mission in the URL so an assignment_id
+        # belonging to a different mission resolves to 404 rather than being
+        # editable through the wrong mission's endpoint.
         return MissionDrone.objects.filter(
             mission_id=self.kwargs["pk"],
         ).select_related("mission", "drone", "operator")

@@ -65,7 +65,15 @@ def assign_drone_to_mission(
     action_user=None,
     extra_fields=None,
 ):
+    """Assign a drone (and its operator) to a mission.
 
+    Locks the mission, drone and operator rows and enforces the assignment
+    preconditions: the mission must be PLANNED and have a start time, and the
+    drone must currently be ACTIVE. Rejects the assignment if the operator or
+    drone has a scheduling conflict with another PLANNED/ACTIVE mission (see
+    ``_check_overlap``). Creates the ``MissionDrone`` link and an
+    ``assignment_created`` ``MissionAuditLog`` entry, returning the new link.
+    """
     with transaction.atomic():
         locked_mission = Mission.objects.select_for_update().get(
             id=mission.id,
