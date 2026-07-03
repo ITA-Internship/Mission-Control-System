@@ -2,6 +2,7 @@ from io import StringIO
 
 from django.contrib.auth.tokens import default_token_generator
 from django.core.cache import cache
+from django.core.exceptions import ImproperlyConfigured
 from django.core.management import call_command
 from django.core.management.base import CommandError
 from django.test import TestCase, override_settings
@@ -16,6 +17,7 @@ from seed_data.users import seed_users
 
 from .models import AuditLog, User, UserRoleAuditLog
 from .services import update_user_role
+from .throttles import AccountActivationThrottle
 
 THROTTLE_TEST_SETTINGS = {
     "DEFAULT_AUTHENTICATION_CLASSES": [
@@ -153,6 +155,21 @@ class PublicAuthThrottleTests(APITestCase):
 
         self.assertEqual(first_response.status_code, status.HTTP_200_OK)
         self.assertEqual(second_response.status_code, status.HTTP_429_TOO_MANY_REQUESTS)
+
+    @override_settings(
+        REST_FRAMEWORK={
+            "DEFAULT_THROTTLE_RATES": {
+                "password_reset_request": "1/minute",
+                "password_reset_confirm": "1/minute",
+            },
+        }
+    )
+    def test_missing_throttle_scope_raises_configuration_error(self):
+        with self.assertRaisesMessage(
+            ImproperlyConfigured,
+            "Missing throttle rate for scope 'account_activation'.",
+        ):
+            AccountActivationThrottle()
 
     def test_password_reset_request_endpoint_is_throttled(self):
         url = reverse("accounts:password-reset-request")
