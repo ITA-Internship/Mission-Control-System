@@ -112,7 +112,9 @@ class MissionListCreateView(generics.ListCreateAPIView):
                     }
                 )
 
-            queryset = queryset.filter(mission_drones__operator_id=user.id).distinct()
+            queryset = queryset.filter(
+                mission_drones__operator_id=self.request.user.id
+            ).distinct()
 
         return queryset
 
