@@ -217,7 +217,10 @@ class VideoMetadataViewSet(viewsets.ModelViewSet):
         return [permission() for permission in permission_classes]
 
     def perform_create(self, serializer):
-        instance = serializer.save(uploader=self.request.user)
+        instance = serializer.save(
+            uploader=self.request.user,
+            status=VideoMetadata.Status.UPLOADING,
+        )
 
         try:
             extract_video_duration_task.delay(instance.id)

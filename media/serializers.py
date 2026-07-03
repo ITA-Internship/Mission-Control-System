@@ -88,7 +88,7 @@ class VideoUploadSerializer(serializers.ModelSerializer):
         validated_data["content_type"] = content_type
 
         validated_data["uploader"] = self.context["request"].user
-        validated_data["status"] = VideoMetadata.Status.READY
+        validated_data.setdefault("status", VideoMetadata.Status.UPLOADING)
 
         if not content_type.startswith("video/"):
             validated_data["duration_seconds"] = None
