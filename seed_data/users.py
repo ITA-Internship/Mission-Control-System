@@ -90,13 +90,13 @@ class UserSeeder:
                 "is_active": user_seed.is_active,
                 "is_staff": user_seed.is_staff,
                 "is_superuser": user_seed.is_superuser,
-                "must_change_password": True,
             },
         )
 
-        user.set_password(self.seed_password)
-        user.must_change_password = True
-        user.save(update_fields=["password", "must_change_password"])
+        if created or not user.check_password(self.seed_password):
+            user.set_password(self.seed_password)
+            user.must_change_password = True
+            user.save(update_fields=["password", "must_change_password"])
 
         UserProfile.objects.update_or_create(
             user=user,

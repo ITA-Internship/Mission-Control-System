@@ -106,6 +106,18 @@ class SeedDbSecurityTests(TestCase):
         self.assertTrue(seeded_user.check_password(seed_password))
         self.assertTrue(seeded_user.must_change_password)
 
+    def test_seed_users_do_not_force_password_change_when_password_is_unchanged(self):
+        seed_password = "TemporarySeedPassword@123"
+        seed_users(seed_password=seed_password)
+        seeded_user = User.objects.get(username="root.admin")
+        seeded_user.must_change_password = False
+        seeded_user.save(update_fields=["must_change_password"])
+
+        seed_users(seed_password=seed_password)
+
+        seeded_user.refresh_from_db()
+        self.assertFalse(seeded_user.must_change_password)
+
     @override_settings(DEBUG=True)
     def test_seed_db_requires_password_when_seeding_users(self):
         with self.assertRaisesMessage(
