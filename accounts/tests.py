@@ -106,6 +106,14 @@ class SeedDbSecurityTests(TestCase):
         self.assertTrue(seeded_user.check_password(seed_password))
         self.assertTrue(seeded_user.must_change_password)
 
+    @override_settings(DEBUG=True)
+    def test_seed_db_requires_password_when_seeding_users(self):
+        with self.assertRaisesMessage(
+            CommandError,
+            "Seeding users requires --password or SEED_DEFAULT_PASSWORD.",
+        ):
+            call_command("seed_db", module="users")
+
     def test_disable_seeded_users_deactivates_existing_seeded_accounts(self):
         seed_users(seed_password="TemporarySeedPassword@123")
         out = StringIO()

@@ -431,19 +431,19 @@ When the app starts with `DEBUG=False`, the container entrypoint also runs `pyth
 Run the full seed:
 
 ```bash
-python manage.py seed_db
+python manage.py seed_db --password "LocalSeedPassword123!"
 ```
 
 Clear only the managed seed records and recreate them:
 
 ```bash
-python manage.py seed_db --clear
+python manage.py seed_db --clear --password "LocalSeedPassword123!"
 ```
 
 Seed a single module:
 
 ```bash
-python manage.py seed_db --module users
+python manage.py seed_db --module users --password "LocalSeedPassword123!"
 python manage.py seed_db --module missions
 python manage.py seed_db --module drones
 python manage.py seed_db --module repairs
@@ -455,13 +455,13 @@ Use a specific temporary password for seeded users:
 python manage.py seed_db --module users --password "LocalSeedPassword123!"
 ```
 
-Or set `SEED_DEFAULT_PASSWORD` in your local `.env` before running the command. If no password is provided, `seed_db` generates a random password and prints it once in the console for that run.
+Or set `SEED_DEFAULT_PASSWORD` in your local `.env` before running the command. If users are seeded and no password is provided, `seed_db` stops with an error instead of generating or printing credentials.
 
 Docker usage:
 
 ```bash
-docker compose exec web python manage.py seed_db
-docker compose exec web python manage.py seed_db --clear
+docker compose exec web python manage.py seed_db --password "LocalSeedPassword123!"
+docker compose exec web python manage.py seed_db --clear --password "LocalSeedPassword123!"
 ```
 
 The seeded dataset includes demo accounts across the main system roles so that local RBAC flows can be tested quickly. Treat all seeded credentials as local-only development data and replace or disable them outside your own machine.

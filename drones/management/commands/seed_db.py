@@ -1,6 +1,4 @@
 import os
-import secrets
-
 from django.conf import settings
 from django.core.management.base import BaseCommand, CommandError
 from django.db import connection, transaction
@@ -81,13 +79,6 @@ class Command(BaseCommand):
 
         self.stdout.write(self.style.SUCCESS("Database seeding complete."))
 
-        if seed_password is not None:
-            self.stdout.write(
-                self.style.WARNING(
-                    f"Seeded user password for this run: {seed_password}"
-                )
-            )
-
     def _clear_seed_data(self) -> None:
         self.stdout.write(self.style.WARNING("Clearing existing seed data..."))
 
@@ -128,4 +119,7 @@ class Command(BaseCommand):
         if env_password := os.getenv("SEED_DEFAULT_PASSWORD"):
             return env_password
 
-        return secrets.token_urlsafe(12)
+        raise CommandError(
+            "Seeding users requires --password or SEED_DEFAULT_PASSWORD. "
+            "The password is not generated or printed to avoid leaking credentials."
+        )
