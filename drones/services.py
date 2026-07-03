@@ -243,7 +243,7 @@ def generate_drones_csv(queryset):
         ]
     )
 
-    for drone in queryset:
+    for drone in queryset.iterator(chunk_size=2000):
         yield writer.writerow(
             [
                 drone.id,

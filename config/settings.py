@@ -132,6 +132,11 @@ REST_FRAMEWORK = {
         "rest_framework.authentication.SessionAuthentication",
         "rest_framework.authentication.BasicAuthentication",
     ],
+    "DEFAULT_THROTTLE_RATES": {
+        "audit_export": "2/m",
+        "drone_export": "2/m",
+        "component_raplacement_export": "1/m",
+    },
 }
 
 

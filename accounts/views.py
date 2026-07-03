@@ -126,6 +126,7 @@ class AuditLogViewSet(viewsets.ReadOnlyModelViewSet):
     filter_backends = [filters.DjangoFilterBackend]
     filterset_class = AuditLogFilter
 
+    throttle_classes = [ScopedRateThrottle]
     throttle_scope = "audit_export"
 
     def get_queryset(self):
@@ -149,9 +150,9 @@ class AuditLogViewSet(viewsets.ReadOnlyModelViewSet):
         throttle_classes=[ScopedRateThrottle],
     )
     def export(self, request):
-        MAX_EXPORT_LIMIT = 10000
+        max_export_limit = getattr(settings, "MAX_EXPORT_LIMIT", 10000)
 
-        queryset = self.filter_queryset(self.get_queryset())[:MAX_EXPORT_LIMIT]
+        queryset = self.filter_queryset(self.get_queryset())[:max_export_limit]
 
         def generate_csv():
             writer = csv.writer(EchoBuffer())

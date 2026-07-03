@@ -4,6 +4,7 @@ from django.conf import settings
 from django.http import StreamingHttpResponse
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import filters, generics
+from rest_framework.throttling import ScopedRateThrottle
 
 from common.pagination import StandardResultsSetPagination
 from common.utils import EchoBuffer
@@ -80,12 +81,15 @@ class ComponentReplacementExportView(generics.GenericAPIView):
     filter_backends = (DjangoFilterBackend,)
     filterset_class = ComponentReplacementFilter
 
+    throttle_classes = [ScopedRateThrottle]
+    throttle_scope = "component_raplacement_export"
+
     def get_queryset(self):
         return ComponentReplacement.objects.select_related("drone", "replaced_by")
 
     def get(self, request, *args, **kwargs):
         max_export_limit = getattr(settings, "MAX_EXPORT_LIMIT", 10000)
-        queryset = self.filter_queryset(self.get_queryset())
+        queryset = self.filter_queryset(self.get_queryset())[:max_export_limit]
 
         def generate_csv():
             writer = csv.writer(EchoBuffer())
@@ -105,13 +109,7 @@ class ComponentReplacementExportView(generics.GenericAPIView):
                 ]
             )
 
-            for index, replacement in enumerate(
-                queryset.iterator(chunk_size=2000),
-                start=1,
-            ):
-                if index > max_export_limit:
-                    break
-
+            for replacement in queryset.iterator(chunk_size=2000):
                 yield writer.writerow(
                     [
                         replacement.id,

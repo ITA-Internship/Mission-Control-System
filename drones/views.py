@@ -12,6 +12,7 @@ from django.views.generic import TemplateView
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import filters, generics, status
 from rest_framework.response import Response
+from rest_framework.throttling import ScopedRateThrottle
 
 from accounts.permissions import HasRBACPermission
 from accounts.rbac import PERMISSION_SPECIFICATIONS_COMPARE
@@ -226,6 +227,9 @@ class DroneModelListCreateView(generics.ListCreateAPIView):
 
 class DroneDataExportView(generics.ListAPIView):
     permission_classes = [DronePermission]
+
+    throttle_classes = [ScopedRateThrottle]
+    throttle_scope = "drone_export"
 
     filter_backends = (
         DjangoFilterBackend,
