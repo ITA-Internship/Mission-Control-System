@@ -723,7 +723,7 @@ To import drones, upload a `.csv` file with the following required columns (exac
 
 ## 🔒 Security Features
 
-- ✅ JWT or session-based authentication
+- ✅ Basic or session-based authentication
 - ✅ Role-based access control (RBAC)
 - ✅ Secure file upload with validation
 - ✅ Comprehensive audit logging
