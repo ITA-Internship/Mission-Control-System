@@ -161,7 +161,7 @@ class MissionOutcomeTests(APITestCase):
             format="json",
         )
 
-        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
 
     def test_viewer_forbidden(self):
         self.client.force_authenticate(self.viewer)
@@ -1089,3 +1089,14 @@ class MissionAssignmentListCreatePermissionTests(APITestCase):
 
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         self.assertEqual(MissionDrone.objects.count(), 1)
+
+    def test_operator_cannot_list_assignments_for_unassigned_mission(self):
+        MissionDroneFactory(
+            mission=self.mission,
+            drone=self.drone,
+        )
+
+        self.client.force_authenticate(self.operator)
+        response = self.client.get(self.url)
+
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)

@@ -31,6 +31,13 @@ from .serializers import (
 from .services import unassign_drone_from_mission
 
 
+def restrict_missions_for_user(queryset, user):
+    role_code = getattr(getattr(user, "role", None), "code", None)
+    if role_code == OPERATOR_CODE:
+        return queryset.filter(mission_drones__operator_id=user.id).distinct()
+    return queryset
+
+
 class MissionsUpdateStatusRBAC(HasRBACPermission):
     required_permission = PERMISSION_MISSIONS_UPDATE_STATUS
 
@@ -77,12 +84,10 @@ class MissionListCreateView(generics.ListCreateAPIView):
         return [permission() for permission in permission_classes]
 
     def get_queryset(self):
-        queryset = Mission.objects.with_related()
-        user = self.request.user
-
-        role_code = getattr(getattr(user, "role", None), "code", None)
-        if role_code == OPERATOR_CODE:
-            queryset = queryset.filter(mission_drones__operator_id=user.id).distinct()
+        queryset = restrict_missions_for_user(
+            Mission.objects.with_related(),
+            self.request.user,
+        )
 
         status = self.request.query_params.get("status")
         if status:
@@ -120,14 +125,10 @@ class MissionDetailView(generics.RetrieveAPIView):
     permission_classes = [permissions.IsAuthenticated, CanViewMission]
 
     def get_queryset(self):
-        queryset = Mission.objects.with_related()
-        user = self.request.user
-        role_code = getattr(getattr(user, "role", None), "code", None)
-
-        if role_code == OPERATOR_CODE:
-            return queryset.filter(mission_drones__operator_id=user.id).distinct()
-
-        return queryset
+        return restrict_missions_for_user(
+            Mission.objects.with_related(),
+            self.request.user,
+        )
 
 
 class MissionOutcomeView(generics.UpdateAPIView):
@@ -137,8 +138,13 @@ class MissionOutcomeView(generics.UpdateAPIView):
         MissionsRecordOutcomeRBAC,
         IsAssignedOperatorOrAdmin,
     ]
-    queryset = Mission.objects.with_related().prefetch_related("mission_drones")
     http_method_names = ["patch", "options", "head"]
+
+    def get_queryset(self):
+        return restrict_missions_for_user(
+            Mission.objects.with_related().prefetch_related("mission_drones"),
+            self.request.user,
+        )
 
 
 class MissionDroneConditionView(generics.UpdateAPIView):
@@ -160,7 +166,12 @@ class MissionDroneConditionView(generics.UpdateAPIView):
 class MissionStatusUpdateView(generics.RetrieveUpdateAPIView):
     serializer_class = MissionStatusUpdateSerializer
     permission_classes = [permissions.IsAuthenticated, CanUpdateMissionStatus]
-    queryset = Mission.objects.prefetch_related("mission_drones")
+
+    def get_queryset(self):
+        return restrict_missions_for_user(
+            Mission.objects.prefetch_related("mission_drones"),
+            self.request.user,
+        )
 
     def update(self, request, *args, **kwargs):
         with transaction.atomic():
@@ -208,7 +219,7 @@ class MissionAssignmentListCreateView(generics.ListCreateAPIView):
     def get_mission(self):
         if not hasattr(self, "_mission"):
             self._mission = generics.get_object_or_404(
-                Mission,
+                restrict_missions_for_user(Mission.objects.all(), self.request.user),
                 id=self.kwargs["mission_pk"],
             )
         return self._mission
