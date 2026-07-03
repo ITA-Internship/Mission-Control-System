@@ -924,6 +924,7 @@ class MissionListTests(APITestCase):
         self.assertLess(
             len(queries), 8, "Виявлено проблему N+1 запитів у MissionListCreateView!"
         )
+
     def test_technician_without_missions_view_cannot_list(self):
         MissionFactory()
         self.client.force_authenticate(self.technician)

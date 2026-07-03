@@ -136,14 +136,14 @@ class AuditLogViewSet(viewsets.ReadOnlyModelViewSet):
 
     def get_queryset(self):
         user = self.request.user
-        
+
         if user_has_permission(user, PERMISSION_AUDIT_LOGS_VIEW_ALL):
             return AuditLog.objects.all().select_related("actor", "target_user")
 
         if user_has_permission(user, PERMISSION_AUDIT_LOGS_VIEW_OWN):
-            logs_as_actor = AuditLog.objects.select_related("actor", "target_user").filter(
-                actor=user
-            )
+            logs_as_actor = AuditLog.objects.select_related(
+                "actor", "target_user"
+            ).filter(actor=user)
             logs_as_target_user = AuditLog.objects.select_related(
                 "actor", "target_user"
             ).filter(target_user=user)

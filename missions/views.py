@@ -52,11 +52,10 @@ class MissionsCreateRBAC(HasRBACPermission):
 class MissionsAssignRBAC(HasRBACPermission):
     required_permission = PERMISSION_MISSIONS_ASSIGN
 
-    
+
 class MissionListCreateView(generics.ListCreateAPIView):
     serializer_class = MissionSerializer
     pagination_class = StandardResultsSetPagination
-    
 
     def get_permissions(self):
         if self.request.method == "POST":
@@ -182,7 +181,7 @@ class MissionStatusUpdateView(generics.RetrieveUpdateAPIView):
 
 class MissionAssignmentListCreateView(generics.ListCreateAPIView):
     serializer_class = MissionDroneSerializer
-    
+
     pagination_class = StandardResultsSetPagination
 
     def get_permissions(self):
