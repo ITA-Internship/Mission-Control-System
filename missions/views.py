@@ -4,9 +4,12 @@ from rest_framework.exceptions import ValidationError
 
 from accounts.permissions import HasRBACPermission
 from accounts.rbac import (
+    PERMISSION_MISSIONS_ASSIGN,
+    PERMISSION_MISSIONS_CREATE,
     PERMISSION_MISSIONS_RECORD_CONDITION,
     PERMISSION_MISSIONS_RECORD_OUTCOME,
     PERMISSION_MISSIONS_UPDATE_STATUS,
+    PERMISSION_MISSIONS_VIEW,
 )
 from common.pagination import StandardResultsSetPagination
 
@@ -38,13 +41,41 @@ class MissionsRecordConditionRBAC(HasRBACPermission):
     required_permission = PERMISSION_MISSIONS_RECORD_CONDITION
 
 
+class MissionsViewRBAC(HasRBACPermission):
+    required_permission = PERMISSION_MISSIONS_VIEW
+
+
+class MissionsCreateRBAC(HasRBACPermission):
+    required_permission = PERMISSION_MISSIONS_CREATE
+
+
+class MissionsAssignRBAC(HasRBACPermission):
+    required_permission = PERMISSION_MISSIONS_ASSIGN
+
+    
 class MissionListCreateView(generics.ListCreateAPIView):
     serializer_class = MissionSerializer
-    permission_classes = [permissions.IsAuthenticated, IsDispatcherOrAdmin]
     pagination_class = StandardResultsSetPagination
+    
 
-    def get_queryset(self):
+    def get_permissions(self):
+        if self.request.method == "POST":
+            permission_classes = [
+                permissions.IsAuthenticated,
+                IsDispatcherOrAdmin,
+                MissionsCreateRBAC,
+            ]
+        else:
+            permission_classes = [
+                permissions.IsAuthenticated,
+                MissionsViewRBAC,
+            ]
+
+        return [permission() for permission in permission_classes]
+
+    def get_queryset_for_list(self):
         queryset = Mission.objects.with_related()
+
         status = self.request.query_params.get("status")
         if status:
             if status not in Status.values:
@@ -76,13 +107,19 @@ class MissionListCreateView(generics.ListCreateAPIView):
 
         return queryset
 
+    def get_queryset(self):
+        if self.request.method in permissions.SAFE_METHODS:
+            return self.get_queryset_for_list()
+
+        return Mission.objects.none()
+
     def perform_create(self, serializer):
         serializer.save(created_by=self.request.user)
 
 
 class MissionDetailView(generics.RetrieveAPIView):
     serializer_class = MissionSerializer
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [permissions.IsAuthenticated, MissionsViewRBAC]
     queryset = Mission.objects.with_related()
 
 
@@ -145,26 +182,51 @@ class MissionStatusUpdateView(generics.RetrieveUpdateAPIView):
 
 class MissionAssignmentListCreateView(generics.ListCreateAPIView):
     serializer_class = MissionDroneSerializer
-    permission_classes = [permissions.IsAuthenticated, IsDispatcherOrAdmin]
+    
     pagination_class = StandardResultsSetPagination
+
+    def get_permissions(self):
+        if self.request.method == "POST":
+            permission_classes = [
+                permissions.IsAuthenticated,
+                IsDispatcherOrAdmin,
+                MissionsAssignRBAC,
+            ]
+        else:
+            permission_classes = [
+                permissions.IsAuthenticated,
+                MissionsViewRBAC,
+            ]
+
+        return [permission() for permission in permission_classes]
 
     def get_mission(self):
         if not hasattr(self, "_mission"):
             self._mission = generics.get_object_or_404(
-                Mission, id=self.kwargs["mission_pk"]
+                Mission,
+                id=self.kwargs["mission_pk"],
             )
         return self._mission
 
-    def get_queryset(self):
+    def get_queryset_for_list(self):
         mission = self.get_mission()
         return MissionDrone.objects.filter(mission=mission).select_related(
-            "drone", "operator"
+            "drone",
+            "operator",
         )
+
+    def get_queryset(self):
+        if self.request.method in permissions.SAFE_METHODS:
+            return self.get_queryset_for_list()
+
+        return MissionDrone.objects.none()
 
     def get_serializer_context(self):
         context = super().get_serializer_context()
-        if self.request.method in ["POST", "PUT", "PATCH"]:
+
+        if self.request.method == "POST":
             context["mission"] = self.get_mission()
+
         return context
 
     def perform_create(self, serializer):

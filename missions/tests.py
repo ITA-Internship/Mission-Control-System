@@ -7,7 +7,9 @@ from django.utils import timezone
 from rest_framework import status
 from rest_framework.test import APITestCase
 
+from accounts.models import User
 from drones.models import Drone, DroneStatusHistory, WriteOffRecord
+from roles.models import TECHNICIAN_CODE, Role
 
 from .factories import (
     AdminUserFactory,
@@ -297,10 +299,11 @@ class MissionDroneConditionTests(APITestCase):
         self.drone.refresh_from_db()
 
         self.assertEqual(self.drone.status, "WRITTEN_OFF")
-
         writeoff = WriteOffRecord.objects.get(drone=self.drone)
+        self.assertEqual(writeoff.reason, "LOSS")
         self.assertEqual(writeoff.related_mission, self.mission)
-        self.assertIn("lost", writeoff.reason.lower())
+        self.assertEqual(writeoff.reason, WriteOffRecord.Reason.LOSS)
+        self.assertEqual(writeoff.reason_description, "Lost over water.")
 
         history = DroneStatusHistory.objects.get(drone=self.drone)
         self.assertEqual(history.from_status, "ACTIVE")
@@ -577,6 +580,27 @@ def _future_datetime(hours=1):
     return timezone.now() + timedelta(hours=hours)
 
 
+def _create_technician_user():
+    technician_role, _ = Role.objects.get_or_create(
+        code=TECHNICIAN_CODE,
+        defaults={"name": "Technician"},
+    )
+    return User.objects.create_user(
+        username="technician_user",
+        email="technician_user@example.com",
+        password="password",
+        role=technician_role,
+    )
+
+
+def _create_user_without_role():
+    return User.objects.create_user(
+        username="user_without_role",
+        email="user_without_role@example.com",
+        password="password",
+    )
+
+
 class MissionCreateTests(APITestCase):
     """POST /api/missions/ — create endpoint, validation, permissions."""
 
@@ -768,6 +792,8 @@ class MissionListTests(APITestCase):
     def setUp(self):
         self.dispatcher = DispatcherUserFactory()
         self.viewer = ViewerUserFactory()
+        self.technician = _create_technician_user()
+        self.user_without_role = _create_user_without_role()
 
         self.url = reverse("missions:mission-list-create")
 
@@ -898,6 +924,17 @@ class MissionListTests(APITestCase):
         self.assertLess(
             len(queries), 8, "Виявлено проблему N+1 запитів у MissionListCreateView!"
         )
+    def test_technician_without_missions_view_cannot_list(self):
+        MissionFactory()
+        self.client.force_authenticate(self.technician)
+        response = self.client.get(self.url)
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_user_without_role_cannot_list(self):
+        MissionFactory()
+        self.client.force_authenticate(self.user_without_role)
+        response = self.client.get(self.url)
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
 
 
 class MissionDetailTests(APITestCase):
@@ -906,6 +943,8 @@ class MissionDetailTests(APITestCase):
     def setUp(self):
         self.viewer = ViewerUserFactory()
         self.mission = MissionFactory(title="Detail Mission")
+        self.technician = _create_technician_user()
+        self.user_without_role = _create_user_without_role()
 
         self.url = reverse(
             "missions:mission-detail",
@@ -934,3 +973,70 @@ class MissionDetailTests(APITestCase):
         response = self.client.get(url)
 
         self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+
+    def test_technician_without_missions_view_cannot_retrieve(self):
+        self.client.force_authenticate(self.technician)
+        response = self.client.get(self.url)
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_user_without_role_cannot_retrieve(self):
+        self.client.force_authenticate(self.user_without_role)
+        response = self.client.get(self.url)
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+
+class MissionAssignmentListCreatePermissionTests(APITestCase):
+    def setUp(self):
+        self.admin = AdminUserFactory()
+        self.dispatcher = DispatcherUserFactory()
+        self.viewer = ViewerUserFactory()
+        self.operator = OperatorUserFactory()
+        self.mission = MissionFactory()
+        self.drone = DroneFactory(status=Drone.STATUS_ACTIVE)
+
+        self.url = reverse(
+            "missions:mission-assignment-list-create",
+            kwargs={"mission_pk": self.mission.pk},
+        )
+
+    def test_viewer_can_list_assignments_with_missions_view(self):
+        MissionDroneFactory(
+            mission=self.mission,
+            drone=self.drone,
+            operator=self.operator,
+        )
+
+        self.client.force_authenticate(self.viewer)
+        response = self.client.get(self.url)
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+    def test_viewer_cannot_create_assignment_with_only_missions_view(self):
+        self.client.force_authenticate(self.viewer)
+
+        response = self.client.post(
+            self.url,
+            {
+                "drone": self.drone.id,
+                "operator": self.operator.id,
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertEqual(MissionDrone.objects.count(), 0)
+
+    def test_dispatcher_can_create_assignment(self):
+        self.client.force_authenticate(self.dispatcher)
+
+        response = self.client.post(
+            self.url,
+            {
+                "drone": self.drone.id,
+                "operator": self.operator.id,
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(MissionDrone.objects.count(), 1)

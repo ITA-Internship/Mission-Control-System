@@ -351,7 +351,19 @@ class DroneSpecChangeLog(models.Model):
         return f"Spec changes for {self.drone_spec.drone}"
 
 
+class ImmutableWriteOffRecordQuerySet(models.QuerySet):
+    def update(self, **kwargs):
+        raise ValidationError(
+            "Write-off records are immutable and cannot be edited after creation."
+        )
+
+    def delete(self):
+        raise ValidationError("Write-off records are immutable and cannot be deleted.")
+
+
 class WriteOffRecord(models.Model):
+    objects = ImmutableWriteOffRecordQuerySet.as_manager()
+
     class Reason(models.TextChoices):
         LOSS = "LOSS", "Loss"
         DESTRUCTION = "DESTRUCTION", "Destruction"
@@ -359,7 +371,9 @@ class WriteOffRecord(models.Model):
         OTHER = "OTHER", "Other"
 
     drone = models.OneToOneField(
-        Drone, on_delete=models.PROTECT, related_name="writeoff_record"
+        Drone,
+        on_delete=models.PROTECT,
+        related_name="writeoff_record",
     )
     reason = models.CharField(
         max_length=20,
@@ -391,6 +405,14 @@ class WriteOffRecord(models.Model):
     written_off_at = models.DateField(default=timezone.localdate)
     created_at = models.DateTimeField(auto_now_add=True)
 
+    class Meta:
+        ordering = ["-created_at"]
+        indexes = [
+            models.Index(fields=["drone", "-created_at"]),
+            models.Index(fields=["written_off_at"]),
+            models.Index(fields=["authorized_by", "-created_at"]),
+        ]
+
     def __str__(self) -> str:
         return f"Write-off record for {self.drone}"
 
@@ -415,10 +437,16 @@ class WriteOffRecord(models.Model):
             )
 
     def save(self, *args, **kwargs):
-        if self._state.adding:
-            self.full_clean()
+        if not self._state.adding:
+            raise ValidationError(
+                "Write-off records are immutable and cannot be edited after creation."
+            )
 
+        self.full_clean()
         super().save(*args, **kwargs)
+
+    def delete(self, *args, **kwargs):
+        raise ValidationError("Write-off records are immutable and cannot be deleted.")
 
 
 class DroneStatusHistory(models.Model):
@@ -443,9 +471,13 @@ class DroneStatusHistory(models.Model):
         on_delete=models.SET_NULL,
         related_name="drone_status_history_records",
     )
-    related_repair_order_id = models.PositiveIntegerField(
-        null=True, blank=True
-    )  # temporary stub
+    related_repair_order = models.ForeignKey(
+        "repairs.RepairOrder",
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="status_history_records",
+    )
     related_writeoff = models.ForeignKey(
         WriteOffRecord,
         null=True,

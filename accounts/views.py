@@ -21,8 +21,13 @@ from rest_framework.views import APIView
 from common.utils import EchoBuffer
 
 from .models import AuditLog, User, UserStatusLog
-from .permissions import HasRBACPermission, IsSystemAdmin
-from .rbac import PERMISSION_USERS_CREATE, PERMISSION_USERS_MANAGE_ROLES
+from .permissions import HasRBACPermission, IsSystemAdmin, user_has_permission
+from .rbac import (
+    PERMISSION_AUDIT_LOGS_VIEW_ALL,
+    PERMISSION_AUDIT_LOGS_VIEW_OWN,
+    PERMISSION_USERS_CREATE,
+    PERMISSION_USERS_MANAGE_ROLES,
+)
 from .serializers import (
     AuditLogSerializer,
     ChangePasswordSerializer,
@@ -131,18 +136,21 @@ class AuditLogViewSet(viewsets.ReadOnlyModelViewSet):
 
     def get_queryset(self):
         user = self.request.user
-        if user.is_staff or user.is_superuser:
+        
+        if user_has_permission(user, PERMISSION_AUDIT_LOGS_VIEW_ALL):
             return AuditLog.objects.all().select_related("actor", "target_user")
 
-        logs_as_actor = AuditLog.objects.select_related("actor", "target_user").filter(
-            actor=user
-        )
+        if user_has_permission(user, PERMISSION_AUDIT_LOGS_VIEW_OWN):
+            logs_as_actor = AuditLog.objects.select_related("actor", "target_user").filter(
+                actor=user
+            )
+            logs_as_target_user = AuditLog.objects.select_related(
+                "actor", "target_user"
+            ).filter(target_user=user)
 
-        logs_as_target_user = AuditLog.objects.select_related(
-            "actor", "target_user"
-        ).filter(target_user=user)
+            return logs_as_actor.union(logs_as_target_user).order_by("-created_at")
 
-        return logs_as_actor.union(logs_as_target_user).order_by("-created_at")
+        return AuditLog.objects.none()
 
     @action(
         detail=False,
