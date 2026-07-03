@@ -1,4 +1,5 @@
 from io import StringIO
+from types import SimpleNamespace
 
 from django.contrib.auth.tokens import default_token_generator
 from django.core.cache import cache
@@ -10,14 +11,14 @@ from django.urls import reverse
 from django.utils.encoding import force_bytes
 from django.utils.http import urlsafe_base64_encode
 from rest_framework import status
-from rest_framework.test import APITestCase
+from rest_framework.test import APIRequestFactory, APITestCase
 
 from roles.models import ADMIN_CODE, OPERATOR_CODE, Role
 from seed_data.users import seed_users
 
 from .models import AuditLog, User, UserRoleAuditLog
 from .services import update_user_role
-from .throttles import AccountActivationThrottle
+from .throttles import AccountActivationThrottle, PasswordResetRequestThrottle
 
 THROTTLE_TEST_SETTINGS = {
     "DEFAULT_AUTHENTICATION_CLASSES": [
@@ -128,6 +129,7 @@ class SeedDbSecurityTests(TestCase):
 class PublicAuthThrottleTests(APITestCase):
     def setUp(self):
         cache.clear()
+        self.request_factory = APIRequestFactory()
         self.user = User.objects.create_user(
             username="throttle.user",
             email="throttle.user@example.com",
@@ -170,6 +172,29 @@ class PublicAuthThrottleTests(APITestCase):
             "Missing throttle rate for scope 'account_activation'.",
         ):
             AccountActivationThrottle()
+
+    def test_throttle_cache_key_uses_authenticated_user_when_available(self):
+        request = self.request_factory.post("/password-reset/")
+        request.user = self.user
+        request.data = {"email": "shared@example.com"}
+        view = SimpleNamespace(kwargs={})
+
+        cache_key = PasswordResetRequestThrottle().get_cache_key(request, view)
+
+        self.assertIn(f"user:{self.user.pk}", cache_key)
+
+    def test_password_reset_throttle_cache_key_is_scoped_by_email(self):
+        view = SimpleNamespace(kwargs={})
+        first_request = self.request_factory.post("/password-reset/")
+        first_request.data = {"email": "first@example.com"}
+        second_request = self.request_factory.post("/password-reset/")
+        second_request.data = {"email": "second@example.com"}
+
+        first_key = PasswordResetRequestThrottle().get_cache_key(first_request, view)
+        second_key = PasswordResetRequestThrottle().get_cache_key(second_request, view)
+
+        self.assertNotEqual(first_key, second_key)
+        self.assertNotIn("first@example.com", first_key)
 
     def test_password_reset_request_endpoint_is_throttled(self):
         url = reverse("accounts:password-reset-request")
