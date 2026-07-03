@@ -41,7 +41,7 @@ from .serializers import (
     UserRoleUpdateSerializer,
     UserStatusUpdateSerializer,
 )
-from .services import create_audit_log, update_user_role
+from .services import create_audit_log, set_user_password, update_user_role
 from .throttles import (
     AccountActivationThrottle,
     PasswordResetConfirmThrottle,
@@ -99,9 +99,7 @@ class ActivateAccountAPIView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        user.set_password(new_password)
-        user.must_change_password = False
-        user.save(update_fields=["password", "must_change_password"])
+        set_user_password(user, new_password)
 
         create_audit_log(
             actor=user,
@@ -301,9 +299,7 @@ class ChangePasswordView(APIView):
 
         if serializer.is_valid():
             user = request.user
-            user.set_password(serializer.validated_data["new_password"])
-            user.must_change_password = False
-            user.save(update_fields=["password", "must_change_password"])
+            set_user_password(user, serializer.validated_data["new_password"])
 
             invalidate_user_sessions(user)
 
@@ -397,9 +393,7 @@ class PasswordResetConfirmView(APIView):
                 return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
             new_password = serializer.validated_data["new_password"]
-            user.set_password(new_password)
-            user.must_change_password = False
-            user.save(update_fields=["password", "must_change_password"])
+            set_user_password(user, new_password)
 
             invalidate_user_sessions(user)
 
