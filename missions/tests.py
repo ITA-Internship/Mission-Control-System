@@ -1137,7 +1137,7 @@ class MissionAssignmentListCreatePermissionTests(APITestCase):
 
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         self.assertEqual(MissionDrone.objects.count(), 1)
-        
+
     def test_operator_cannot_list_assignments_for_unassigned_mission(self):
         MissionDroneFactory(
             mission=self.mission,
@@ -1205,4 +1205,3 @@ class MissionAssignmentConcurrencyTests(TransactionTestCase):
         )
         self.assertEqual(len(exceptions), 1)
         self.assertIsInstance(exceptions[0], ValidationError)
-

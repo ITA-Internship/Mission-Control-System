@@ -138,7 +138,7 @@ class ComponentReplacementExportView(generics.GenericAPIView):
     filterset_class = ComponentReplacementFilter
 
     throttle_classes = [ScopedRateThrottle]
-    throttle_scope = "component_raplacement_export"
+    throttle_scope = "component_replacement_export"
 
     def get_queryset(self):
         return ComponentReplacement.objects.select_related("drone", "replaced_by")

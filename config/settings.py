@@ -166,7 +166,7 @@ REST_FRAMEWORK = {
         "audit_export": os.getenv("THROTTLE_AUDIT_EXPORT", "10/hour"),
         "drone_export": os.getenv("THROTTLE_DRONE_EXPORT", "10/hour"),
         "component_replacement_export": os.getenv(
-            "THROTTLE_COMPONENT_REPLACEMENT_EXPORT", 
+            "THROTTLE_COMPONENT_REPLACEMENT_EXPORT",
             "5/hour",
         ),
     },
