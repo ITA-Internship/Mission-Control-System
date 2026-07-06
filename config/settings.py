@@ -60,6 +60,7 @@ INSTALLED_APPS = [
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",
+    "django.contrib.postgres",
     "accounts",
     "drones",
     "roles",
@@ -163,6 +164,11 @@ REST_FRAMEWORK = {
             "5/hour",
         ),
         "audit_export": os.getenv("THROTTLE_AUDIT_EXPORT", "10/hour"),
+        "drone_export": os.getenv("THROTTLE_DRONE_EXPORT", "10/hour"),
+        "component_replacement_export": os.getenv(
+            "THROTTLE_COMPONENT_REPLACEMENT_EXPORT",
+            "5/hour",
+        ),
     },
     "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
 }
@@ -225,6 +231,10 @@ FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:3000")
 CELERY_BROKER_URL = os.environ.get("REDIS_URL", "redis://localhost:6379/0")
 CELERY_RESULT_BACKEND = os.environ.get("REDIS_URL", "redis://localhost:6379/0")
 MAX_EXPORT_LIMIT = 10000
+DRONES_IMPORT_MAX_ROWS = 10000
+DRONES_IMPORT_BATCH_SIZE = 1000
+
+MAX_PAGINATION_OFFSET = 10000
 
 
 SPECTACULAR_SETTINGS = {

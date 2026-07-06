@@ -1,7 +1,6 @@
 from django.db import transaction
 from rest_framework import generics, permissions
 from rest_framework.exceptions import ValidationError
-from rest_framework.pagination import PageNumberPagination
 
 from accounts.permissions import HasRBACPermission
 from accounts.rbac import (
@@ -12,6 +11,7 @@ from accounts.rbac import (
     PERMISSION_MISSIONS_UPDATE_STATUS,
     PERMISSION_MISSIONS_VIEW,
 )
+from common.pagination import StandardResultsSetPagination
 from roles.models import OPERATOR_CODE
 
 from .models import Mission, MissionAuditLog, MissionDrone, Status
@@ -62,15 +62,9 @@ class MissionsAssignRBAC(HasRBACPermission):
     required_permission = PERMISSION_MISSIONS_ASSIGN
 
 
-class MissionPagination(PageNumberPagination):
-    page_size = 10
-    page_size_query_param = "page_size"
-    max_page_size = 50
-
-
 class MissionListCreateView(generics.ListCreateAPIView):
     serializer_class = MissionSerializer
-    pagination_class = MissionPagination
+    pagination_class = StandardResultsSetPagination
 
     def get_permissions(self):
         if self.request.method in permissions.SAFE_METHODS:
@@ -112,9 +106,11 @@ class MissionListCreateView(generics.ListCreateAPIView):
                     }
                 )
 
-            queryset = queryset.filter(
-                mission_drones__operator_id=self.request.user.id
-            ).distinct()
+            user = self.request.user
+            user_mission_ids = MissionDrone.objects.filter(operator_id=user.id).values(
+                "mission_id"
+            )
+            queryset = queryset.filter(id__in=user_mission_ids)
 
         return queryset
 
@@ -202,6 +198,8 @@ class MissionStatusUpdateView(generics.RetrieveUpdateAPIView):
 
 class MissionAssignmentListCreateView(generics.ListCreateAPIView):
     serializer_class = MissionDroneSerializer
+
+    pagination_class = StandardResultsSetPagination
 
     def get_permissions(self):
         if self.request.method == "POST":
