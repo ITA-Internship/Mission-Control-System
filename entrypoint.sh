@@ -8,4 +8,11 @@ case "$RUN_MIGRATIONS" in
         ;;
 esac
 
+case "$DEBUG" in
+    false|False|0|no|NO)
+        echo "Disabling known seeded users outside local development..."
+        python manage.py disable_seeded_users
+        ;;
+esac
+
 exec "$@"
