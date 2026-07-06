@@ -183,8 +183,6 @@ Populate the database with development data:
 python manage.py seed_db
 ```
 
-Demo login ...
-
 ### Running Test
 ```bash
 python manage.py test

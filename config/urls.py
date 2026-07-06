@@ -25,6 +25,8 @@ from drf_spectacular.views import (
     SpectacularSwaggerView,
 )
 
+from media.urls import audit_urlpatterns as media_audit_urlpatterns
+
 urlpatterns = [
     path("admin/", admin.site.urls),
     path("api/accounts/", include("accounts.urls")),
@@ -32,15 +34,16 @@ urlpatterns = [
     path("api/roles/", include("roles.urls")),
     path("api/missions/", include("missions.urls")),
     path("api/repairs/", include("repairs.urls")),
+    path("api/media/", include("media.urls_video")),
+    path("api/missions/<int:mission_pk>/artifacts/", include("media.urls")),
+    path("api/media/", include(media_audit_urlpatterns)),
     path("api/schema/", SpectacularAPIView.as_view(), name="schema"),
     path(
-        "api/docs/swagger/",
+        "api/docs/",
         SpectacularSwaggerView.as_view(url_name="schema"),
         name="swagger-ui",
     ),
-    path(
-        "api/docs/redoc/", SpectacularRedocView.as_view(url_name="schema"), name="redoc"
-    ),
+    path("api/redoc/", SpectacularRedocView.as_view(url_name="schema"), name="redoc"),
 ]
 
 if settings.DEBUG:

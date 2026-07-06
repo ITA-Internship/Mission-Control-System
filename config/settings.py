@@ -14,6 +14,7 @@ import os
 from pathlib import Path
 
 from decouple import config
+from django.core.exceptions import ImproperlyConfigured
 from dotenv import load_dotenv
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
@@ -40,6 +41,7 @@ ALLOWED_HOSTS = [
     if host.strip()
 ]
 
+
 # Application definition
 
 INSTALLED_APPS = [
@@ -59,6 +61,7 @@ INSTALLED_APPS = [
     "django_filters",
     "common",
     "drf_spectacular",
+    "storages",
     "rest_framework_swagger",
 ]
 
@@ -91,6 +94,7 @@ TEMPLATES = [
 
 WSGI_APPLICATION = "config.wsgi.application"
 
+
 # Database
 # https://docs.djangoproject.com/en/6.0/ref/settings/#databases
 
@@ -104,6 +108,7 @@ DATABASES = {
         "PORT": config("DB_PORT", default="5432"),
     }
 }
+
 
 # Password validation
 # https://docs.djangoproject.com/en/6.0/ref/settings/#auth-password-validators
@@ -133,6 +138,7 @@ REST_FRAMEWORK = {
     "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
 }
 
+
 # Internationalization
 # https://docs.djangoproject.com/en/6.0/topics/i18n/
 
@@ -143,6 +149,7 @@ TIME_ZONE = "UTC"
 USE_I18N = True
 
 USE_TZ = True
+
 
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/6.0/howto/static-files/
@@ -157,15 +164,19 @@ MEDIA_ROOT = BASE_DIR / "mediafiles"
 # Artifact upload limits (configurable via environment)
 ARTIFACT_MAX_FILE_SIZE_MB = int(os.getenv("ARTIFACT_MAX_FILE_SIZE_MB", "50"))
 
+# Number of trusted reverse proxies (e.g. nginx, load balancer) sitting in front
+# of Django. Used to safely resolve the real client IP from X-Forwarded-For:
+# only the rightmost `TRUSTED_PROXY_COUNT` entries are appended by our own infra
+# and can be trusted. Set to 0 when Django is exposed directly (no proxy).
+TRUSTED_PROXY_COUNT = int(os.getenv("TRUSTED_PROXY_COUNT", "0"))
+VIDEO_MAX_FILE_SIZE_MB = int(os.getenv("VIDEO_MAX_FILE_SIZE_MB", "200"))
+
 # Allowed file extensions for artifact uploads, grouped by file type.
 ARTIFACT_ALLOWED_EXTENSIONS = {
-    "video": [".mp4", ".avi", ".mov"],
+    # video upload is only available through api/media/videos/
     "image": [".jpg", ".jpeg", ".png"],
     "data": [".csv", ".json"],
 }
-
-MEDIA_URL = "/media/"
-MEDIA_ROOT = BASE_DIR / "media"
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
@@ -181,11 +192,17 @@ EMAIL_HOST_PASSWORD = os.getenv("EMAIL_HOST_PASSWORD")
 DEFAULT_FROM_EMAIL = os.getenv("DEFAULT_FROM_EMAIL", "no-reply@localhost")
 FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:3000")
 
+
+CELERY_BROKER_URL = os.environ.get("REDIS_URL", "redis://localhost:6379/0")
+CELERY_RESULT_BACKEND = os.environ.get("REDIS_URL", "redis://localhost:6379/0")
 MAX_EXPORT_LIMIT = 10000
+
 
 SPECTACULAR_SETTINGS = {
     "TITLE": "Mission Control System API",
+    "DESCRIPTION": "Documentation for Mission-Control-System",
     "SERVE_INCLUDE_SCHEMA": False,
+
     "ENUM_NAME_OVERRIDES": {
         "DroneStatus": "drones.models.Drone.STATUS_CHOICES",
         "MissionStatus": "missions.models.Status",
@@ -193,5 +210,64 @@ SPECTACULAR_SETTINGS = {
         "DefectType": "repairs.models.DefectType",
         "WriteOffReason": "drones.models.WriteOffRecord.Reason",
     },
+
     "ENUM_GENERATE_CHOICE_DESCRIPTION": False,
 }
+
+
+def get_env_or_raise(var_name):
+    value = os.getenv(var_name)
+    if not value:
+        raise ImproperlyConfigured(f"Missing required environment variable: {var_name}")
+    return value
+
+
+STORAGE_PROVIDER = os.getenv("STORAGE_PROVIDER", "local")
+
+FILE_UPLOAD_PERMISSIONS = 0o644
+
+if STORAGE_PROVIDER == "s3":
+    DEFAULT_FILE_STORAGE = "storages.backends.s3boto3.S3Boto3Storage"
+    AWS_ACCESS_KEY_ID = get_env_or_raise("AWS_ACCESS_KEY_ID")
+    AWS_SECRET_ACCESS_KEY = get_env_or_raise("AWS_SECRET_ACCESS_KEY")
+    AWS_STORAGE_BUCKET_NAME = get_env_or_raise("AWS_STORAGE_BUCKET_NAME")
+    AWS_S3_REGION_NAME = get_env_or_raise("AWS_S3_REGION_NAME")
+
+    AWS_DEFAULT_ACL = None
+    AWS_QUERYSTRING_AUTH = True
+    AWS_S3_SIGNATURE_VERSION = "s3v4"
+    AWS_S3_FILE_OVERWRITE = False
+
+elif STORAGE_PROVIDER == "minio":
+    DEFAULT_FILE_STORAGE = "storages.backends.s3boto3.S3Boto3Storage"
+    AWS_ACCESS_KEY_ID = get_env_or_raise("AWS_ACCESS_KEY_ID")
+    AWS_SECRET_ACCESS_KEY = get_env_or_raise("AWS_SECRET_ACCESS_KEY")
+    AWS_STORAGE_BUCKET_NAME = get_env_or_raise("AWS_STORAGE_BUCKET_NAME")
+    AWS_S3_ENDPOINT_URL = get_env_or_raise("AWS_S3_ENDPOINT_URL")
+
+    AWS_DEFAULT_ACL = None
+    AWS_QUERYSTRING_AUTH = True
+    AWS_S3_FILE_OVERWRITE = False
+
+elif STORAGE_PROVIDER == "azure":
+    DEFAULT_FILE_STORAGE = "storages.backends.azure_storage.AzureStorage"
+    AZURE_ACCOUNT_NAME = get_env_or_raise("AZURE_ACCOUNT_NAME")
+    AZURE_ACCOUNT_KEY = get_env_or_raise("AZURE_ACCOUNT_KEY")
+    AZURE_CONTAINER_NAME = get_env_or_raise("AZURE_CONTAINER_NAME")
+
+    AZURE_OVERWRITE_FILES = False
+
+elif STORAGE_PROVIDER == "gcs":
+    DEFAULT_FILE_STORAGE = "storages.backends.gcloud.GoogleCloudStorage"
+    GS_BUCKET_NAME = get_env_or_raise("GS_BUCKET_NAME")
+    GS_CREDENTIALS = get_env_or_raise("GS_CREDENTIALS")
+
+    GS_DEFAULT_ACL = "private"
+    GS_QUERYSTRING_AUTH = True
+    GS_FILE_OVERWRITE = False
+
+elif STORAGE_PROVIDER == "local":
+    DEFAULT_FILE_STORAGE = "django.core.files.storage.FileSystemStorage"
+
+else:
+    raise ImproperlyConfigured(f"Unknown STORAGE_PROVIDER: {STORAGE_PROVIDER}")

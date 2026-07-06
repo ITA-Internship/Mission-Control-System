@@ -1,6 +1,7 @@
 import csv
 
 from django.conf import settings
+from django.core.exceptions import PermissionDenied
 from django.db.models import Max, Min
 from django.http import (
     HttpResponse,
@@ -8,7 +9,7 @@ from django.http import (
     HttpResponseForbidden,
     StreamingHttpResponse,
 )
-from django.views.generic import TemplateView
+from django.views.generic import ListView, TemplateView
 from django_filters.rest_framework import DjangoFilterBackend
 from drf_spectacular.utils import extend_schema_view
 from rest_framework import filters, generics, status
@@ -18,6 +19,9 @@ from accounts.permissions import HasRBACPermission
 from accounts.rbac import PERMISSION_SPECIFICATIONS_COMPARE
 from common.pagination import StandardResultsSetPagination
 
+from .filters import DroneFilter, WriteOffRecordFilter
+from .models import Drone, DroneModel, WriteOffRecord
+from .permissions import DronePermission, WriteOffHistoryPermission, WriteOffPermission
 from .api_details import (
     drone_data_export_schema,
     drone_data_import_schema,
@@ -37,6 +41,9 @@ from .serializers import (
     DroneModelSerializer,
     DroneSerializer,
     DroneUpdateSerializer,
+    WriteOffAuditSerializer,
+    WriteOffRecordCreateSerializer,
+    WriteOffRecordSerializer,
 )
 from .services import generate_drones_csv, import_drones_csv
 
@@ -239,6 +246,90 @@ class DroneModelListCreateView(generics.ListCreateAPIView):
     queryset = DroneModel.objects.all()
 
 
+class WriteOffHistoryListView(generics.ListAPIView):
+    serializer_class = WriteOffAuditSerializer
+    permission_classes = [WriteOffHistoryPermission]
+    pagination_class = StandardResultsSetPagination
+    filter_backends = (
+        DjangoFilterBackend,
+        filters.SearchFilter,
+        filters.OrderingFilter,
+    )
+    filterset_class = WriteOffRecordFilter
+    search_fields = (
+        "drone__name",
+        "drone__serial_number",
+        "drone__inventory_number",
+        "reason",
+        "reason_description",
+        "document_number",
+        "authorized_by__username",
+    )
+    ordering_fields = (
+        "created_at",
+        "written_off_at",
+        "drone__serial_number",
+        "drone__inventory_number",
+        "document_number",
+    )
+    ordering = ("-created_at",)
+
+    def get_queryset(self):
+        queryset = WriteOffRecord.objects.select_related(
+            "drone", "authorized_by", "related_mission"
+        ).order_by("-created_at")
+
+        drone_pk = self.kwargs.get("drone_pk")
+        if drone_pk is not None:
+            queryset = queryset.filter(drone_id=drone_pk)
+
+        return queryset
+
+
+class WriteOffHistoryReportView(ListView):
+    model = WriteOffRecord
+    template_name = "drones/writeoff_history_report.html"
+    context_object_name = "writeoff_records"
+    paginate_by = 50
+
+    def dispatch(self, request, *args, **kwargs):
+        permission = WriteOffHistoryPermission()
+
+        if not permission._has_permission(request.user):
+            raise PermissionDenied(permission.message)
+
+        return super().dispatch(request, *args, **kwargs)
+
+    def get_queryset(self):
+        queryset = WriteOffRecord.objects.select_related(
+            "drone",
+            "authorized_by",
+            "related_mission",
+        ).order_by("-created_at")
+
+        drone_pk = self.kwargs.get("drone_pk")
+        if drone_pk is not None:
+            queryset = queryset.filter(drone_id=drone_pk)
+
+        self.filterset = WriteOffRecordFilter(
+            self.request.GET,
+            queryset=queryset,
+        )
+
+        return self.filterset.qs
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+
+        query_params = self.request.GET.copy()
+        query_params.pop("page", None)
+
+        context["querystring"] = query_params.urlencode()
+        context["drone_pk"] = self.kwargs.get("drone_pk")
+
+        return context
+
+
 @drone_data_export_schema
 class DroneDataExportView(generics.ListAPIView):
     permission_classes = [DronePermission]
@@ -299,3 +390,19 @@ class DroneDataImportView(generics.GenericAPIView):
             },
             status=status.HTTP_200_OK,
         )
+
+
+class WriteOffRecordListCreateView(generics.ListCreateAPIView):
+    permission_classes = [WriteOffPermission]
+
+    def get_queryset(self):
+        return WriteOffRecord.objects.select_related(
+            "drone",
+            "authorized_by",
+            "related_mission",
+        ).order_by("-written_off_at")
+
+    def get_serializer_class(self):
+        if self.request.method == "POST":
+            return WriteOffRecordCreateSerializer
+        return WriteOffRecordSerializer

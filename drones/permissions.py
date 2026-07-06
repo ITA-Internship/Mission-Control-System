@@ -6,6 +6,8 @@ from accounts.rbac import (
     PERMISSION_DRONES_DECOMMISSION,
     PERMISSION_DRONES_UPDATE,
     PERMISSION_DRONES_VIEW,
+    PERMISSION_WRITEOFF_CREATE,
+    PERMISSION_WRITEOFF_VIEW,
 )
 
 from .models import Drone
@@ -17,9 +19,6 @@ class DronePermission(BasePermission):
     def _has_permission(self, user, permission_code):
         if not user or not user.is_authenticated:
             return False
-
-        if getattr(user, "is_staff", False):
-            return True
 
         return user_has_permission(user, permission_code)
 
@@ -68,5 +67,37 @@ class DronePermission(BasePermission):
                 )
 
             return True
+
+        return False
+
+
+class WriteOffHistoryPermission(BasePermission):
+    message = "You do not have permission to view write-off history."
+
+    def _has_permission(self, user):
+        if not user or not user.is_authenticated:
+            return False
+
+        if getattr(user, "is_staff", False):
+            return True
+
+        return user_has_permission(user, PERMISSION_WRITEOFF_VIEW)
+
+    def has_permission(self, request, view):
+        if request.method not in SAFE_METHODS:
+            return False
+
+        return self._has_permission(request.user)
+
+
+class WriteOffPermission(BasePermission):
+    message = "You do not have permission to perform this action."
+
+    def has_permission(self, request, view):
+        if request.method in SAFE_METHODS:
+            return user_has_permission(request.user, PERMISSION_WRITEOFF_VIEW)
+
+        if request.method == "POST":
+            return user_has_permission(request.user, PERMISSION_WRITEOFF_CREATE)
 
         return False

@@ -38,8 +38,13 @@ from .api_details import (
     user_status_update_schema,
 )
 from .models import AuditLog, User, UserStatusLog
-from .permissions import HasRBACPermission, IsSystemAdmin
-from .rbac import PERMISSION_USERS_CREATE, PERMISSION_USERS_MANAGE_ROLES
+from .permissions import HasRBACPermission, IsSystemAdmin, user_has_permission
+from .rbac import (
+    PERMISSION_AUDIT_LOGS_VIEW_ALL,
+    PERMISSION_AUDIT_LOGS_VIEW_OWN,
+    PERMISSION_USERS_CREATE,
+    PERMISSION_USERS_MANAGE_ROLES,
+)
 from .serializers import (
     AuditLogSerializer,
     ChangePasswordSerializer,
@@ -158,12 +163,15 @@ class AuditLogViewSet(viewsets.ReadOnlyModelViewSet):
             return AuditLog.objects.none()
 
         user = self.request.user
-        if user.is_staff or user.is_superuser:
+        if user_has_permission(user, PERMISSION_AUDIT_LOGS_VIEW_ALL):
             return AuditLog.objects.all().select_related("actor", "target_user")
 
-        return AuditLog.objects.filter(
-            Q(actor=user) | Q(target_user=user)
-        ).select_related("actor", "target_user")
+        if user_has_permission(user, PERMISSION_AUDIT_LOGS_VIEW_OWN):
+            return AuditLog.objects.filter(
+                Q(actor=user) | Q(target_user=user)
+            ).select_related("actor", "target_user")
+
+        return AuditLog.objects.none()
 
     @action(
         detail=False,
