@@ -146,9 +146,9 @@ class AuditLogViewSet(viewsets.ReadOnlyModelViewSet):
 
             allowed_log_ids = actor_ids.union(target_ids)
 
-            return AuditLog.objects.filter(
-                pk__in=allowed_log_ids
-            ).select_related("actor", "target_user")
+            return AuditLog.objects.filter(pk__in=allowed_log_ids).select_related(
+                "actor", "target_user"
+            )
 
         return AuditLog.objects.none()
 
