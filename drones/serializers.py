@@ -92,6 +92,41 @@ class DroneSpecSerializer(DroneSpecValidationMixin, serializers.ModelSerializer)
         read_only_fields = ("id", "updated_at", "change_history")
 
 
+class DroneSpecDetailSerializer(DroneSpecValidationMixin, serializers.ModelSerializer):
+
+    class Meta:
+        model = DroneSpec
+        fields = (
+            "id",
+            "frame_type",
+            "motor_model",
+            "battery_type",
+            "battery_capacity_mah",
+            "battery_model",
+            "camera_model",
+            "camera_specs",
+            "vtx_model",
+            "flight_controller",
+            "firmware_version",
+            "is_firmware_outdated",
+            "communication_protocol",
+            "control_channel",
+            "telemetry_channel",
+            "max_speed_kmh",
+            "typical_range_km",
+            "max_range_km",
+            "typical_flight_time_min",
+            "max_flight_time_min",
+            "frequency_mhz",
+            "payload_capacity_g",
+            "additional_modules",
+            "technical_documentation_url",
+            "firmware_file_url",
+            "updated_at",
+        )
+        read_only_fields = ("id", "updated_at")
+
+
 class DroneSpecUpdateSerializer(DroneSpecValidationMixin, serializers.ModelSerializer):
     class Meta:
         model = DroneSpec
@@ -191,7 +226,7 @@ class DroneStatusHistorySerializer(serializers.ModelSerializer):
 
 
 class DroneSerializer(serializers.ModelSerializer):
-    spec = DroneSpecSerializer()
+    spec = DroneSpecDetailSerializer()
     writeoff_record = WriteOffRecordSerializer(read_only=True)
     status_label = serializers.CharField(read_only=True)
     status_indicator = serializers.CharField(read_only=True)
