@@ -31,8 +31,10 @@ def extract_video_duration_task(video_id):
         duration = float(probe_data["format"]["duration"])
 
         instance.duration_seconds = int(duration)
-        instance.status = "READY"
+        instance.status = VideoMetadata.Status.READY
         instance.save(update_fields=["duration_seconds", "status"])
 
     except Exception:
-        VideoMetadata.objects.filter(id=video_id).update(status="FAILED")
+        VideoMetadata.objects.filter(id=video_id).update(
+            status=VideoMetadata.Status.FAILED
+        )

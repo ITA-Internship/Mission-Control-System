@@ -41,7 +41,12 @@ from .serializers import (
     UserRoleUpdateSerializer,
     UserStatusUpdateSerializer,
 )
-from .services import create_audit_log, update_user_role
+from .services import create_audit_log, set_user_password, update_user_role
+from .throttles import (
+    AccountActivationThrottle,
+    PasswordResetConfirmThrottle,
+    PasswordResetRequestThrottle,
+)
 
 
 class UserRegistrationView(generics.CreateAPIView):
@@ -76,6 +81,7 @@ class UserRoleUpdateAPIView(APIView):
 
 class ActivateAccountAPIView(APIView):
     permission_classes = [AllowAny]
+    throttle_classes = [AccountActivationThrottle]
 
     def post(self, request, user_id, token):
         user = get_object_or_404(User, pk=user_id)
@@ -93,8 +99,7 @@ class ActivateAccountAPIView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        user.set_password(new_password)
-        user.save()
+        set_user_password(user, new_password)
 
         create_audit_log(
             actor=user,
@@ -294,8 +299,7 @@ class ChangePasswordView(APIView):
 
         if serializer.is_valid():
             user = request.user
-            user.set_password(serializer.validated_data["new_password"])
-            user.save()
+            set_user_password(user, serializer.validated_data["new_password"])
 
             invalidate_user_sessions(user)
 
@@ -326,6 +330,7 @@ class ChangePasswordView(APIView):
 
 class PasswordResetRequestView(APIView):
     permission_classes = [permissions.AllowAny]
+    throttle_classes = [PasswordResetRequestThrottle]
 
     def post(self, request):
         serializer = PasswordResetRequestSerializer(data=request.data)
@@ -372,6 +377,7 @@ class PasswordResetRequestView(APIView):
 
 class PasswordResetConfirmView(APIView):
     permission_classes = [permissions.AllowAny]
+    throttle_classes = [PasswordResetConfirmThrottle]
 
     def post(self, request, uidb64, token):
 
@@ -387,8 +393,7 @@ class PasswordResetConfirmView(APIView):
                 return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
             new_password = serializer.validated_data["new_password"]
-            user.set_password(new_password)
-            user.save()
+            set_user_password(user, new_password)
 
             invalidate_user_sessions(user)
 
