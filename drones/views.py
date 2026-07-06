@@ -2,7 +2,7 @@ import csv
 
 from django.conf import settings
 from django.core.exceptions import PermissionDenied
-from django.db.models import Max, Min, Prefetch
+from django.db.models import Max, Min
 from django.http import (
     HttpResponse,
     HttpResponseBadRequest,
@@ -12,7 +12,6 @@ from django.http import (
 from django.utils.decorators import method_decorator
 from django.views.decorators.cache import cache_page
 from django.views.generic import ListView, TemplateView
-
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import filters, generics, status
 from rest_framework.response import Response
@@ -22,7 +21,13 @@ from accounts.rbac import PERMISSION_SPECIFICATIONS_COMPARE
 from common.pagination import StandardResultsSetPagination
 
 from .filters import DroneFilter, WriteOffRecordFilter
-from .models import Drone, DroneModel, DroneSpecChangeLog, DroneStatusHistory, WriteOffRecord
+from .models import (
+    Drone,
+    DroneModel,
+    DroneSpecChangeLog,
+    DroneStatusHistory,
+    WriteOffRecord,
+)
 from .permissions import DronePermission, WriteOffHistoryPermission, WriteOffPermission
 from .serializers import (
     DroneImportSerializer,

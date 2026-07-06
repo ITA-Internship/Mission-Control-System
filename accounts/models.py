@@ -241,4 +241,3 @@ class UserSession(models.Model):
 
     def __str__(self):
         return f"Session {self.session_key[:8]}… for {self.user}"
-

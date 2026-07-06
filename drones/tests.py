@@ -608,7 +608,9 @@ class DroneUpdateAndDecommissionTests(APITestCase):
         self.assertEqual(response.data["status_indicator"], "warning")
         self.assertEqual(response.data["status_category"], "downtime")
 
-        history_url = reverse("drones:drone-status-history", kwargs={"pk": self.drone.pk})
+        history_url = reverse(
+            "drones:drone-status-history", kwargs={"pk": self.drone.pk}
+        )
         history_response = self.client.get(history_url)
         self.assertEqual(history_response.status_code, status.HTTP_200_OK)
 

@@ -354,7 +354,7 @@ def import_drones_csv(drones_csv_file, user=None):
     }
 
     chunk = []
-    row_num = 1  
+    row_num = 1
 
     for row in reader:
         row_num += 1

@@ -7,9 +7,7 @@ from rest_framework import serializers
 
 from accounts.permissions import get_user_role_code
 from common.serializers import UserBriefSerializer
-from drones.models import Drone
-from drones.models import DroneStatusHistory
-from drones.services import update_drone
+from drones.models import Drone, DroneStatusHistory
 from roles.models import COMMANDER_CODE, OPERATOR_CODE
 
 from .models import (
