@@ -85,16 +85,17 @@ def assign_drone_to_mission(
                 },
             )
 
-        current_drone = Drone.objects.get(id=drone.id)
+        current_drone = (
+            Drone.objects.select_for_update().only("id", "status").get(id=drone.id)
+        )
         if current_drone.status != Drone.STATUS_ACTIVE:
             raise serializers.ValidationError(
                 {"drone": "Drone is no longer active."},
             )
 
-        current_operator = User.objects.get(
-            id=operator.id,
+        current_operator = (
+            User.objects.select_for_update().only("id").get(id=operator.id)
         )
-
         if _check_overlap(
             mission=locked_mission,
             operator=current_operator,

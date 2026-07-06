@@ -1,10 +1,13 @@
+import threading
 from datetime import timedelta
 
 from django.db import connection
+from django.test import TransactionTestCase
 from django.test.utils import CaptureQueriesContext
 from django.urls import reverse
 from django.utils import timezone
 from rest_framework import status
+from rest_framework.exceptions import ValidationError
 from rest_framework.test import APITestCase
 
 from accounts.models import User
@@ -22,6 +25,7 @@ from .factories import (
     ViewerUserFactory,
 )
 from .models import Mission, MissionAuditLog, MissionDrone
+from .services import assign_drone_to_mission
 
 
 class MissionOutcomeTests(APITestCase):
@@ -1041,3 +1045,60 @@ class MissionAssignmentListCreatePermissionTests(APITestCase):
 
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         self.assertEqual(MissionDrone.objects.count(), 1)
+
+
+class MissionAssignmentConcurrencyTests(TransactionTestCase):
+    def setUp(self):
+        self.operator = OperatorUserFactory()
+        self.drone = DroneFactory(status=Drone.STATUS_ACTIVE)
+
+        now = timezone.now()
+
+        self.mission_1 = MissionFactory(
+            status="planned", started_at=now, ended_at=now + timedelta(hours=2)
+        )
+        self.mission_2 = MissionFactory(
+            status="planned",
+            started_at=now + timedelta(hours=1),
+            ended_at=now + timedelta(hours=3),
+        )
+
+    def test_concurrent_assignment_race_condition(self):
+
+        exceptions = []
+        results = []
+
+        def worker_assign(mission, drone, operator):
+            connection.close()
+            try:
+                result = assign_drone_to_mission(
+                    mission=mission,
+                    drone=drone,
+                    operator=operator,
+                )
+                results.append(result)
+            except Exception as e:
+                exceptions.append(e)
+            finally:
+                connection.close()
+
+        thread1 = threading.Thread(
+            target=worker_assign, args=(self.mission_1, self.drone, self.operator)
+        )
+        thread2 = threading.Thread(
+            target=worker_assign, args=(self.mission_2, self.drone, self.operator)
+        )
+
+        thread1.start()
+        thread2.start()
+
+        thread1.join()
+        thread2.join()
+
+        self.assertEqual(
+            len(results),
+            1,
+            "Race Condition! The drone is assigned to both missions at the same time!",
+        )
+        self.assertEqual(len(exceptions), 1)
+        self.assertIsInstance(exceptions[0], ValidationError)
