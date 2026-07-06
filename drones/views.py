@@ -1,3 +1,17 @@
+"""Expose drone inventory, comparison, import/export, and write-off endpoints.
+
+Classes:
+    DroneComparisonView: Render and export side-by-side drone comparisons.
+    DroneListCreateView: List active drones and create drones with specifications.
+    DroneDetailView: Retrieve and partially update drone records.
+    DroneModelListCreateView: List and create drone model catalog entries.
+    WriteOffHistoryListView: Expose read-only write-off audit records.
+    WriteOffHistoryReportView: Render write-off audit history as an HTML report.
+    DroneDataExportView: Stream filtered drone inventory as CSV.
+    DroneDataImportView: Import drone inventory records from CSV.
+    WriteOffRecordListCreateView: List or create write-off records.
+"""
+
 import csv
 
 from django.conf import settings
@@ -35,6 +49,12 @@ from .services import generate_drones_csv, import_drones_csv
 
 
 class DroneComparisonView(TemplateView):
+    """Render and export a side-by-side comparison of selected drones.
+
+    Access is protected by the specifications comparison RBAC permission. The
+    selected drone count is capped so the comparison table and CSV export remain
+    manageable.
+    """
     template_name = "drones/compare.html"
 
     MAX_COMPARE_COUNT = 5
@@ -42,6 +62,7 @@ class DroneComparisonView(TemplateView):
     required_permission = PERMISSION_SPECIFICATIONS_COMPARE
 
     def dispatch(self, request, *args, **kwargs):
+        """Override dispatch to reject users without comparison permission."""
         permission_validator = HasRBACPermission()
         if not permission_validator.has_permission(request, self):
             return HttpResponseForbidden(
@@ -51,6 +72,7 @@ class DroneComparisonView(TemplateView):
         return super().dispatch(request, *args, **kwargs)
 
     def _parse_drone_ids(self, ids_param):
+        """Parse a comma-separated query parameter into integer drone IDs."""
         if not ids_param:
             return []
         try:
@@ -59,6 +81,7 @@ class DroneComparisonView(TemplateView):
             return []
 
     def get_drones_queryset(self, drone_ids):
+        """Return selected drones with related objects needed for comparison."""
         if not drone_ids:
             return Drone.objects.none()
 
@@ -69,6 +92,7 @@ class DroneComparisonView(TemplateView):
         )
 
     def get(self, request, *args, **kwargs):
+        """Render the comparison page or export selected drones as CSV."""
         ids_param = request.GET.get("ids", "")
         drone_ids = self._parse_drone_ids(ids_param)
 
@@ -87,6 +111,7 @@ class DroneComparisonView(TemplateView):
         return super().get(request, *args, **kwargs)
 
     def get_context_data(self, **kwargs):
+        """Build comparison context and aggregate metrics for selected drones."""
         context = super().get_context_data(**kwargs)
         ids_param = self.request.GET.get("ids", "")
         drone_ids = self._parse_drone_ids(ids_param)
@@ -139,6 +164,7 @@ class DroneComparisonView(TemplateView):
         return context
 
     def export_to_csv(self, queryset):
+        """Return a CSV response for the selected comparison drones."""
         response = HttpResponse(content_type="text/csv")
         response["Content-Disposition"] = 'attachment; filename="drone_comparison.csv"'
         writer = csv.writer(response)
@@ -183,6 +209,7 @@ class DroneComparisonView(TemplateView):
 
 
 class DroneListCreateView(generics.ListCreateAPIView):
+    """List drone inventory records and create drones with nested specifications."""
     serializer_class = DroneSerializer
     permission_classes = [DronePermission]
     filter_backends = (
@@ -194,6 +221,7 @@ class DroneListCreateView(generics.ListCreateAPIView):
     ordering_fields = ["created_at", "status", "name", "classification"]
 
     def get_queryset(self):
+        """Return drones with related data needed by list and create responses."""
         return (
             Drone.objects.select_related("military_unit", "spec")
             .prefetch_related("status_history")
@@ -201,6 +229,7 @@ class DroneListCreateView(generics.ListCreateAPIView):
         )
 
     def get_serializer_class(self):
+        """Use the compact serializer for list requests and the full serializer otherwise."""
         if self.request.method == "GET":
             return DroneListSerializer
 
@@ -208,6 +237,7 @@ class DroneListCreateView(generics.ListCreateAPIView):
 
 
 class DroneDetailView(generics.RetrieveUpdateAPIView):
+    """Retrieve drone details and apply partial updates or lifecycle transitions."""
     queryset = (
         Drone.objects.select_related("military_unit", "spec")
         .prefetch_related("status_history")
@@ -217,6 +247,7 @@ class DroneDetailView(generics.RetrieveUpdateAPIView):
     http_method_names = ["get", "patch", "head", "options"]
 
     def get_serializer_class(self):
+        """Use the update serializer for PATCH requests."""
         if self.request.method == "PATCH":
             return DroneUpdateSerializer
 
@@ -224,12 +255,18 @@ class DroneDetailView(generics.RetrieveUpdateAPIView):
 
 
 class DroneModelListCreateView(generics.ListCreateAPIView):
+    """List and create drone model catalog entries."""
     serializer_class = DroneModelSerializer
     permission_classes = [DronePermission]
     queryset = DroneModel.objects.all()
 
 
 class WriteOffHistoryListView(generics.ListAPIView):
+    """Expose read-only write-off audit records.
+
+    The endpoint can return all write-off records or records scoped to a selected
+    drone when the URL contains a drone primary key.
+    """
     serializer_class = WriteOffAuditSerializer
     permission_classes = [WriteOffHistoryPermission]
     pagination_class = StandardResultsSetPagination
@@ -258,6 +295,7 @@ class WriteOffHistoryListView(generics.ListAPIView):
     ordering = ("-created_at",)
 
     def get_queryset(self):
+        """Return write-off records filtered to a selected drone when provided."""
         queryset = WriteOffRecord.objects.select_related(
             "drone", "authorized_by", "related_mission"
         ).order_by("-created_at")
@@ -270,12 +308,14 @@ class WriteOffHistoryListView(generics.ListAPIView):
 
 
 class WriteOffHistoryReportView(ListView):
+    """Render an HTML report of write-off audit records."""
     model = WriteOffRecord
     template_name = "drones/writeoff_history_report.html"
     context_object_name = "writeoff_records"
     paginate_by = 50
 
     def dispatch(self, request, *args, **kwargs):
+        """Override dispatch to protect the report with write-off history permission."""
         permission = WriteOffHistoryPermission()
 
         if not permission._has_permission(request.user):
@@ -284,6 +324,7 @@ class WriteOffHistoryReportView(ListView):
         return super().dispatch(request, *args, **kwargs)
 
     def get_queryset(self):
+        """Return filtered write-off records for the report page."""
         queryset = WriteOffRecord.objects.select_related(
             "drone",
             "authorized_by",
@@ -302,6 +343,7 @@ class WriteOffHistoryReportView(ListView):
         return self.filterset.qs
 
     def get_context_data(self, **kwargs):
+        """Add filter query state and selected drone context to the report."""
         context = super().get_context_data(**kwargs)
 
         query_params = self.request.GET.copy()
@@ -314,6 +356,7 @@ class WriteOffHistoryReportView(ListView):
 
 
 class DroneDataExportView(generics.ListAPIView):
+    """Stream a filtered drone inventory export as CSV."""
     permission_classes = [DronePermission]
 
     filter_backends = (
@@ -329,9 +372,11 @@ class DroneDataExportView(generics.ListAPIView):
     MAX_EXPORT_LIMIT = getattr(settings, "MAX_EXPORT_LIMIT", 10000)
 
     def get_queryset(self):
+        """Return drones ordered for CSV export."""
         return Drone.objects.select_related("military_unit").order_by("id")
 
     def list(self, request, *args, **kwargs):
+        """Stream the filtered queryset while respecting the configured export limit."""
         queryset = self.filter_queryset(self.get_queryset())
 
         limited_queryset = queryset[: self.MAX_EXPORT_LIMIT]
@@ -346,10 +391,12 @@ class DroneDataExportView(generics.ListAPIView):
 
 
 class DroneDataImportView(generics.GenericAPIView):
+    """Import drone inventory records from an uploaded CSV file."""
     permission_classes = [DronePermission]
     serializer_class = DroneImportSerializer
 
     def post(self, request, *args, **kwargs):
+        """Validate the upload and return import counts with row-level errors."""
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
@@ -374,9 +421,11 @@ class DroneDataImportView(generics.GenericAPIView):
 
 
 class WriteOffRecordListCreateView(generics.ListCreateAPIView):
+    """List existing write-offs or create a new immutable write-off record."""
     permission_classes = [WriteOffPermission]
 
     def get_queryset(self):
+        """Return write-offs with related drone, author, and mission data."""
         return WriteOffRecord.objects.select_related(
             "drone",
             "authorized_by",
@@ -384,6 +433,7 @@ class WriteOffRecordListCreateView(generics.ListCreateAPIView):
         ).order_by("-written_off_at")
 
     def get_serializer_class(self):
+        """Use the create serializer for POST and the read serializer otherwise."""
         if self.request.method == "POST":
             return WriteOffRecordCreateSerializer
         return WriteOffRecordSerializer

@@ -1,3 +1,14 @@
+"""Test drone inventory, RBAC permissions, audit logs, write-offs, and CSV flows.
+
+Classes:
+    DroneCreateTests: Verify drone creation, nested specs, and validation.
+    DroneUpdateAndDecommissionTests: Verify updates, permissions, status history,
+        and decommission/write-off flows.
+    WriteOffHistoryAuditTests: Verify write-off immutability and audit access.
+    DroneWriteOffReasonTests: Verify canonical write-off reasons and descriptions.
+    WriteOffRecordModelTests: Verify model-level write-off reason validation.
+"""
+
 import copy
 import csv
 import io
@@ -30,7 +41,9 @@ from missions.factories import MissionDroneFactory, MissionFactory
 
 
 class DroneCreateTests(APITestCase):
+    """Verify drone creation, nested specification validation, and initial audit logs."""
     def setUp(self):
+        """Prepare common payload, model, unit, and authenticated admin user."""
         self.create_url = reverse("drones:drone-create")
         self.military_unit = MilitaryUnitFactory()
         self.drone_model = DroneModelFactory()
@@ -238,7 +251,9 @@ class DroneCreateTests(APITestCase):
 
 
 class DroneUpdateAndDecommissionTests(APITestCase):
+    """Verify drone updates, RBAC restrictions, status history, and write-off flows."""
     def setUp(self):
+        """Prepare admin/viewer users and an active drone with a specification."""
         self.admin_user = AdminUserFactory()
         self.viewer_user = ViewerUserFactory()
 
@@ -700,7 +715,9 @@ class DroneUpdateAndDecommissionTests(APITestCase):
 
 
 class WriteOffHistoryAuditTests(APITestCase):
+    """Verify immutable write-off audit history and protected history access."""
     def setUp(self):
+        """Prepare users, written-off drones, and write-off history URLs."""
         self.admin_user = AdminUserFactory()
         self.viewer_user = ViewerUserFactory()
 
@@ -843,7 +860,9 @@ class WriteOffHistoryAuditTests(APITestCase):
 
 
 class DroneWriteOffReasonTests(APITestCase):
+    """Verify canonical write-off reasons and required custom descriptions."""
     def setUp(self):
+        """Prepare an active drone and authenticated admin user for write-off tests."""
         self.admin_user = AdminUserFactory()
 
         self.drone = DroneFactory(status="ACTIVE")
@@ -980,7 +999,9 @@ class DroneWriteOffReasonTests(APITestCase):
 
 
 class WriteOffRecordModelTests(APITestCase):
+    """Verify model-level validation for write-off reason codes."""
     def setUp(self):
+        """Prepare an active drone for write-off model validation tests."""
         self.drone = DroneFactory(status="ACTIVE")
 
     def test_model_rejects_invalid_reason_code(self):

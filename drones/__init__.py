@@ -1,0 +1,1 @@
+"""Drone inventory application package."""

@@ -1,3 +1,5 @@
+"""Define factory classes for drone app tests."""
+
 import datetime
 
 import factory
@@ -6,7 +8,9 @@ from roles.models import ADMIN_CODE, VIEWER_CODE
 
 
 class AdminRoleFactory(factory.django.DjangoModelFactory):
+    """Build an admin role with drone-management permissions for tests."""
     class Meta:
+        """Configure the Role model target for the admin role factory."""
         model = "roles.Role"
         django_get_or_create = ("code",)
 
@@ -15,7 +19,9 @@ class AdminRoleFactory(factory.django.DjangoModelFactory):
 
 
 class AdminUserFactory(factory.django.DjangoModelFactory):
+    """Build an admin user for drone tests."""
     class Meta:
+        """Configure the User model target for the admin user factory."""
         model = "accounts.User"
 
     username = factory.Sequence(lambda n: f"user_{n}")
@@ -25,7 +31,9 @@ class AdminUserFactory(factory.django.DjangoModelFactory):
 
 
 class ViewerRoleFactory(factory.django.DjangoModelFactory):
+    """Build a viewer role with read-only drone permissions for tests."""
     class Meta:
+        """Configure the Role model target for the viewer role factory."""
         model = "roles.Role"
         django_get_or_create = ("code",)
 
@@ -34,7 +42,9 @@ class ViewerRoleFactory(factory.django.DjangoModelFactory):
 
 
 class ViewerUserFactory(factory.django.DjangoModelFactory):
+    """Build a viewer user for permission tests."""
     class Meta:
+        """Configure the User model target for the viewer user factory."""
         model = "accounts.User"
 
     username = factory.Sequence(lambda n: f"viewer_user_{n}")
@@ -44,7 +54,9 @@ class ViewerUserFactory(factory.django.DjangoModelFactory):
 
 
 class MilitaryUnitFactory(factory.django.DjangoModelFactory):
+    """Build a military unit for drone assignment tests."""
     class Meta:
+        """Configure the MilitaryUnit model target for the factory."""
         model = "accounts.MilitaryUnit"
 
     name = factory.Sequence(lambda n: f"military_unit_{n}")
@@ -52,7 +64,9 @@ class MilitaryUnitFactory(factory.django.DjangoModelFactory):
 
 
 class DroneModelFactory(factory.django.DjangoModelFactory):
+    """Build a drone model with supported classifications for tests."""
     class Meta:
+        """Configure the DroneModel target for the factory."""
         model = "drones.DroneModel"
 
     name = factory.Sequence(lambda n: f"Model Name {n}")
@@ -61,7 +75,9 @@ class DroneModelFactory(factory.django.DjangoModelFactory):
 
 
 class DroneFactory(factory.django.DjangoModelFactory):
+    """Build a drone tied to a model and military unit for tests."""
     class Meta:
+        """Configure the Drone model target for the factory."""
         model = "drones.Drone"
 
     serial_number = factory.Sequence(lambda n: f"SERIAL_{n}")
@@ -71,6 +87,7 @@ class DroneFactory(factory.django.DjangoModelFactory):
 
     @factory.lazy_attribute
     def classification(self):
+        """Use the first classification supported by the generated model."""
         return self.drone_model.supported_classifications[0]
 
     status = "ACTIVE"
@@ -80,7 +97,9 @@ class DroneFactory(factory.django.DjangoModelFactory):
 
 
 class DroneSpecFactory(factory.django.DjangoModelFactory):
+    """Build a technical specification for a drone test object."""
     class Meta:
+        """Configure the DroneSpec model target for the factory."""
         model = "drones.DroneSpec"
 
     drone = factory.SubFactory(DroneFactory)

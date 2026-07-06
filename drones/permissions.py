@@ -1,3 +1,11 @@
+"""Define RBAC permission policies for drone and write-off endpoints.
+
+Classes:
+    DronePermission: Protect drone list, create, update, and decommission flows.
+    WriteOffHistoryPermission: Protect read-only write-off history access.
+    WriteOffPermission: Protect write-off listing and creation.
+"""
+
 from rest_framework.permissions import SAFE_METHODS, BasePermission
 
 from accounts.permissions import user_has_permission
@@ -14,15 +22,23 @@ from .models import Drone
 
 
 class DronePermission(BasePermission):
+    """Enforce RBAC rules for drone inventory actions.
+
+    Safe methods require drone view permission. Creating drones requires create
+    permission. PATCH requests require update permission, and status transitions
+    involving inactive states additionally require decommission permission.
+    """
     message = "You do not have permission to perform this action."
 
     def _has_permission(self, user, permission_code):
+        """Return whether the authenticated user has the supplied RBAC permission."""
         if not user or not user.is_authenticated:
             return False
 
         return user_has_permission(user, permission_code)
 
     def _get_requested_status(self, request):
+        """Normalize the requested status from the request payload."""
         requested_status = request.data.get("status")
 
         if isinstance(requested_status, str):
@@ -31,6 +47,7 @@ class DronePermission(BasePermission):
         return requested_status
 
     def has_permission(self, request, view):
+        """Allow collection-level access according to request method and RBAC code."""
         if request.method in SAFE_METHODS:
             return self._has_permission(request.user, PERMISSION_DRONES_VIEW)
 
@@ -43,6 +60,7 @@ class DronePermission(BasePermission):
         return False
 
     def has_object_permission(self, request, view, obj):
+        """Require decommission permission for transitions involving inactive statuses."""
         if request.method in SAFE_METHODS:
             return self._has_permission(request.user, PERMISSION_DRONES_VIEW)
 
@@ -72,9 +90,11 @@ class DronePermission(BasePermission):
 
 
 class WriteOffHistoryPermission(BasePermission):
+    """Allow read-only write-off history access to staff or authorized users."""
     message = "You do not have permission to view write-off history."
 
     def _has_permission(self, user):
+        """Return whether a user can view write-off history."""
         if not user or not user.is_authenticated:
             return False
 
@@ -84,6 +104,7 @@ class WriteOffHistoryPermission(BasePermission):
         return user_has_permission(user, PERMISSION_WRITEOFF_VIEW)
 
     def has_permission(self, request, view):
+        """Allow only safe methods for authorized write-off history viewers."""
         if request.method not in SAFE_METHODS:
             return False
 
@@ -91,9 +112,11 @@ class WriteOffHistoryPermission(BasePermission):
 
 
 class WriteOffPermission(BasePermission):
+    """Enforce RBAC rules for write-off listing and creation."""
     message = "You do not have permission to perform this action."
 
     def has_permission(self, request, view):
+        """Map read and create requests to their required write-off permissions."""
         if request.method in SAFE_METHODS:
             return user_has_permission(request.user, PERMISSION_WRITEOFF_VIEW)
 

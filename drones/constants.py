@@ -1,3 +1,5 @@
+"""Define default drone model classification mappings used by seed data."""
+
 from drones.models import Drone
 
 DRONE_MODEL_CLASSIFICATIONS = {
@@ -15,3 +17,4 @@ DRONE_MODEL_CLASSIFICATIONS = {
     "Guardian Hex 6": [Drone.CLASSIFICATION_SURVEILLANCE],
     "Raven Attack 5": [Drone.CLASSIFICATION_COMBAT],
 }
+"""Map seeded drone model names to the classification codes they support."""

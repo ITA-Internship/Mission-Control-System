@@ -1,14 +1,30 @@
+"""Define filters for drone inventory and write-off audit endpoints.
+
+Classes:
+    DroneFilter: Filter drone inventory and hide inactive drones by default.
+    WriteOffRecordFilter: Filter write-off audit records by drone, user, mission,
+        dates, document number, and reason.
+"""
+
 import django_filters
 
 from .models import Drone, WriteOffRecord
 
 
 class DroneFilter(django_filters.FilterSet):
+    """Filter drone inventory by identity, status, model, unit, and spec fields.
+
+    Inactive drones are excluded from default inventory results unless the
+    request explicitly includes a status filter. This keeps standard inventory
+    views focused on active assets while still allowing targeted inactive-status
+    queries.
+    """
     is_firmware_outdated = django_filters.BooleanFilter(
         field_name="spec__is_firmware_outdated"
     )
 
     class Meta:
+        """Configure Drone fields and lookup expressions supported by the filter."""
         model = Drone
         fields = {
             "serial_number": ["icontains"],
@@ -29,6 +45,7 @@ class DroneFilter(django_filters.FilterSet):
 
     @property
     def qs(self):
+        """Return filtered drones while hiding inactive inventory by default."""
         parent_qs = super().qs
         has_status_filter = self.data and self.data.get("status")
 
@@ -39,6 +56,7 @@ class DroneFilter(django_filters.FilterSet):
 
 
 class WriteOffRecordFilter(django_filters.FilterSet):
+    """Filter write-off audit records by drone, author, mission, dates, and reason."""
     drone = django_filters.NumberFilter(field_name="drone_id")
     drone_serial_number = django_filters.CharFilter(
         field_name="drone__serial_number",
@@ -70,6 +88,7 @@ class WriteOffRecordFilter(django_filters.FilterSet):
     )
 
     class Meta:
+        """Configure fields supported by the write-off audit filter."""
         model = WriteOffRecord
         fields = (
             "drone",
