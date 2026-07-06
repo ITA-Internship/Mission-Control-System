@@ -141,14 +141,14 @@ class AuditLogViewSet(viewsets.ReadOnlyModelViewSet):
             return AuditLog.objects.all().select_related("actor", "target_user")
 
         if user_has_permission(user, PERMISSION_AUDIT_LOGS_VIEW_OWN):
-            logs_as_actor = AuditLog.objects.select_related(
-                "actor", "target_user"
-            ).filter(actor=user)
-            logs_as_target_user = AuditLog.objects.select_related(
-                "actor", "target_user"
-            ).filter(target_user=user)
+            actor_ids = AuditLog.objects.filter(actor=user).values("pk")
+            target_ids = AuditLog.objects.filter(target_user=user).values("pk")
 
-            return logs_as_actor.union(logs_as_target_user).order_by("-created_at")
+            allowed_log_ids = actor_ids.union(target_ids)
+
+            return AuditLog.objects.filter(
+                pk__in=allowed_log_ids
+            ).select_related("actor", "target_user")
 
         return AuditLog.objects.none()
 
