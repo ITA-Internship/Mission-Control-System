@@ -409,9 +409,7 @@ class MissionStatusUpdateSerializer(serializers.ModelSerializer):
                 instance.status = new_status
                 instance.save(update_fields=["status", "updated_at"])
 
-                assignments = list(
-                    instance.mission_drones.select_related("drone")
-                )
+                assignments = list(instance.mission_drones.select_related("drone"))
 
                 if old_status == Status.PLANNED and new_status == Status.ACTIVE:
                     old_drone_statuses = {

@@ -204,10 +204,9 @@ class DroneListCreateView(generics.ListCreateAPIView):
     ordering_fields = ["created_at", "status", "name", "classification"]
 
     def get_queryset(self):
-        return (
-            Drone.objects.select_related("military_unit", "spec", "drone_model")
-            .order_by("id")
-        )
+        return Drone.objects.select_related(
+            "military_unit", "spec", "drone_model"
+        ).order_by("id")
 
     def get_serializer_class(self):
         if self.request.method == "GET":
@@ -220,9 +219,7 @@ class DroneDetailView(generics.RetrieveUpdateAPIView):
     permission_classes = [DronePermission]
     http_method_names = ["get", "patch", "head", "options"]
 
-    queryset = Drone.objects.select_related(
-        "military_unit", "spec", "drone_model"
-    )
+    queryset = Drone.objects.select_related("military_unit", "spec", "drone_model")
 
     def get_serializer_class(self):
         if self.request.method == "PATCH":

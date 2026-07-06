@@ -229,14 +229,24 @@ MAX_EXPORT_LIMIT = 10000
 
 REDIS_URL = os.environ.get("REDIS_URL", "redis://localhost:6379/0")
 
-CACHES = {
-    "default": {
-        "BACKEND": "django.core.cache.backends.redis.RedisCache",
-        "LOCATION": REDIS_URL,
-        "KEY_PREFIX": "mc",
-        "TIMEOUT": 300,
+if os.getenv("GITHUB_ACTIONS") == "true" or os.getenv("USE_LOCAL_CACHE") == "true":
+    CACHES = {
+        "default": {
+            "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
+            "LOCATION": "test-cache",
+        }
     }
-}
+else:
+    CACHES = {
+        "default": {
+            "BACKEND": os.getenv(
+                "CACHE_BACKEND", "django.core.cache.backends.redis.RedisCache"
+            ),
+            "LOCATION": REDIS_URL,
+            "KEY_PREFIX": "mc",
+            "TIMEOUT": 300,
+        }
+    }
 
 SESSION_ENGINE = "django.contrib.sessions.backends.cached_db"
 SESSION_CACHE_ALIAS = "default"

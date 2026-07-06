@@ -362,15 +362,27 @@ def import_drones_csv(drones_csv_file, user=None):
 
         if len(chunk) >= CSV_IMPORT_CHUNK_SIZE:
             success_cnt += _process_import_chunk(
-                chunk, existing_serials, existing_inventories,
-                units_map, models_map, dummy_spec_data, user, errors,
+                chunk,
+                existing_serials,
+                existing_inventories,
+                units_map,
+                models_map,
+                dummy_spec_data,
+                user,
+                errors,
             )
             chunk = []
 
     if chunk:
         success_cnt += _process_import_chunk(
-            chunk, existing_serials, existing_inventories,
-            units_map, models_map, dummy_spec_data, user, errors,
+            chunk,
+            existing_serials,
+            existing_inventories,
+            units_map,
+            models_map,
+            dummy_spec_data,
+            user,
+            errors,
         )
 
     return {
@@ -381,8 +393,14 @@ def import_drones_csv(drones_csv_file, user=None):
 
 
 def _process_import_chunk(
-    chunk, existing_serials, existing_inventories,
-    units_map, models_map, dummy_spec_data, user, errors,
+    chunk,
+    existing_serials,
+    existing_inventories,
+    units_map,
+    models_map,
+    dummy_spec_data,
+    user,
+    errors,
 ):
     """Process a single chunk of CSV rows within its own transaction.
 
@@ -486,9 +504,7 @@ def _process_import_chunk(
             }
 
             try:
-                create_drone_with_spec(
-                    drone_data, spec_data=dummy_spec_data, user=user
-                )
+                create_drone_with_spec(drone_data, spec_data=dummy_spec_data, user=user)
                 success_cnt += 1
                 existing_serials.add(serial_number)
                 existing_inventories.add(inventory_number)
@@ -504,9 +520,7 @@ def _process_import_chunk(
                     }
                 )
             except Exception as e:
-                errors.append(
-                    {"row": row_num, "error": f"Failed to create: {str(e)}"}
-                )
+                errors.append({"row": row_num, "error": f"Failed to create: {str(e)}"})
 
     return success_cnt
 
