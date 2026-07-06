@@ -236,6 +236,10 @@ if os.getenv("GITHUB_ACTIONS") == "true" or os.getenv("USE_LOCAL_CACHE") == "tru
             "LOCATION": "test-cache",
         }
     }
+    CELERY_TASK_ALWAYS_EAGER = True
+    CELERY_TASK_EAGER_PROPAGATES = True
+    CELERY_BROKER_URL = "memory://"
+    CELERY_RESULT_BACKEND = "cache+memory://"
 else:
     CACHES = {
         "default": {
