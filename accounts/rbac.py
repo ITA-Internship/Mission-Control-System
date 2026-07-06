@@ -204,7 +204,6 @@ def viewer_permissions():
         | {
             PERMISSION_DRONES_VIEW,
             PERMISSION_SPECIFICATIONS_VIEW,
-            PERMISSION_MISSIONS_VIEW,
             PERMISSION_MAINTENANCE_VIEW,
             PERMISSION_WRITEOFF_VIEW,
             PERMISSION_MEDIA_VIEW,

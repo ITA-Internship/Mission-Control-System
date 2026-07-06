@@ -41,6 +41,15 @@ ALLOWED_HOSTS = [
     if host.strip()
 ]
 
+CSRF_TRUSTED_ORIGINS = [
+    origin.strip()
+    for origin in os.getenv("CSRF_TRUSTED_ORIGINS", "").split(",")
+    if origin.strip()
+]
+
+USE_X_FORWARDED_HOST = True
+SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+
 
 # Application definition
 
@@ -130,13 +139,31 @@ AUTH_PASSWORD_VALIDATORS = [
 
 AUTH_USER_MODEL = "accounts.User"
 
+default_authentication_classes = [
+    "rest_framework.authentication.SessionAuthentication",
+]
+
+if DEBUG:
+    default_authentication_classes.append(
+        "rest_framework.authentication.BasicAuthentication"
+    )
+
 REST_FRAMEWORK = {
-    "DEFAULT_AUTHENTICATION_CLASSES": [
-        "rest_framework.authentication.SessionAuthentication",
-        "rest_framework.authentication.BasicAuthentication",
+    "DEFAULT_AUTHENTICATION_CLASSES": default_authentication_classes,
+    "DEFAULT_THROTTLE_CLASSES": [
+        "rest_framework.throttling.ScopedRateThrottle",
     ],
     "DEFAULT_THROTTLE_RATES": {
-        "audit_export": "5/min",
+        "account_activation": os.getenv("THROTTLE_ACCOUNT_ACTIVATION", "5/hour"),
+        "password_reset_request": os.getenv(
+            "THROTTLE_PASSWORD_RESET_REQUEST",
+            "5/hour",
+        ),
+        "password_reset_confirm": os.getenv(
+            "THROTTLE_PASSWORD_RESET_CONFIRM",
+            "5/hour",
+        ),
+        "audit_export": os.getenv("THROTTLE_AUDIT_EXPORT", "5/min"),
     },
     "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
 }
