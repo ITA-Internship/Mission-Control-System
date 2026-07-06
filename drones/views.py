@@ -10,6 +10,7 @@ from django.http import (
 )
 from django.views.generic import TemplateView
 from django_filters.rest_framework import DjangoFilterBackend
+from drf_spectacular.utils import extend_schema_view
 from rest_framework import filters, generics, status
 from rest_framework.response import Response
 
@@ -17,6 +18,16 @@ from accounts.permissions import HasRBACPermission
 from accounts.rbac import PERMISSION_SPECIFICATIONS_COMPARE
 from common.pagination import StandardResultsSetPagination
 
+from .api_details import (
+    drone_data_export_schema,
+    drone_data_import_schema,
+    drone_detail_get_schema,
+    drone_detail_patch_schema,
+    drone_get_schema,
+    drone_model_get_schema,
+    drone_model_post_schema,
+    drone_post_schema,
+)
 from .filters import DroneFilter
 from .models import Drone, DroneModel
 from .permissions import DronePermission
@@ -178,6 +189,7 @@ class DroneComparisonView(TemplateView):
         return response
 
 
+@extend_schema_view(get=drone_get_schema, post=drone_post_schema)
 class DroneListCreateView(generics.ListCreateAPIView):
     serializer_class = DroneSerializer
     permission_classes = [DronePermission]
@@ -203,6 +215,7 @@ class DroneListCreateView(generics.ListCreateAPIView):
         return self.serializer_class
 
 
+@extend_schema_view(get=drone_detail_get_schema, patch=drone_detail_patch_schema)
 class DroneDetailView(generics.RetrieveUpdateAPIView):
     queryset = (
         Drone.objects.select_related("military_unit", "spec")
@@ -219,12 +232,14 @@ class DroneDetailView(generics.RetrieveUpdateAPIView):
         return DroneSerializer
 
 
+@extend_schema_view(get=drone_model_get_schema, post=drone_model_post_schema)
 class DroneModelListCreateView(generics.ListCreateAPIView):
     serializer_class = DroneModelSerializer
     permission_classes = [DronePermission]
     queryset = DroneModel.objects.all()
 
 
+@drone_data_export_schema
 class DroneDataExportView(generics.ListAPIView):
     permission_classes = [DronePermission]
 
@@ -257,6 +272,7 @@ class DroneDataExportView(generics.ListAPIView):
         return response
 
 
+@drone_data_import_schema
 class DroneDataImportView(generics.GenericAPIView):
     permission_classes = [DronePermission]
     serializer_class = DroneImportSerializer

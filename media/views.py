@@ -1,3 +1,4 @@
+from drf_spectacular.utils import extend_schema_view
 from rest_framework import generics, permissions, status
 from rest_framework.parsers import FormParser, MultiPartParser
 from rest_framework.response import Response
@@ -5,6 +6,12 @@ from rest_framework.response import Response
 from common.pagination import StandardResultsSetPagination
 from missions.models import Mission
 
+from .api_details import (
+    artifact_detail_delete_schema,
+    artifact_detail_get_schema,
+    artifact_get_schema,
+    artifact_post_schema,
+)
 from .models import MissionArtifact
 from .permissions import (
     MediaDeletePermission,
@@ -25,6 +32,7 @@ class _MissionArtifactMixin:
         return self._mission
 
 
+@extend_schema_view(get=artifact_get_schema, post=artifact_post_schema)
 class ArtifactListCreateView(_MissionArtifactMixin, generics.ListCreateAPIView):
 
     pagination_class = StandardResultsSetPagination
@@ -68,6 +76,9 @@ class ArtifactListCreateView(_MissionArtifactMixin, generics.ListCreateAPIView):
         )
 
 
+@extend_schema_view(
+    get=artifact_detail_get_schema, delete=artifact_detail_delete_schema
+)
 class ArtifactDetailView(_MissionArtifactMixin, generics.RetrieveDestroyAPIView):
 
     serializer_class = MissionArtifactSerializer

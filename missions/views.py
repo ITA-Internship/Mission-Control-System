@@ -1,4 +1,5 @@
 from django.db import transaction
+from drf_spectacular.utils import extend_schema_view
 from rest_framework import generics, permissions
 from rest_framework.exceptions import ValidationError
 from rest_framework.pagination import PageNumberPagination
@@ -10,6 +11,18 @@ from accounts.rbac import (
     PERMISSION_MISSIONS_UPDATE_STATUS,
 )
 
+from .api_details import (
+    mission_assignment_delete_schema,
+    mission_assignment_get_schema,
+    mission_assignment_post_schema,
+    mission_detail_schema,
+    mission_drone_condition_schema,
+    mission_get_schema,
+    mission_outcome_schema,
+    mission_post_schema,
+    mission_status_get_schema,
+    mission_status_update_schema,
+)
 from .models import Mission, MissionAuditLog, MissionDrone, Status
 from .permissions import (
     CanUpdateMissionStatus,
@@ -44,6 +57,7 @@ class MissionPagination(PageNumberPagination):
     max_page_size = 50
 
 
+@extend_schema_view(get=mission_get_schema, post=mission_post_schema)
 class MissionListCreateView(generics.ListCreateAPIView):
     serializer_class = MissionSerializer
     permission_classes = [permissions.IsAuthenticated, IsDispatcherOrAdmin]
@@ -83,12 +97,14 @@ class MissionListCreateView(generics.ListCreateAPIView):
         serializer.save(created_by=self.request.user)
 
 
+@mission_detail_schema
 class MissionDetailView(generics.RetrieveAPIView):
     serializer_class = MissionSerializer
     permission_classes = [permissions.IsAuthenticated]
     queryset = Mission.objects.with_related()
 
 
+@mission_outcome_schema
 class MissionOutcomeView(generics.UpdateAPIView):
     serializer_class = MissionOutcomeSerializer
     permission_classes = [
@@ -100,6 +116,7 @@ class MissionOutcomeView(generics.UpdateAPIView):
     http_method_names = ["patch", "options", "head"]
 
 
+@mission_drone_condition_schema
 class MissionDroneConditionView(generics.UpdateAPIView):
     serializer_class = MissionDroneConditionSerializer
     permission_classes = [
@@ -116,6 +133,11 @@ class MissionDroneConditionView(generics.UpdateAPIView):
         ).select_related("mission", "drone", "operator")
 
 
+@extend_schema_view(
+    get=mission_status_get_schema,
+    put=mission_status_update_schema,
+    patch=mission_status_update_schema,
+)
 class MissionStatusUpdateView(generics.RetrieveUpdateAPIView):
     serializer_class = MissionStatusUpdateSerializer
     permission_classes = [permissions.IsAuthenticated, CanUpdateMissionStatus]
@@ -146,6 +168,9 @@ class MissionStatusUpdateView(generics.RetrieveUpdateAPIView):
         )
 
 
+@extend_schema_view(
+    get=mission_assignment_get_schema, post=mission_assignment_post_schema
+)
 class MissionAssignmentListCreateView(generics.ListCreateAPIView):
     serializer_class = MissionDroneSerializer
     permission_classes = [permissions.IsAuthenticated, IsDispatcherOrAdmin]
@@ -174,6 +199,7 @@ class MissionAssignmentListCreateView(generics.ListCreateAPIView):
         serializer.save(mission=mission)
 
 
+@mission_assignment_delete_schema
 class MissionAssignmentDetailView(generics.DestroyAPIView):
     permission_classes = [permissions.IsAuthenticated, IsDispatcherOrAdmin]
     lookup_url_kwarg = "pk"

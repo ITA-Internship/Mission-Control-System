@@ -3,11 +3,21 @@ import csv
 from django.conf import settings
 from django.http import StreamingHttpResponse
 from django_filters.rest_framework import DjangoFilterBackend
+from drf_spectacular.utils import extend_schema_view
 from rest_framework import filters, generics
 
 from common.pagination import StandardResultsSetPagination
 from common.utils import EchoBuffer
 
+from .api_details import (
+    component_replacement_detail_schema,
+    component_replacement_export_schema,
+    component_replacement_get_schema,
+    component_replacement_post_schema,
+    defect_detail_schema,
+    defect_get_schema,
+    defect_post_schema,
+)
 from .filters import ComponentReplacementFilter, DefectFilter
 from .models import ComponentReplacement, DefectReport
 from .permissions import RepairPermission
@@ -19,6 +29,7 @@ from .serializers import (
 )
 
 
+@extend_schema_view(get=defect_get_schema, post=defect_post_schema)
 class DefectListCreateView(generics.ListCreateAPIView):
     serializer_class = DefectReportSerializer
     permission_classes = [RepairPermission]
@@ -40,6 +51,7 @@ class DefectListCreateView(generics.ListCreateAPIView):
         return self.serializer_class
 
 
+@defect_detail_schema
 class DefectDetailView(generics.RetrieveAPIView):
     queryset = DefectReport.objects.select_related("drone", "reporter").all()
     serializer_class = DefectReportSerializer
@@ -47,6 +59,9 @@ class DefectDetailView(generics.RetrieveAPIView):
     http_method_names = ["get", "head", "options"]
 
 
+@extend_schema_view(
+    get=component_replacement_get_schema, post=component_replacement_post_schema
+)
 class ComponentReplacementListCreateView(generics.ListCreateAPIView):
     serializer_class = ComponentReplacementSerializer
     permission_classes = [RepairPermission]
@@ -68,6 +83,7 @@ class ComponentReplacementListCreateView(generics.ListCreateAPIView):
         return self.serializer_class
 
 
+@component_replacement_detail_schema
 class ComponentReplacementDetailView(generics.RetrieveAPIView):
     queryset = ComponentReplacement.objects.select_related("drone", "replaced_by").all()
     serializer_class = ComponentReplacementSerializer
@@ -75,6 +91,7 @@ class ComponentReplacementDetailView(generics.RetrieveAPIView):
     http_method_names = ["get", "head", "options"]
 
 
+@component_replacement_export_schema
 class ComponentReplacementExportView(generics.GenericAPIView):
     permission_classes = [RepairPermission]
     filter_backends = (DjangoFilterBackend,)

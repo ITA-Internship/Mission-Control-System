@@ -68,7 +68,7 @@ class UserRoleUpdateResponseSerializer(serializers.ModelSerializer):
         model = User
         fields = ("id", "username", "email", "role")
 
-    def get_role(self, obj):
+    def get_role(self, obj) -> dict | None:
         if not obj.role:
             return None
 
