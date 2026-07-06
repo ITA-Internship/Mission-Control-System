@@ -441,6 +441,43 @@ class DroneModelSerializer(serializers.ModelSerializer):
         return attrs
 
 
+class WriteOffAuditSerializer(serializers.ModelSerializer):
+    drone_id = serializers.IntegerField(source="drone.id", read_only=True)
+    drone_name = serializers.CharField(source="drone.name", read_only=True)
+    drone_serial_number = serializers.CharField(
+        source="drone.serial_number", read_only=True
+    )
+    drone_inventory_number = serializers.CharField(
+        source="drone.inventory_number", read_only=True
+    )
+    authorized_by_username = serializers.CharField(
+        source="authorized_by.username",
+        read_only=True,
+        allow_null=True,
+    )
+    related_mission_id = serializers.IntegerField(read_only=True)
+
+    class Meta:
+        model = WriteOffRecord
+        fields = (
+            "id",
+            "drone_id",
+            "drone_name",
+            "drone_serial_number",
+            "drone_inventory_number",
+            "reason",
+            "reason_description",
+            "authorized_by",
+            "authorized_by_username",
+            "related_mission",
+            "related_mission_id",
+            "document_number",
+            "written_off_at",
+            "created_at",
+        )
+        read_only_fields = fields
+
+
 class DroneImportSerializer(serializers.Serializer):
     file = serializers.FileField(
         help_text="CSV file with drone inventory data.",
