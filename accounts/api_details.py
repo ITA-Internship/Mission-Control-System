@@ -74,7 +74,6 @@ user_role_update_schema = description_schema(
     description=(
         "Updates the role of a specific user and creates an audit log entry. \n\n"
         "Validation: \n"
-        "- Role ID is required and must be valid. \n"
         "- The role of an inactive user cannot be changed. \n"
         "- Admin user cannot remove their own admin role. \n"
         "- The admin role cannot be removed from the root account. \n"
@@ -137,14 +136,14 @@ activate_account_schema = description_schema(
             name="user_id",
             type=int,
             location=OpenApiParameter.PATH,
-            description="The ID of the user activating the account.",
+            description="ID of the user activating the account.",
             required=True,
         ),
         OpenApiParameter(
             name="token",
             type=str,
             location=OpenApiParameter.PATH,
-            description="The one-time secure activation token generated for the user.",
+            description="The one-time activation token generated for the user.",
             required=True,
         ),
     ],
@@ -175,9 +174,8 @@ audit_log_view_schema = description_schema(
     summary="List audit logs",
     description=(
         "Retrieves a paginated and filtered list of audit logs. "
-        "Superusers and staff members can view all logs. "
-        "Other authenticated users can only view logs where "
-        "they are either the actor or the target user."
+        "Depending on permissions, users can view all logs or "
+        "only logs where they are the actor or the target."
     ),
     permission_code="PERMISSION_AUDIT_LOGS_VIEW_OWN, PERMISSION_AUDIT_LOGS_VIEW_ALL",
     request=None,
@@ -214,11 +212,10 @@ audit_log_retrieve_schema = description_schema(
     summary="Retrieve an audit log",
     description=(
         "Retrieves detailed information about specific audit log entry by its ID. "
-        "Superusers and staff members can view all logs. "
-        "Other authenticated users can only view logs where "
-        "they are either the actor or the target user."
+        "Depending on permissions, users can view all logs or "
+        "only logs where they are the actor or the target."
     ),
-    permission_code="IsAuthenticated",
+    permission_code="PERMISSION_AUDIT_LOGS_VIEW_OWN, PERMISSION_AUDIT_LOGS_VIEW_ALL",
     parameters=[
         OpenApiParameter(
             name="id",
@@ -237,7 +234,7 @@ audit_log_retrieve_schema = description_schema(
     error_statuses=[status.HTTP_403_FORBIDDEN, status.HTTP_404_NOT_FOUND],
     examples=[
         OpenApiExample(
-            name="Audit Log Details",
+            name="Valid Request",
             response_only=True,
             value={
                 "id": 3,
@@ -265,7 +262,7 @@ audit_log_export_schema = description_schema(
         "to the standard list endpoint. \n\n"
         "The export is limited to a maximum of 10,000 records. "
     ),
-    permission_code="IsAuthenticated",
+    permission_code="PERMISSION_AUDIT_LOGS_VIEW_OWN, PERMISSION_AUDIT_LOGS_VIEW_ALL",
     request=None,
     responses={
         status.HTTP_200_OK: OpenApiResponse(
@@ -327,10 +324,7 @@ user_status_update_schema = description_schema(
 
 user_me_get_schema = description_schema(
     summary="Retrieve current user profile",
-    description=(
-        "Retrieves the profile details of the currently authenticated user "
-        "based on the authentication token provided in the request headers."
-    ),
+    description=("Retrieves the profile details of the currently authenticated user. "),
     permission_code="IsAuthenticated",
     request=None,
     responses={
@@ -443,9 +437,7 @@ password_reset_schema = description_schema(
     description=(
         "Accepts a user's email address "
         "and sends a password reset link "
-        "containing a secure, one-time token to that email. "
-        "Always returns a 200 OK response with a generic message, "
-        "regardless of whether the email address exists in the system. "
+        "containing a one-time token to that email. "
         "An audit log entry and an email are "
         "only generated if a matching user is found."
     ),
@@ -455,8 +447,8 @@ password_reset_schema = description_schema(
         status.HTTP_200_OK: OpenApiResponse(
             response=PasswordResetRequestSerializer,
             description=(
-                "Success. A generic response indicating that if the email exists, "
-                "a password reset link has been dispatched."
+                "If an account with this email exists, "
+                "a password reset link has been sent."
             ),
         ),
     },
@@ -466,10 +458,10 @@ password_reset_schema = description_schema(
 password_reset_confirm_schema = description_schema(
     summary="Confirm password reset",
     description=(
-        "Validates the secure link parameters sent via email. "
+        "Validates the link parameters sent via email. "
         "If valid, updates the user's password to the newly provided one, "
         "invalidates all current sessions for this user, sends a confirmation email, "
-        "and records a successful audit log. "
+        "and creates an audit log entry. "
     ),
     permission_code="AllowAny",
     request=PasswordResetConfirmSerializer,
@@ -485,15 +477,13 @@ password_reset_confirm_schema = description_schema(
             name="token",
             type=str,
             location=OpenApiParameter.PATH,
-            description="The one-time secure password reset token generated for the user.",
+            description="The one-time password reset token generated for the user.",
             required=True,
         ),
     ],
     responses={
         status.HTTP_200_OK: OpenApiResponse(
-            description=(
-                "Password has been successfully reset. User sessions invalidated."
-            ),
+            description="Password has been reset successfully.",
         ),
     },
     error_statuses=[status.HTTP_400_BAD_REQUEST],
