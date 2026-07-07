@@ -265,13 +265,10 @@ def generate_drones_csv(queryset):
         )
 
 
-# --- CSV Import (bulk_create from develop + file size guard from HEAD) ---
-
 CSV_IMPORT_MAX_SIZE_MB = int(os.getenv("CSV_IMPORT_MAX_SIZE_MB", "10"))
 
 
 def import_drones_csv(drones_csv_file, user=None):
-    # HEAD: early file-size guard to reject oversized uploads fast
     if hasattr(drones_csv_file, "size") and drones_csv_file.size:
         max_bytes = CSV_IMPORT_MAX_SIZE_MB * 1024 * 1024
         if drones_csv_file.size > max_bytes:
@@ -363,6 +360,15 @@ def import_drones_csv(drones_csv_file, user=None):
         drone_model_name = row.get("Model", "").strip()
         military_unit_name = row.get("Military Unit", "").strip()
         acquired_at = row.get("Acquired At", "").strip()
+
+        if not all([serial_number, inventory_number, name, drone_model_name, military_unit_name, acquired_at]):
+            errors.append(
+                {
+                    "row": row_num,
+                    "error": "Missing one or more required fields.",
+                }
+            )
+            continue
 
         if serial_number in existing_serials:
             errors.append(

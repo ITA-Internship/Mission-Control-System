@@ -23,7 +23,6 @@ def log_user_login(sender, request, user, **kwargs):
         request=request,
     )
 
-    # Track session_key → user mapping for O(1) session invalidation
     from .models import UserSession
 
     session_key = request.session.session_key

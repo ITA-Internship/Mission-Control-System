@@ -220,11 +220,9 @@ class DroneDetailView(generics.RetrieveUpdateAPIView):
     permission_classes = [DronePermission]
     http_method_names = ["get", "patch", "head", "options"]
 
-    queryset = (
-        Drone.objects.select_related("military_unit", "drone_model", "spec")
-        .prefetch_related("status_history")
-        .all()
-    )
+    queryset = Drone.objects.select_related(
+        "military_unit", "drone_model", "spec"
+    ).all()
 
     def get_serializer_class(self):
         if self.request.method == "PATCH":
@@ -275,7 +273,7 @@ class DroneModelListCreateView(generics.ListCreateAPIView):
     queryset = DroneModel.objects.all()
     pagination_class = StandardResultsSetPagination
 
-    @method_decorator(cache_page(60 * 5))  # 5 min cache for rarely-changing data
+    @method_decorator(cache_page(60 * 5)) 
     def list(self, request, *args, **kwargs):
         return super().list(request, *args, **kwargs)
 

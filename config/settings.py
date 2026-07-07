@@ -11,6 +11,7 @@ https://docs.djangoproject.com/en/6.0/ref/settings/
 """
 
 import os
+import sys
 from pathlib import Path
 
 from decouple import config
@@ -239,7 +240,12 @@ MAX_PAGINATION_OFFSET = 10000
 
 REDIS_URL = os.environ.get("REDIS_URL", "redis://localhost:6379/0")
 
-if os.getenv("GITHUB_ACTIONS") == "true" or os.getenv("USE_LOCAL_CACHE") == "true":
+if (
+    os.getenv("GITHUB_ACTIONS") == "true"
+    or os.getenv("USE_LOCAL_CACHE") == "true"
+    or "test" in sys.argv
+    or any("pytest" in arg for arg in sys.argv)
+):
     CACHES = {
         "default": {
             "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
