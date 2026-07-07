@@ -8,6 +8,7 @@ together with the allowed mission status-transition map.
 from django.conf import settings
 from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
+from django.db.models import Prefetch
 
 
 def get_default_changes():
@@ -88,7 +89,13 @@ class MissionQuerySet(models.QuerySet):
         Uses ``select_related`` to avoid a per-row query for the related users
         when listing or serialising missions.
         """
-        return self.select_related("commander", "created_by")
+        
+        return self.select_related("commander", "created_by").prefetch_related(
+            Prefetch(
+                "mission_drones",
+                queryset=MissionDrone.objects.select_related("drone", "operator"),
+            )
+        )
 
 
 class Mission(models.Model):
@@ -161,9 +168,12 @@ class Mission(models.Model):
     class Meta:
         db_table = "missions"
         ordering = ["-created_at"]
+
         indexes = [
-            models.Index(fields=["status"]),
             models.Index(fields=["started_at"]),
+            models.Index(
+                fields=["status", "started_at", "ended_at"], name="mission_overlap_idx"
+            ),
         ]
 
     def __str__(self):
@@ -219,6 +229,9 @@ class MissionDrone(models.Model):
             models.UniqueConstraint(
                 fields=["mission", "drone"], name="unique_mission_drone"
             ),
+        ]
+        indexes = [
+            models.Index(fields=["operator", "mission"], name="operator_mission_idx"),
         ]
 
     def __str__(self):

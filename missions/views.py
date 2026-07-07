@@ -8,7 +8,6 @@ permission mixins gate each action.
 from django.db import transaction
 from rest_framework import generics, permissions
 from rest_framework.exceptions import ValidationError
-from rest_framework.pagination import PageNumberPagination
 
 from accounts.permissions import HasRBACPermission
 from accounts.rbac import (
@@ -19,10 +18,13 @@ from accounts.rbac import (
     PERMISSION_MISSIONS_UPDATE_STATUS,
     PERMISSION_MISSIONS_VIEW,
 )
+from common.pagination import StandardResultsSetPagination
+from roles.models import OPERATOR_CODE
 
 from .models import Mission, MissionAuditLog, MissionDrone, Status
 from .permissions import (
     CanUpdateMissionStatus,
+    CanViewMission,
     IsAssignedOperatorOrAdmin,
     IsDispatcherOrAdmin,
 )
@@ -34,6 +36,13 @@ from .serializers import (
     MissionStatusUpdateSerializer,
 )
 from .services import unassign_drone_from_mission
+
+
+def restrict_missions_for_user(queryset, user):
+    role_code = getattr(getattr(user, "role", None), "code", None)
+    if role_code == OPERATOR_CODE:
+        return queryset.filter(mission_drones__operator_id=user.id).distinct()
+    return queryset
 
 
 class MissionsUpdateStatusRBAC(HasRBACPermission):
@@ -89,31 +98,24 @@ class MissionListCreateView(generics.ListCreateAPIView):
     """
 
     serializer_class = MissionSerializer
-    pagination_class = MissionPagination
+    pagination_class = StandardResultsSetPagination
 
     def get_permissions(self):
-        """Gate POST behind create permissions; other methods behind view."""
-        if self.request.method == "POST":
+        if self.request.method in permissions.SAFE_METHODS:
+            permission_classes = [permissions.IsAuthenticated, CanViewMission]
+        else:
             permission_classes = [
                 permissions.IsAuthenticated,
                 IsDispatcherOrAdmin,
                 MissionsCreateRBAC,
             ]
-        else:
-            permission_classes = [
-                permissions.IsAuthenticated,
-                MissionsViewRBAC,
-            ]
-
         return [permission() for permission in permission_classes]
 
-    def get_queryset_for_list(self):
-        """Build the list queryset, applying the ``status`` and ``assigned_to`` filters.
-
-        Raises ValidationError for an unknown ``status`` or an ``assigned_to``
-        value other than ``me``.
-        """
-        queryset = Mission.objects.with_related()
+    def get_queryset(self):
+        queryset = restrict_missions_for_user(
+            Mission.objects.with_related(),
+            self.request.user,
+        )
 
         status = self.request.query_params.get("status")
         if status:
@@ -139,7 +141,10 @@ class MissionListCreateView(generics.ListCreateAPIView):
                 )
 
             user = self.request.user
-            queryset = queryset.filter(mission_drones__operator_id=user.id).distinct()
+            user_mission_ids = MissionDrone.objects.filter(operator_id=user.id).values(
+                "mission_id"
+            )
+            queryset = queryset.filter(id__in=user_mission_ids)
 
         return queryset
 
@@ -159,8 +164,13 @@ class MissionDetailView(generics.RetrieveAPIView):
     """Retrieve a single mission (requires the view permission)."""
 
     serializer_class = MissionSerializer
-    permission_classes = [permissions.IsAuthenticated, MissionsViewRBAC]
-    queryset = Mission.objects.with_related()
+    permission_classes = [permissions.IsAuthenticated, CanViewMission]
+
+    def get_queryset(self):
+        return restrict_missions_for_user(
+            Mission.objects.with_related(),
+            self.request.user,
+        )
 
 
 class MissionOutcomeView(generics.UpdateAPIView):
@@ -176,8 +186,13 @@ class MissionOutcomeView(generics.UpdateAPIView):
         MissionsRecordOutcomeRBAC,
         IsAssignedOperatorOrAdmin,
     ]
-    queryset = Mission.objects.with_related().prefetch_related("mission_drones")
     http_method_names = ["patch", "options", "head"]
+
+    def get_queryset(self):
+        return restrict_missions_for_user(
+            Mission.objects.with_related().prefetch_related("mission_drones"),
+            self.request.user,
+        )
 
 
 class MissionDroneConditionView(generics.UpdateAPIView):
@@ -219,7 +234,12 @@ class MissionStatusUpdateView(generics.RetrieveUpdateAPIView):
 
     serializer_class = MissionStatusUpdateSerializer
     permission_classes = [permissions.IsAuthenticated, CanUpdateMissionStatus]
-    queryset = Mission.objects.prefetch_related("mission_drones")
+
+    def get_queryset(self):
+        return restrict_missions_for_user(
+            Mission.objects.prefetch_related("mission_drones"),
+            self.request.user,
+        )
 
     def update(self, request, *args, **kwargs):
         """Extend the base update to wrap it in a transaction."""
@@ -261,6 +281,8 @@ class MissionAssignmentListCreateView(generics.ListCreateAPIView):
 
     serializer_class = MissionDroneSerializer
 
+    pagination_class = StandardResultsSetPagination
+
     def get_permissions(self):
         """Gate POST behind assign permissions; other methods behind view."""
         if self.request.method == "POST":
@@ -281,7 +303,7 @@ class MissionAssignmentListCreateView(generics.ListCreateAPIView):
         """Return the mission named in the URL (cached per request), or 404."""
         if not hasattr(self, "_mission"):
             self._mission = generics.get_object_or_404(
-                Mission,
+                restrict_missions_for_user(Mission.objects.all(), self.request.user),
                 id=self.kwargs["mission_pk"],
             )
         return self._mission
@@ -319,7 +341,11 @@ class MissionAssignmentListCreateView(generics.ListCreateAPIView):
 class MissionAssignmentDetailView(generics.DestroyAPIView):
     """Delete a drone assignment from a mission (Dispatcher/Admin only)."""
 
-    permission_classes = [permissions.IsAuthenticated, IsDispatcherOrAdmin]
+    permission_classes = [
+        permissions.IsAuthenticated,
+        IsDispatcherOrAdmin,
+        MissionsAssignRBAC,
+    ]
     lookup_url_kwarg = "pk"
 
     def get_queryset(self):

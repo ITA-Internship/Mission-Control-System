@@ -1,14 +1,12 @@
 import csv
 
 from django.conf import settings
+from django.contrib.auth import update_session_auth_hash
 from django.contrib.auth.tokens import default_token_generator
-from django.contrib.sessions.models import Session
 from django.core.exceptions import ValidationError as DjangoValidationError
 from django.core.mail import send_mail
-from django.db.models import Q
 from django.http import StreamingHttpResponse
 from django.shortcuts import get_object_or_404
-from django.utils import timezone
 from django.utils.encoding import force_bytes, force_str
 from django.utils.http import urlsafe_base64_decode, urlsafe_base64_encode
 from django_filters import rest_framework as filters
@@ -41,7 +39,12 @@ from .serializers import (
     UserRoleUpdateSerializer,
     UserStatusUpdateSerializer,
 )
-from .services import create_audit_log, update_user_role
+from .services import create_audit_log, set_user_password, update_user_role
+from .throttles import (
+    AccountActivationThrottle,
+    PasswordResetConfirmThrottle,
+    PasswordResetRequestThrottle,
+)
 
 
 class UserRegistrationView(generics.CreateAPIView):
@@ -76,6 +79,7 @@ class UserRoleUpdateAPIView(APIView):
 
 class ActivateAccountAPIView(APIView):
     permission_classes = [AllowAny]
+    throttle_classes = [AccountActivationThrottle]
 
     def post(self, request, user_id, token):
         user = get_object_or_404(User, pk=user_id)
@@ -93,8 +97,7 @@ class ActivateAccountAPIView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        user.set_password(new_password)
-        user.save()
+        set_user_password(user, new_password)
 
         create_audit_log(
             actor=user,
@@ -133,17 +136,24 @@ class AuditLogViewSet(viewsets.ReadOnlyModelViewSet):
     filter_backends = [filters.DjangoFilterBackend]
     filterset_class = AuditLogFilter
 
+    throttle_classes = [ScopedRateThrottle]
     throttle_scope = "audit_export"
 
     def get_queryset(self):
         user = self.request.user
+
         if user_has_permission(user, PERMISSION_AUDIT_LOGS_VIEW_ALL):
             return AuditLog.objects.all().select_related("actor", "target_user")
 
         if user_has_permission(user, PERMISSION_AUDIT_LOGS_VIEW_OWN):
-            return AuditLog.objects.filter(
-                Q(actor=user) | Q(target_user=user)
-            ).select_related("actor", "target_user")
+            actor_ids = AuditLog.objects.filter(actor=user).values("pk")
+            target_ids = AuditLog.objects.filter(target_user=user).values("pk")
+
+            allowed_log_ids = actor_ids.union(target_ids)
+
+            return AuditLog.objects.filter(pk__in=allowed_log_ids).select_related(
+                "actor", "target_user"
+            )
 
         return AuditLog.objects.none()
 
@@ -153,9 +163,9 @@ class AuditLogViewSet(viewsets.ReadOnlyModelViewSet):
         throttle_classes=[ScopedRateThrottle],
     )
     def export(self, request):
-        MAX_EXPORT_LIMIT = 10000
+        max_export_limit = getattr(settings, "MAX_EXPORT_LIMIT", 10000)
 
-        queryset = self.filter_queryset(self.get_queryset())[:MAX_EXPORT_LIMIT]
+        queryset = self.filter_queryset(self.get_queryset())[:max_export_limit]
 
         def generate_csv():
             writer = csv.writer(EchoBuffer())
@@ -247,9 +257,6 @@ class UserStatusUpdateView(APIView):
             request=request,
         )
 
-        if not new_status:
-            invalidate_user_sessions(target_user)
-
         return Response(
             {"detail": "User status updated successfully.", "is_active": new_status},
             status=status.HTTP_200_OK,
@@ -276,14 +283,6 @@ class UserMeView(generics.RetrieveUpdateAPIView):
         )
 
 
-def invalidate_user_sessions(user):
-    active_sessions = Session.objects.filter(expire_date__gte=timezone.now())
-    for session in active_sessions:
-        data = session.get_decoded()
-        if str(user.pk) == str(data.get("_auth_user_id")):
-            session.delete()
-
-
 class ChangePasswordView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
@@ -294,10 +293,9 @@ class ChangePasswordView(APIView):
 
         if serializer.is_valid():
             user = request.user
-            user.set_password(serializer.validated_data["new_password"])
-            user.save()
+            set_user_password(user, serializer.validated_data["new_password"])
 
-            invalidate_user_sessions(user)
+            update_session_auth_hash(request, user)
 
             create_audit_log(
                 actor=user,
@@ -326,6 +324,7 @@ class ChangePasswordView(APIView):
 
 class PasswordResetRequestView(APIView):
     permission_classes = [permissions.AllowAny]
+    throttle_classes = [PasswordResetRequestThrottle]
 
     def post(self, request):
         serializer = PasswordResetRequestSerializer(data=request.data)
@@ -372,6 +371,7 @@ class PasswordResetRequestView(APIView):
 
 class PasswordResetConfirmView(APIView):
     permission_classes = [permissions.AllowAny]
+    throttle_classes = [PasswordResetConfirmThrottle]
 
     def post(self, request, uidb64, token):
 
@@ -387,10 +387,7 @@ class PasswordResetConfirmView(APIView):
                 return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
             new_password = serializer.validated_data["new_password"]
-            user.set_password(new_password)
-            user.save()
-
-            invalidate_user_sessions(user)
+            set_user_password(user, new_password)
 
             create_audit_log(
                 actor=user,

@@ -13,6 +13,7 @@ from django.views.generic import ListView, TemplateView
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import filters, generics, status
 from rest_framework.response import Response
+from rest_framework.throttling import ScopedRateThrottle
 
 from accounts.permissions import HasRBACPermission
 from accounts.rbac import PERMISSION_SPECIFICATIONS_COMPARE
@@ -194,10 +195,8 @@ class DroneListCreateView(generics.ListCreateAPIView):
     ordering_fields = ["created_at", "status", "name", "classification"]
 
     def get_queryset(self):
-        return (
-            Drone.objects.select_related("military_unit", "spec")
-            .prefetch_related("status_history")
-            .order_by("id")
+        return Drone.objects.select_related("military_unit", "drone_model").order_by(
+            "id"
         )
 
     def get_serializer_class(self):
@@ -209,7 +208,7 @@ class DroneListCreateView(generics.ListCreateAPIView):
 
 class DroneDetailView(generics.RetrieveUpdateAPIView):
     queryset = (
-        Drone.objects.select_related("military_unit", "spec")
+        Drone.objects.select_related("military_unit", "drone_model", "spec")
         .prefetch_related("status_history")
         .all()
     )
@@ -227,6 +226,7 @@ class DroneModelListCreateView(generics.ListCreateAPIView):
     serializer_class = DroneModelSerializer
     permission_classes = [DronePermission]
     queryset = DroneModel.objects.all()
+    pagination_class = StandardResultsSetPagination
 
 
 class WriteOffHistoryListView(generics.ListAPIView):
@@ -315,6 +315,9 @@ class WriteOffHistoryReportView(ListView):
 
 class DroneDataExportView(generics.ListAPIView):
     permission_classes = [DronePermission]
+
+    throttle_classes = [ScopedRateThrottle]
+    throttle_scope = "drone_export"
 
     filter_backends = (
         DjangoFilterBackend,

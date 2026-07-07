@@ -8,13 +8,13 @@ from datetime import timedelta
 
 from django.contrib.auth import get_user_model
 from django.db import IntegrityError, transaction
+from django.db.models import Q
 from django.utils import timezone
 from rest_framework import serializers
 
 from accounts.permissions import get_user_role_code
 from common.serializers import UserBriefSerializer
-from drones.models import Drone
-from drones.services import update_drone
+from drones.models import Drone, DroneStatusHistory
 from roles.models import COMMANDER_CODE, OPERATOR_CODE
 
 from .models import (
@@ -26,7 +26,6 @@ from .models import (
     Status,
 )
 from .services import (
-    _check_overlap,
     assign_drone_to_mission,
     record_drone_condition,
     record_mission_outcome,
@@ -266,25 +265,33 @@ class MissionSerializer(serializers.ModelSerializer):
             drones_to_check, operators_to_check = [], []
 
         if drones_to_check or operators_to_check:
-            # Reuse the service-layer overlap rule so the two paths cannot
-            # drift. _check_overlap reads started_at/ended_at off the mission
-            # and excludes ``mission`` itself, so we hand it an in-memory probe
-            # carrying the resolved time window. On create there is no mission
-            # yet; id=0 excludes a row that can never exist (real ids start
-            # at 1), matching the "exclude nothing" behaviour we want.
-            probe = Mission(
-                id=self.instance.id if self.instance else 0,
-                started_at=started_at,
-                ended_at=ended_at,
+
+            drone_ids = [d.id for d in drones_to_check]
+            operator_ids = [o.id for o in operators_to_check]
+            mission_id = self.instance.id if self.instance else 0
+
+            time_filter = Q()
+            if ended_at:
+                time_filter &= Q(mission__started_at__lt=ended_at)
+            if started_at:
+                time_filter &= Q(mission__ended_at__gt=started_at) | Q(
+                    mission__ended_at__isnull=True
+                )
+
+            conflicts = (
+                MissionDrone.objects.filter(
+                    mission__status__in=[Status.ACTIVE, Status.PLANNED]
+                )
+                .exclude(mission_id=mission_id)
+                .filter(time_filter)
+                .filter(Q(drone_id__in=drone_ids) | Q(operator_id__in=operator_ids))
+                .select_related("drone", "operator")
             )
 
             busy_drones = sorted(
-                {
-                    drone.name
-                    for drone in drones_to_check
-                    if _check_overlap(probe, drone=drone)
-                }
+                {md.drone.name for md in conflicts if md.drone_id in drone_ids}
             )
+
             if busy_drones:
                 raise serializers.ValidationError(
                     "The following drones are already booked "
@@ -293,11 +300,12 @@ class MissionSerializer(serializers.ModelSerializer):
 
             busy_operators = sorted(
                 {
-                    operator.username
-                    for operator in operators_to_check
-                    if _check_overlap(probe, operator=operator)
+                    md.operator.username
+                    for md in conflicts
+                    if md.operator_id in operator_ids
                 }
             )
+
             if busy_operators:
                 raise serializers.ValidationError(
                     "The following operators are already assigned"
@@ -517,31 +525,48 @@ class MissionStatusUpdateSerializer(serializers.ModelSerializer):
                 instance.status = new_status
                 instance.save(update_fields=["status", "updated_at"])
 
-                assignments = instance.mission_drones.select_related("drone")
+                assignments = instance.mission_drones.all().select_related("drone")
 
                 if old_status == Status.PLANNED and new_status == Status.ACTIVE:
-                    for assignment in assignments:
-                        update_drone(
-                            drone=assignment.drone,
-                            drone_data={"status": Drone.STATUS_IN_MISSION},
+
+                    drones_to_update = [
+                        {
+                            "id": a.drone_id,
+                            "old_status": a.drone.status,
+                            "new_status": Drone.STATUS_IN_MISSION,
+                        }
+                        for a in assignments
+                    ]
+
+                    if drones_to_update:
+                        self._bulk_update_drones(
+                            drones_data=drones_to_update,
                             user=user,
-                            related_mission=instance,
-                            status_change_reason="Mission started",
+                            mission=instance,
+                            reason="Mission started",
                         )
 
                 elif old_status == Status.ACTIVE and new_status in (
                     Status.COMPLETED,
                     Status.ABORTED,
                 ):
-                    for assignment in assignments:
-                        if assignment.drone.status == Drone.STATUS_IN_MISSION:
-                            update_drone(
-                                drone=assignment.drone,
-                                drone_data={"status": Drone.STATUS_ACTIVE},
-                                user=user,
-                                related_mission=instance,
-                                status_change_reason="Mission finished",
-                            )
+                    drones_to_update = [
+                        {
+                            "id": a.drone_id,
+                            "old_status": a.drone.status,
+                            "new_status": Drone.STATUS_ACTIVE,
+                        }
+                        for a in assignments
+                        if a.drone.status == Drone.STATUS_IN_MISSION
+                    ]
+
+                    if drones_to_update:
+                        self._bulk_update_drones(
+                            drones_data=drones_to_update,
+                            user=user,
+                            mission=instance,
+                            reason="Mission finished",
+                        )
 
         except IntegrityError as exc:
             raise serializers.ValidationError(
@@ -553,6 +578,27 @@ class MissionStatusUpdateSerializer(serializers.ModelSerializer):
             ) from exc
 
         return instance
+
+    def _bulk_update_drones(self, drones_data, user, mission, reason):
+        drone_ids = [d["id"] for d in drones_data]
+
+        Drone.objects.filter(id__in=drone_ids).update(
+            status=drones_data[0]["new_status"], updated_at=timezone.now()
+        )
+
+        history_records = [
+            DroneStatusHistory(
+                drone_id=d["id"],
+                from_status=d["old_status"],
+                to_status=d["new_status"],
+                changed_by=user,
+                reason=reason,
+                related_mission=mission,
+                related_writeoff=None,
+            )
+            for d in drones_data
+        ]
+        DroneStatusHistory.objects.bulk_create(history_records)
 
 
 class MissionDroneSerializer(serializers.ModelSerializer):

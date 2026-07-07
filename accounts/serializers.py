@@ -131,6 +131,7 @@ class UserMeSerializer(serializers.ModelSerializer):
             "role",
             "unit",
             "is_active",
+            "must_change_password",
         )
         read_only_fields = (
             "id",
@@ -139,6 +140,7 @@ class UserMeSerializer(serializers.ModelSerializer):
             "role",
             "unit",
             "is_active",
+            "must_change_password",
             "is_staff",
             "is_superuser",
             "created_by",

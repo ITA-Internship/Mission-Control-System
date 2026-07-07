@@ -19,6 +19,7 @@ class MilitaryUnit(models.Model):
 
 class User(AbstractUser):
     email = models.EmailField(unique=True)
+    must_change_password = models.BooleanField(default=False)
     role = models.ForeignKey(
         "roles.Role",
         null=True,

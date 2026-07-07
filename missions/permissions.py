@@ -2,7 +2,8 @@
 
 from rest_framework import permissions
 
-from accounts.permissions import get_user_role_code
+from accounts.permissions import HasRBACPermission, get_user_role_code
+from accounts.rbac import PERMISSION_MISSIONS_VIEW
 from roles.models import ADMIN_CODE, COMMANDER_CODE, DISPATCHER_CODE, OPERATOR_CODE
 
 from .models import Mission, MissionDrone
@@ -21,7 +22,12 @@ class IsDispatcherOrAdmin(permissions.BasePermission):
         # missions / managing assignments) are gated to Dispatcher and Admin.
         if request.method in permissions.SAFE_METHODS:
             return True
+        
         return get_user_role_code(request.user) in (DISPATCHER_CODE, ADMIN_CODE)
+
+
+class CanViewMission(HasRBACPermission):
+    required_permission = PERMISSION_MISSIONS_VIEW
 
 
 class IsAssignedOperatorOrAdmin(permissions.BasePermission):
