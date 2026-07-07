@@ -68,13 +68,6 @@ python manage.py seed_db --module drones
 python manage.py seed_db --module repairs
 ```
 
-Docker usage:
-
-```bash
-docker compose exec web python manage.py seed_db
-docker compose exec web python manage.py seed_db --clear
-```
-
 Default seeded password for all demo accounts:
 
 ```text
