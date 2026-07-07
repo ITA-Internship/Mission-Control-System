@@ -1,6 +1,6 @@
 # Mission Control System API
 
-
+Documentation for Mission-Control-System
 
 # Base URL
 
@@ -99,7 +99,7 @@ List audit logs
 
 Retrieves a paginated and filtered list of audit logs. Superusers and staff members can view all logs. Other authenticated users can only view logs where they are either the actor or the target user.
 
-Required permission: `IsAuthenticated`.
+Required permission: `PERMISSION_AUDIT_LOGS_VIEW_OWN, PERMISSION_AUDIT_LOGS_VIEW_ALL`.
 
 
 ### Parameters
@@ -245,7 +245,7 @@ Not Found
 
 Export audit logs to CSV
 
-Generates and downloads a CSV file with the filtered audit logs. Supports full filtering and sorting identical to the standard list endpoint. 
+Generates and downloads a CSV file with the filtered audit logs. Supports full filtering and sorting identical to the standard list endpoint.
 
 The export is limited to a maximum of 10,000 records.
 
@@ -284,10 +284,10 @@ Export rate limit exceeded
 
 Register a new user
 
-Creates a new user. Sends an activation email to the user and creates an audit log entry. 
+Creates a new user. Sends an activation email to the user and creates an audit log entry.
 
-Validation: 
-- Image file size cannot exceed 5 MB. 
+Validation:
+- Image file size cannot exceed 5 MB.
 - Supported image file formats: .jpg, .jpeg, .png, .webp.
 
 Required permission: `PERMISSION_USERS_CREATE`.
@@ -421,9 +421,9 @@ Forbidden. User does not have permission to perform this action.
 
 Update user status
 
-Allows system administrators to activate or deactivate a user's account, creates an audit log entry. 
+Allows system administrators to activate or deactivate a user's account, creates an audit log entry.
 
-Validation: 
+Validation:
 - User cannot deactivate their own account.
 
 Required permission: `IsSystemAdmin`.
@@ -510,13 +510,13 @@ Not Found
 
 Update user role
 
-Updates the role of a specific user and creates an audit log entry. 
+Updates the role of a specific user and creates an audit log entry.
 
-Validation: 
-- Role ID is required and must be valid. 
-- The role of an inactive user cannot be changed. 
-- Admin user cannot remove their own admin role. 
-- The admin role cannot be removed from the root account. 
+Validation:
+- Role ID is required and must be valid.
+- The role of an inactive user cannot be changed.
+- Admin user cannot remove their own admin role.
+- The admin role cannot be removed from the root account.
 - The admin role cannot be removed from the last admin user.
 
 Required permission: `PERMISSION_USERS_MANAGE_ROLES`.
@@ -718,8 +718,8 @@ Update current user profile
 
 Updates the currently authenticated user's profile information and creates an audit log entry.
 
-Validation: 
-- Image file size cannot exceed 5 MB. 
+Validation:
+- Image file size cannot exceed 5 MB.
 - Supported image file formats: .jpg, .jpeg, .png, .webp.
 
 Required permission: `IsAuthenticated`.
@@ -826,8 +826,8 @@ Update current user profile
 
 Updates the currently authenticated user's profile information and creates an audit log entry.
 
-Validation: 
-- Image file size cannot exceed 5 MB. 
+Validation:
+- Image file size cannot exceed 5 MB.
 - Supported image file formats: .jpg, .jpeg, .png, .webp.
 
 Required permission: `IsAuthenticated`.
@@ -1248,9 +1248,9 @@ Forbidden. User does not have permission to perform this action.
 
 Create a new drone
 
-Creates a new drone with its technical specification. Creates an audit log entry with all spec values written down as `new_values`. 
+Creates a new drone with its technical specification. Creates an audit log entry with all spec values written down as `new_values`.
 
-Validation: 
+Validation:
 - Classification of a drone must be supported by its model.
 
 Required permission: `PERMISSION_DRONES_CREATE`.
@@ -1474,6 +1474,46 @@ Forbidden. User does not have permission to perform this action.
 
 
 
+## GET /api/drones/{drone_pk}/write-offs/history/
+
+
+
+
+
+### Parameters
+
+| Name | Type | Required | Description |
+|------|------|----------|-------------|
+| authorized_by | number |  |  |
+| document_number | string |  |  |
+| drone | number |  |  |
+| drone_inventory_number | string |  |  |
+| drone_pk | integer | True |  |
+| drone_serial_number | string |  |  |
+| ordering | string | False | Which field to use when ordering the results. |
+| page | integer | False | A page number within the paginated result set. |
+| page_size | integer | False | Number of results to return per page. |
+| reason | string |  |  |
+| related_mission | number |  |  |
+| search | string | False | A search term. |
+| written_off_at_after | string |  |  |
+| written_off_at_before | string |  |  |
+
+
+### Responses
+
+#### 200
+
+
+
+[PaginatedWriteOffAuditList](#paginatedwriteoffauditlist)
+
+
+
+
+
+
+
 ## GET /api/drones/{id}/
 
 Retrieve drone details
@@ -1586,8 +1626,8 @@ Partially update a drone
 
 Updates specific fields of an existing drone record.
 
-Validation: 
-- New classification of a drone must be supported by its model. 
+Validation:
+- New classification of a drone must be supported by its model.
 - If a drone is being decommissioned, sold, transferred, or written off the reason must be provided.
 
 Required permission: `PERMISSION_DRONES_UPDATE`.
@@ -1765,7 +1805,7 @@ Not Found
 
 Export drones data to CSV
 
-Generates and downloads a CSV file with the filtered list of drones. Supports full filtering and sorting identical to the standard list endpoint. 
+Generates and downloads a CSV file with the filtered list of drones. Supports full filtering and sorting identical to the standard list endpoint.
 
 The export is limited to a maximum of 10,000 records.
 
@@ -1830,8 +1870,8 @@ Import drones data via CSV
 
 Uploads a CSV file to batch-import drone data. Processes the file record row by row, validates data and return error logs if any. Rows with existing `Serial Number`s will be skipped and reported in the API error summary.
 
-Validation: 
-- In uploaded .csv file following headers must be present: Serial Number, Inventory Number, Name, Model, Military Unit, Acquired At. 
+Validation:
+- In uploaded .csv file following headers must be present: Serial Number, Inventory Number, Name, Model, Military Unit, Acquired At.
 - `Military Unit` must exactly match the name of an existing unit in the database.
 
 Required permission: `PERMISSION_DRONES_CREATE`.
@@ -1951,9 +1991,9 @@ Forbidden. User does not have permission to perform this action.
 
 Create a new drone model
 
-Creates a new drone model in the system. 
+Creates a new drone model in the system.
 
-Validation: 
+Validation:
 - Drone model must have at least one valid supported classification.
 
 Required permission: `PERMISSION_DRONES_CREATE`.
@@ -2085,13 +2125,399 @@ Forbidden. User does not have permission to perform this action.
 
 
 
+## GET /api/drones/write-offs/
+
+
+
+
+
+
+
+### Responses
+
+#### 200
+
+
+
+array
+
+
+
+
+
+
+
+## POST /api/drones/write-offs/
+
+
+
+
+
+
+
+### Request Body
+
+[WriteOffRecordCreate](#writeoffrecordcreate)
+
+
+
+
+
+[WriteOffRecordCreate](#writeoffrecordcreate)
+
+
+
+
+
+[WriteOffRecordCreate](#writeoffrecordcreate)
+
+
+
+
+
+
+
+### Responses
+
+#### 201
+
+
+
+[WriteOffRecordCreate](#writeoffrecordcreate)
+
+
+
+
+
+
+
+## GET /api/drones/write-offs/history/
+
+
+
+
+
+### Parameters
+
+| Name | Type | Required | Description |
+|------|------|----------|-------------|
+| authorized_by | number |  |  |
+| document_number | string |  |  |
+| drone | number |  |  |
+| drone_inventory_number | string |  |  |
+| drone_serial_number | string |  |  |
+| ordering | string | False | Which field to use when ordering the results. |
+| page | integer | False | A page number within the paginated result set. |
+| page_size | integer | False | Number of results to return per page. |
+| reason | string |  |  |
+| related_mission | number |  |  |
+| search | string | False | A search term. |
+| written_off_at_after | string |  |  |
+| written_off_at_before | string |  |  |
+
+
+### Responses
+
+#### 200
+
+
+
+[PaginatedWriteOffAuditList](#paginatedwriteoffauditlist)
+
+
+
+
+
+
+
+## GET /api/media/audit-logs/
+
+
+
+
+
+### Parameters
+
+| Name | Type | Required | Description |
+|------|------|----------|-------------|
+| action | string |  |  |
+| artifact | integer |  |  |
+| end_date | string |  |  |
+| mission | integer |  |  |
+| page | integer | False | A page number within the paginated result set. |
+| page_size | integer | False | Number of results to return per page. |
+| start_date | string |  |  |
+| user | integer |  |  |
+
+
+### Responses
+
+#### 200
+
+
+
+[PaginatedMediaAuditLogList](#paginatedmediaauditloglist)
+
+
+
+
+
+
+
+## GET /api/media/audit-logs/{id}/
+
+
+
+
+
+### Parameters
+
+| Name | Type | Required | Description |
+|------|------|----------|-------------|
+| id | integer | True | A unique integer value identifying this media audit log. |
+
+
+### Responses
+
+#### 200
+
+
+
+[MediaAuditLog](#mediaauditlog)
+
+
+
+
+
+
+
+## GET /api/media/videos/
+
+
+
+
+
+### Parameters
+
+| Name | Type | Required | Description |
+|------|------|----------|-------------|
+| page | integer | False | A page number within the paginated result set. |
+| page_size | integer | False | Number of results to return per page. |
+
+
+### Responses
+
+#### 200
+
+
+
+[PaginatedVideoMetadataList](#paginatedvideometadatalist)
+
+
+
+
+
+
+
+## POST /api/media/videos/
+
+
+
+
+
+
+
+### Request Body
+
+[VideoUpload](#videoupload)
+
+
+
+
+
+[VideoUpload](#videoupload)
+
+
+
+
+
+[VideoUpload](#videoupload)
+
+
+
+
+
+
+
+### Responses
+
+#### 201
+
+
+
+[VideoUpload](#videoupload)
+
+
+
+
+
+
+
+## GET /api/media/videos/{id}/
+
+
+
+
+
+### Parameters
+
+| Name | Type | Required | Description |
+|------|------|----------|-------------|
+| id | integer | True | A unique integer value identifying this video metadata. |
+
+
+### Responses
+
+#### 200
+
+
+
+[VideoMetadata](#videometadata)
+
+
+
+
+
+
+
+## PUT /api/media/videos/{id}/
+
+
+
+
+
+### Parameters
+
+| Name | Type | Required | Description |
+|------|------|----------|-------------|
+| id | integer | True | A unique integer value identifying this video metadata. |
+
+
+### Request Body
+
+[VideoMetadata](#videometadata)
+
+
+
+
+
+[VideoMetadata](#videometadata)
+
+
+
+
+
+[VideoMetadata](#videometadata)
+
+
+
+
+
+
+
+### Responses
+
+#### 200
+
+
+
+[VideoMetadata](#videometadata)
+
+
+
+
+
+
+
+## PATCH /api/media/videos/{id}/
+
+
+
+
+
+### Parameters
+
+| Name | Type | Required | Description |
+|------|------|----------|-------------|
+| id | integer | True | A unique integer value identifying this video metadata. |
+
+
+### Request Body
+
+[PatchedVideoMetadata](#patchedvideometadata)
+
+
+
+
+
+[PatchedVideoMetadata](#patchedvideometadata)
+
+
+
+
+
+[PatchedVideoMetadata](#patchedvideometadata)
+
+
+
+
+
+
+
+### Responses
+
+#### 200
+
+
+
+[VideoMetadata](#videometadata)
+
+
+
+
+
+
+
+## DELETE /api/media/videos/{id}/
+
+
+
+
+
+### Parameters
+
+| Name | Type | Required | Description |
+|------|------|----------|-------------|
+| id | integer | True | A unique integer value identifying this video metadata. |
+
+
+### Responses
+
+#### 204
+
+
+No response body
+
+
+
+
 ## GET /api/missions/
 
 List missions
 
 Retrieves a paginated and filtered by status list of missions, assigned to the currently authenticated user.
 
-Required permission: `IsDispatcherOrAdmin`.
+Required permission: `IsDispatcherOrAdmin, PERMISSION_MISSIONS_VIEW`.
 
 
 ### Parameters
@@ -2177,13 +2603,13 @@ Create a new mission
 
 Creates a new mission. The logged-in user is automatically assigned as the creator (`created_by`).
 
-Validation: 
-- Title of the mission must be at least 3 character long. 
-- User assigned as a commander must have a Commander role. 
-- Either location or latitude and longitude must be provided. 
+Validation:
+- Title of the mission must be at least 3 character long.
+- User assigned as a commander must have a Commander role.
+- Either location or latitude and longitude must be provided.
 - Assigned drones and operators cannot already be assigned to another mission.
 
-Required permission: `IsDispatcherOrAdmin`.
+Required permission: `IsDispatcherOrAdmin, PERMISSION_MISSIONS_CREATE`.
 
 
 
@@ -2383,10 +2809,10 @@ Not Found
 
 Upload a new artifact to a mission
 
-Uploads a media file or document as an artifact for a specific mission. 
+Uploads a media file or document as an artifact for a specific mission.
 
-Validation: 
-- File must have format .avi, .csv, .jpeg, .jpg, .json, .mov, .mp4 or .png. 
+Validation:
+- File must have format .avi, .csv, .jpeg, .jpg, .json, .mov, .mp4 or .png.
 - File size cannot be empty or exceed 50MB.
 
 Required permission: `PERMISSION_MEDIA_UPLOAD`.
@@ -2646,7 +3072,7 @@ List drone assignments for a mission
 
 Retrieves a list of all drones and their designated operators assigned to a specific mission.
 
-Required permission: `IsDispatcherOrAdmin`.
+Required permission: `PERMISSION_MISSIONS_VIEW`.
 
 
 ### Parameters
@@ -2727,14 +3153,14 @@ Not Found
 
 Assign a drone and operator to a mission
 
-Deploys a specific drone and maps an operator to the given mission. Validation: 
-- User selected as a operator must have an Operator role. 
-- Assignments can only be added to planned missions. 
-- Mission must have a start time before assigning drones or operators. 
-- All assigned drones must be active. 
+Deploys a specific drone and maps an operator to the given mission. Validation:
+- User selected as a operator must have an Operator role.
+- Assignments can only be added to planned missions.
+- Mission must have a start time before assigning drones or operators.
+- All assigned drones must be active.
 - Operators and drones cannot be assigned to overlapping missions.
 
-Required permission: `IsDispatcherOrAdmin`.
+Required permission: `IsDispatcherOrAdmin, PERMISSION_MISSIONS_ASSIGN`.
 
 
 ### Parameters
@@ -2876,9 +3302,9 @@ Not Found
 
 Remove a drone assignment from a mission
 
-Deletes a specific drone assignment and creates an audit log entry. 
+Deletes a specific drone assignment and creates an audit log entry.
 
-Validation: 
+Validation:
 - Cannot delete assignment unless mission is planned.
 
 Required permission: `IsDispatcherOrAdmin`.
@@ -2933,7 +3359,7 @@ Retrieve mission details
 
 Retrieves detailed information about a single mission by its ID.
 
-Required permission: `IsAuthenticated`.
+Required permission: `PERMISSION_MISSIONS_VIEW`.
 
 
 ### Parameters
@@ -3015,10 +3441,10 @@ Not Found
 
 Update drone post-mission condition
 
-Updates the condition of a specific drone assigned to a mission and creates an audit log entry. 
+Updates the condition of a specific drone assigned to a mission and creates an audit log entry.
 
-Validation: 
-- Drone condition can only be recorded for missions with status `completed` or `aborted`. 
+Validation:
+- Drone condition can only be recorded for missions with status `completed` or `aborted`.
 - Condition `lost` cannot be overwritten.
 
 Required permission: `PERMISSION_MISSIONS_RECORD_CONDITION, IsAssignedOperatorOrAdmin`.
@@ -3164,14 +3590,14 @@ Not Found
 
 Record mission outcome
 
-Partially updates the mission record to record status, result and incident notes for the mission. Creates an audit log entry. 
+Partially updates the mission record to record status, result and incident notes for the mission. Creates an audit log entry.
 
-Validation: 
-- Status can only be recorded for completed or aborted mission. 
-- Already recorded outcome cannot be overwritten. 
+Validation:
+- Status can only be recorded for completed or aborted mission.
+- Already recorded outcome cannot be overwritten.
 - If result of a mission is a failure, incident notes must be provided.
 
-Required permission: `PERMISSION_MISSIONS_RECORD_OUTCOME, IsAssignedOperatorOrAdmin`.
+Required permission: `IsAssignedOperatorOrAdmin, PERMISSION_MISSIONS_RECORD_OUTCOME`.
 
 
 ### Parameters
@@ -3375,13 +3801,13 @@ Not Found
 
 Update mission status
 
-Updates the mission status and creates an audit log entry. 
+Updates the mission status and creates an audit log entry.
 
-Validation: 
-- Status validation restrictions: 
-	- status `PLANNED` can be updated to `ACTIVE` or `ABORTED`; 
-	- status `ACTIVE` can be updated to `COMPLETED` or `ABORTED`; 
-	- statuses `COMPLETED` or `ABORTED` cannot be updated. 
+Validation:
+- Status validation restrictions:
+	- status `PLANNED` can be updated to `ACTIVE` or `ABORTED`;
+	- status `ACTIVE` can be updated to `COMPLETED` or `ABORTED`;
+	- statuses `COMPLETED` or `ABORTED` cannot be updated.
 - Mission cannot be updated to status `ACTIVE` if it has assigned inactive drones.
 
 Required permission: `CanUpdateMissionStatus`.
@@ -3505,13 +3931,13 @@ Not Found
 
 Update mission status
 
-Updates the mission status and creates an audit log entry. 
+Updates the mission status and creates an audit log entry.
 
-Validation: 
-- Status validation restrictions: 
-	- status `PLANNED` can be updated to `ACTIVE` or `ABORTED`; 
-	- status `ACTIVE` can be updated to `COMPLETED` or `ABORTED`; 
-	- statuses `COMPLETED` or `ABORTED` cannot be updated. 
+Validation:
+- Status validation restrictions:
+	- status `PLANNED` can be updated to `ACTIVE` or `ABORTED`;
+	- status `ACTIVE` can be updated to `COMPLETED` or `ABORTED`;
+	- statuses `COMPLETED` or `ABORTED` cannot be updated.
 - Mission cannot be updated to status `ACTIVE` if it has assigned inactive drones.
 
 Required permission: `CanUpdateMissionStatus`.
@@ -3707,9 +4133,9 @@ Forbidden. User does not have permission to perform this action.
 
 Create a new defect report
 
-Creates a new defect report. 
+Creates a new defect report.
 
-Validation: 
+Validation:
 - Description must be at least 10 character long.
 
 Required permission: `PERMISSION_REPAIRS_CREATE`.
@@ -3878,6 +4304,312 @@ Not Found
 
 
 
+## GET /api/repairs/defects/{id}/history/
+
+
+
+
+
+### Parameters
+
+| Name | Type | Required | Description |
+|------|------|----------|-------------|
+| id | integer | True |  |
+| page | integer | False | A page number within the paginated result set. |
+| page_size | integer | False | Number of results to return per page. |
+
+
+### Responses
+
+#### 200
+
+
+
+[PaginatedRepairEventList](#paginatedrepaireventlist)
+
+
+
+
+
+
+
+## POST /api/repairs/defects/{id}/update-status/
+
+
+
+
+
+### Parameters
+
+| Name | Type | Required | Description |
+|------|------|----------|-------------|
+| id | integer | True |  |
+
+
+### Responses
+
+#### 200
+
+
+No response body
+
+
+
+
+## GET /api/repairs/drones/{drone_id}/history/
+
+
+
+
+
+### Parameters
+
+| Name | Type | Required | Description |
+|------|------|----------|-------------|
+| drone_id | integer | True |  |
+
+
+### Responses
+
+#### 200
+
+
+
+[RepairHistoryTimeline](#repairhistorytimeline)
+
+
+
+
+
+
+
+## GET /api/repairs/drones/{drone_id}/history/export/
+
+
+
+
+
+### Parameters
+
+| Name | Type | Required | Description |
+|------|------|----------|-------------|
+| drone_id | integer | True |  |
+
+
+### Responses
+
+#### 200
+
+
+No response body
+
+
+
+
+## GET /api/repairs/orders/
+
+
+
+
+
+### Parameters
+
+| Name | Type | Required | Description |
+|------|------|----------|-------------|
+| assigned_to | integer |  |  |
+| created_at__gte | string |  |  |
+| created_at__lte | string |  |  |
+| defect_report | integer |  |  |
+| drone | integer |  |  |
+| ordering | string | False | Which field to use when ordering the results. |
+| page | integer | False | A page number within the paginated result set. |
+| page_size | integer | False | Number of results to return per page. |
+| status | string |  |  |
+
+
+### Responses
+
+#### 200
+
+
+
+[PaginatedRepairOrderListList](#paginatedrepairorderlistlist)
+
+
+
+
+
+
+
+## POST /api/repairs/orders/
+
+
+
+
+
+
+
+### Request Body
+
+[RepairOrderCreate](#repairordercreate)
+
+
+
+
+
+[RepairOrderCreate](#repairordercreate)
+
+
+
+
+
+[RepairOrderCreate](#repairordercreate)
+
+
+
+
+
+
+
+### Responses
+
+#### 201
+
+
+
+[RepairOrderCreate](#repairordercreate)
+
+
+
+
+
+
+
+## GET /api/repairs/orders/{id}/
+
+
+
+
+
+### Parameters
+
+| Name | Type | Required | Description |
+|------|------|----------|-------------|
+| id | integer | True |  |
+
+
+### Responses
+
+#### 200
+
+
+
+[RepairOrder](#repairorder)
+
+
+
+
+
+
+
+## PATCH /api/repairs/orders/{id}/
+
+
+
+
+
+### Parameters
+
+| Name | Type | Required | Description |
+|------|------|----------|-------------|
+| id | integer | True |  |
+
+
+### Request Body
+
+[PatchedRepairOrderStatusUpdate](#patchedrepairorderstatusupdate)
+
+
+
+
+
+[PatchedRepairOrderStatusUpdate](#patchedrepairorderstatusupdate)
+
+
+
+
+
+[PatchedRepairOrderStatusUpdate](#patchedrepairorderstatusupdate)
+
+
+
+
+
+
+
+### Responses
+
+#### 200
+
+
+
+[RepairOrderStatusUpdate](#repairorderstatusupdate)
+
+
+
+
+
+
+
+## POST /api/repairs/orders/{id}/replacements/
+
+
+
+
+
+### Parameters
+
+| Name | Type | Required | Description |
+|------|------|----------|-------------|
+| id | integer | True |  |
+
+
+### Request Body
+
+[RepairOrderReplacement](#repairorderreplacement)
+
+
+
+
+
+[RepairOrderReplacement](#repairorderreplacement)
+
+
+
+
+
+[RepairOrderReplacement](#repairorderreplacement)
+
+
+
+
+
+
+
+### Responses
+
+#### 201
+
+
+
+[RepairOrderReplacement](#repairorderreplacement)
+
+
+
+
+
+
+
 ## GET /api/repairs/replacements/
 
 List component replacements
@@ -3956,9 +4688,9 @@ Forbidden. User does not have permission to perform this action.
 
 Record a component replacement
 
-Creates a new component replacement report. 
+Creates a new component replacement report.
 
-Validation: 
+Validation:
 - If component type is `OTHER`, component name must be provided.
 
 Required permission: `PERMISSION_REPAIRS_CREATE`.
@@ -4137,7 +4869,7 @@ Not Found
 
 Export component replacement data to CSV
 
-Generates and downloads a CSV file with the filtered component replacement history.Supports full filtering identical to the standard list endpoint. 
+Generates and downloads a CSV file with the filtered component replacement history.Supports full filtering identical to the standard list endpoint.
 
 The export is limited to a maximum of 10,000 records.
 
@@ -4165,6 +4897,12 @@ Forbidden. User does not have permission to perform this action.
 
 
 # Components
+
+
+
+## ActionEnum
+
+
 
 
 
@@ -4487,15 +5225,43 @@ Forbidden. User does not have permission to perform this action.
 | reason | string |  |
 | event_type | string |  |
 | related_mission_id | integer |  |
-| related_repair_order_id | integer |  |
+| related_repair_order | integer |  |
 | related_writeoff | integer |  |
 | created_at | string |  |
+
+
+## EventTypeEnum
+
+
+
 
 
 ## FileTypeEnum
 
 
 
+
+
+## FromStatusEnum
+
+
+
+
+
+## MediaAuditLog
+
+
+
+| Field | Type | Description |
+|-------|------|-------------|
+| id | integer |  |
+| action |  |  |
+| artifact | integer | Null after the referenced artifact is deleted. |
+| mission | integer |  |
+| user |  |  |
+| changes |  |  |
+| ip_address | string |  |
+| created_at | string |  |
 
 
 ## Mission
@@ -4683,6 +5449,18 @@ Forbidden. User does not have permission to perform this action.
 | results | array |  |
 
 
+## PaginatedMediaAuditLogList
+
+
+
+| Field | Type | Description |
+|-------|------|-------------|
+| count | integer |  |
+| next | string |  |
+| previous | string |  |
+| results | array |  |
+
+
 ## PaginatedMissionArtifactList
 
 
@@ -4696,6 +5474,54 @@ Forbidden. User does not have permission to perform this action.
 
 
 ## PaginatedMissionList
+
+
+
+| Field | Type | Description |
+|-------|------|-------------|
+| count | integer |  |
+| next | string |  |
+| previous | string |  |
+| results | array |  |
+
+
+## PaginatedRepairEventList
+
+
+
+| Field | Type | Description |
+|-------|------|-------------|
+| count | integer |  |
+| next | string |  |
+| previous | string |  |
+| results | array |  |
+
+
+## PaginatedRepairOrderListList
+
+
+
+| Field | Type | Description |
+|-------|------|-------------|
+| count | integer |  |
+| next | string |  |
+| previous | string |  |
+| results | array |  |
+
+
+## PaginatedVideoMetadataList
+
+
+
+| Field | Type | Description |
+|-------|------|-------------|
+| count | integer |  |
+| next | string |  |
+| previous | string |  |
+| results | array |  |
+
+
+## PaginatedWriteOffAuditList
 
 
 
@@ -4782,6 +5608,16 @@ Forbidden. User does not have permission to perform this action.
 | status |  |  |
 
 
+## PatchedRepairOrderStatusUpdate
+
+
+
+| Field | Type | Description |
+|-------|------|-------------|
+| status |  |  |
+| notes | string |  |
+
+
 ## PatchedUserMe
 
 
@@ -4820,7 +5656,145 @@ Forbidden. User does not have permission to perform this action.
 | reason | string |  |
 
 
+## PatchedVideoMetadata
+
+
+
+| Field | Type | Description |
+|-------|------|-------------|
+| id | integer |  |
+| mission | integer | Mission associated with this video |
+| drone | integer | Drone used to capture this video |
+| uploader | integer | User who uploaded the file |
+| uploader_username | string |  |
+| file | string |  |
+| file_name | string |  |
+| file_size | integer | File size in bytes |
+| content_type | string |  |
+| status |  |  |
+| checksum | string | Optional SHA-256 checksum of the file |
+| duration_seconds | integer |  |
+| recorded_at | string | Video recording timestamp from drone metadata |
+| created_at | string |  |
+| updated_at | string |  |
+| url | string |  |
+
+
+## RepairEvent
+
+
+
+| Field | Type | Description |
+|-------|------|-------------|
+| id | integer |  |
+| from_status |  |  |
+| to_status |  |  |
+| action_taken | string |  |
+| technician | integer |  |
+| created_at | string |  |
+
+
+## RepairHistoryTimeline
+
+
+
+| Field | Type | Description |
+|-------|------|-------------|
+| event_type |  |  |
+| timestamp | string |  |
+| summary | string |  |
+| details | object |  |
+
+
+## RepairOrder
+
+
+
+| Field | Type | Description |
+|-------|------|-------------|
+| id | integer |  |
+| drone | integer |  |
+| defect_report | integer |  |
+| status |  |  |
+| description | string |  |
+| assigned_to | integer |  |
+| started_at | string |  |
+| completed_at | string |  |
+| notes | string |  |
+| created_by | integer |  |
+| created_at | string |  |
+| updated_at | string |  |
+
+
+## RepairOrderCreate
+
+
+
+| Field | Type | Description |
+|-------|------|-------------|
+| id | integer |  |
+| drone | integer |  |
+| defect_report | integer |  |
+| description | string |  |
+| assigned_to | integer |  |
+
+
+## RepairOrderList
+
+
+
+| Field | Type | Description |
+|-------|------|-------------|
+| id | integer |  |
+| drone | integer |  |
+| defect_report | integer |  |
+| status |  |  |
+| assigned_to | integer |  |
+| created_by | integer |  |
+| created_at | string |  |
+
+
+## RepairOrderReplacement
+
+
+
+| Field | Type | Description |
+|-------|------|-------------|
+| id | integer |  |
+| component_type |  |  |
+| component_name | string |  |
+| old_serial_number | string |  |
+| new_serial_number | string |  |
+| reason | string |  |
+| replaced_at | string |  |
+| replaced_by | integer |  |
+| created_at | string |  |
+| updated_at | string |  |
+
+
+## RepairOrderStatusUpdate
+
+
+
+| Field | Type | Description |
+|-------|------|-------------|
+| status |  |  |
+| notes | string |  |
+
+
 ## SeverityEnum
+
+
+
+
+
+## StatusFccEnum
+
+
+
+
+
+## ToStatusEnum
 
 
 
@@ -4886,6 +5860,72 @@ Forbidden. User does not have permission to perform this action.
 | role | object |  |
 
 
+## VideoMetadata
+
+
+
+| Field | Type | Description |
+|-------|------|-------------|
+| id | integer |  |
+| mission | integer | Mission associated with this video |
+| drone | integer | Drone used to capture this video |
+| uploader | integer | User who uploaded the file |
+| uploader_username | string |  |
+| file | string |  |
+| file_name | string |  |
+| file_size | integer | File size in bytes |
+| content_type | string |  |
+| status |  |  |
+| checksum | string | Optional SHA-256 checksum of the file |
+| duration_seconds | integer |  |
+| recorded_at | string | Video recording timestamp from drone metadata |
+| created_at | string |  |
+| updated_at | string |  |
+| url | string |  |
+
+
+## VideoMetadataStatusEnum
+
+
+
+
+
+## VideoUpload
+
+
+
+| Field | Type | Description |
+|-------|------|-------------|
+| id | integer |  |
+| mission | integer | Mission associated with this video |
+| drone | integer | Drone used to capture this video |
+| file | string |  |
+| recorded_at | string | Video recording timestamp from drone metadata |
+| checksum | string | Optional SHA-256 checksum of the file |
+
+
+## WriteOffAudit
+
+
+
+| Field | Type | Description |
+|-------|------|-------------|
+| id | integer |  |
+| drone_id | integer |  |
+| drone_name | string |  |
+| drone_serial_number | string |  |
+| drone_inventory_number | string |  |
+| reason |  | Canonical reason for writing off the drone. |
+| reason_description | string | Free-form details about the write-off. Required when the reason is 'Other'. |
+| authorized_by | integer |  |
+| authorized_by_username | string |  |
+| related_mission | integer |  |
+| related_mission_id | integer |  |
+| document_number | string |  |
+| written_off_at | string |  |
+| created_at | string |  |
+
+
 ## WriteOffReason
 
 
@@ -4904,6 +5944,22 @@ Forbidden. User does not have permission to perform this action.
 | reason_description | string | Free-form details about the write-off. Required when the reason is 'Other'. |
 | authorized_by | integer |  |
 | related_mission_id | integer |  |
+| document_number | string |  |
+| written_off_at | string |  |
+| created_at | string |  |
+
+
+## WriteOffRecordCreate
+
+
+
+| Field | Type | Description |
+|-------|------|-------------|
+| id | integer |  |
+| drone | integer |  |
+| reason |  | Canonical reason for writing off the drone. |
+| reason_description | string | Free-form details about the write-off. Required when the reason is 'Other'. |
+| related_mission | integer |  |
 | document_number | string |  |
 | written_off_at | string |  |
 | created_at | string |  |

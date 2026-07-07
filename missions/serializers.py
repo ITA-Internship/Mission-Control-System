@@ -356,11 +356,18 @@ class MissionDroneConditionSerializer(serializers.ModelSerializer):
 
 
 class MissionStatusUpdateSerializer(serializers.ModelSerializer):
+    status = serializers.ChoiceField(
+        choices=Status.choices, required=False, allow_blank=False, allow_null=False
+    )
+
     class Meta:
         model = Mission
         fields = ["status"]
 
     def validate_status(self, value):
+        if not value:
+            raise serializers.ValidationError("Status field cannot be empty.")
+
         current_status = self.instance.status
         allowed_transitions = MISSION_STATUS_TRANSITIONS.get(current_status, [])
 
@@ -368,13 +375,24 @@ class MissionStatusUpdateSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError(
                 f"Cannot change status from '{current_status}' to '{value}'."
             )
+
         return value
 
     def validate(self, attrs):
-        new_status = attrs.get("status")
-        old_status = self.instance.status
+        request = self.context.get("request")
 
+        if request and request.method in ["PATCH", "PUT"]:
+            if "status" not in attrs or not attrs.get("status"):
+                raise serializers.ValidationError({"status": "This field is required."})
+
+        new_status = attrs.get("status")
+
+        if not new_status:
+            return attrs
+
+        old_status = self.instance.status
         if old_status == Status.PLANNED and new_status == Status.ACTIVE:
+
             invalid_assignments = [
                 assignment
                 for assignment in self.instance.mission_drones.select_related("drone")

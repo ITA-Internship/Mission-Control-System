@@ -4,10 +4,9 @@ from django.http import HttpResponseForbidden
 from django.utils.dateparse import parse_date
 from django.views.generic import TemplateView
 from django_filters import rest_framework as filters
+from drf_spectacular.utils import extend_schema_view
 from rest_framework import generics, parsers, permissions, status, viewsets
 from rest_framework.exceptions import ValidationError
-from drf_spectacular.utils import extend_schema_view
-from rest_framework import generics, permissions, status
 from rest_framework.parsers import FormParser, MultiPartParser
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response

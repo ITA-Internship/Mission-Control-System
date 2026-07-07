@@ -6,42 +6,6 @@
 
 Backend API for FPV drone fleet management designed to track the entire operational lifecycle of drones in military units.
 
-## Overview
-
-The FPV Drone Fleet Management System provides centralized control over drone inventory, technical specifications, mission usage, maintenance processes, and write-off procedures. The platform supports secure storage and management of mission-related video data using external storage solutions.
-
-**Key Objectives:**
-- Centralized drone inventory management
-- Technical specifications and configurations tracking
-- Combat mission recording and monitoring
-- Maintenance and repair lifecycle management
-- Controlled drone decommissioning (write-off process)
-- Secure mission video data storage and retrieval
-- Role-based access control (RBAC)
-- Scalable, API-first architecture
-
-## Technology Stack
-
-### Backend
-- **Python** - Core programming language
-- **Django** - Web framework
-- **Django REST Framework** - RESTful API development
-- **PostgreSQL** - Primary database
-
-### Frontend
-- **Django Templates** - Responsive UI
-
-### Storage
-- **PostgreSQL** - Structured data storage
-- **External Storage** for video files:
-  - AWS S3 / Azure Blob / Google Cloud Storage
-  - MinIO (S3-compatible)
-  - Remote file server
-
-### Infrastructure
-- **Docker** - Containerized deployment
-- **Gunicorn** - Python WSGI HTTP server
-
 ## Prerequisites
 
 Before starting, make sure you have the following tools installed:
@@ -190,10 +154,11 @@ python manage.py test
 
 For more details, see [Development](docs/development.md).
 
-## Documentation 
+## Documentation
 - [Contributing](CONTRIBUTING.md)
 - [API Reference](docs/api.md)
 - [Architecture](docs/architecture.md)
+- [Contributing](CONTRIBUTING.md)
 - [Environment variables](docs/configuration.md)
 - [Deployment](docs/deployment.md)
 - [Development](docs/development.md)
@@ -205,8 +170,8 @@ For more details, see [Development](docs/development.md).
 
 The system provides a comprehensive RESTful API. Once the application is running, access the API documentation at:
 
-- **Swagger UI**: http://localhost:8000/api/docs/swagger/
-- **ReDoc**: http://localhost:8000/api/docs/redoc/
+- **Swagger UI**: http://localhost:8000/api/docs/
+- **ReDoc**: http://localhost:8000/api/redoc/
 
 ## License
 

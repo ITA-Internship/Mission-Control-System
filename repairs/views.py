@@ -7,7 +7,6 @@ from django.shortcuts import get_object_or_404
 from django.views.generic import DetailView, TemplateView
 from django_filters.rest_framework import DjangoFilterBackend
 from drf_spectacular.utils import extend_schema_view
-from rest_framework import filters, generics
 from rest_framework import filters, generics, status
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -27,9 +26,6 @@ from .api_details import (
     defect_get_schema,
     defect_post_schema,
 )
-from .filters import ComponentReplacementFilter, DefectFilter
-from .models import ComponentReplacement, DefectReport
-from .permissions import RepairPermission
 from .filters import ComponentReplacementFilter, DefectFilter, RepairOrderFilter
 from .models import ComponentReplacement, DefectReport, RepairEvent, RepairOrder
 from .permissions import (

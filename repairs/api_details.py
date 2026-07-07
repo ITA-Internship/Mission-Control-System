@@ -1,9 +1,13 @@
-from drf_spectacular.utils import OpenApiResponse, OpenApiExample, OpenApiParameter
+from drf_spectacular.utils import OpenApiExample, OpenApiParameter, OpenApiResponse
 from rest_framework import status
 
-from repairs.serializers import ComponentReplacementSerializer, DefectReportListSerializer, DefectReportSerializer, \
-    ComponentReplacementListSerializer
 from common.api_description_schema import description_schema
+from repairs.serializers import (
+    ComponentReplacementListSerializer,
+    ComponentReplacementSerializer,
+    DefectReportListSerializer,
+    DefectReportSerializer,
+)
 
 defect_get_schema = description_schema(
     summary="List defect reports",
@@ -15,7 +19,7 @@ defect_get_schema = description_schema(
     responses={
         status.HTTP_200_OK: OpenApiResponse(
             response=DefectReportListSerializer(many=True),
-            description="Successfully retrieved the list of defect reports."
+            description="Successfully retrieved the list of defect reports.",
         ),
     },
     error_statuses=[status.HTTP_403_FORBIDDEN],
@@ -29,10 +33,10 @@ defect_get_schema = description_schema(
                 "severity": "MEDIUM",
                 "detected_at": "2026-05-19T16:05:00Z",
                 "reporter": 28,
-                "created_at": "2026-07-02T02:21:31.254932Z"
-            }
+                "created_at": "2026-07-02T02:21:31.254932Z",
+            },
         )
-    ]
+    ],
 )
 
 defect_post_schema = description_schema(
@@ -47,7 +51,7 @@ defect_post_schema = description_schema(
     responses={
         status.HTTP_201_CREATED: OpenApiResponse(
             response=DefectReportSerializer,
-            description="Defect report successfully created."
+            description="Defect report successfully created.",
         ),
     },
     error_statuses=[status.HTTP_400_BAD_REQUEST, status.HTTP_403_FORBIDDEN],
@@ -59,8 +63,10 @@ defect_post_schema = description_schema(
                 "drone": 21,
                 "defect_type": "CAMERA",
                 "severity": "MEDIUM",
-                "description": "Camera feed intermittently flickers during high-speed turns.",
-                "detected_at": "2026-07-02"
+                "description": (
+                    "Camera feed intermittently flickers during high-speed turns."
+                ),
+                "detected_at": "2026-07-02",
             },
         ),
         OpenApiExample(
@@ -71,14 +77,16 @@ defect_post_schema = description_schema(
                 "drone": 21,
                 "defect_type": "CAMERA",
                 "severity": "MEDIUM",
-                "description": "Camera feed intermittently flickers during high-speed turns.",
+                "description": (
+                    "Camera feed intermittently flickers during high-speed turns."
+                ),
                 "detected_at": "2026-07-02T00:00:00Z",
                 "reporter": 24,
                 "created_at": "2026-07-03T05:03:12.266745Z",
-                "updated_at": "2026-07-03T05:03:12.266754Z"
+                "updated_at": "2026-07-03T05:03:12.266754Z",
             },
-        )
-    ]
+        ),
+    ],
 )
 
 defect_detail_schema = description_schema(
@@ -99,7 +107,7 @@ defect_detail_schema = description_schema(
     responses={
         status.HTTP_200_OK: OpenApiResponse(
             response=DefectReportSerializer,
-            description="Detailed information about the drone defect report."
+            description="Detailed information about the drone defect report.",
         ),
     },
     error_statuses=[status.HTTP_403_FORBIDDEN, status.HTTP_404_NOT_FOUND],
@@ -111,27 +119,30 @@ defect_detail_schema = description_schema(
                 "drone": 21,
                 "defect_type": "CAMERA",
                 "severity": "MEDIUM",
-                "description": "Camera feed intermittently flickers during high-speed turns.",
+                "description": (
+                    "Camera feed intermittently flickers during high-speed turns."
+                ),
                 "detected_at": "2026-05-19T16:05:00Z",
                 "reporter": 28,
                 "created_at": "2026-07-02T02:21:31.254932Z",
-                "updated_at": "2026-07-03T01:17:37.754142Z"
+                "updated_at": "2026-07-03T01:17:37.754142Z",
             },
         )
-    ]
+    ],
 )
 
 component_replacement_get_schema = description_schema(
     summary="List component replacements",
     description=(
-        "Retrieves a paginated and filtered list of all recorded component replacements performed on drones.\n\n"
+        "Retrieves a paginated and filtered list of all"
+        " recorded component replacements performed on drones.\n\n"
     ),
     permission_code="PERMISSION_REPAIRS_VIEW",
     request=None,
     responses={
         status.HTTP_200_OK: OpenApiResponse(
             response=ComponentReplacementListSerializer(many=True),
-            description="Successfully retrieved the list of component replacements."
+            description="Successfully retrieved the list of component replacements.",
         ),
     },
     error_statuses=[status.HTTP_403_FORBIDDEN],
@@ -146,10 +157,10 @@ component_replacement_get_schema = description_schema(
                 "new_serial_number": "TM-F60PV-24004-B",
                 "replaced_at": "2026-05-09T09:30:00Z",
                 "replaced_by": 31,
-                "created_at": "2026-07-02T02:21:31.258041Z"
-            }
+                "created_at": "2026-07-02T02:21:31.258041Z",
+            },
         )
-    ]
+    ],
 )
 
 component_replacement_post_schema = description_schema(
@@ -164,16 +175,16 @@ component_replacement_post_schema = description_schema(
     responses={
         status.HTTP_201_CREATED: OpenApiResponse(
             response=ComponentReplacementSerializer,
-            description="Component replacement report successfully created."
+            description="Component replacement report successfully created.",
         ),
         status.HTTP_400_BAD_REQUEST: OpenApiResponse(
             description="Bad Request. Provided payload contains validation errors.",
             examples=[
                 OpenApiExample(
                     name="Name must be provided.",
-                    value={"component_name":"Component name is required for OTHER."}
+                    value={"component_name": "Component name is required for OTHER."},
                 )
-            ]
+            ],
         ),
     },
     error_statuses=[status.HTTP_403_FORBIDDEN],
@@ -187,8 +198,11 @@ component_replacement_post_schema = description_schema(
                 "component_name": None,
                 "old_serial_number": "FRAME-SPEAR1-OLD",
                 "new_serial_number": "FRAME-SPEAR1-NEW",
-                "reason": "Frame section replaced after structural damage from forced landing.",
-                "replaced_at": "2026-07-03"
+                "reason": (
+                    "Frame section replaced after "
+                    "structural damage from forced landing."
+                ),
+                "replaced_at": "2026-07-03",
             },
         ),
         OpenApiExample(
@@ -201,20 +215,24 @@ component_replacement_post_schema = description_schema(
                 "component_name": None,
                 "old_serial_number": "FRAME-SPEAR1-OLD",
                 "new_serial_number": "FRAME-SPEAR1-NEW",
-                "reason": "Frame section replaced after structural damage from forced landing.",
+                "reason": (
+                    "Frame section replaced after "
+                    "structural damage from forced landing."
+                ),
                 "replaced_at": "2026-07-03T00:00:00Z",
                 "replaced_by": 24,
                 "created_at": "2026-07-03T05:09:09.903830Z",
-                "updated_at": "2026-07-03T05:09:09.903879Z"
-            }
-        )
-    ]
+                "updated_at": "2026-07-03T05:09:09.903879Z",
+            },
+        ),
+    ],
 )
 
 component_replacement_detail_schema = description_schema(
     summary="Retrieve specific component replacement details",
     description=(
-        "Retrieves detailed information about specific component replacement report by its ID."
+        "Retrieves detailed information about "
+        "specific component replacement report by its ID."
     ),
     permission_code="PERMISSION_REPAIRS_VIEW",
     parameters=[
@@ -229,7 +247,7 @@ component_replacement_detail_schema = description_schema(
     responses={
         status.HTTP_200_OK: OpenApiResponse(
             response=ComponentReplacementSerializer,
-            description="Detailed information about the component replacement record."
+            description="Detailed information about the component replacement record.",
         ),
     },
     error_statuses=[status.HTTP_403_FORBIDDEN, status.HTTP_404_NOT_FOUND],
@@ -243,29 +261,31 @@ component_replacement_detail_schema = description_schema(
                 "component_name": None,
                 "old_serial_number": "TM-F60PV-24004-A",
                 "new_serial_number": "TM-F60PV-24004-B",
-                "reason": "Motor replaced after abnormal vibration was confirmed in inspection.",
+                "reason": (
+                    "Motor replaced after abnormal vibration "
+                    "was confirmed in inspection."
+                ),
                 "replaced_at": "2026-05-09T09:30:00Z",
                 "replaced_by": 31,
                 "created_at": "2026-07-02T02:21:31.258041Z",
-                "updated_at": "2026-07-03T01:17:37.756512Z"
-            }
+                "updated_at": "2026-07-03T01:17:37.756512Z",
+            },
         )
-    ]
+    ],
 )
 
 component_replacement_export_schema = description_schema(
     summary="Export component replacement data to CSV",
     description=(
-        "Generates and downloads a CSV file with the filtered component replacement history."
+        "Generates and downloads a CSV file with"
+        " the filtered component replacement history."
         "Supports full filtering identical to the standard list endpoint. \n\n"
         "The export is limited to a maximum of 10,000 records. "
     ),
     permission_code="PERMISSION_REPAIRS_VIEW",
     request=None,
     responses={
-        200: OpenApiResponse(
-            description="A CSV file containing component replacement history generated successfully."
-        ),
+        200: OpenApiResponse(description="A CSV file generated successfully."),
     },
     error_statuses=[status.HTTP_403_FORBIDDEN],
 )

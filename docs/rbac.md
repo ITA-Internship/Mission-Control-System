@@ -38,9 +38,13 @@ The system supports role-based access control with the following roles:
 |                | Authorize           |   Y   |     Y     |     N      |    N     |     N      |   N    |
 | Repairs        | View                |   Y   |     Y     |     Y      |    Y     |     Y      |   Y    |
 |                | Create              |   Y   |     N     |     N      |    Y     |     Y      |   N    |
+|                | Manage              |   Y   |     N     |     N      |    Y     |     Y      |   N    |
+|                | Export              |   Y   |     Y     |     N      |    N     |     Y      |   N    |
+|                | Verify              |   Y   |     Y     |     N      |    N     |     N      |   N    |
 | Media          | View                |   Y   |     Y     |     Y      |    Y     |     N      |   Y    |
 |                | Upload              |   Y   |     N     |     Y      |    Y     |     N      |   N    |
 |                | Delete              |   Y   |     Y     |     N      |    N     |     N      |   N    |
+|                | View Logs           |   Y   |     N     |     N      |    N     |     N      |   N    |
 | Audit Logs     | View                |   Y   |     Y     |     Y      |    Y     |     Y      |   Y    |
 | Profile        | View                |   Y   |     Y     |     Y      |    Y     |     Y      |   Y    |
 |                | Update              |   Y   |     Y     |     Y      |    Y     |     Y      |   Y    |
@@ -49,5 +53,4 @@ The system supports role-based access control with the following roles:
 
 Users can perform Profile operations (view, update, reset password) only on their own profiles.
 
-Only Admin users can view all audit logs. 
-Other users can only view audit logs where they are either the actor or the target user.
+Only Admin users can view all audit logs. Other users can only view audit logs where they are either the actor or the target user.

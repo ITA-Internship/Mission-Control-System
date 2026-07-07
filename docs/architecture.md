@@ -1,3 +1,40 @@
+## Overview
+
+The FPV Drone Fleet Management System provides centralized control over drone inventory, technical specifications, mission usage, maintenance processes, and write-off procedures. The platform supports secure storage and management of mission-related video data using external storage solutions.
+
+### Key Objectives:
+- Centralized drone inventory management
+- Technical specifications and configurations tracking
+- Combat mission recording and monitoring
+- Maintenance and repair lifecycle management
+- Controlled drone decommissioning (write-off process)
+- Secure mission video data storage and retrieval
+- Role-based access control (RBAC)
+- Scalable, API-first architecture
+
+## Technology Stack
+
+### Backend
+- **Python** - Core programming language
+- **Django** - Web framework
+- **Django REST Framework** - RESTful API development
+- **PostgreSQL** - Primary database
+
+### Frontend
+- **Django Templates** - Responsive UI
+
+### Storage
+- **PostgreSQL** - Structured data storage
+- **External Storage** for video files:
+  - AWS S3 / Azure Blob / Google Cloud Storage
+  - MinIO (S3-compatible)
+  - Remote file server
+
+### Infrastructure
+- **Docker** - Containerized deployment
+- **Gunicorn** - Python WSGI HTTP server
+- **Redis + Celery** - Background task processing
+
 ## System Architecture
 
 The system follows a modular monolithic architecture with clear separation of concerns:

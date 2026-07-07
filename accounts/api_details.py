@@ -1,16 +1,19 @@
-from drf_spectacular.utils import OpenApiParameter, OpenApiResponse, OpenApiExample
+from drf_spectacular.utils import OpenApiExample, OpenApiParameter, OpenApiResponse
 from rest_framework import status
-from .serializers import (
-    UserRoleUpdateSerializer,
-    UserRoleUpdateResponseSerializer,
-    UserRegistrationSerializer,
-    UserMeSerializer,
-    ChangePasswordSerializer,
-    PasswordResetRequestSerializer,
-    PasswordResetConfirmSerializer,
-    UserStatusUpdateSerializer, AuditLogSerializer
-)
+
 from common.api_description_schema import description_schema
+
+from .serializers import (
+    AuditLogSerializer,
+    ChangePasswordSerializer,
+    PasswordResetConfirmSerializer,
+    PasswordResetRequestSerializer,
+    UserMeSerializer,
+    UserRegistrationSerializer,
+    UserRoleUpdateResponseSerializer,
+    UserRoleUpdateSerializer,
+    UserStatusUpdateSerializer,
+)
 
 user_registration_schema = description_schema(
     summary="Register a new user",
@@ -26,7 +29,7 @@ user_registration_schema = description_schema(
     responses={
         status.HTTP_201_CREATED: OpenApiResponse(
             response=UserRegistrationSerializer,
-            description="User account successfully created."
+            description="User account successfully created.",
         ),
         status.HTTP_400_BAD_REQUEST: OpenApiResponse(
             response=UserRegistrationSerializer,
@@ -35,17 +38,18 @@ user_registration_schema = description_schema(
                 OpenApiExample(
                     name="Invalid profile picture file extension",
                     value={
-                        "profile_picture": "Unsupported file format. Allowed are: .jpg, .jpeg, .png, .webp."
-                    }
+                        "profile_picture": (
+                            "Unsupported file format. "
+                            "Allowed are: .jpg, .jpeg, .png, .webp."
+                        )
+                    },
                 ),
                 OpenApiExample(
                     name="Invalid profile picture file size",
-                    value={
-                        "profile_picture": "Image size cannot exceed 5MB."
-                    }
-                )
-            ]
-        )
+                    value={"profile_picture": "Image size cannot exceed 5MB."},
+                ),
+            ],
+        ),
     },
     error_statuses=[status.HTTP_403_FORBIDDEN],
     examples=[
@@ -62,7 +66,7 @@ user_registration_schema = description_schema(
                 "unit": 7,
             },
         ),
-    ]
+    ],
 )
 
 user_role_update_schema = description_schema(
@@ -89,7 +93,7 @@ user_role_update_schema = description_schema(
     responses={
         status.HTTP_200_OK: OpenApiResponse(
             response=UserRoleUpdateResponseSerializer,
-            description="User role successfully updated."
+            description="User role successfully updated.",
         ),
         status.HTTP_400_BAD_REQUEST: OpenApiResponse(
             response=UserRoleUpdateResponseSerializer,
@@ -97,18 +101,17 @@ user_role_update_schema = description_schema(
             examples=[
                 OpenApiExample(
                     name="Missing required field",
-                    value={"role_id": "This field is required."}
+                    value={"role_id": "This field is required."},
                 ),
                 OpenApiExample(
-                    name="Invalid field value",
-                    value={"role_id": "Invalid role_id"}
+                    name="Invalid field value", value={"role_id": "Invalid role_id"}
                 ),
                 OpenApiExample(
                     name="Changing role of an inactive user",
-                    value={"role_id": "Cannot change the role of an inactive user."}
-                )
-            ]
-        )
+                    value={"role_id": "Cannot change the role of an inactive user."},
+                ),
+            ],
+        ),
     },
     error_statuses=[status.HTTP_403_FORBIDDEN, status.HTTP_404_NOT_FOUND],
     examples=[
@@ -118,7 +121,7 @@ user_role_update_schema = description_schema(
                 "role_id": 3,
             },
         )
-    ]
+    ],
 )
 
 activate_account_schema = description_schema(
@@ -156,14 +159,14 @@ activate_account_schema = description_schema(
             examples=[
                 OpenApiExample(
                     name="Activation link error",
-                    value={"detail": "Invalid or expired activation link."}
+                    value={"detail": "Invalid or expired activation link."},
                 ),
                 OpenApiExample(
                     name="Missing required field",
-                    value={"password": "This field is required."}
-                )
-            ]
-        )
+                    value={"password": "This field is required."},
+                ),
+            ],
+        ),
     },
     error_statuses=[status.HTTP_404_NOT_FOUND],
 )
@@ -176,12 +179,12 @@ audit_log_view_schema = description_schema(
         "Other authenticated users can only view logs where "
         "they are either the actor or the target user."
     ),
-    permission_code="IsAuthenticated",
+    permission_code="PERMISSION_AUDIT_LOGS_VIEW_OWN, PERMISSION_AUDIT_LOGS_VIEW_ALL",
     request=None,
     responses={
         status.HTTP_200_OK: OpenApiResponse(
             response=AuditLogSerializer(many=True),
-            description="Successfully retrieved the list of audit logs."
+            description="Successfully retrieved the list of audit logs.",
         ),
     },
     error_statuses=[status.HTTP_403_FORBIDDEN],
@@ -200,11 +203,11 @@ audit_log_view_schema = description_schema(
                 "result": "SUCCESS",
                 "description": "User logged out successfully",
                 "ip_address": "127.0.0.1",
-                "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-                "created_at": "2026-06-25T14:44:49.068836Z"
+                "user_agent": "Test Agent Value",
+                "created_at": "2026-06-25T14:44:49.068836Z",
             },
         )
-    ]
+    ],
 )
 
 audit_log_retrieve_schema = description_schema(
@@ -224,12 +227,11 @@ audit_log_retrieve_schema = description_schema(
             description="ID of specific audit log.",
         )
     ],
-
     request=None,
     responses={
         status.HTTP_200_OK: OpenApiResponse(
             response=AuditLogSerializer,
-            description="Audit log details successfully retrieved."
+            description="Audit log details successfully retrieved.",
         ),
     },
     error_statuses=[status.HTTP_403_FORBIDDEN, status.HTTP_404_NOT_FOUND],
@@ -247,18 +249,20 @@ audit_log_retrieve_schema = description_schema(
                 "result": "SUCCESS",
                 "description": "User logged out successfully",
                 "ip_address": "127.0.0.1",
-                "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-                "created_at": "2026-06-25T14:44:49.068836Z"
+                "user_agent": "Test Agent Value",
+                "created_at": "2026-06-25T14:44:49.068836Z",
             },
         ),
-    ]
+    ],
 )
 
 audit_log_export_schema = description_schema(
     summary="Export audit logs to CSV",
     description=(
-        "Generates and downloads a CSV file with the filtered audit logs. "
-        "Supports full filtering and sorting identical to the standard list endpoint. \n\n"
+        "Generates and downloads a CSV file "
+        "with the filtered audit logs. "
+        "Supports full filtering and sorting identical "
+        "to the standard list endpoint. \n\n"
         "The export is limited to a maximum of 10,000 records. "
     ),
     permission_code="IsAuthenticated",
@@ -296,19 +300,19 @@ user_status_update_schema = description_schema(
             examples=[
                 OpenApiExample(
                     name="User already has required status.",
-                    value={"detail": "User is already Active."}
+                    value={"detail": "User is already Active."},
                 )
-            ]
+            ],
         ),
         status.HTTP_400_BAD_REQUEST: OpenApiResponse(
             description="Bad Request",
             examples=[
                 OpenApiExample(
                     name="Deactivating invalid account",
-                    value={"detail": "You cannot deactivate your own account."}
+                    value={"detail": "You cannot deactivate your own account."},
                 )
-            ]
-        )
+            ],
+        ),
     },
     error_statuses=[status.HTTP_403_FORBIDDEN, status.HTTP_404_NOT_FOUND],
     examples=[
@@ -318,7 +322,7 @@ user_status_update_schema = description_schema(
                 "is_active": True,
             },
         )
-    ]
+    ],
 )
 
 user_me_get_schema = description_schema(
@@ -332,7 +336,7 @@ user_me_get_schema = description_schema(
     responses={
         status.HTTP_200_OK: OpenApiResponse(
             response=UserMeSerializer,
-            description="Profile details successfully retrieved."
+            description="Profile details successfully retrieved.",
         ),
     },
     error_statuses=[status.HTTP_403_FORBIDDEN],
@@ -350,10 +354,10 @@ user_me_get_schema = description_schema(
                 "profile_picture": None,
                 "role": 1,
                 "unit": 7,
-                "is_active": True
+                "is_active": True,
             },
         )
-    ]
+    ],
 )
 
 user_me_update_schema = description_schema(
@@ -370,7 +374,7 @@ user_me_update_schema = description_schema(
     responses={
         status.HTTP_200_OK: OpenApiResponse(
             response=UserMeSerializer,
-            description="Profile information successfully updated."
+            description="Profile information successfully updated.",
         ),
     },
     error_statuses=[status.HTTP_400_BAD_REQUEST, status.HTTP_403_FORBIDDEN],
@@ -382,7 +386,7 @@ user_me_update_schema = description_schema(
                 "first_name": "Oleksandr",
                 "last_name": "Koval",
                 "rank": "Colonel",
-                "contact": "+380000000000"
+                "contact": "+380000000000",
             },
         ),
         OpenApiExample(
@@ -399,23 +403,27 @@ user_me_update_schema = description_schema(
                 "profile_picture": None,
                 "role": 1,
                 "unit": 7,
-                "is_active": True
-            }
-        )
-    ]
+                "is_active": True,
+            },
+        ),
+    ],
 )
 
 change_password_schema = description_schema(
     summary="Change user password",
     description=(
-        "Changes the password for the currently authenticated user and creates an audit log entry. "
-        "Upon a successful password change, all active sessions for this user are invalidated. "
+        "Changes the password for the currently authenticated user "
+        "and creates an audit log entry. "
+        "Upon a successful password change, "
+        "all active sessions for this user are invalidated. "
     ),
     permission_code="IsAuthenticated",
     request=ChangePasswordSerializer,
     responses={
         status.HTTP_200_OK: OpenApiResponse(
-            description="Password changed successfully. Active sessions have been invalidated.",
+            description=(
+                "Password changed successfully. Active sessions have been invalidated."
+            ),
         ),
     },
     error_statuses=[status.HTTP_400_BAD_REQUEST, status.HTTP_403_FORBIDDEN],
@@ -424,20 +432,22 @@ change_password_schema = description_schema(
             name="Valid Request",
             value={
                 "old_password": "my_old_password_123",
-                "new_password": "my_new_password_123"
+                "new_password": "my_new_password_123",
             },
         )
-    ]
+    ],
 )
 
 password_reset_schema = description_schema(
     summary="Initiate password reset",
     description=(
-        "Accepts a user's email address and sends a password reset link "
+        "Accepts a user's email address "
+        "and sends a password reset link "
         "containing a secure, one-time token to that email. "
         "Always returns a 200 OK response with a generic message, "
         "regardless of whether the email address exists in the system. "
-        "An audit log entry and an email are only generated if a matching user is found."
+        "An audit log entry and an email are "
+        "only generated if a matching user is found."
     ),
     permission_code="AllowAny",
     request=PasswordResetRequestSerializer,
@@ -481,7 +491,9 @@ password_reset_confirm_schema = description_schema(
     ],
     responses={
         status.HTTP_200_OK: OpenApiResponse(
-            description="Password has been successfully reset. User sessions invalidated.",
+            description=(
+                "Password has been successfully reset. User sessions invalidated."
+            ),
         ),
     },
     error_statuses=[status.HTTP_400_BAD_REQUEST],

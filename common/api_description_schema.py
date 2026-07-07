@@ -1,9 +1,12 @@
-from drf_spectacular.utils import extend_schema, OpenApiResponse
+from drf_spectacular.utils import OpenApiResponse, extend_schema
 from rest_framework import status
 
-
-STATUS_403_FORBIDDEN = OpenApiResponse(description="Forbidden. User does not have permission to perform this action.")
-STATUS_400_BAD_REQUEST = OpenApiResponse(description="Bad Request. Provided payload contains validation errors.")
+STATUS_403_FORBIDDEN = OpenApiResponse(
+    description="Forbidden. User does not have permission to perform this action."
+)
+STATUS_400_BAD_REQUEST = OpenApiResponse(
+    description="Bad Request. Provided payload contains validation errors."
+)
 STATUS_404_NOT_FOUND = OpenApiResponse(description="Not Found")
 STATUS_429_TOO_MANY_REQUESTS = OpenApiResponse(description="Export rate limit exceeded")
 
@@ -16,21 +19,23 @@ DEFAULT_ERRORS = {
 
 
 def description_schema(
-        summary: str,
-        description: str,
-        request=None,
-        responses=None,
-        examples=None,
-        permission_code: str = None,
-        error_statuses: list = None,
-        **kwargs
+    summary: str,
+    description: str,
+    request=None,
+    responses=None,
+    examples=None,
+    permission_code: str = None,
+    error_statuses: list = None,
+    **kwargs,
 ):
     final_responses = responses.copy() if responses else {}
 
     if error_statuses:
         for code in error_statuses:
             if code not in final_responses:
-                final_responses[code] = DEFAULT_ERRORS.get(code, OpenApiResponse(description="Error"))
+                final_responses[code] = DEFAULT_ERRORS.get(
+                    code, OpenApiResponse(description="Error")
+                )
 
     final_description = description
     if permission_code:
@@ -43,5 +48,5 @@ def description_schema(
         request=request,
         responses=final_responses,
         examples=examples,
-        **kwargs
+        **kwargs,
     )

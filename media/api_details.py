@@ -1,5 +1,4 @@
-
-from drf_spectacular.utils import OpenApiParameter, OpenApiResponse, OpenApiExample
+from drf_spectacular.utils import OpenApiExample, OpenApiParameter, OpenApiResponse
 from rest_framework import status
 
 from common.api_description_schema import description_schema
@@ -10,18 +9,18 @@ artifact_example_value = {
     "mission": 11,
     "uploaded_by": {
         "id": 24,
-        "username": "root.admin",
-        "email": "root.admin@example.com"
+        "username": "oleksandr.koval",
+        "email": "oleksandr.koval@example.com",
     },
     "title": "Example Title",
     "description": None,
-    "file": "http://localhost:8000/media/artifacts/mission_11/d4ab2e0e326a4b4fab53bdcd7acf51d9.png",
+    "file": "http://localhost:8000/media/artifacts/mission_11/d4ab2e.png",
     "file_type": "image",
     "original_filename": "test_drone_photo.png",
     "file_size": 982936,
     "storage_backend": "local",
     "captured_at": "2026-06-02T02:28:43.353809Z",
-    "uploaded_at": "2026-07-02T02:28:43.353809Z"
+    "uploaded_at": "2026-07-02T02:28:43.353809Z",
 }
 
 artifact_get_schema = description_schema(
@@ -36,23 +35,18 @@ artifact_get_schema = description_schema(
             name="mission_pk",
             type=int,
             location=OpenApiParameter.PATH,
-            description="ID of the mission."
+            description="ID of the mission.",
         )
     ],
     request=None,
     responses={
         status.HTTP_200_OK: OpenApiResponse(
             response=MissionArtifactSerializer(many=True),
-            description="Successfully retrieved the list of mission artifacts."
+            description="Successfully retrieved the list of mission artifacts.",
         ),
     },
     error_statuses=[status.HTTP_403_FORBIDDEN, status.HTTP_404_NOT_FOUND],
-    examples=[
-        OpenApiExample(
-            name="Valid Request",
-            value=artifact_example_value
-        )
-    ]
+    examples=[OpenApiExample(name="Valid Request", value=artifact_example_value)],
 )
 
 artifact_post_schema = description_schema(
@@ -64,13 +58,13 @@ artifact_post_schema = description_schema(
         "- File must have format .avi, .csv, .jpeg, .jpg, .json, .mov, .mp4 or .png. \n"
         "- File size cannot be empty or exceed 50MB."
     ),
-    permission_code='PERMISSION_MEDIA_UPLOAD',
+    permission_code="PERMISSION_MEDIA_UPLOAD",
     parameters=[
         OpenApiParameter(
             name="mission_pk",
             type=int,
             location=OpenApiParameter.PATH,
-            description="ID of the mission."
+            description="ID of the mission.",
         )
     ],
     request=MissionArtifactUploadSerializer,
@@ -83,26 +77,27 @@ artifact_post_schema = description_schema(
                     name="Valid Request.",
                     value=artifact_example_value,
                 )
-            ]
+            ],
         ),
         status.HTTP_400_BAD_REQUEST: OpenApiResponse(
             description="Bad Request",
             response=dict,
             examples=[
                 OpenApiExample(
-                    name="Missing required fild",
-                    value={"title": "Title is required."}
+                    name="Missing required fild", value={"title": "Title is required."}
                 ),
                 OpenApiExample(
                     name="Invalid uploaded file",
-                    value={"file": "File is empty or its size cannot be determined."}
+                    value={"file": "File is empty or its size cannot be determined."},
                 ),
                 OpenApiExample(
                     name="Unsupported file format",
-                    value={"file": "Unsupported file type '.md'. "
-                                   "Allowed: .avi, .csv, .jpeg, .jpg, .json, .mov, .mp4, .png."}
-                )
-            ]
+                    value={
+                        "file": "Unsupported file type '.md'. "
+                        "Allowed: .avi, .csv, .jpeg, .jpg, .json, .mov, .mp4, .png."
+                    },
+                ),
+            ],
         ),
     },
     error_statuses=[status.HTTP_403_FORBIDDEN, status.HTTP_404_NOT_FOUND],
@@ -111,36 +106,36 @@ artifact_post_schema = description_schema(
             request_only=True,
             response_only=False,
             name="Valid Artifact Upload Example",
-            value={"file": "test_drone_photo.png",
-                   "title": "Test Drone Photo"},
+            value={"file": "test_drone_photo.png", "title": "Test Drone Photo"},
         )
-    ]
+    ],
 )
 
 artifact_detail_get_schema = description_schema(
     tags=["media"],
     summary="Retrieve specific artifact details",
-    description="Retrieves detailed information for a single mission artifact by its ID.",
-    permission_code='PERMISSION_MEDIA_VIEW',
+    description=(
+        "Retrieves detailed information for a single mission artifact by its ID."
+    ),
+    permission_code="PERMISSION_MEDIA_VIEW",
     parameters=[
         OpenApiParameter(
             name="mission_pk",
             type=int,
             location=OpenApiParameter.PATH,
-            description="ID of the mission."
+            description="ID of the mission.",
         ),
         OpenApiParameter(
             name="artifact_pk",
             type=int,
             location=OpenApiParameter.PATH,
-            description="ID of the artifact."
-        )
+            description="ID of the artifact.",
+        ),
     ],
     request=None,
     responses={
         status.HTTP_200_OK: OpenApiResponse(
-            response=MissionArtifactSerializer,
-            description="Artifact detailed profile."
+            response=MissionArtifactSerializer, description="Artifact detailed profile."
         ),
     },
     error_statuses=[status.HTTP_403_FORBIDDEN, status.HTTP_404_NOT_FOUND],
@@ -149,14 +144,15 @@ artifact_detail_get_schema = description_schema(
             name="Valid Request",
             value=artifact_example_value,
         )
-    ]
+    ],
 )
 
 artifact_detail_delete_schema = description_schema(
     tags=["media"],
     summary="Delete a mission artifact",
     description=(
-        "Deletes the specified artifact from the mission and creates an audit log entry."
+        "Deletes the specified artifact from the mission "
+        "and creates an audit log entry."
     ),
     permission_code="PERMISSION_MEDIA_DELETE",
     parameters=[
@@ -164,14 +160,14 @@ artifact_detail_delete_schema = description_schema(
             name="mission_pk",
             type=int,
             location=OpenApiParameter.PATH,
-            description="ID of the mission."
+            description="ID of the mission.",
         ),
         OpenApiParameter(
             name="artifact_pk",
             type=int,
             location=OpenApiParameter.PATH,
-            description="ID of the artifact."
-        )
+            description="ID of the artifact.",
+        ),
     ],
     request=None,
     responses={
@@ -179,5 +175,5 @@ artifact_detail_delete_schema = description_schema(
             description="Artifact successfully deleted. No content returned."
         ),
     },
-    error_statuses=[status.HTTP_403_FORBIDDEN, status.HTTP_404_NOT_FOUND]
+    error_statuses=[status.HTTP_403_FORBIDDEN, status.HTTP_404_NOT_FOUND],
 )
