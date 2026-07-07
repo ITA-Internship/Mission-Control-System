@@ -15,6 +15,7 @@ from django.views.generic import ListView, TemplateView
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import filters, generics, status
 from rest_framework.response import Response
+from rest_framework.throttling import ScopedRateThrottle
 
 from accounts.permissions import HasRBACPermission
 from accounts.rbac import PERMISSION_SPECIFICATIONS_COMPARE
@@ -219,7 +220,11 @@ class DroneDetailView(generics.RetrieveUpdateAPIView):
     permission_classes = [DronePermission]
     http_method_names = ["get", "patch", "head", "options"]
 
-    queryset = Drone.objects.select_related("military_unit", "spec", "drone_model")
+    queryset = (
+        Drone.objects.select_related("military_unit", "drone_model", "spec")
+        .prefetch_related("status_history")
+        .all()
+    )
 
     def get_serializer_class(self):
         if self.request.method == "PATCH":
@@ -268,6 +273,7 @@ class DroneModelListCreateView(generics.ListCreateAPIView):
     serializer_class = DroneModelSerializer
     permission_classes = [DronePermission]
     queryset = DroneModel.objects.all()
+    pagination_class = StandardResultsSetPagination
 
     @method_decorator(cache_page(60 * 5))  # 5 min cache for rarely-changing data
     def list(self, request, *args, **kwargs):
@@ -360,6 +366,9 @@ class WriteOffHistoryReportView(ListView):
 
 class DroneDataExportView(generics.ListAPIView):
     permission_classes = [DronePermission]
+
+    throttle_classes = [ScopedRateThrottle]
+    throttle_scope = "drone_export"
 
     filter_backends = (
         DjangoFilterBackend,

@@ -97,6 +97,14 @@ class Drone(models.Model):
         STATUS_WRITTEN_OFF,
     )
 
+    ACTIVE_STATUSES = (
+        STATUS_ACTIVE,
+        STATUS_IN_MISSION,
+        STATUS_DAMAGED,
+        STATUS_LOST,
+        STATUS_MAINTENANCE,
+    )
+
     STATUS_UI = {
         STATUS_ACTIVE: {
             "label": "Active",
@@ -166,7 +174,9 @@ class Drone(models.Model):
         help_text="Drone Model",
     )
     classification = models.CharField(max_length=20, choices=CLASSIFICATION_CHOICES)
-    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="ACTIVE")
+    status = models.CharField(
+        max_length=20, choices=STATUS_CHOICES, default="ACTIVE", db_index=True
+    )
     military_unit = models.ForeignKey(
         "accounts.MilitaryUnit",
         on_delete=models.PROTECT,
@@ -191,6 +201,8 @@ class Drone(models.Model):
     @property
     def status_category(self):
         return self.STATUS_UI.get(self.status, {}).get("category", "unknown")
+
+
 
     def clean(self):
         super().clean()

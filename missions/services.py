@@ -85,19 +85,20 @@ def assign_drone_to_mission(
                 },
             )
 
-        locked_drone = Drone.objects.select_for_update().get(id=drone.id)
-        if locked_drone.status != Drone.STATUS_ACTIVE:
+        current_drone = (
+            Drone.objects.select_for_update().only("id", "status").get(id=drone.id)
+        )
+        if current_drone.status != Drone.STATUS_ACTIVE:
             raise serializers.ValidationError(
                 {"drone": "Drone is no longer active."},
             )
 
-        locked_operator = User.objects.select_for_update().get(
-            id=operator.id,
+        current_operator = (
+            User.objects.select_for_update().only("id").get(id=operator.id)
         )
-
         if _check_overlap(
             mission=locked_mission,
-            operator=locked_operator,
+            operator=current_operator,
         ):
             raise serializers.ValidationError(
                 {
@@ -107,15 +108,15 @@ def assign_drone_to_mission(
                 },
             )
 
-        if _check_overlap(mission=locked_mission, drone=locked_drone):
+        if _check_overlap(mission=locked_mission, drone=current_drone):
             raise serializers.ValidationError(
                 {"drone": "Drone was just assigned to an overlapping mission."},
             )
 
         create_kwargs = {
             "mission": locked_mission,
-            "drone": locked_drone,
-            "operator": locked_operator,
+            "drone": current_drone,
+            "operator": current_operator,
         }
         if extra_fields:
             create_kwargs.update(extra_fields)

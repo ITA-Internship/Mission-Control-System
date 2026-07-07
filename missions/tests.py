@@ -1,8 +1,13 @@
+import threading
 from datetime import timedelta
 
+from django.db import connection
+from django.test import TransactionTestCase
+from django.test.utils import CaptureQueriesContext
 from django.urls import reverse
 from django.utils import timezone
 from rest_framework import status
+from rest_framework.exceptions import ValidationError
 from rest_framework.test import APITestCase
 
 from accounts.models import User
@@ -20,6 +25,7 @@ from .factories import (
     ViewerUserFactory,
 )
 from .models import Mission, MissionAuditLog, MissionDrone
+from .services import assign_drone_to_mission
 
 
 class MissionOutcomeTests(APITestCase):
@@ -801,7 +807,8 @@ class MissionAssignmentAccessTests(APITestCase):
         response = self.client.get(self.url)
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(len(response.data), 1)
+        self.assertEqual(response.data["count"], 1)
+        self.assertEqual(len(response.data["results"]), 1)
 
     def test_viewer_cannot_list_assignments(self):
         self.client.force_authenticate(self.viewer)
@@ -943,6 +950,48 @@ class MissionListTests(APITestCase):
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(len(response.data["results"]), 3)
+
+    def test_filter_assigned_to_me(self):
+        operator = OperatorUserFactory()
+
+        mission_assigned = MissionFactory()
+        MissionDroneFactory(mission=mission_assigned, operator=operator)
+        MissionDroneFactory(mission=mission_assigned, operator=operator)
+
+        mission_not_assigned = MissionFactory()
+        MissionDroneFactory(mission=mission_not_assigned)
+
+        self.client.force_authenticate(operator)
+
+        response = self.client.get(self.url, {"assigned_to": "me"})
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["count"], 1)
+        self.assertEqual(response.data["results"][0]["id"], mission_assigned.id)
+
+    def test_invalid_assigned_to_filter_rejected(self):
+        self.client.force_authenticate(self.dispatcher)
+
+        response = self.client.get(self.url, {"assigned_to": "other_user"})
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("assigned_to", response.data)
+
+    def test_mission_list_avoids_n_plus_one_queries(self):
+        self.client.force_authenticate(self.dispatcher)
+
+        for _ in range(5):
+            mission = MissionFactory()
+            MissionDroneFactory.create_batch(3, mission=mission)
+
+        with CaptureQueriesContext(connection) as queries:
+            response = self.client.get(self.url)
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        self.assertLess(
+            len(queries), 8, "Виявлено проблему N+1 запитів у MissionListCreateView!"
+        )
 
     def test_technician_without_missions_view_cannot_list(self):
         MissionFactory()
@@ -1100,3 +1149,60 @@ class MissionAssignmentListCreatePermissionTests(APITestCase):
         response = self.client.get(self.url)
 
         self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+
+
+class MissionAssignmentConcurrencyTests(TransactionTestCase):
+    def setUp(self):
+        self.operator = OperatorUserFactory()
+        self.drone = DroneFactory(status=Drone.STATUS_ACTIVE)
+
+        now = timezone.now()
+
+        self.mission_1 = MissionFactory(
+            status="planned", started_at=now, ended_at=now + timedelta(hours=2)
+        )
+        self.mission_2 = MissionFactory(
+            status="planned",
+            started_at=now + timedelta(hours=1),
+            ended_at=now + timedelta(hours=3),
+        )
+
+    def test_concurrent_assignment_race_condition(self):
+
+        exceptions = []
+        results = []
+
+        def worker_assign(mission, drone, operator):
+            connection.close()
+            try:
+                result = assign_drone_to_mission(
+                    mission=mission,
+                    drone=drone,
+                    operator=operator,
+                )
+                results.append(result)
+            except Exception as e:
+                exceptions.append(e)
+            finally:
+                connection.close()
+
+        thread1 = threading.Thread(
+            target=worker_assign, args=(self.mission_1, self.drone, self.operator)
+        )
+        thread2 = threading.Thread(
+            target=worker_assign, args=(self.mission_2, self.drone, self.operator)
+        )
+
+        thread1.start()
+        thread2.start()
+
+        thread1.join()
+        thread2.join()
+
+        self.assertEqual(
+            len(results),
+            1,
+            "Race Condition! The drone is assigned to both missions at the same time!",
+        )
+        self.assertEqual(len(exceptions), 1)
+        self.assertIsInstance(exceptions[0], ValidationError)

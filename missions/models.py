@@ -104,11 +104,11 @@ class Mission(models.Model):
     class Meta:
         db_table = "missions"
         ordering = ["-created_at"]
+
         indexes = [
-            models.Index(fields=["status"]),
             models.Index(fields=["started_at"]),
             models.Index(
-                fields=["started_at", "ended_at"],
+                fields=["status", "started_at", "ended_at"],
                 name="mission_time_range_idx",
             ),
         ]
