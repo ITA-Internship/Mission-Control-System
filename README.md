@@ -186,16 +186,16 @@ RUN_MIGRATIONS=True
 # Database settings
 DB_NAME=drone_fleet_db
 DB_USER=drone_fleet_user
-DB_PASSWORD=change-me
+DB_PASSWORD=replace-with-a-strong-database-password
 DB_HOST=localhost
 DB_PORT=5433
 
 # Redis
-REDIS_URL=redis://redis:6379/0
+REDIS_PASSWORD=replace-with-a-strong-redis-password
 
 # pgAdmin
 PGADMIN_DEFAULT_EMAIL=admin@example.com
-PGADMIN_DEFAULT_PASSWORD=change-me
+PGADMIN_DEFAULT_PASSWORD=replace-with-a-strong-pgadmin-password
 ```
 
 Alternative Docker `web` container database settings:
@@ -206,6 +206,8 @@ DB_PORT=5432
 ```
 
 For Docker-based development, the `web` container uses `DB_HOST=db` and `DB_PORT=5432`, because `db` is the PostgreSQL service name inside Docker Compose.
+
+When Redis is enabled in Docker Compose, the `web` container builds its internal `REDIS_URL` from `REDIS_PASSWORD`, so set a strong local password in `.env`.
 
 For local development without Docker, `DB_HOST` should usually be set to `localhost`.
 
@@ -253,6 +255,8 @@ The application should be available at:
 http://localhost:8000/
 ```
 
+Docker Compose exposes `Nginx` on port `8000`. `Gunicorn` stays inside the Docker network and is no longer reachable directly from the host.
+
 The Django admin panel should be available at:
 
 ```text
@@ -264,6 +268,20 @@ If pgAdmin is enabled in Docker Compose, it should be available at:
 ```text
 http://localhost:5050/
 ```
+
+For safer local development, the Docker Compose ports for PostgreSQL, Redis, pgAdmin, and Nginx are bound to `127.0.0.1`, so they are reachable from the host machine only and are not exposed on the wider network by default.
+
+Redis is also configured with `requirepass`, so local tools that connect to it must use the password from `REDIS_PASSWORD`.
+
+Nginx sits in front of Gunicorn and applies basic request buffering and timeout limits to reduce exposure to slow-header, slow-body, and connection-exhaustion style attacks during local Docker-based runs.
+
+The bundled Nginx config also adds:
+- basic per-IP connection limits
+- stricter rate limiting for account activation and password reset routes
+- proxy buffering for upstream requests
+- common security headers such as `X-Frame-Options` and `X-Content-Type-Options`
+
+TLS is still a deployment concern. For a real production setup, terminate HTTPS in front of this stack with valid certificates and enable HSTS only after HTTPS is working end-to-end.
 
 ## 💻 Running Locally
 
@@ -406,55 +424,49 @@ docker compose exec web python manage.py createsuperuser
 
 The project includes a Django management command for loading representative demo data for the existing user, drone, and mission models.
 
+Security note: `seed_db` is intended for isolated local development only. Do not run it in shared, staging, or production-like environments.
+
+When the app starts with `DEBUG=False`, the container entrypoint also runs `python manage.py disable_seeded_users` to deactivate any previously created seeded demo accounts.
+
 Run the full seed:
 
 ```bash
-python manage.py seed_db
+python manage.py seed_db --password "LocalSeedPassword123!"
 ```
 
 Clear only the managed seed records and recreate them:
 
 ```bash
-python manage.py seed_db --clear
+python manage.py seed_db --clear --password "LocalSeedPassword123!"
 ```
 
 Seed a single module:
 
 ```bash
-python manage.py seed_db --module users
+python manage.py seed_db --module users --password "LocalSeedPassword123!"
 python manage.py seed_db --module missions
 python manage.py seed_db --module drones
 python manage.py seed_db --module repairs
 ```
 
+Use a specific temporary password for seeded users:
+
+```bash
+python manage.py seed_db --module users --password "LocalSeedPassword123!"
+```
+
+Or set `SEED_DEFAULT_PASSWORD` in your local `.env` before running the command. If users are seeded and no password is provided, `seed_db` stops with an error instead of generating or printing credentials.
+
 Docker usage:
 
 ```bash
-docker compose exec web python manage.py seed_db
-docker compose exec web python manage.py seed_db --clear
+docker compose exec web python manage.py seed_db --password "LocalSeedPassword123!"
+docker compose exec web python manage.py seed_db --clear --password "LocalSeedPassword123!"
 ```
 
-Default seeded password for all demo accounts:
+The seeded dataset includes demo accounts across the main system roles so that local RBAC flows can be tested quickly. Treat all seeded credentials as local-only development data and replace or disable them outside your own machine.
 
-```text
-Test@1234
-```
-
-Seeded demo accounts:
-
-| Role | Username |
-|------|----------|
-| Admin | `root.admin` |
-| Admin | `admin.ops` |
-| Commander | `commander.north` |
-| Commander | `commander.south` |
-| Operator | `operator.alpha` |
-| Operator | `operator.bravo` |
-| Operator | `operator.charlie` |
-| Technician | `tech.airframe` |
-| Technician | `tech.electro` |
-| Viewer | `viewer.ops` |
-| Viewer | `viewer.audit` |
+Seeded users are marked with `must_change_password=True`. That flag is cleared after the user sets a new password through activation, password reset, or the change-password endpoint.
 
 Notes about the seeded dataset:
 
@@ -723,7 +735,7 @@ To import drones, upload a `.csv` file with the following required columns (exac
 
 ## 🔒 Security Features
 
-- ✅ JWT or session-based authentication
+- ✅ Basic or session-based authentication
 - ✅ Role-based access control (RBAC)
 - ✅ Secure file upload with validation
 - ✅ Comprehensive audit logging

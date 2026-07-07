@@ -17,6 +17,11 @@ Including another URLconf
 
 from django.contrib import admin
 from django.urls import include, path
+from drf_spectacular.views import (
+    SpectacularAPIView,
+    SpectacularRedocView,
+    SpectacularSwaggerView,
+)
 
 from media.urls import audit_urlpatterns as media_audit_urlpatterns
 
@@ -28,5 +33,13 @@ urlpatterns = [
     path("api/missions/", include("missions.urls")),
     path("api/repairs/", include("repairs.urls")),
     path("api/media/", include("media.urls_video")),
+    path("api/missions/<int:mission_pk>/artifacts/", include("media.urls")),
     path("api/media/", include(media_audit_urlpatterns)),
+    path("api/schema/", SpectacularAPIView.as_view(), name="schema"),
+    path(
+        "api/docs/",
+        SpectacularSwaggerView.as_view(url_name="schema"),
+        name="swagger-ui",
+    ),
+    path("api/redoc/", SpectacularRedocView.as_view(url_name="schema"), name="redoc"),
 ]

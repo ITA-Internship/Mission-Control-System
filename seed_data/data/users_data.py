@@ -8,8 +8,6 @@ from roles.models import (
     VIEWER_CODE,
 )
 
-TEST_PASSWORD = "Test@1234"
-
 
 @dataclass(frozen=True)
 class UnitSeed:
