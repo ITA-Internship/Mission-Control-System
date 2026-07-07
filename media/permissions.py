@@ -19,14 +19,11 @@ class MediaViewPermission(HasRBACPermission):
         if get_user_role_code(request.user) == ADMIN_CODE:
             return True
 
-        if getattr(obj, "uploaded_by", None) == request.user:
+        if getattr(obj, "uploaded_by_id", None) == request.user.id:
             return True
 
-        if (
-            hasattr(obj, "mission")
-            and hasattr(obj.mission, "unit")
-            and obj.mission.unit == request.user.unit
-        ):
+        mission = getattr(obj, "mission", None)
+        if mission and getattr(mission, "unit_id", None) == request.user.unit_id:
             return True
 
         return False
@@ -39,7 +36,7 @@ class MediaDeletePermission(HasRBACPermission):
         if get_user_role_code(request.user) == ADMIN_CODE:
             return True
 
-        if getattr(obj, "uploaded_by", None) == request.user:
+        if getattr(obj, "uploaded_by_id", None) == request.user.id:
             return True
 
         return False

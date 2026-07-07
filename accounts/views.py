@@ -1,5 +1,7 @@
 import csv
 import mimetypes
+import os
+import posixpath
 
 from django.conf import settings
 from django.contrib.auth.tokens import default_token_generator
@@ -7,10 +9,10 @@ from django.contrib.sessions.models import Session
 from django.core.exceptions import ValidationError as DjangoValidationError
 from django.core.mail import send_mail
 from django.db.models import Q
-from django.http import FileResponse, HttpResponse, StreamingHttpResponse
+from django.http import FileResponse, Http404, HttpResponse, StreamingHttpResponse
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
-from django.utils.encoding import force_bytes, force_str
+from django.utils.encoding import escape_uri_path, force_bytes, force_str
 from django.utils.http import urlsafe_base64_decode, urlsafe_base64_encode
 from django_filters import rest_framework as filters
 from rest_framework import generics, permissions, status, viewsets
@@ -452,18 +454,33 @@ class ProtectedProfilePictureView(APIView):
 
         file_field = user.profile.profile_picture
 
+        if not file_field or not file_field.storage.exists(file_field.name):
+            raise Http404("File not found on server.")
+
         content_type, _ = mimetypes.guess_type(file_field.name)
         content_type = content_type or "application/octet-stream"
-        filename = file_field.name.split("/")[-1]
+        filename = os.path.basename(file_field.name)
 
         if settings.DEBUG:
-            response = FileResponse(file_field.open("rb"), content_type=content_type)
+            return FileResponse(
+                file_field,
+                content_type=content_type,
+                as_attachment=False,
+                filename=filename,
+            )
         else:
             response = HttpResponse(content_type=content_type)
 
-            internal_path = f"/internal-media/{file_field.name}"
+            safe_name = posixpath.normpath(file_field.name)
+            if safe_name.startswith("..") or safe_name.startswith("/"):
+                raise Http404("Invalid file path.")
+
+            internal_path = f"/internal-media/{safe_name}"
             response["X-Accel-Redirect"] = internal_path
 
-        response["Content-Disposition"] = f'inline; filename="{filename}"'
+            escaped_filename = escape_uri_path(filename)
+            response["Content-Disposition"] = (
+                f"inline; filename*=UTF-8''{escaped_filename}"
+            )
 
-        return response
+            return response

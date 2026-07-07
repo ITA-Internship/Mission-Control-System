@@ -1,5 +1,6 @@
 import mimetypes
 import os
+import posixpath
 
 from django.conf import settings
 from django.db import transaction
@@ -7,6 +8,7 @@ from django.db.models import ProtectedError
 from django.http import FileResponse, Http404, HttpResponse, HttpResponseForbidden
 from django.shortcuts import get_object_or_404
 from django.utils.dateparse import parse_date
+from django.utils.encoding import escape_uri_path
 from django.views.generic import TemplateView
 from django_filters import rest_framework as filters
 from rest_framework import generics, parsers, permissions, status, viewsets
@@ -179,7 +181,8 @@ class ProtectedMediaView(APIView):
         self.check_object_permissions(request, artifact)
 
         file_field = artifact.file
-        if not file_field or not os.path.exists(file_field.path):
+
+        if not file_field or not file_field.storage.exists(file_field.name):
             raise Http404("File not found on server.")
 
         content_type, _ = mimetypes.guess_type(file_field.name)
@@ -187,15 +190,28 @@ class ProtectedMediaView(APIView):
         filename = artifact.original_filename or os.path.basename(file_field.name)
 
         if settings.DEBUG:
-            response = FileResponse(file_field.open("rb"), content_type=content_type)
+            return FileResponse(
+                file_field,
+                content_type=content_type,
+                as_attachment=True,
+                filename=filename,
+            )
         else:
             response = HttpResponse(content_type=content_type)
 
-            internal_path = f"/internal-media/{file_field.name}"
+            safe_name = posixpath.normpath(file_field.name)
+            if safe_name.startswith("..") or safe_name.startswith("/"):
+                raise Http404("Invalid file path.")
+
+            internal_path = f"/internal-media/{safe_name}"
             response["X-Accel-Redirect"] = internal_path
 
-        response["Content-Disposition"] = f'attachment; filename="{filename}"'
-        return response
+            escaped_filename = escape_uri_path(filename)
+            response["Content-Disposition"] = (
+                f"attachment; filename*=UTF-8''{escaped_filename}"
+            )
+
+            return response
 
 
 class MediaAuditLogFilter(filters.FilterSet):
