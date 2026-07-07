@@ -89,7 +89,7 @@ class MissionQuerySet(models.QuerySet):
         Uses ``select_related`` to avoid a per-row query for the related users
         when listing or serialising missions.
         """
-        
+
         return self.select_related("commander", "created_by").prefetch_related(
             Prefetch(
                 "mission_drones",

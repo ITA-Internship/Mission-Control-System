@@ -22,7 +22,7 @@ class IsDispatcherOrAdmin(permissions.BasePermission):
         # missions / managing assignments) are gated to Dispatcher and Admin.
         if request.method in permissions.SAFE_METHODS:
             return True
-        
+
         return get_user_role_code(request.user) in (DISPATCHER_CODE, ADMIN_CODE)
 
 
