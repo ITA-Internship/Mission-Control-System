@@ -1,3 +1,5 @@
+"""DRF permission classes for the missions app."""
+
 from rest_framework import permissions
 
 from accounts.permissions import get_user_role_code
@@ -7,9 +9,12 @@ from .models import Mission, MissionDrone
 
 
 class IsDispatcherOrAdmin(permissions.BasePermission):
+    """Allow reads to any authenticated user; writes to Dispatcher or Admin."""
+
     message = "Only Dispatcher or Admin users can perform this action."
 
     def has_permission(self, request, view):
+        """Allow safe methods for all; restrict writes to Dispatcher/Admin."""
         if not request.user or not request.user.is_authenticated:
             return False
         # Reads are open to any authenticated user; only writes (creating
@@ -31,11 +36,13 @@ class IsAssignedOperatorOrAdmin(permissions.BasePermission):
     message = "Only the assigned Operator or an Admin can perform this action."
 
     def has_permission(self, request, view):
+        """Gate by role: only Admins and Operators may proceed."""
         if not request.user or not request.user.is_authenticated:
             return False
         return get_user_role_code(request.user) in (ADMIN_CODE, OPERATOR_CODE)
 
     def has_object_permission(self, request, view, obj):
+        """Grant Admins access; restrict Operators to their own assignments."""
         role_code = get_user_role_code(request.user)
         if role_code == ADMIN_CODE:
             return True
@@ -61,6 +68,7 @@ class CanUpdateMissionStatus(permissions.BasePermission):
     """
 
     def has_object_permission(self, request, view, obj):
+        """Allow Admins/Commanders any mission; Operators only their own."""
         if (
             not request.user
             or not request.user.is_authenticated

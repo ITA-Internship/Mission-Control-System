@@ -1,3 +1,11 @@
+"""Service layer for mission operations.
+
+Holds the transactional business logic for assigning drones to missions,
+recording mission outcomes and drone conditions, and unassigning drones. Each
+public function takes the necessary row locks and writes ``MissionAuditLog``
+entries so the API and admin paths stay consistent.
+"""
+
 from django.contrib.auth import get_user_model
 from django.db import transaction
 from django.db.models import Q
@@ -20,15 +28,16 @@ User = get_user_model()
 
 
 def _check_overlap(mission, operator=None, drone=None):
-    """Check whether a drone or operator has a scheduling conflict
-    with another PLANNED / ACTIVE mission.
+    """Return whether the optional ``operator`` or ``drone`` has a scheduling
+    conflict with another PLANNED/ACTIVE mission.
 
-    Two intervals overlap when each one starts before the other ends.
-    Open-ended missions (``ended_at IS NULL``) are treated as extending
-    indefinitely into the future.
+    Two intervals overlap when each one starts before the other ends;
+    open-ended missions (``ended_at IS NULL``) extend indefinitely into the
+    future. ``mission`` itself is excluded from the check.
 
-    Requires that ``mission.started_at`` is set (the caller must
-    validate this before invoking the helper).
+    Returns ``False`` immediately if neither ``operator`` nor ``drone`` is
+    given. Requires ``mission.started_at`` to be set — the caller must validate
+    that first. Read-only: runs an existence query and mutates nothing.
     """
     if not operator and not drone:
         return False

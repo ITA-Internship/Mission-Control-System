@@ -1,3 +1,9 @@
+"""DRF serializers for the missions API.
+
+Validate and shape mission, assignment, outcome, condition and status-update
+payloads, delegating state-changing operations to the service layer.
+"""
+
 from datetime import timedelta
 
 from django.contrib.auth import get_user_model
@@ -33,6 +39,11 @@ STARTED_AT_GRACE_PERIOD = timedelta(seconds=60)
 
 
 class DroneBriefSerializer(serializers.ModelSerializer):
+    """Read-only summary of a drone, embedded in mission/assignment responses.
+
+    Output-only: all fields are read-only, so it never creates or updates.
+    """
+
     class Meta:
         model = Drone
         fields = ["id", "name", "serial_number", "drone_model", "status"]
@@ -40,6 +51,12 @@ class DroneBriefSerializer(serializers.ModelSerializer):
 
 
 class MissionDroneInputSerializer(serializers.ModelSerializer):
+    """Nested write serializer for assigning a drone/operator on mission create.
+
+    Exposes ``drone_id`` (required) and ``operator_id`` (optional, nullable),
+    mapped to the ``drone`` and ``operator`` relations of :class:`MissionDrone`.
+    """
+
     drone_id = serializers.PrimaryKeyRelatedField(
         queryset=Drone.objects.all(), source="drone"
     )
@@ -52,6 +69,11 @@ class MissionDroneInputSerializer(serializers.ModelSerializer):
         fields = ["drone_id", "operator_id"]
 
     def validate_operator_id(self, user):
+        """Ensure the selected operator, if any, has the Operator role.
+
+        ``None`` passes through (the field is optional). Raises ValidationError
+        if the user has no role, or a role other than Operator.
+        """
         if user is None:
             return user
 
@@ -69,6 +91,13 @@ class MissionDroneInputSerializer(serializers.ModelSerializer):
 
 
 class MissionSerializer(serializers.ModelSerializer):
+    """Serialize a mission, including its nested drone assignments.
+
+    Handles both create and update. Assignments may only be set at creation
+    time; on update the nested ``drones`` field is forced read-only (see
+    ``__init__``) so they are managed through the dedicated assignment endpoints
+    instead.
+    """
 
     drones = MissionDroneInputSerializer(
         source="mission_drones", many=True, required=False
@@ -115,6 +144,12 @@ class MissionSerializer(serializers.ModelSerializer):
         ]
 
     def __init__(self, *args, **kwargs):
+        """Extend the base init to freeze ``drones`` for existing missions.
+
+        On an update (``self.instance`` set), the nested ``drones`` field is
+        made read-only so an incoming payload is ignored rather than wiping and
+        recreating assignments.
+        """
         super().__init__(*args, **kwargs)
         # Assignments may only be set when a mission is first created. Once the
         # mission exists, drones must be added or removed through the dedicated
@@ -128,6 +163,11 @@ class MissionSerializer(serializers.ModelSerializer):
             self.fields["drones"].read_only = True
 
     def create(self, validated_data):
+        """Create a mission and its initial drone assignments.
+
+        Note: unlike the assignment service, this creation path does not take
+        row locks or write audit-log entries.
+        """
         drones_data = validated_data.pop("mission_drones", [])
 
         mission = Mission.objects.create(**validated_data)
@@ -142,6 +182,7 @@ class MissionSerializer(serializers.ModelSerializer):
         return mission
 
     def validate_title(self, value):
+        """Strip the title; require it non-empty and at least TITLE_MIN_LENGTH."""
         stripped = (value or "").strip()
         if not stripped:
             raise serializers.ValidationError("Title is required.")
@@ -152,6 +193,10 @@ class MissionSerializer(serializers.ModelSerializer):
         return stripped
 
     def validate_started_at(self, value):
+        """Reject a start time in the past, allowing STARTED_AT_GRACE_PERIOD.
+
+        ``None`` passes through (the field is optional).
+        """
         if value is None:
             return value
         if value < timezone.now() - STARTED_AT_GRACE_PERIOD:
@@ -159,6 +204,7 @@ class MissionSerializer(serializers.ModelSerializer):
         return value
 
     def validate_commander_id(self, user):
+        """Ensure the selected commander, if any, has the Commander role."""
         if user is None:
             return user
         if get_user_role_code(user) != COMMANDER_CODE:
@@ -168,6 +214,14 @@ class MissionSerializer(serializers.ModelSerializer):
         return user
 
     def validate(self, attrs):
+        """Cross-field checks: location/coordinates and scheduling overlaps.
+
+        Requires either a location description or a full latitude/longitude
+        pair (and rejects a lone coordinate). Then rejects the payload if any
+        assigned drone or operator overlaps another PLANNED/ACTIVE mission,
+        reusing the service-layer ``_check_overlap`` rule so the API and
+        service paths cannot drift.
+        """
         location = (attrs.get("location_description") or "").strip()
         latitude = attrs.get("latitude")
         longitude = attrs.get("longitude")
@@ -254,6 +308,11 @@ class MissionSerializer(serializers.ModelSerializer):
 
 
 class MissionOutcomeSerializer(serializers.ModelSerializer):
+    """Record the result and notes of a completed/aborted mission.
+
+    Update-only; ``update`` delegates persistence to the service layer.
+    """
+
     result = serializers.ChoiceField(choices=Result.choices, required=True)
 
     class Meta:
@@ -262,6 +321,14 @@ class MissionOutcomeSerializer(serializers.ModelSerializer):
         read_only_fields = ["id", "status"]
 
     def validate(self, attrs):
+        """Guard status, block overwrites, and require notes on failure.
+
+        Fast-path checks on the unlocked instance: the mission must be completed
+        or aborted, must not already have a result, ``result`` is required, and
+        ``incident_notes`` is required when the result is FAILURE. The
+        authoritative status/overwrite checks run under ``select_for_update`` in
+        ``record_mission_outcome``; keep the two in sync.
+        """
         # Fast-path guards on the unlocked instance. The authoritative status
         # and overwrite checks run inside record_mission_outcome under
         # select_for_update(); keep the rules in both layers in sync.
@@ -301,6 +368,11 @@ class MissionOutcomeSerializer(serializers.ModelSerializer):
         return attrs
 
     def update(self, instance, validated_data):
+        """Persist the outcome via the ``record_mission_outcome`` service.
+
+        The service locks the mission row, saves the fields and writes an audit
+        entry; it may raise ValidationError if its authoritative guards fail.
+        """
         request = self.context.get("request")
         action_user = request.user if request else None
 
@@ -314,6 +386,12 @@ class MissionOutcomeSerializer(serializers.ModelSerializer):
 
 
 class MissionDroneConditionSerializer(serializers.ModelSerializer):
+    """Record a drone's condition after a mission for a single assignment.
+
+    Update-only; ``update`` delegates persistence and drone-status propagation
+    to the service layer.
+    """
+
     condition_after = serializers.ChoiceField(
         choices=Condition.choices,
         required=True,
@@ -325,6 +403,11 @@ class MissionDroneConditionSerializer(serializers.ModelSerializer):
         read_only_fields = ["id"]
 
     def validate(self, attrs):
+        """Guard that the assignment's mission is completed or aborted.
+
+        Fast-path check on the unlocked instance; the authoritative check runs
+        under ``select_for_update`` in ``record_drone_condition``.
+        """
         # Fast-path guard on the unlocked instance. The authoritative check
         # runs inside record_drone_condition under select_for_update();
         # keep the rules in both layers in sync.
@@ -344,6 +427,12 @@ class MissionDroneConditionSerializer(serializers.ModelSerializer):
         return attrs
 
     def update(self, instance, validated_data):
+        """Persist the condition via the ``record_drone_condition`` service.
+
+        The service locks the rows, propagates the drone's status (recording
+        history and, for a lost drone, a write-off) and writes an audit entry.
+        May raise ValidationError from its authoritative guards.
+        """
         request = self.context.get("request")
         action_user = request.user if request else None
 
@@ -356,11 +445,18 @@ class MissionDroneConditionSerializer(serializers.ModelSerializer):
 
 
 class MissionStatusUpdateSerializer(serializers.ModelSerializer):
+    """Drive a mission through its lifecycle and propagate drone statuses.
+
+    Exposes only ``status``; ``update`` applies the change transactionally and
+    cascades the assigned drones' statuses.
+    """
+
     class Meta:
         model = Mission
         fields = ["status"]
 
     def validate_status(self, value):
+        """Reject transitions not allowed by MISSION_STATUS_TRANSITIONS."""
         current_status = self.instance.status
         allowed_transitions = MISSION_STATUS_TRANSITIONS.get(current_status, [])
 
@@ -371,6 +467,10 @@ class MissionStatusUpdateSerializer(serializers.ModelSerializer):
         return value
 
     def validate(self, attrs):
+        """Block PLANNED -> ACTIVE when any assigned drone is not active.
+
+        Other transitions pass through unchanged.
+        """
         new_status = attrs.get("status")
         old_status = self.instance.status
 
@@ -399,6 +499,13 @@ class MissionStatusUpdateSerializer(serializers.ModelSerializer):
         return attrs
 
     def update(self, instance, validated_data):
+        """Apply the status change and cascade the drones' statuses.
+
+        Runs in one transaction: PLANNED -> ACTIVE moves each assigned drone to
+        IN_MISSION; ACTIVE -> COMPLETED/ABORTED returns drones still in mission
+        to ACTIVE (via ``drones.services.update_drone``, which records history).
+        A database IntegrityError is converted into a ValidationError.
+        """
         old_status = instance.status
         new_status = validated_data["status"]
 
@@ -449,6 +556,12 @@ class MissionStatusUpdateSerializer(serializers.ModelSerializer):
 
 
 class MissionDroneSerializer(serializers.ModelSerializer):
+    """Serialize a mission-drone assignment with drone and operator details.
+
+    Used to list assignments and to create new ones; ``create`` delegates to
+    the service layer so locking and auditing stay consistent.
+    """
+
     drone_details = DroneBriefSerializer(source="drone", read_only=True)
     operator_details = UserBriefSerializer(source="operator", read_only=True)
 
@@ -470,6 +583,7 @@ class MissionDroneSerializer(serializers.ModelSerializer):
         read_only_fields = ["id", "mission", "created_at"]
 
     def validate(self, attrs):
+        """Ensure the operator, if set, has the Operator role."""
         operator = attrs.get("operator")
 
         if operator:
@@ -481,6 +595,13 @@ class MissionDroneSerializer(serializers.ModelSerializer):
         return attrs
 
     def create(self, validated_data):
+        """Create the assignment via the ``assign_drone_to_mission`` service.
+
+        The mission comes from ``validated_data`` or, failing that, the
+        serializer context (set by the view on POST). The service enforces the
+        assignment preconditions, locks rows and writes an audit entry, and may
+        raise ValidationError.
+        """
         request = self.context.get("request")
         action_user = request.user if request else None
 
