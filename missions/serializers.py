@@ -217,9 +217,10 @@ class MissionSerializer(serializers.ModelSerializer):
 
         Requires either a location description or a full latitude/longitude
         pair (and rejects a lone coordinate). Then rejects the payload if any
-        assigned drone or operator overlaps another PLANNED/ACTIVE mission,
-        reusing the service-layer ``_check_overlap`` rule so the API and
-        service paths cannot drift.
+        assigned drone or operator is already booked on another PLANNED/ACTIVE
+        mission whose time window overlaps this one. Two intervals overlap when
+        each starts before the other ends; an open-ended mission
+        (``ended_at IS NULL``) extends indefinitely into the future.
         """
         location = (attrs.get("location_description") or "").strip()
         latitude = attrs.get("latitude")
@@ -511,8 +512,9 @@ class MissionStatusUpdateSerializer(serializers.ModelSerializer):
 
         Runs in one transaction: PLANNED -> ACTIVE moves each assigned drone to
         IN_MISSION; ACTIVE -> COMPLETED/ABORTED returns drones still in mission
-        to ACTIVE (via ``drones.services.update_drone``, which records history).
-        A database IntegrityError is converted into a ValidationError.
+        to ACTIVE. Both cascades go through ``_bulk_update_drones``, which
+        updates the drones and records their status history in bulk. A database
+        IntegrityError is converted into a ValidationError.
         """
         old_status = instance.status
         new_status = validated_data["status"]
@@ -580,6 +582,13 @@ class MissionStatusUpdateSerializer(serializers.ModelSerializer):
         return instance
 
     def _bulk_update_drones(self, drones_data, user, mission, reason):
+        """Update the given drones to a shared status and log the history.
+
+        Applies the status in a single ``UPDATE`` and bulk-creates the matching
+        ``DroneStatusHistory`` rows, avoiding a query per drone. Assumes every
+        entry in ``drones_data`` moves to the same ``new_status`` (the value is
+        taken from the first entry); callers always pass a uniform target.
+        """
         drone_ids = [d["id"] for d in drones_data]
 
         Drone.objects.filter(id__in=drone_ids).update(

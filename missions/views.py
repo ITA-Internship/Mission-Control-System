@@ -39,6 +39,12 @@ from .services import unassign_drone_from_mission
 
 
 def restrict_missions_for_user(queryset, user):
+    """Scope a mission queryset to what ``user`` is allowed to see.
+
+    Operators only see missions they are assigned to (via a drone); every
+    other role sees the queryset unchanged. Applied by the mission read views
+    so object-level ownership is enforced at the queryset level.
+    """
     role_code = getattr(getattr(user, "role", None), "code", None)
     if role_code == OPERATOR_CODE:
         return queryset.filter(mission_drones__operator_id=user.id).distinct()
@@ -81,14 +87,6 @@ class MissionsAssignRBAC(HasRBACPermission):
     required_permission = PERMISSION_MISSIONS_ASSIGN
 
 
-class MissionPagination(PageNumberPagination):
-    """Page-number pagination for mission lists (10/page, max 50)."""
-
-    page_size = 10
-    page_size_query_param = "page_size"
-    max_page_size = 50
-
-
 class MissionListCreateView(generics.ListCreateAPIView):
     """List missions or create one.
 
@@ -101,6 +99,7 @@ class MissionListCreateView(generics.ListCreateAPIView):
     pagination_class = StandardResultsSetPagination
 
     def get_permissions(self):
+        """Gate reads behind the view permission; POST behind create."""
         if self.request.method in permissions.SAFE_METHODS:
             permission_classes = [permissions.IsAuthenticated, CanViewMission]
         else:
@@ -112,6 +111,13 @@ class MissionListCreateView(generics.ListCreateAPIView):
         return [permission() for permission in permission_classes]
 
     def get_queryset(self):
+        """Return missions visible to the user, applying the query filters.
+
+        Restricts to the user's own missions when they are an operator, then
+        applies the optional ``status`` and ``assigned_to=me`` filters. Raises
+        ValidationError for an unknown ``status`` or an ``assigned_to`` value
+        other than ``me``.
+        """
         queryset = restrict_missions_for_user(
             Mission.objects.with_related(),
             self.request.user,
@@ -148,13 +154,6 @@ class MissionListCreateView(generics.ListCreateAPIView):
 
         return queryset
 
-    def get_queryset(self):
-        """Return the list queryset for safe methods; empty otherwise."""
-        if self.request.method in permissions.SAFE_METHODS:
-            return self.get_queryset_for_list()
-
-        return Mission.objects.none()
-
     def perform_create(self, serializer):
         """Save the mission, stamping the requesting user as ``created_by``."""
         serializer.save(created_by=self.request.user)
@@ -167,6 +166,7 @@ class MissionDetailView(generics.RetrieveAPIView):
     permission_classes = [permissions.IsAuthenticated, CanViewMission]
 
     def get_queryset(self):
+        """Return only missions the requesting user is allowed to view."""
         return restrict_missions_for_user(
             Mission.objects.with_related(),
             self.request.user,
@@ -189,6 +189,7 @@ class MissionOutcomeView(generics.UpdateAPIView):
     http_method_names = ["patch", "options", "head"]
 
     def get_queryset(self):
+        """Return only missions the requesting user is allowed to act on."""
         return restrict_missions_for_user(
             Mission.objects.with_related().prefetch_related("mission_drones"),
             self.request.user,
@@ -236,6 +237,7 @@ class MissionStatusUpdateView(generics.RetrieveUpdateAPIView):
     permission_classes = [permissions.IsAuthenticated, CanUpdateMissionStatus]
 
     def get_queryset(self):
+        """Return only missions the requesting user is allowed to act on."""
         return restrict_missions_for_user(
             Mission.objects.prefetch_related("mission_drones"),
             self.request.user,

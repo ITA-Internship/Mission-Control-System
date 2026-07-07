@@ -27,6 +27,8 @@ class IsDispatcherOrAdmin(permissions.BasePermission):
 
 
 class CanViewMission(HasRBACPermission):
+    """Require the mission view RBAC permission."""
+
     required_permission = PERMISSION_MISSIONS_VIEW
 
 
