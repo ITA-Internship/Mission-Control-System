@@ -202,8 +202,6 @@ class Drone(models.Model):
     def status_category(self):
         return self.STATUS_UI.get(self.status, {}).get("category", "unknown")
 
-
-
     def clean(self):
         super().clean()
 

@@ -4,8 +4,6 @@ from django.conf import settings
 from django.contrib.auth import update_session_auth_hash
 from django.contrib.auth.tokens import default_token_generator
 from django.core.exceptions import ValidationError as DjangoValidationError
-from django.core.mail import send_mail
-from django.db.models import Q
 from django.http import StreamingHttpResponse
 from django.shortcuts import get_object_or_404
 from django.utils.encoding import force_bytes, force_str
@@ -286,6 +284,9 @@ class UserMeView(generics.RetrieveUpdateAPIView):
 
 
 def invalidate_user_sessions(user):
+    from django.contrib.sessions.models import Session
+    from django.utils import timezone
+
     from .models import UserSession
 
     tracked = UserSession.objects.filter(user=user)

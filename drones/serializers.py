@@ -56,8 +56,6 @@ class DroneSpecValidationMixin:
 
 
 class DroneSpecSerializer(DroneSpecValidationMixin, serializers.ModelSerializer):
-    change_history = DroneSpecChangeLogSerializer(many=True, read_only=True)
-
     class Meta:
         model = DroneSpec
         fields = (
@@ -87,9 +85,8 @@ class DroneSpecSerializer(DroneSpecValidationMixin, serializers.ModelSerializer)
             "technical_documentation_url",
             "firmware_file_url",
             "updated_at",
-            "change_history",
         )
-        read_only_fields = ("id", "updated_at", "change_history")
+        read_only_fields = ("id", "updated_at")
 
 
 class DroneSpecDetailSerializer(DroneSpecValidationMixin, serializers.ModelSerializer):

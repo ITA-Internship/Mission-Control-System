@@ -142,7 +142,7 @@ class MissionOutcomeView(generics.UpdateAPIView):
 
     def get_queryset(self):
         return restrict_missions_for_user(
-            Mission.objects.with_related().prefetch_related("mission_drones"),
+            Mission.objects.with_related(),
             self.request.user,
         )
 
@@ -234,9 +234,13 @@ class MissionAssignmentListCreateView(generics.ListCreateAPIView):
 
     def get_queryset_for_list(self):
         mission = self.get_mission()
-        return MissionDrone.objects.filter(mission=mission).select_related(
-            "drone",
-            "operator",
+        return (
+            MissionDrone.objects.filter(mission=mission)
+            .select_related(
+                "drone",
+                "operator",
+            )
+            .order_by("id")
         )
 
     def get_queryset(self):
