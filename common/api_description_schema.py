@@ -8,7 +8,9 @@ STATUS_400_BAD_REQUEST = OpenApiResponse(
     description="Bad Request. Provided payload contains validation errors."
 )
 STATUS_404_NOT_FOUND = OpenApiResponse(description="Not Found.")
-STATUS_429_TOO_MANY_REQUESTS = OpenApiResponse(description="Export rate limit exceeded.")
+STATUS_429_TOO_MANY_REQUESTS = OpenApiResponse(
+    description="Export rate limit exceeded."
+)
 
 DEFAULT_ERRORS = {
     status.HTTP_400_BAD_REQUEST: STATUS_400_BAD_REQUEST,

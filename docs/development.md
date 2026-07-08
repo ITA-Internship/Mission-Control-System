@@ -95,3 +95,23 @@ Notes about the seeded dataset:
 - The command is idempotent and updates existing seed records instead of duplicating them.
 - Only existing models and existing status choices are used.
 - Mission operator and drone assignment details are stored in mission notes because the current schema does not yet contain dedicated assignment tables.
+
+### Updating API Documentation
+If you make any changes to API endpoints, the [API Reference](api.md) must be updated.
+
+The update process involves two steps: exporting the latest OpenAPI schema and converting it into Markdown.
+
+If you don't have the required tools installed yet, run:
+```bash
+pip install drf-spectacular openapi-markdown
+```
+
+1. Generate the latest OpenAPI schema:
+```bash
+python manage.py spectacular --file schema.yml
+```
+
+2. Convert the schema into the Markdown file:
+```bash
+openapi2markdown schema.yml docs/api.md
+```

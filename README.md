@@ -159,7 +159,7 @@ For more details, see [Development](docs/development.md).
 - [API Reference](docs/api.md)
 - [Architecture](docs/architecture.md)
 - [Contributing](CONTRIBUTING.md)
-- [Environment variables](docs/configuration.md)
+- [Configuration](docs/configuration.md)
 - [Deployment](docs/deployment.md)
 - [Development](docs/development.md)
 - [RBAC permission matrix Reference](docs/rbac.md)
