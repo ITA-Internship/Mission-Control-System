@@ -232,10 +232,15 @@ class UserSession(models.Model):
         on_delete=models.CASCADE,
         related_name="tracked_sessions",
     )
-    session_key = models.CharField(max_length=40, unique=True)
+    session_key = models.CharField(max_length=40, db_index=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["user", "session_key"], name="unique_user_session"
+            )
+        ]
         indexes = [
             models.Index(fields=["user", "created_at"]),
         ]

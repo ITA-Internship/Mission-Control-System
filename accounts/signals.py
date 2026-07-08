@@ -28,8 +28,8 @@ def log_user_login(sender, request, user, **kwargs):
     session_key = request.session.session_key
     if session_key:
         UserSession.objects.update_or_create(
+            user=user,
             session_key=session_key,
-            defaults={"user": user},
         )
 
 

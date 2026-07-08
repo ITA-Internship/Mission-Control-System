@@ -9,6 +9,7 @@ from django.http import (
     HttpResponseForbidden,
     StreamingHttpResponse,
 )
+from django.shortcuts import get_object_or_404
 from django.utils.decorators import method_decorator
 from django.views.decorators.cache import cache_page
 from django.views.generic import ListView, TemplateView
@@ -242,6 +243,7 @@ class DroneStatusHistoryListView(generics.ListAPIView):
     pagination_class = DroneStatusHistoryPagination
 
     def get_queryset(self):
+        get_object_or_404(Drone, pk=self.kwargs["pk"])
         return (
             DroneStatusHistory.objects.filter(drone_id=self.kwargs["pk"])
             .select_related("changed_by")
@@ -260,6 +262,7 @@ class DroneSpecChangeLogListView(generics.ListAPIView):
     pagination_class = DroneSpecChangeLogPagination
 
     def get_queryset(self):
+        get_object_or_404(Drone, pk=self.kwargs["pk"])
         return (
             DroneSpecChangeLog.objects.filter(drone_spec__drone_id=self.kwargs["pk"])
             .select_related("changed_by")
