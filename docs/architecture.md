@@ -34,6 +34,7 @@ The FPV Drone Fleet Management System provides centralized control over drone in
 - **Docker** - Containerized deployment
 - **Gunicorn** - Python WSGI HTTP server
 - **Redis + Celery** - Background task processing
+- **Nginx** - Web server and reverse proxy
 
 ## System Architecture
 

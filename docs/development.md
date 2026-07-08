@@ -32,14 +32,33 @@ GitHub Actions are configured to automatically run these checks on all Pull Requ
 
 ### Database Migrations
 
+Migrations are used to create and update database tables.
+
+Create new migrations after changing Django models:
+
 ```bash
-# Create migrations
 python manage.py makemigrations
+```
 
-# Apply migrations
+Apply migrations to the database:
+
+```bash
 python manage.py migrate
+```
 
-# Show migration status
+Check migration status:
+
+```bash
+python manage.py showmigrations
+```
+
+Verify that model tables were created in PostgreSQL by running the application and checking that the core apps (`accounts`, `roles`, `drones`, Django auth/admin/session tables) appear in the database after migration.
+
+For this project, the initial migration flow was verified with:
+
+```bash
+python manage.py makemigrations --check --dry-run
+python manage.py migrate
 python manage.py showmigrations
 ```
 
@@ -47,48 +66,42 @@ python manage.py showmigrations
 
 The project includes a Django management command for loading representative demo data for the existing user, drone, and mission models.
 
+Security note: `seed_db` is intended for isolated local development only. Do not run it in shared, staging, or production-like environments.
+
+When the app starts with `DEBUG=False`, the container entrypoint also runs `python manage.py disable_seeded_users` to deactivate any previously created seeded demo accounts.
+
 Run the full seed:
 
 ```bash
-python manage.py seed_db
+python manage.py seed_db --password "LocalSeedPassword123!"
 ```
 
 Clear only the managed seed records and recreate them:
 
 ```bash
-python manage.py seed_db --clear
+python manage.py seed_db --clear --password "LocalSeedPassword123!"
 ```
 
 Seed a single module:
 
 ```bash
-python manage.py seed_db --module users
+python manage.py seed_db --module users --password "LocalSeedPassword123!"
 python manage.py seed_db --module missions
 python manage.py seed_db --module drones
 python manage.py seed_db --module repairs
 ```
 
-Default seeded password for all demo accounts:
+Use a specific temporary password for seeded users:
 
-```text
-Test@1234
+```bash
+python manage.py seed_db --module users --password "LocalSeedPassword123!"
 ```
 
-Seeded demo accounts:
+Or set `SEED_DEFAULT_PASSWORD` in your local `.env` before running the command. If users are seeded and no password is provided, `seed_db` stops with an error instead of generating or printing credentials.
 
-| Role | Username |
-|------|----------|
-| Admin | `root.admin` |
-| Admin | `admin.ops` |
-| Commander | `commander.north` |
-| Commander | `commander.south` |
-| Operator | `operator.alpha` |
-| Operator | `operator.bravo` |
-| Operator | `operator.charlie` |
-| Technician | `tech.airframe` |
-| Technician | `tech.electro` |
-| Viewer | `viewer.ops` |
-| Viewer | `viewer.audit` |
+The seeded dataset includes demo accounts across the main system roles so that local RBAC flows can be tested quickly. Treat all seeded credentials as local-only development data and replace or disable them outside your own machine.
+
+Seeded users are marked with `must_change_password=True`. That flag is cleared after the user sets a new password through activation, password reset, or the change-password endpoint.
 
 Notes about the seeded dataset:
 

@@ -28,16 +28,16 @@ RUN_MIGRATIONS=True
 # Database settings
 DB_NAME=drone_fleet_db
 DB_USER=drone_fleet_user
-DB_PASSWORD=change-me
+DB_PASSWORD=replace-with-a-strong-database-password
 DB_HOST=localhost
 DB_PORT=5433
 
 # Redis
-REDIS_URL=redis://redis:6379/0
+REDIS_PASSWORD=replace-with-a-strong-redis-password
 
 # pgAdmin
 PGADMIN_DEFAULT_EMAIL=admin@example.com
-PGADMIN_DEFAULT_PASSWORD=change-me
+PGADMIN_DEFAULT_PASSWORD=replace-with-a-strong-pgadmin-password
 ```
 
 Alternative Docker `web` container database settings:
@@ -49,6 +49,22 @@ DB_PORT=5432
 
 For Docker-based development, the `web` container uses `DB_HOST=db` and `DB_PORT=5432`, because `db` is the PostgreSQL service name inside Docker Compose.
 
+When Redis is enabled in Docker Compose, the `web` container builds its internal `REDIS_URL` from `REDIS_PASSWORD`, so set a strong local password in `.env`.
+
 For local development without Docker, `DB_HOST` should usually be set to `localhost`.
 
 In this project, local development uses `DB_PORT=5433` so the Docker PostgreSQL container does not conflict with a local PostgreSQL instance that may already be using port `5432`.
+
+For safer local development, the Docker Compose ports for PostgreSQL, Redis, pgAdmin, and Nginx are bound to `127.0.0.1`, so they are reachable from the host machine only and are not exposed on the wider network by default.
+
+Redis is also configured with `requirepass`, so local tools that connect to it must use the password from `REDIS_PASSWORD`.
+
+Nginx sits in front of Gunicorn and applies basic request buffering and timeout limits to reduce exposure to slow-header, slow-body, and connection-exhaustion style attacks during local Docker-based runs.
+
+The bundled Nginx config also adds:
+- basic per-IP connection limits
+- stricter rate limiting for account activation and password reset routes
+- proxy buffering for upstream requests
+- common security headers such as `X-Frame-Options` and `X-Content-Type-Options`
+
+TLS is still a deployment concern. For a real production setup, terminate HTTPS in front of this stack with valid certificates and enable HSTS only after HTTPS is working end-to-end.

@@ -4,6 +4,7 @@ from rest_framework import status
 from common.api_description_schema import description_schema
 from missions.models import Status
 from missions.serializers import (
+    TITLE_MIN_LENGTH,
     MissionDroneConditionSerializer,
     MissionDroneSerializer,
     MissionOutcomeSerializer,
@@ -115,7 +116,7 @@ mission_post_schema = description_schema(
         "The logged-in user is automatically assigned "
         "as the creator (`created_by`).\n\n"
         "Validation: \n"
-        "- Title of the mission must be at least 3 character long. \n"
+        f"- Title of the mission must be at least {TITLE_MIN_LENGTH} character long. \n"
         "- User assigned as a commander must have a Commander role. \n"
         "- Either location or latitude and longitude must be provided. \n"
         "- Assigned drones and operators "
@@ -264,7 +265,6 @@ mission_outcome_schema = description_schema(
         ),
     },
     error_statuses=[
-        status.HTTP_400_BAD_REQUEST,
         status.HTTP_403_FORBIDDEN,
         status.HTTP_404_NOT_FOUND,
     ],
@@ -527,7 +527,7 @@ mission_assignment_delete_schema = description_schema(
         "Validation: \n"
         "- Cannot delete assignment unless mission is planned."
     ),
-    permission_code="IsDispatcherOrAdmin",
+    permission_code="IsDispatcherOrAdmin, PERMISSION_MISSIONS_ASSIGN",
     parameters=[
         OpenApiParameter(
             name="mission_pk",

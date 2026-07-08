@@ -35,8 +35,8 @@ Required permission: `AllowAny`.
 
 | Name | Type | Required | Description |
 |------|------|----------|-------------|
-| token | string | True | The one-time secure activation token generated for the user. |
-| user_id | integer | True | The ID of the user activating the account. |
+| token | string | True | The one-time activation token generated for the user. |
+| user_id | integer | True | ID of the user activating the account. |
 
 
 ### Responses
@@ -88,7 +88,7 @@ Examples
 #### 404
 
 
-Not Found
+Not Found.
 
 
 
@@ -97,7 +97,7 @@ Not Found
 
 List audit logs
 
-Retrieves a paginated and filtered list of audit logs. Superusers and staff members can view all logs. Other authenticated users can only view logs where they are either the actor or the target user.
+Retrieves a paginated and filtered list of audit logs. Depending on permissions, users can view all logs or only logs where they are the actor or the target.
 
 Required permission: `PERMISSION_AUDIT_LOGS_VIEW_OWN, PERMISSION_AUDIT_LOGS_VIEW_ALL`.
 
@@ -153,7 +153,7 @@ Examples
       "result": "SUCCESS",
       "description": "User logged out successfully",
       "ip_address": "127.0.0.1",
-      "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+      "user_agent": "Test Agent Value",
       "created_at": "2026-06-25T14:44:49.068836Z"
     }
   ]
@@ -174,9 +174,9 @@ Forbidden. User does not have permission to perform this action.
 
 Retrieve an audit log
 
-Retrieves detailed information about specific audit log entry by its ID. Superusers and staff members can view all logs. Other authenticated users can only view logs where they are either the actor or the target user.
+Retrieves detailed information about specific audit log entry by its ID. Depending on permissions, users can view all logs or only logs where they are the actor or the target.
 
-Required permission: `IsAuthenticated`.
+Required permission: `PERMISSION_AUDIT_LOGS_VIEW_OWN, PERMISSION_AUDIT_LOGS_VIEW_ALL`.
 
 
 ### Parameters
@@ -218,7 +218,7 @@ Examples
   "result": "SUCCESS",
   "description": "User logged out successfully",
   "ip_address": "127.0.0.1",
-  "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+  "user_agent": "Test Agent Value",
   "created_at": "2026-06-25T14:44:49.068836Z"
 }
 ```
@@ -236,7 +236,7 @@ Forbidden. User does not have permission to perform this action.
 #### 404
 
 
-Not Found
+Not Found.
 
 
 
@@ -247,9 +247,9 @@ Export audit logs to CSV
 
 Generates and downloads a CSV file with the filtered audit logs. Supports full filtering and sorting identical to the standard list endpoint.
 
-The export is limited to a maximum of 10,000 records.
+The export is limited to a maximum of 10000 records.
 
-Required permission: `IsAuthenticated`.
+Required permission: `PERMISSION_AUDIT_LOGS_VIEW_OWN, PERMISSION_AUDIT_LOGS_VIEW_ALL`.
 
 
 
@@ -275,7 +275,7 @@ Forbidden. User does not have permission to perform this action.
 #### 429
 
 
-Export rate limit exceeded
+Export rate limit exceeded.
 
 
 
@@ -501,7 +501,7 @@ Forbidden. User does not have permission to perform this action.
 #### 404
 
 
-Not Found
+Not Found.
 
 
 
@@ -513,7 +513,6 @@ Update user role
 Updates the role of a specific user and creates an audit log entry.
 
 Validation:
-- Role ID is required and must be valid.
 - The role of an inactive user cannot be changed.
 - Admin user cannot remove their own admin role.
 - The admin role cannot be removed from the root account.
@@ -649,7 +648,7 @@ Forbidden. User does not have permission to perform this action.
 #### 404
 
 
-Not Found
+Not Found.
 
 
 
@@ -658,7 +657,7 @@ Not Found
 
 Retrieve current user profile
 
-Retrieves the profile details of the currently authenticated user based on the authentication token provided in the request headers.
+Retrieves the profile details of the currently authenticated user.
 
 Required permission: `IsAuthenticated`.
 
@@ -1005,7 +1004,7 @@ Forbidden. User does not have permission to perform this action.
 
 Initiate password reset
 
-Accepts a user's email address and sends a password reset link containing a secure, one-time token to that email. Always returns a 200 OK response with a generic message, regardless of whether the email address exists in the system. An audit log entry and an email are only generated if a matching user is found.
+Accepts a user's email address and sends a password reset link containing a one-time token to that email. An audit log entry and an email are only generated if a matching user is found.
 
 Required permission: `AllowAny`.
 
@@ -1039,7 +1038,7 @@ Required permission: `AllowAny`.
 #### 200
 
 
-Success. A generic response indicating that if the email exists, a password reset link has been dispatched.
+If an account with this email exists, a password reset link has been sent.
 
 
 [PasswordResetRequest](#passwordresetrequest)
@@ -1062,7 +1061,7 @@ Bad Request. Provided payload contains validation errors.
 
 Confirm password reset
 
-Validates the secure link parameters sent via email. If valid, updates the user's password to the newly provided one, invalidates all current sessions for this user, sends a confirmation email, and records a successful audit log.
+Validates the link parameters sent via email. If valid, updates the user's password to the newly provided one, invalidates all current sessions for this user, sends a confirmation email, and creates an audit log entry.
 
 Required permission: `AllowAny`.
 
@@ -1071,7 +1070,7 @@ Required permission: `AllowAny`.
 
 | Name | Type | Required | Description |
 |------|------|----------|-------------|
-| token | string | True | The one-time secure password reset token generated for the user. |
+| token | string | True | The one-time password reset token generated for the user. |
 | uidb64 | string | True | The Base64-encoded unique identifier of the user. |
 
 
@@ -1102,7 +1101,7 @@ Required permission: `AllowAny`.
 #### 200
 
 
-Password has been successfully reset. User sessions invalidated.
+Password has been reset successfully.
 
 
 
@@ -1133,13 +1132,15 @@ Required permission: `PERMISSION_DRONES_VIEW`.
 | classification | string |  |  |
 | drone_model | integer |  |  |
 | drone_model__name | string |  |  |
+| inventory_number | string |  |  |
 | inventory_number__icontains | string |  |  |
 | is_firmware_outdated | boolean |  |  |
-| military_unit | integer |  |  |
+| military_unit | string |  |  |
 | military_unit__name__icontains | string |  |  |
 | ordering | string | False | Which field to use when ordering the results. |
 | page | integer | False | A page number within the paginated result set. |
 | page_size | integer | False | Number of results to return per page. |
+| serial_number | string |  |  |
 | serial_number__icontains | string |  |  |
 | spec__max_flight_time_min | number |  |  |
 | spec__max_flight_time_min__gte | number |  |  |
@@ -1615,7 +1616,7 @@ Forbidden. User does not have permission to perform this action.
 #### 404
 
 
-Not Found
+Not Found.
 
 
 
@@ -1796,7 +1797,7 @@ Forbidden. User does not have permission to perform this action.
 #### 404
 
 
-Not Found
+Not Found.
 
 
 
@@ -1807,7 +1808,7 @@ Export drones data to CSV
 
 Generates and downloads a CSV file with the filtered list of drones. Supports full filtering and sorting identical to the standard list endpoint.
 
-The export is limited to a maximum of 10,000 records.
+The export is limited to a maximum of 10000 records.
 
 Required permission: `PERMISSION_DRONES_VIEW`.
 
@@ -1819,11 +1820,13 @@ Required permission: `PERMISSION_DRONES_VIEW`.
 | classification | string |  |  |
 | drone_model | integer |  |  |
 | drone_model__name | string |  |  |
+| inventory_number | string |  |  |
 | inventory_number__icontains | string |  |  |
 | is_firmware_outdated | boolean |  |  |
-| military_unit | integer |  |  |
+| military_unit | string |  |  |
 | military_unit__name__icontains | string |  |  |
 | ordering | string | False | Which field to use when ordering the results. |
+| serial_number | string |  |  |
 | serial_number__icontains | string |  |  |
 | spec__max_flight_time_min | number |  |  |
 | spec__max_flight_time_min__gte | number |  |  |
@@ -1936,6 +1939,12 @@ Retrieves a list of all drone models.
 Required permission: `PERMISSION_DRONES_VIEW`.
 
 
+### Parameters
+
+| Name | Type | Required | Description |
+|------|------|----------|-------------|
+| page | integer | False | A page number within the paginated result set. |
+| page_size | integer | False | Number of results to return per page. |
 
 
 ### Responses
@@ -1946,7 +1955,7 @@ Required permission: `PERMISSION_DRONES_VIEW`.
 Successfully retrieved the list of drone models.
 
 
-array
+[PaginatedDroneModelList](#paginateddronemodellist)
 
 
 
@@ -1960,21 +1969,26 @@ Examples
 
 
 ```json
-[
-  {
-    "id": 18,
-    "name": "Atlas Relay 8",
-    "manufacturer": "Quantum Systems",
-    "description": "Long-endurance signal relay and perimeter monitoring platform.",
-    "supported_classifications": [
-      "TRANSPORT",
-      "SURVEILLANCE"
-    ],
-    "is_active": true,
-    "created_at": "2026-07-02T02:21:31.163658Z",
-    "updated_at": "2026-07-02T02:21:31.163664Z"
-  }
-]
+{
+  "count": 123,
+  "next": "http://api.example.org/accounts/?page=4",
+  "previous": "http://api.example.org/accounts/?page=2",
+  "results": [
+    {
+      "id": 18,
+      "name": "Atlas Relay 8",
+      "manufacturer": "Quantum Systems",
+      "description": "Long-endurance signal relay and perimeter monitoring platform.",
+      "supported_classifications": [
+        "TRANSPORT",
+        "SURVEILLANCE"
+      ],
+      "is_active": true,
+      "created_at": "2026-07-02T02:21:31.163658Z",
+      "updated_at": "2026-07-02T02:21:31.163664Z"
+    }
+  ]
+}
 ```
 
 
@@ -2563,7 +2577,7 @@ Examples
       "commander": {
         "id": 27,
         "username": "commander.south",
-        "email": "commander.south@seed.local"
+        "email": "commander.south@example.com"
       },
       "status": "planned",
       "result": null,
@@ -2572,12 +2586,12 @@ Examples
       "longitude": "22.287900",
       "started_at": "2026-07-09T01:17:37.650595Z",
       "ended_at": "2026-07-09T01:49:37.650595Z",
-      "notes": "Planned operators: operator.alpha. Planned drones: Falcon Eye 2. Objective: capture updated terrain references and route obstacles.",
+      "notes": "Objective: capture updated terrain references and route obstacles.",
       "incident_notes": "",
       "created_by": {
-        "id": 25,
-        "username": "admin.ops",
-        "email": "admin.ops@seed.local"
+        "id": 24,
+        "username": "oleksander.koval",
+        "email": "oleksander.koval@example.com"
       },
       "created_at": "2026-07-02T02:21:31.151234Z",
       "updated_at": "2026-07-03T01:17:37.651465Z",
@@ -2638,7 +2652,7 @@ Examples
   "longitude": "22.287900",
   "started_at": "2026-07-09T01:17:37.650595Z",
   "ended_at": "2026-07-09T01:49:37.650595Z",
-  "notes": "Planned operators: operator.alpha. Planned drones: Falcon Eye 2. Objective: capture updated terrain references and route obstacles."
+  "notes": "Objective: capture updated terrain references."
 }
 ```
 
@@ -2689,12 +2703,12 @@ Examples
   "longitude": "22.287900",
   "started_at": "2026-07-09T01:17:37.650595Z",
   "ended_at": "2026-07-09T01:49:37.650595Z",
-  "notes": "Planned operators: operator.alpha. Planned drones: Falcon Eye 2. Objective: capture updated terrain references and route obstacles.",
+  "notes": "Objective: capture updated terrain references.",
   "incident_notes": "",
   "created_by": {
     "id": 24,
-    "username": "root.admin",
-    "email": "root.admin@seed.local"
+    "username": "oleksander.koval",
+    "email": "oleksander.koval@example.com"
   },
   "created_at": "2026-07-03T01:24:28.367298Z",
   "updated_at": "2026-07-03T01:24:28.367301Z",
@@ -2770,12 +2784,12 @@ Examples
       "mission": 11,
       "uploaded_by": {
         "id": 24,
-        "username": "root.admin",
-        "email": "root.admin@example.com"
+        "username": "oleksandr.koval",
+        "email": "oleksandr.koval@example.com"
       },
       "title": "Example Title",
       "description": null,
-      "file": "http://localhost:8000/media/artifacts/mission_11/d4ab2e0e326a4b4fab53bdcd7acf51d9.png",
+      "file": "http://localhost:8000/media/artifacts/mission_11/d4ab2e.png",
       "file_type": "image",
       "original_filename": "test_drone_photo.png",
       "file_size": 982936,
@@ -2800,7 +2814,7 @@ Forbidden. User does not have permission to perform this action.
 #### 404
 
 
-Not Found
+Not Found.
 
 
 
@@ -2812,7 +2826,9 @@ Upload a new artifact to a mission
 Uploads a media file or document as an artifact for a specific mission.
 
 Validation:
-- File must have format .avi, .csv, .jpeg, .jpg, .json, .mov, .mp4 or .png.
+- File must have one of the following formats:
+	- image: .jpg, .jpeg, .png
+	- data: .csv, .json
 - File size cannot be empty or exceed 50MB.
 
 Required permission: `PERMISSION_MEDIA_UPLOAD`.
@@ -2868,12 +2884,12 @@ Examples
   "mission": 11,
   "uploaded_by": {
     "id": 24,
-    "username": "root.admin",
-    "email": "root.admin@example.com"
+    "username": "oleksandr.koval",
+    "email": "oleksandr.koval@example.com"
   },
   "title": "Example Title",
   "description": null,
-  "file": "http://localhost:8000/media/artifacts/mission_11/d4ab2e0e326a4b4fab53bdcd7acf51d9.png",
+  "file": "http://localhost:8000/media/artifacts/mission_11/d4ab2e.png",
   "file_type": "image",
   "original_filename": "test_drone_photo.png",
   "file_size": 982936,
@@ -2924,7 +2940,7 @@ Examples
 
 ```json
 {
-  "file": "Unsupported file type '.md'. Allowed: .avi, .csv, .jpeg, .jpg, .json, .mov, .mp4, .png."
+  "file": "Unsupported file type '.md'. Allowed: .csv, .jpeg, .jpg, .json, .png."
 }
 ```
 
@@ -2941,7 +2957,7 @@ Forbidden. User does not have permission to perform this action.
 #### 404
 
 
-Not Found
+Not Found.
 
 
 
@@ -2990,12 +3006,12 @@ Examples
   "mission": 11,
   "uploaded_by": {
     "id": 24,
-    "username": "root.admin",
-    "email": "root.admin@example.com"
+    "username": "oleksandr.koval",
+    "email": "oleksandr.koval@example.com"
   },
   "title": "Example Title",
   "description": null,
-  "file": "http://localhost:8000/media/artifacts/mission_11/d4ab2e0e326a4b4fab53bdcd7acf51d9.png",
+  "file": "http://localhost:8000/media/artifacts/mission_11/d4ab2e.png",
   "file_type": "image",
   "original_filename": "test_drone_photo.png",
   "file_size": 982936,
@@ -3018,7 +3034,7 @@ Forbidden. User does not have permission to perform this action.
 #### 404
 
 
-Not Found
+Not Found.
 
 
 
@@ -3061,7 +3077,7 @@ Forbidden. User does not have permission to perform this action.
 #### 404
 
 
-Not Found
+Not Found.
 
 
 
@@ -3080,6 +3096,8 @@ Required permission: `PERMISSION_MISSIONS_VIEW`.
 | Name | Type | Required | Description |
 |------|------|----------|-------------|
 | mission_pk | integer | True | ID of the mission. |
+| page | integer | False | A page number within the paginated result set. |
+| page_size | integer | False | Number of results to return per page. |
 
 
 ### Responses
@@ -3090,7 +3108,7 @@ Required permission: `PERMISSION_MISSIONS_VIEW`.
 Successfully retrieved the list of mission drone and operator assignments.
 
 
-array
+[PaginatedMissionDroneList](#paginatedmissiondronelist)
 
 
 
@@ -3104,31 +3122,36 @@ Examples
 
 
 ```json
-[
-  {
-    "id": 1,
-    "mission": 34,
-    "drone": 21,
-    "drone_details": {
-      "id": 21,
-      "name": "Falcon Eye 1",
-      "serial_number": "FPV-AER-24001",
-      "drone_model": 15,
-      "status": "ACTIVE"
-    },
-    "operator": 28,
-    "operator_details": {
-      "id": 28,
-      "username": "operator.alpha",
-      "email": "operator.alpha@seed.local"
-    },
-    "condition_after": null,
-    "condition_description": null,
-    "flight_started_at": null,
-    "flight_ended_at": null,
-    "created_at": "2026-07-06T02:19:18.140785Z"
-  }
-]
+{
+  "count": 123,
+  "next": "http://api.example.org/accounts/?page=4",
+  "previous": "http://api.example.org/accounts/?page=2",
+  "results": [
+    {
+      "id": 1,
+      "mission": 34,
+      "drone": 21,
+      "drone_details": {
+        "id": 21,
+        "name": "Falcon Eye 1",
+        "serial_number": "FPV-AER-24001",
+        "drone_model": 15,
+        "status": "ACTIVE"
+      },
+      "operator": 28,
+      "operator_details": {
+        "id": 28,
+        "username": "operator.alpha",
+        "email": "operator.alpha@example.com"
+      },
+      "condition_after": null,
+      "condition_description": null,
+      "flight_started_at": null,
+      "flight_ended_at": null,
+      "created_at": "2026-07-06T02:19:18.140785Z"
+    }
+  ]
+}
 ```
 
 
@@ -3144,7 +3167,7 @@ Forbidden. User does not have permission to perform this action.
 #### 404
 
 
-Not Found
+Not Found.
 
 
 
@@ -3201,7 +3224,7 @@ Examples
   "operator_details": {
     "id": 28,
     "username": "operator.alpha",
-    "email": "operator.alpha@seed.local"
+    "email": "operator.alpha@example.com"
   },
   "condition_after": null,
   "condition_description": null,
@@ -3262,7 +3285,7 @@ Examples
   "operator_details": {
     "id": 28,
     "username": "operator.alpha",
-    "email": "operator.alpha@seed.local"
+    "email": "operator.alpha@example.com"
   },
   "condition_after": null,
   "condition_description": null,
@@ -3293,7 +3316,7 @@ Forbidden. User does not have permission to perform this action.
 #### 404
 
 
-Not Found
+Not Found.
 
 
 
@@ -3307,7 +3330,7 @@ Deletes a specific drone assignment and creates an audit log entry.
 Validation:
 - Cannot delete assignment unless mission is planned.
 
-Required permission: `IsDispatcherOrAdmin`.
+Required permission: `IsDispatcherOrAdmin, PERMISSION_MISSIONS_ASSIGN`.
 
 
 ### Parameters
@@ -3348,7 +3371,7 @@ Forbidden. User does not have permission to perform this action.
 #### 404
 
 
-Not Found
+Not Found.
 
 
 
@@ -3397,7 +3420,7 @@ Examples
   "commander": {
     "id": 27,
     "username": "commander.south",
-    "email": "commander.south@seed.local"
+    "email": "commander.south@example.com"
   },
   "status": "planned",
   "result": null,
@@ -3406,12 +3429,12 @@ Examples
   "longitude": "22.287900",
   "started_at": "2026-07-09T01:17:37.650595Z",
   "ended_at": "2026-07-09T01:49:37.650595Z",
-  "notes": "Planned operators: operator.alpha. Planned drones: Falcon Eye 2. Objective: capture updated terrain references and route obstacles.",
+  "notes": "Objective: capture updated terrain references and route obstacles.",
   "incident_notes": "",
   "created_by": {
-    "id": 25,
-    "username": "admin.ops",
-    "email": "admin.ops@seed.local"
+    "id": 24,
+    "username": "oleksander.koval",
+    "email": "oleksander.koval@example.com"
   },
   "created_at": "2026-07-02T02:21:31.151234Z",
   "updated_at": "2026-07-03T01:17:37.651465Z",
@@ -3432,7 +3455,7 @@ Forbidden. User does not have permission to perform this action.
 #### 404
 
 
-Not Found
+Not Found.
 
 
 
@@ -3581,7 +3604,7 @@ Forbidden. User does not have permission to perform this action.
 #### 404
 
 
-Not Found
+Not Found.
 
 
 
@@ -3731,7 +3754,7 @@ Forbidden. User does not have permission to perform this action.
 #### 404
 
 
-Not Found
+Not Found.
 
 
 
@@ -3792,7 +3815,7 @@ Forbidden. User does not have permission to perform this action.
 #### 404
 
 
-Not Found
+Not Found.
 
 
 
@@ -3922,7 +3945,7 @@ Forbidden. User does not have permission to perform this action.
 #### 404
 
 
-Not Found
+Not Found.
 
 
 
@@ -4052,7 +4075,7 @@ Forbidden. User does not have permission to perform this action.
 #### 404
 
 
-Not Found
+Not Found.
 
 
 
@@ -4299,7 +4322,7 @@ Forbidden. User does not have permission to perform this action.
 #### 404
 
 
-Not Found
+Not Found.
 
 
 
@@ -4860,7 +4883,7 @@ Forbidden. User does not have permission to perform this action.
 #### 404
 
 
-Not Found
+Not Found.
 
 
 
@@ -4871,7 +4894,7 @@ Export component replacement data to CSV
 
 Generates and downloads a CSV file with the filtered component replacement history.Supports full filtering identical to the standard list endpoint.
 
-The export is limited to a maximum of 10,000 records.
+The export is limited to a maximum of 10000 records.
 
 Required permission: `PERMISSION_REPAIRS_VIEW`.
 
@@ -4883,7 +4906,7 @@ Required permission: `PERMISSION_REPAIRS_VIEW`.
 #### 200
 
 
-A CSV file containing component replacement history generated successfully.
+A CSV file generated successfully.
 
 
 
@@ -5449,6 +5472,18 @@ Forbidden. User does not have permission to perform this action.
 | results | array |  |
 
 
+## PaginatedDroneModelList
+
+
+
+| Field | Type | Description |
+|-------|------|-------------|
+| count | integer |  |
+| next | string |  |
+| previous | string |  |
+| results | array |  |
+
+
 ## PaginatedMediaAuditLogList
 
 
@@ -5462,6 +5497,18 @@ Forbidden. User does not have permission to perform this action.
 
 
 ## PaginatedMissionArtifactList
+
+
+
+| Field | Type | Description |
+|-------|------|-------------|
+| count | integer |  |
+| next | string |  |
+| previous | string |  |
+| results | array |  |
+
+
+## PaginatedMissionDroneList
 
 
 
@@ -5635,6 +5682,7 @@ Forbidden. User does not have permission to perform this action.
 | role | integer |  |
 | unit | integer |  |
 | is_active | boolean | Designates whether this user should be treated as active. Unselect this instead of deleting accounts. |
+| must_change_password | boolean |  |
 
 
 ## PatchedUserRoleUpdate
@@ -5828,6 +5876,7 @@ Forbidden. User does not have permission to perform this action.
 | role | integer |  |
 | unit | integer |  |
 | is_active | boolean | Designates whether this user should be treated as active. Unselect this instead of deleting accounts. |
+| must_change_password | boolean |  |
 
 
 ## UserRegistration

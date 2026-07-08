@@ -2,6 +2,7 @@ from drf_spectacular.utils import OpenApiExample, OpenApiParameter, OpenApiRespo
 from rest_framework import status
 
 from common.api_description_schema import description_schema
+from config.settings import MAX_EXPORT_LIMIT
 
 from .serializers import (
     AuditLogSerializer,
@@ -260,7 +261,7 @@ audit_log_export_schema = description_schema(
         "with the filtered audit logs. "
         "Supports full filtering and sorting identical "
         "to the standard list endpoint. \n\n"
-        "The export is limited to a maximum of 10,000 records. "
+        f"The export is limited to a maximum of {MAX_EXPORT_LIMIT} records. "
     ),
     permission_code="PERMISSION_AUDIT_LOGS_VIEW_OWN, PERMISSION_AUDIT_LOGS_VIEW_ALL",
     request=None,

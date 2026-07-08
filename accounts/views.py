@@ -312,6 +312,7 @@ class UserMeView(generics.RetrieveUpdateAPIView):
             request=self.request,
         )
 
+
 @change_password_schema
 class ChangePasswordView(APIView):
     permission_classes = [permissions.IsAuthenticated]

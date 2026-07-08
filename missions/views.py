@@ -74,6 +74,7 @@ class MissionsCreateRBAC(HasRBACPermission):
 class MissionsAssignRBAC(HasRBACPermission):
     required_permission = PERMISSION_MISSIONS_ASSIGN
 
+
 @extend_schema_view(get=mission_get_schema, post=mission_post_schema)
 class MissionListCreateView(generics.ListCreateAPIView):
     serializer_class = MissionSerializer

@@ -2,7 +2,9 @@ from drf_spectacular.utils import OpenApiExample, OpenApiParameter, OpenApiRespo
 from rest_framework import status
 
 from common.api_description_schema import description_schema
+from config.settings import MAX_EXPORT_LIMIT
 from repairs.serializers import (
+    DESCRIPTION_MIN_LENGTH,
     ComponentReplacementListSerializer,
     ComponentReplacementSerializer,
     DefectReportListSerializer,
@@ -44,7 +46,7 @@ defect_post_schema = description_schema(
     description=(
         "Creates a new defect report. \n\n"
         "Validation: \n"
-        "- Description must be at least 10 character long. \n"
+        f"- Description must be at least {DESCRIPTION_MIN_LENGTH} character long. \n"
     ),
     permission_code="PERMISSION_REPAIRS_CREATE",
     request=DefectReportSerializer,
@@ -280,7 +282,7 @@ component_replacement_export_schema = description_schema(
         "Generates and downloads a CSV file with"
         " the filtered component replacement history."
         "Supports full filtering identical to the standard list endpoint. \n\n"
-        "The export is limited to a maximum of 10,000 records. "
+        f"The export is limited to a maximum of {MAX_EXPORT_LIMIT} records. "
     ),
     permission_code="PERMISSION_REPAIRS_VIEW",
     request=None,

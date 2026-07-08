@@ -30,7 +30,7 @@ cd Mission-Control-System
 ### Environment Variables
 The project uses environment variables to store configuration values.
 
-Create a .env file from the example file:
+Create a `.env` file from the example file:
 ```bash
 cp .env.example .env
 ```
@@ -40,7 +40,7 @@ For Windows PowerShell, use:
 copy .env.example .env
 ```
 
-After that, open the .env file and update the values if needed.
+After that, open the `.env` file and update the values if needed.
 
 For more details, see [Configuration](docs/configuration.md).
 
@@ -63,6 +63,8 @@ Follow the `createsuperuser` command instructions in the [Common Commands](#comm
    - application: http://localhost:8000/
    - Django admin: http://localhost:8000/admin/
    - pgAdmin (if enabled): http://localhost:5050/
+
+Docker Compose exposes `Nginx` on port `8000`. `Gunicorn` stays inside the Docker network and is no longer reachable directly from the host.
 
 ### Running Locally
 
@@ -144,7 +146,7 @@ python manage.py createsuperuser
 ### Seed Demo Data
 Populate the database with development data:
 ```bash
-python manage.py seed_db
+python manage.py seed_db --password "LocalSeedPassword123!"
 ```
 
 ### Running Test

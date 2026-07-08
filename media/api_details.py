@@ -2,6 +2,7 @@ from drf_spectacular.utils import OpenApiExample, OpenApiParameter, OpenApiRespo
 from rest_framework import status
 
 from common.api_description_schema import description_schema
+from config.settings import ARTIFACT_ALLOWED_EXTENSIONS, ARTIFACT_MAX_FILE_SIZE_MB
 from media.serializers import MissionArtifactSerializer, MissionArtifactUploadSerializer
 
 artifact_example_value = {
@@ -49,14 +50,19 @@ artifact_get_schema = description_schema(
     examples=[OpenApiExample(name="Valid Request", value=artifact_example_value)],
 )
 
+formatted_extensions = "\n".join(
+    f"\t- {file_type}: {', '.join(exts)}"
+    for file_type, exts in ARTIFACT_ALLOWED_EXTENSIONS.items()
+)
+
 artifact_post_schema = description_schema(
     tags=["media"],
     summary="Upload a new artifact to a mission",
     description=(
         "Uploads a media file or document as an artifact for a specific mission. \n\n"
         "Validation: \n"
-        "- File must have format .avi, .csv, .jpeg, .jpg, .json, .mov, .mp4 or .png. \n"
-        "- File size cannot be empty or exceed 50MB."
+        f"- File must have one of the following formats:\n{formatted_extensions}\n"
+        f"- File size cannot be empty or exceed {ARTIFACT_MAX_FILE_SIZE_MB}MB."
     ),
     permission_code="PERMISSION_MEDIA_UPLOAD",
     parameters=[
@@ -94,7 +100,7 @@ artifact_post_schema = description_schema(
                     name="Unsupported file format",
                     value={
                         "file": "Unsupported file type '.md'. "
-                        "Allowed: .avi, .csv, .jpeg, .jpg, .json, .mov, .mp4, .png."
+                        "Allowed: .csv, .jpeg, .jpg, .json, .png."
                     },
                 ),
             ],

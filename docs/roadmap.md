@@ -19,7 +19,9 @@
 **Documentation:**
 - Swagger UI/ReDoc API documentation
 
-### Planned Features
+**Infrastructure:**
+- Redis + Celery
+- Nginx
 
+### Planned Features
 - React - Advanced interactive components
-- Nginx - Web server and reverse proxy
