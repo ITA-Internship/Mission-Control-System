@@ -2,7 +2,6 @@ from django.db import transaction
 from drf_spectacular.utils import extend_schema_view
 from rest_framework import generics, permissions
 from rest_framework.exceptions import ValidationError
-from rest_framework.pagination import PageNumberPagination
 
 from accounts.permissions import HasRBACPermission
 from accounts.rbac import (
@@ -13,6 +12,8 @@ from accounts.rbac import (
     PERMISSION_MISSIONS_UPDATE_STATUS,
     PERMISSION_MISSIONS_VIEW,
 )
+from common.pagination import StandardResultsSetPagination
+from roles.models import OPERATOR_CODE
 
 from .api_details import (
     mission_assignment_delete_schema,
@@ -29,6 +30,7 @@ from .api_details import (
 from .models import Mission, MissionAuditLog, MissionDrone, Status
 from .permissions import (
     CanUpdateMissionStatus,
+    CanViewMission,
     IsAssignedOperatorOrAdmin,
     IsDispatcherOrAdmin,
 )
@@ -40,6 +42,13 @@ from .serializers import (
     MissionStatusUpdateSerializer,
 )
 from .services import unassign_drone_from_mission
+
+
+def restrict_missions_for_user(queryset, user):
+    role_code = getattr(getattr(user, "role", None), "code", None)
+    if role_code == OPERATOR_CODE:
+        return queryset.filter(mission_drones__operator_id=user.id).distinct()
+    return queryset
 
 
 class MissionsUpdateStatusRBAC(HasRBACPermission):
@@ -65,35 +74,27 @@ class MissionsCreateRBAC(HasRBACPermission):
 class MissionsAssignRBAC(HasRBACPermission):
     required_permission = PERMISSION_MISSIONS_ASSIGN
 
-
-class MissionPagination(PageNumberPagination):
-    page_size = 10
-    page_size_query_param = "page_size"
-    max_page_size = 50
-
-
 @extend_schema_view(get=mission_get_schema, post=mission_post_schema)
 class MissionListCreateView(generics.ListCreateAPIView):
     serializer_class = MissionSerializer
-    pagination_class = MissionPagination
+    pagination_class = StandardResultsSetPagination
 
     def get_permissions(self):
-        if self.request.method == "POST":
+        if self.request.method in permissions.SAFE_METHODS:
+            permission_classes = [permissions.IsAuthenticated, CanViewMission]
+        else:
             permission_classes = [
                 permissions.IsAuthenticated,
                 IsDispatcherOrAdmin,
                 MissionsCreateRBAC,
             ]
-        else:
-            permission_classes = [
-                permissions.IsAuthenticated,
-                MissionsViewRBAC,
-            ]
-
         return [permission() for permission in permission_classes]
 
-    def get_queryset_for_list(self):
-        queryset = Mission.objects.with_related()
+    def get_queryset(self):
+        queryset = restrict_missions_for_user(
+            Mission.objects.with_related(),
+            self.request.user,
+        )
 
         status = self.request.query_params.get("status")
         if status:
@@ -119,15 +120,12 @@ class MissionListCreateView(generics.ListCreateAPIView):
                 )
 
             user = self.request.user
-            queryset = queryset.filter(mission_drones__operator_id=user.id).distinct()
+            user_mission_ids = MissionDrone.objects.filter(operator_id=user.id).values(
+                "mission_id"
+            )
+            queryset = queryset.filter(id__in=user_mission_ids)
 
         return queryset
-
-    def get_queryset(self):
-        if self.request.method in permissions.SAFE_METHODS:
-            return self.get_queryset_for_list()
-
-        return Mission.objects.none()
 
     def perform_create(self, serializer):
         serializer.save(created_by=self.request.user)
@@ -136,8 +134,13 @@ class MissionListCreateView(generics.ListCreateAPIView):
 @mission_detail_schema
 class MissionDetailView(generics.RetrieveAPIView):
     serializer_class = MissionSerializer
-    permission_classes = [permissions.IsAuthenticated, MissionsViewRBAC]
-    queryset = Mission.objects.with_related()
+    permission_classes = [permissions.IsAuthenticated, CanViewMission]
+
+    def get_queryset(self):
+        return restrict_missions_for_user(
+            Mission.objects.with_related(),
+            self.request.user,
+        )
 
 
 @mission_outcome_schema
@@ -148,8 +151,13 @@ class MissionOutcomeView(generics.UpdateAPIView):
         MissionsRecordOutcomeRBAC,
         IsAssignedOperatorOrAdmin,
     ]
-    queryset = Mission.objects.with_related().prefetch_related("mission_drones")
     http_method_names = ["patch", "options", "head"]
+
+    def get_queryset(self):
+        return restrict_missions_for_user(
+            Mission.objects.with_related().prefetch_related("mission_drones"),
+            self.request.user,
+        )
 
 
 @mission_drone_condition_schema
@@ -177,7 +185,12 @@ class MissionDroneConditionView(generics.UpdateAPIView):
 class MissionStatusUpdateView(generics.RetrieveUpdateAPIView):
     serializer_class = MissionStatusUpdateSerializer
     permission_classes = [permissions.IsAuthenticated, CanUpdateMissionStatus]
-    queryset = Mission.objects.prefetch_related("mission_drones")
+
+    def get_queryset(self):
+        return restrict_missions_for_user(
+            Mission.objects.prefetch_related("mission_drones"),
+            self.request.user,
+        )
 
     def update(self, request, *args, **kwargs):
         with transaction.atomic():
@@ -210,6 +223,8 @@ class MissionStatusUpdateView(generics.RetrieveUpdateAPIView):
 class MissionAssignmentListCreateView(generics.ListCreateAPIView):
     serializer_class = MissionDroneSerializer
 
+    pagination_class = StandardResultsSetPagination
+
     def get_permissions(self):
         if self.request.method == "POST":
             permission_classes = [
@@ -228,7 +243,7 @@ class MissionAssignmentListCreateView(generics.ListCreateAPIView):
     def get_mission(self):
         if not hasattr(self, "_mission"):
             self._mission = generics.get_object_or_404(
-                Mission,
+                restrict_missions_for_user(Mission.objects.all(), self.request.user),
                 id=self.kwargs["mission_pk"],
             )
         return self._mission
@@ -261,7 +276,11 @@ class MissionAssignmentListCreateView(generics.ListCreateAPIView):
 
 @mission_assignment_delete_schema
 class MissionAssignmentDetailView(generics.DestroyAPIView):
-    permission_classes = [permissions.IsAuthenticated, IsDispatcherOrAdmin]
+    permission_classes = [
+        permissions.IsAuthenticated,
+        IsDispatcherOrAdmin,
+        MissionsAssignRBAC,
+    ]
     lookup_url_kwarg = "pk"
 
     def get_queryset(self):

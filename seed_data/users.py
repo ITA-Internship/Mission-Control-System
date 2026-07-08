@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from accounts.models import (
     MilitaryUnit,
     User,
@@ -13,11 +15,12 @@ from roles.models import (
     VIEWER_CODE,
     Role,
 )
-from seed_data.data.users_data import TEST_PASSWORD, UNITS, USERS, UserSeed
+from seed_data.data.users_data import UNITS, USERS, UserSeed
 
 
 class UserSeeder:
-    def __init__(self) -> None:
+    def __init__(self, seed_password: str) -> None:
+        self.seed_password = seed_password
         self.roles = self._load_roles()
         self.units: dict[str, MilitaryUnit] = {}
 
@@ -90,8 +93,10 @@ class UserSeeder:
             },
         )
 
-        user.set_password(TEST_PASSWORD)
-        user.save(update_fields=["password"])
+        if created or not user.check_password(self.seed_password):
+            user.set_password(self.seed_password)
+            user.must_change_password = True
+            user.save(update_fields=["password", "must_change_password"])
 
         UserProfile.objects.update_or_create(
             user=user,
@@ -132,5 +137,5 @@ class UserSeeder:
         )
 
 
-def seed_users() -> dict[str, int]:
-    return UserSeeder().seed()
+def seed_users(seed_password: str) -> dict[str, int]:
+    return UserSeeder(seed_password=seed_password).seed()

@@ -1,6 +1,7 @@
 import uuid
 
 from django.conf import settings
+from django.contrib.postgres.indexes import GinIndex
 from django.core.exceptions import ValidationError
 from django.db import models
 from django.utils import timezone
@@ -96,6 +97,14 @@ class Drone(models.Model):
         STATUS_WRITTEN_OFF,
     )
 
+    ACTIVE_STATUSES = (
+        STATUS_ACTIVE,
+        STATUS_IN_MISSION,
+        STATUS_DAMAGED,
+        STATUS_LOST,
+        STATUS_MAINTENANCE,
+    )
+
     STATUS_UI = {
         STATUS_ACTIVE: {
             "label": "Active",
@@ -165,7 +174,9 @@ class Drone(models.Model):
         help_text="Drone Model",
     )
     classification = models.CharField(max_length=20, choices=CLASSIFICATION_CHOICES)
-    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="ACTIVE")
+    status = models.CharField(
+        max_length=20, choices=STATUS_CHOICES, default="ACTIVE", db_index=True
+    )
     military_unit = models.ForeignKey(
         "accounts.MilitaryUnit",
         on_delete=models.PROTECT,
@@ -191,6 +202,15 @@ class Drone(models.Model):
     def status_category(self):
         return self.STATUS_UI.get(self.status, {}).get("category", "unknown")
 
+    class Meta:
+        indexes = [
+            GinIndex(
+                fields=["serial_number"],
+                name="serial_number_gin_idx",
+                opclasses=["gin_trgm_ops"],
+            )
+        ]
+
     def clean(self):
         super().clean()
 
@@ -206,10 +226,6 @@ class Drone(models.Model):
                         f'{", ".join([c.title() for c in allowed_classifications])}'
                     }
                 )
-
-    def save(self, *args, **kwargs):
-        self.full_clean()
-        super().save(*args, **kwargs)
 
 
 class DroneSpec(models.Model):

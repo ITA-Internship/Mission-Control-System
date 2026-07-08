@@ -82,6 +82,12 @@ def count_admin_users_locked() -> int:
     return User.objects.select_for_update().filter(role__code=ADMIN_CODE).count()
 
 
+def set_user_password(user: User, raw_password: str) -> None:
+    user.set_password(raw_password)
+    user.must_change_password = False
+    user.save(update_fields=["password", "must_change_password"])
+
+
 @transaction.atomic
 def update_user_role(*, target_user: User, new_role_id: int, changed_by: User) -> User:
     if not new_role_id:

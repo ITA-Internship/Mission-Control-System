@@ -106,6 +106,28 @@ class VideoMetadataAPITests(APITestCase):
 
         video_from_db = VideoMetadata.objects.get(id=response.data["id"])
         self.assertEqual(video_from_db.duration_seconds, 42)
+        self.assertEqual(video_from_db.status, VideoMetadata.Status.READY)
+
+    @patch("media.views.extract_video_duration_task.delay")
+    @patch("media.permissions.MediaUploadPermission.has_permission", return_value=True)
+    def test_upload_video_metadata_starts_in_uploading_status(
+        self,
+        mock_perm,
+        mock_delay,
+    ):
+        data = {
+            "mission": self.mission.id,
+            "drone": self.drone.id,
+            "file": self.video_file,
+            "checksum": "sha256_mock_hash_value",
+        }
+
+        response = self.client.post(self.list_url, data, format="multipart")
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        video_from_db = VideoMetadata.objects.get(id=response.data["id"])
+        self.assertEqual(video_from_db.status, VideoMetadata.Status.UPLOADING)
+        mock_delay.assert_called_once_with(video_from_db.id)
 
     @patch("media.permissions.MediaUploadPermission.has_permission", return_value=True)
     def test_upload_video_metadata_requires_mission(self, mock_perm):

@@ -41,6 +41,15 @@ ALLOWED_HOSTS = [
     if host.strip()
 ]
 
+CSRF_TRUSTED_ORIGINS = [
+    origin.strip()
+    for origin in os.getenv("CSRF_TRUSTED_ORIGINS", "").split(",")
+    if origin.strip()
+]
+
+USE_X_FORWARDED_HOST = True
+SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+
 
 # Application definition
 
@@ -51,6 +60,7 @@ INSTALLED_APPS = [
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",
+    "django.contrib.postgres",
     "accounts",
     "drones",
     "roles",
@@ -129,11 +139,37 @@ AUTH_PASSWORD_VALIDATORS = [
 
 AUTH_USER_MODEL = "accounts.User"
 
+default_authentication_classes = [
+    "rest_framework.authentication.SessionAuthentication",
+]
+
+if DEBUG:
+    default_authentication_classes.append(
+        "rest_framework.authentication.BasicAuthentication"
+    )
+
 REST_FRAMEWORK = {
-    "DEFAULT_AUTHENTICATION_CLASSES": [
-        "rest_framework.authentication.SessionAuthentication",
-        "rest_framework.authentication.BasicAuthentication",
+    "DEFAULT_AUTHENTICATION_CLASSES": default_authentication_classes,
+    "DEFAULT_THROTTLE_CLASSES": [
+        "rest_framework.throttling.ScopedRateThrottle",
     ],
+    "DEFAULT_THROTTLE_RATES": {
+        "account_activation": os.getenv("THROTTLE_ACCOUNT_ACTIVATION", "5/hour"),
+        "password_reset_request": os.getenv(
+            "THROTTLE_PASSWORD_RESET_REQUEST",
+            "5/hour",
+        ),
+        "password_reset_confirm": os.getenv(
+            "THROTTLE_PASSWORD_RESET_CONFIRM",
+            "5/hour",
+        ),
+        "audit_export": os.getenv("THROTTLE_AUDIT_EXPORT", "10/hour"),
+        "drone_export": os.getenv("THROTTLE_DRONE_EXPORT", "10/hour"),
+        "component_replacement_export": os.getenv(
+            "THROTTLE_COMPONENT_REPLACEMENT_EXPORT",
+            "5/hour",
+        ),
+    },
     "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
 }
 
@@ -195,6 +231,10 @@ FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:3000")
 CELERY_BROKER_URL = os.environ.get("REDIS_URL", "redis://localhost:6379/0")
 CELERY_RESULT_BACKEND = os.environ.get("REDIS_URL", "redis://localhost:6379/0")
 MAX_EXPORT_LIMIT = 10000
+DRONES_IMPORT_MAX_ROWS = 10000
+DRONES_IMPORT_BATCH_SIZE = 1000
+
+MAX_PAGINATION_OFFSET = 10000
 
 
 SPECTACULAR_SETTINGS = {
