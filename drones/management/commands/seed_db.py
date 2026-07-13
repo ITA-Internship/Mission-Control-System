@@ -21,6 +21,7 @@ from seed_data.users import UNITS, USERS, seed_users
 
 class Command(BaseCommand):
     """Seed demo data for local development and review environments."""
+
     help = "Seed database with demo data for users, missions, drones, and repairs."
 
     def add_arguments(self, parser):

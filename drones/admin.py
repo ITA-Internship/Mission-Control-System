@@ -15,6 +15,7 @@ from .models import (
 @admin.register(Drone)
 class DroneAdmin(admin.ModelAdmin):
     """Configure admin search, filters, and list display for drone records."""
+
     list_display = (
         "id",
         "serial_number",
@@ -38,6 +39,7 @@ class DroneAdmin(admin.ModelAdmin):
 @admin.register(DroneSpec)
 class DroneSpecAdmin(admin.ModelAdmin):
     """Configure admin search, filters, and list display for drone specifications."""
+
     list_display = (
         "id",
         "drone",
@@ -68,6 +70,7 @@ class DroneSpecAdmin(admin.ModelAdmin):
 @admin.register(DroneSpecChangeLog)
 class DroneSpecChangeLogAdmin(admin.ModelAdmin):
     """Configure read-only admin access for specification audit entries."""
+
     list_display = (
         "id",
         "drone_spec",
@@ -102,6 +105,7 @@ class DroneSpecChangeLogAdmin(admin.ModelAdmin):
 @admin.register(WriteOffRecord)
 class WriteOffRecordAdmin(admin.ModelAdmin):
     """Configure read-only admin access for immutable write-off records."""
+
     list_display = (
         "id",
         "drone",
@@ -163,6 +167,7 @@ class WriteOffRecordAdmin(admin.ModelAdmin):
 @admin.register(DroneStatusHistory)
 class DroneStatusHistoryAdmin(admin.ModelAdmin):
     """Configure admin search, filters, and list display for status history."""
+
     list_display = (
         "id",
         "drone",
@@ -182,6 +187,7 @@ class DroneStatusHistoryAdmin(admin.ModelAdmin):
 @admin.register(DroneModel)
 class DroneModelAdmin(admin.ModelAdmin):
     """Configure admin search, filters, and list display for drone models."""
+
     list_display = (
         "id",
         "name",

@@ -40,8 +40,10 @@ from .services import (
 
 class DroneSpecChangeLogSerializer(serializers.ModelSerializer):
     """Serialize specification audit entries for read-only API responses."""
+
     class Meta:
         """Configure read-only fields for specification change logs."""
+
         model = DroneSpecChangeLog
         fields = (
             "id",
@@ -56,6 +58,7 @@ class DroneSpecChangeLogSerializer(serializers.ModelSerializer):
 
 class DroneSpecValidationMixin:
     """Provide shared JSON validation for drone specification serializers."""
+
     def validate_camera_specs(self, value):
         """Validate that camera specs are submitted as a JSON object."""
         if not isinstance(value, dict):
@@ -80,10 +83,12 @@ class DroneSpecValidationMixin:
 
 class DroneSpecSerializer(DroneSpecValidationMixin, serializers.ModelSerializer):
     """Serialize full technical specifications and change history for a drone."""
+
     change_history = DroneSpecChangeLogSerializer(many=True, read_only=True)
 
     class Meta:
         """Configure full DroneSpec fields exposed by the API."""
+
         model = DroneSpec
         fields = (
             "id",
@@ -119,8 +124,10 @@ class DroneSpecSerializer(DroneSpecValidationMixin, serializers.ModelSerializer)
 
 class DroneSpecUpdateSerializer(DroneSpecValidationMixin, serializers.ModelSerializer):
     """Serialize partial updates to a drone technical specification."""
+
     class Meta:
         """Configure optional DroneSpec fields accepted during partial updates."""
+
         model = DroneSpec
         exclude = ("drone",)
         read_only_fields = ("id", "updated_at")
@@ -154,11 +161,13 @@ class DroneSpecUpdateSerializer(DroneSpecValidationMixin, serializers.ModelSeria
 
 class WriteOffRecordSerializer(serializers.ModelSerializer):
     """Serialize immutable write-off data attached to a drone."""
+
     related_mission_id = serializers.IntegerField(read_only=True)
     reason_label = serializers.CharField(read_only=True)
 
     class Meta:
         """Configure read-only write-off record fields."""
+
         model = WriteOffRecord
         fields = (
             "id",
@@ -180,12 +189,14 @@ class DroneStatusHistorySerializer(serializers.ModelSerializer):
     Adds a readable user label and event type so clients can distinguish status
     changes caused by missions, repairs, write-offs, or manual updates.
     """
+
     related_mission_id = serializers.IntegerField(read_only=True)
     changed_by_display = serializers.SerializerMethodField()
     event_type = serializers.SerializerMethodField()
 
     class Meta:
         """Configure status history fields exposed by the API."""
+
         model = DroneStatusHistory
         fields = (
             "id",
@@ -233,6 +244,7 @@ class DroneSerializer(serializers.ModelSerializer):
     Creation is delegated to the service layer so the drone, DroneSpec, and
     initial DroneSpecChangeLog are created consistently in one workflow.
     """
+
     spec = DroneSpecSerializer()
     writeoff_record = WriteOffRecordSerializer(read_only=True)
     status_history = DroneStatusHistorySerializer(many=True, read_only=True)
@@ -242,6 +254,7 @@ class DroneSerializer(serializers.ModelSerializer):
 
     class Meta:
         """Expose all Drone fields for create and detail responses."""
+
         model = Drone
         fields = "__all__"
 
@@ -274,6 +287,7 @@ class DroneUpdateSerializer(serializers.ModelSerializer):
     Inactive transitions require write-off metadata so the service layer can
     create an immutable WriteOffRecord and link it to DroneStatusHistory.
     """
+
     spec = DroneSpecUpdateSerializer(required=False)
 
     writeoff_reason = serializers.ChoiceField(
@@ -310,6 +324,7 @@ class DroneUpdateSerializer(serializers.ModelSerializer):
 
     class Meta:
         """Configure optional Drone fields and write-off inputs for partial updates."""
+
         model = Drone
         fields = (
             "serial_number",
@@ -343,7 +358,7 @@ class DroneUpdateSerializer(serializers.ModelSerializer):
     def validate(self, attrs):
         """Require write-off fields when a patch moves a drone to an inactive status."""
         requested_status = attrs.get("status")
-        
+
         # Terminal inventory states require write-off metadata before the service
         # creates immutable audit records
         if requested_status not in Drone.INACTIVE_STATUSES:
@@ -417,11 +432,11 @@ class DroneUpdateSerializer(serializers.ModelSerializer):
         except ValidationError as exc:
             raise serializers.ValidationError(self._map_writeoff_errors(exc))
 
+    # Map model-level write-off fields to serializer input field names.
     WRITEOFF_FIELD_MAP = {
         "reason": "writeoff_reason",
         "reason_description": "writeoff_reason_description",
     }
-    """Map model-level write-off fields to serializer input field names."""
 
     @classmethod
     def _map_writeoff_errors(cls, exc):
@@ -440,12 +455,14 @@ class DroneUpdateSerializer(serializers.ModelSerializer):
 
 class DroneListSerializer(serializers.ModelSerializer):
     """Serialize compact drone fields for list responses."""
+
     status_label = serializers.CharField(read_only=True)
     status_indicator = serializers.CharField(read_only=True)
     status_category = serializers.CharField(read_only=True)
 
     class Meta:
         """Configure compact Drone fields exposed by list endpoints."""
+
         model = Drone
         fields = (
             "id",
@@ -465,8 +482,10 @@ class DroneListSerializer(serializers.ModelSerializer):
 
 class DroneModelSerializer(serializers.ModelSerializer):
     """Serialize drone model catalog entries and supported classifications."""
+
     class Meta:
         """Configure DroneModel fields exposed by the API."""
+
         model = DroneModel
         fields = (
             "id",
@@ -510,6 +529,7 @@ class DroneModelSerializer(serializers.ModelSerializer):
 
 class WriteOffAuditSerializer(serializers.ModelSerializer):
     """Serialize write-off records for audit and history endpoints."""
+
     drone_id = serializers.IntegerField(source="drone.id", read_only=True)
     drone_name = serializers.CharField(source="drone.name", read_only=True)
     drone_serial_number = serializers.CharField(
@@ -527,6 +547,7 @@ class WriteOffAuditSerializer(serializers.ModelSerializer):
 
     class Meta:
         """Configure read-only write-off audit fields."""
+
         model = WriteOffRecord
         fields = (
             "id",
@@ -549,6 +570,7 @@ class WriteOffAuditSerializer(serializers.ModelSerializer):
 
 class DroneImportSerializer(serializers.Serializer):
     """Validate uploaded files for drone CSV import."""
+
     file = serializers.FileField(
         help_text="CSV file with drone inventory data.",
     )
@@ -568,8 +590,10 @@ class WriteOffRecordCreateSerializer(serializers.ModelSerializer):
     A drone can be written off only once, cannot already be inactive, and when a
     mission is supplied it must be the latest mission assigned to that drone.
     """
+
     class Meta:
         """Configure fields accepted when creating a write-off record."""
+
         model = WriteOffRecord
         fields = (
             "id",
@@ -643,7 +667,9 @@ class WriteOffRecordCreateSerializer(serializers.ModelSerializer):
         return attrs
 
     def create(self, validated_data):
-        """Create the write-off through the service layer so status history is recorded."""
+        """
+        Create the write-off through the service layer so status history is
+        recorded."""
         user = self.context["request"].user
 
         return create_writeoff_record(user=user, **validated_data)

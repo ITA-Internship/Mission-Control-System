@@ -29,6 +29,7 @@ class DroneModel(models.Model):
         get_allowed_classifications: Return configured classification codes.
         supports_classification: Check whether a classification is allowed.
     """
+
     name = models.CharField(max_length=255, unique=True)
     manufacturer = models.CharField(max_length=255)
     description = models.TextField(blank=True)
@@ -43,6 +44,7 @@ class DroneModel(models.Model):
 
     class Meta:
         """Configure display names and default ordering for drone model records."""
+
         verbose_name = "Drone Model"
         verbose_name_plural = "Drone Models"
         ordering = ["name"]
@@ -127,7 +129,7 @@ class Drone(models.Model):
         (STATUS_TRANSFERRED, "Transferred"),
         (STATUS_WRITTEN_OFF, "Written off"),
     ]
-    
+
     # These statuses represent terminal inventory states and trigger
     # decommission/write-off audit rules across serializers, services, and filters.
     INACTIVE_STATUSES = (
@@ -266,6 +268,7 @@ class DroneSpec(models.Model):
     metadata attached to a drone. JSON fields are validated so API responses and
     audit logs keep predictable structures.
     """
+
     drone = models.OneToOneField(Drone, on_delete=models.CASCADE, related_name="spec")
     frame_type = models.CharField(max_length=255)
     motor_model = models.CharField(max_length=255)
@@ -343,6 +346,7 @@ class DroneSpecChangeLog(models.Model):
     This allows reviewers to inspect technical specification updates after they
     were applied.
     """
+
     drone_spec = models.ForeignKey(
         DroneSpec,
         on_delete=models.CASCADE,
@@ -362,6 +366,7 @@ class DroneSpecChangeLog(models.Model):
 
     class Meta:
         """Configure ordering and indexes for specification audit queries."""
+
         ordering = ["-created_at"]
         indexes = [
             models.Index(
@@ -397,7 +402,7 @@ class DroneSpecChangeLog(models.Model):
     def __str__(self) -> str:
         """Return a readable label for this specification audit entry."""
         return f"Spec changes for {self.drone_spec.drone}"
-    
+
 
 class ImmutableWriteOffRecordQuerySet(models.QuerySet):
     """Block bulk mutations of immutable write-off records.
@@ -405,6 +410,7 @@ class ImmutableWriteOffRecordQuerySet(models.QuerySet):
     Write-off records are audit artifacts. Blocking QuerySet-level update and
     delete operations prevents bypassing model-level immutability checks.
     """
+
     def update(self, **kwargs):
         """Reject bulk updates of write-off records."""
         raise ValidationError(
@@ -426,10 +432,12 @@ class WriteOffRecord(models.Model):
     Records are append-only: after creation they cannot be changed or deleted,
     which preserves audit integrity.
     """
+
     objects = ImmutableWriteOffRecordQuerySet.as_manager()
 
     class Reason(models.TextChoices):
         """Canonical reasons accepted for drone write-off records."""
+
         LOSS = "LOSS", "Loss"
         DESTRUCTION = "DESTRUCTION", "Destruction"
         DAMAGE = "DAMAGE", "Critical damage"
@@ -472,6 +480,7 @@ class WriteOffRecord(models.Model):
 
     class Meta:
         """Configure ordering and indexes for write-off audit records."""
+
         ordering = ["-created_at"]
         indexes = [
             models.Index(fields=["drone", "-created_at"]),
@@ -528,6 +537,7 @@ class DroneStatusHistory(models.Model):
     write-off record that caused it. This provides an audit trail for operational
     status changes.
     """
+
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     drone = models.ForeignKey(
         Drone, on_delete=models.PROTECT, related_name="status_history"
@@ -567,6 +577,7 @@ class DroneStatusHistory(models.Model):
 
     class Meta:
         """Show the newest drone status history entries first."""
+
         ordering = ["-created_at"]
 
     def __str__(self) -> str:

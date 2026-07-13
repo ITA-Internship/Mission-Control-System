@@ -41,7 +41,10 @@ from missions.factories import MissionDroneFactory, MissionFactory
 
 
 class DroneCreateTests(APITestCase):
-    """Verify drone creation, nested specification validation, and initial audit logs."""
+    """
+    Verify drone creation, nested specification validation, and initial audit
+    logs."""
+
     def setUp(self):
         """Prepare common payload, model, unit, and authenticated admin user."""
         self.create_url = reverse("drones:drone-create")
@@ -104,6 +107,9 @@ class DroneCreateTests(APITestCase):
         self.client.force_authenticate(self.user)
 
     def test_create_drone_with_spec(self):
+        """
+        Verify that a drone and its nested technical specification are created
+        successfully."""
         response = self.client.post(self.create_url, self.base_payload, format="json")
 
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
@@ -116,6 +122,7 @@ class DroneCreateTests(APITestCase):
         self.assertEqual(drone.spec.frame_type, "Test Frame")
 
     def test_create_drone_with_detailed_spec_fields(self):
+        """Verify that detailed technical specification fields are saved correctly."""
         response = self.client.post(self.create_url, self.base_payload, format="json")
 
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
@@ -137,6 +144,7 @@ class DroneCreateTests(APITestCase):
         self.assertEqual(spec.firmware_file_url, "https://example.com/firmware.bin")
 
     def test_create_drone_with_typical_performance_metrics(self):
+        """Verify that typical drone performance metrics are accepted and stored."""
         response = self.client.post(self.create_url, self.base_payload, format="json")
 
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
@@ -148,6 +156,7 @@ class DroneCreateTests(APITestCase):
         self.assertEqual(str(spec.typical_flight_time_min), "17.50")
 
     def test_create_drone_spec_change_log_created(self):
+        """Verify that drone creation records the initial specification change log."""
         response = self.client.post(self.create_url, self.base_payload, format="json")
 
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
@@ -169,6 +178,7 @@ class DroneCreateTests(APITestCase):
         )
 
     def test_create_drone_missing_required_field(self):
+        """Verify that drone creation fails when a required field is missing."""
         payload = copy.deepcopy(self.base_payload)
         payload.pop("serial_number")
 
@@ -179,6 +189,7 @@ class DroneCreateTests(APITestCase):
         self.assertEqual(response.data["serial_number"][0].code, "required")
 
     def test_create_drone_duplicate_serial_number(self):
+        """Verify that two drones cannot be created with the same serial number."""
         Drone.objects.create(
             serial_number=self.base_payload["serial_number"],
             inventory_number="Inventory Number",
@@ -197,6 +208,7 @@ class DroneCreateTests(APITestCase):
         self.assertEqual(response.data["serial_number"][0].code, "unique")
 
     def test_create_spec_with_optional_fields_omitted(self):
+        """Verify that a drone can be created without optional specification fields."""
         payload = copy.deepcopy(self.base_payload)
         payload["spec"].pop("vtx_model", None)
         payload["spec"].pop("firmware_version", None)
@@ -232,6 +244,7 @@ class DroneCreateTests(APITestCase):
         self.assertFalse(spec.is_firmware_outdated)
 
     def test_create_drone_rejects_invalid_camera_specs(self):
+        """Verify that malformed camera specification data is rejected."""
         payload = copy.deepcopy(self.base_payload)
         payload["spec"]["camera_specs"] = ["invalid"]
 
@@ -241,6 +254,7 @@ class DroneCreateTests(APITestCase):
         self.assertIn("camera_specs", response.data["spec"])
 
     def test_create_drone_rejects_invalid_additional_modules(self):
+        """Verify that malformed additional module data is rejected."""
         payload = copy.deepcopy(self.base_payload)
         payload["spec"]["additional_modules"] = {"type": "GPS"}
 
@@ -252,6 +266,7 @@ class DroneCreateTests(APITestCase):
 
 class DroneUpdateAndDecommissionTests(APITestCase):
     """Verify drone updates, RBAC restrictions, status history, and write-off flows."""
+
     def setUp(self):
         """Prepare admin/viewer users and an active drone with a specification."""
         self.admin_user = AdminUserFactory()
@@ -264,6 +279,7 @@ class DroneUpdateAndDecommissionTests(APITestCase):
         self.detail_url = reverse("drones:drone-detail", kwargs={"pk": self.drone.pk})
 
     def test_get_drone_detail_as_admin(self):
+        """Verify that an administrator can retrieve complete drone details."""
         self.client.force_authenticate(self.admin_user)
 
         response = self.client.get(self.detail_url)
@@ -273,6 +289,7 @@ class DroneUpdateAndDecommissionTests(APITestCase):
         self.assertEqual(response.data["status"], "ACTIVE")
 
     def test_drone_detail_returns_typical_performance_metrics(self):
+        """Verify that drone details include typical performance metrics."""
         self.client.force_authenticate(self.admin_user)
 
         self.drone.spec.typical_range_km = "95.50"
@@ -292,6 +309,7 @@ class DroneUpdateAndDecommissionTests(APITestCase):
         self.assertEqual(response.data["spec"]["typical_flight_time_min"], "17.50")
 
     def test_patch_drone_notes(self):
+        """Verify that an administrator can update drone notes with a PATCH request."""
         self.client.force_authenticate(self.admin_user)
 
         response = self.client.patch(
@@ -307,6 +325,7 @@ class DroneUpdateAndDecommissionTests(APITestCase):
         self.assertEqual(self.drone.notes, "Updated notes")
 
     def test_patch_drone_spec(self):
+        """Verify that nested drone specification fields can be partially updated."""
         self.client.force_authenticate(self.admin_user)
 
         response = self.client.patch(
@@ -328,6 +347,7 @@ class DroneUpdateAndDecommissionTests(APITestCase):
         self.assertEqual(str(self.drone.spec.max_speed_kmh), "155.50")
 
     def test_patch_drone_spec_detailed_fields(self):
+        """Verify that detailed technical specification fields can be updated."""
         self.client.force_authenticate(self.admin_user)
 
         response = self.client.patch(
@@ -376,6 +396,7 @@ class DroneUpdateAndDecommissionTests(APITestCase):
         )
 
     def test_patch_drone_typical_performance_metrics(self):
+        """Verify that typical performance metrics can be partially updated."""
         self.client.force_authenticate(self.admin_user)
 
         response = self.client.patch(
@@ -397,6 +418,7 @@ class DroneUpdateAndDecommissionTests(APITestCase):
         self.assertEqual(str(self.drone.spec.typical_flight_time_min), "19.00")
 
     def test_patch_drone_spec_creates_change_log(self):
+        """Verify that specification updates create an audit change log."""
         self.client.force_authenticate(self.admin_user)
 
         old_battery_model = self.drone.spec.battery_model
@@ -449,6 +471,7 @@ class DroneUpdateAndDecommissionTests(APITestCase):
         )
 
     def test_patch_typical_performance_metrics_creates_change_log(self):
+        """Verify that performance metric updates are recorded in the change log."""
         self.client.force_authenticate(self.admin_user)
 
         response = self.client.patch(
@@ -477,6 +500,7 @@ class DroneUpdateAndDecommissionTests(APITestCase):
         )
 
     def test_decommission_requires_reason(self):
+        """Verify that decommissioning a drone requires a write-off reason."""
         self.client.force_authenticate(self.admin_user)
 
         response = self.client.patch(
@@ -489,6 +513,7 @@ class DroneUpdateAndDecommissionTests(APITestCase):
         self.assertIn("writeoff_reason", response.data)
 
     def test_decommission_creates_writeoff_record_and_status_history(self):
+        """Verify that decommissioning creates write-off and status history records."""
         self.client.force_authenticate(self.admin_user)
 
         response = self.client.patch(
@@ -525,6 +550,7 @@ class DroneUpdateAndDecommissionTests(APITestCase):
         self.assertEqual(status_history.related_writeoff, writeoff_record)
 
     def test_decommissioned_drone_is_not_returned_in_active_list(self):
+        """Verify that a decommissioned drone is excluded from the active drone list."""
         self.client.force_authenticate(self.admin_user)
 
         inactive_drone = DroneFactory(status="WRITTEN_OFF")
@@ -540,6 +566,7 @@ class DroneUpdateAndDecommissionTests(APITestCase):
         self.assertNotIn(inactive_drone.id, returned_ids)
 
     def test_viewer_can_get_drone_detail(self):
+        """Verify that a viewer has permission to retrieve drone details."""
         self.client.force_authenticate(self.viewer_user)
 
         response = self.client.get(self.detail_url)
@@ -547,6 +574,7 @@ class DroneUpdateAndDecommissionTests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
 
     def test_viewer_cannot_patch_drone(self):
+        """Verify that a viewer cannot modify drone data."""
         self.client.force_authenticate(self.viewer_user)
 
         response = self.client.patch(
@@ -558,6 +586,7 @@ class DroneUpdateAndDecommissionTests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
 
     def test_status_change_creates_status_history(self):
+        """Verify that changing drone status creates a status history record."""
         self.client.force_authenticate(self.admin_user)
 
         response = self.client.patch(
@@ -579,6 +608,7 @@ class DroneUpdateAndDecommissionTests(APITestCase):
         self.assertEqual(history.to_status, "DAMAGED")
 
     def test_status_change_uses_custom_reason_in_status_history(self):
+        """Verify that a custom status-change reason is saved in status history."""
         self.client.force_authenticate(self.admin_user)
 
         response = self.client.patch(
@@ -603,6 +633,9 @@ class DroneUpdateAndDecommissionTests(APITestCase):
         self.assertEqual(history.changed_by, self.admin_user)
 
     def test_drone_detail_returns_status_history_and_visual_indicators(self):
+        """
+        Verify that drone details include status history and visual status
+        indicators."""
         self.client.force_authenticate(self.admin_user)
 
         self.client.patch(
@@ -634,6 +667,7 @@ class DroneUpdateAndDecommissionTests(APITestCase):
         self.assertEqual(history_item["event_type"], "status_change")
 
     def test_decommission_requires_written_off_at(self):
+        """Verify that decommissioning requires the write-off date and time."""
         self.client.force_authenticate(self.admin_user)
 
         response = self.client.patch(
@@ -649,6 +683,9 @@ class DroneUpdateAndDecommissionTests(APITestCase):
         self.assertIn("written_off_at", response.data)
 
     def test_existing_writeoff_record_is_not_overwritten(self):
+        """
+        Verify that an existing write-off record cannot be replaced by another
+        update."""
         self.client.force_authenticate(self.admin_user)
 
         self.client.patch(
@@ -681,6 +718,9 @@ class DroneUpdateAndDecommissionTests(APITestCase):
         self.assertEqual(str(writeoff_record.written_off_at), "2026-05-17")
 
     def test_drone_spec_change_log_rejects_invalid_changed_fields(self):
+        """
+        Verify that an existing write-off record cannot be replaced by another
+        update."""
         change_log = DroneSpecChangeLog(
             drone_spec=self.drone.spec,
             changed_fields={"battery_model": "Updated Battery Model"},
@@ -692,6 +732,7 @@ class DroneUpdateAndDecommissionTests(APITestCase):
             change_log.full_clean()
 
     def test_drone_spec_change_log_rejects_invalid_old_values(self):
+        """Verify that a specification change log rejects invalid previous values."""
         change_log = DroneSpecChangeLog(
             drone_spec=self.drone.spec,
             changed_fields=["battery_model"],
@@ -703,6 +744,7 @@ class DroneUpdateAndDecommissionTests(APITestCase):
             change_log.full_clean()
 
     def test_drone_spec_change_log_rejects_invalid_new_values(self):
+        """Verify that a specification change log rejects invalid new values."""
         change_log = DroneSpecChangeLog(
             drone_spec=self.drone.spec,
             changed_fields=["battery_model"],
@@ -716,6 +758,7 @@ class DroneUpdateAndDecommissionTests(APITestCase):
 
 class WriteOffHistoryAuditTests(APITestCase):
     """Verify immutable write-off audit history and protected history access."""
+
     def setUp(self):
         """Prepare users, written-off drones, and write-off history URLs."""
         self.admin_user = AdminUserFactory()
@@ -732,10 +775,12 @@ class WriteOffHistoryAuditTests(APITestCase):
         self.report_url = reverse("drones:writeoff-history-report")
 
     def get_writeoff_reason(self):
+        """Extract the write-off reason from a drone API response."""
         reason_choices = getattr(WriteOffRecord, "Reason", None)
         return getattr(reason_choices, "OTHER", "Destroyed during mission")
 
     def create_writeoff_record(self, drone=None, document_number="WO-TEST-001"):
+        """Create a write-off record using default values and optional overrides."""
         return WriteOffRecord.objects.create(
             drone=drone or self.drone,
             reason=self.get_writeoff_reason(),
@@ -746,9 +791,11 @@ class WriteOffHistoryAuditTests(APITestCase):
         )
 
     def get_results(self, response):
+        """Return paginated results or the raw response payload."""
         return response.data.get("results", response.data)
 
     def test_writeoff_record_cannot_be_updated_after_creation(self):
+        """Verify that an existing write-off record cannot be modified."""
         writeoff = self.create_writeoff_record()
 
         writeoff.reason_description = "Changed description."
@@ -757,18 +804,21 @@ class WriteOffHistoryAuditTests(APITestCase):
             writeoff.save()
 
     def test_writeoff_record_cannot_be_deleted_after_creation(self):
+        """Verify that an existing write-off record cannot be deleted directly."""
         writeoff = self.create_writeoff_record()
 
         with self.assertRaises(ValidationError):
             writeoff.delete()
 
     def test_writeoff_record_queryset_delete_is_blocked(self):
+        """Verify that an existing write-off record cannot be deleted directly."""
         writeoff = self.create_writeoff_record()
 
         with self.assertRaises(ValidationError):
             WriteOffRecord.objects.filter(pk=writeoff.pk).delete()
 
     def test_writeoff_record_queryset_update_is_blocked(self):
+        """Verify that queryset updates are blocked for write-off records."""
         writeoff = self.create_writeoff_record()
 
         with self.assertRaises(ValidationError):
@@ -777,6 +827,7 @@ class WriteOffHistoryAuditTests(APITestCase):
             )
 
     def test_writeoff_history_api_returns_records_for_authorized_user(self):
+        """Verify that an authorized user can retrieve write-off history records."""
         writeoff = self.create_writeoff_record()
 
         self.client.force_authenticate(self.viewer_user)
@@ -793,6 +844,7 @@ class WriteOffHistoryAuditTests(APITestCase):
         self.assertEqual(results[0]["document_number"], "WO-TEST-001")
 
     def test_writeoff_history_api_is_protected_for_unauthenticated_user(self):
+        """Verify that unauthenticated users cannot access write-off history."""
         self.create_writeoff_record()
 
         self.client.force_authenticate(user=None)
@@ -802,6 +854,7 @@ class WriteOffHistoryAuditTests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
 
     def test_drone_writeoff_history_returns_only_selected_drone_records(self):
+        """Verify that unauthenticated users cannot access write-off history."""
         selected_writeoff = self.create_writeoff_record(
             drone=self.drone,
             document_number="WO-SELECTED",
@@ -825,6 +878,7 @@ class WriteOffHistoryAuditTests(APITestCase):
         self.assertEqual(results[0]["document_number"], "WO-SELECTED")
 
     def test_writeoff_history_api_does_not_allow_post(self):
+        """Verify that the write-off history endpoint does not allow record creation."""
         self.client.force_authenticate(self.admin_user)
 
         response = self.client.post(self.list_url, {}, format="json")
@@ -838,6 +892,7 @@ class WriteOffHistoryAuditTests(APITestCase):
         )
 
     def test_writeoff_history_report_view_returns_html_for_staff_user(self):
+        """Verify that a staff user can view the HTML write-off history report."""
         self.create_writeoff_record(document_number="WO-REPORT-001")
 
         self.admin_user.is_staff = True
@@ -852,6 +907,7 @@ class WriteOffHistoryAuditTests(APITestCase):
         self.assertContains(response, "WO-REPORT-001")
 
     def test_writeoff_history_report_view_is_protected_for_unauthenticated_user(self):
+        """Verify that the HTML write-off report requires authentication."""
         self.create_writeoff_record(document_number="WO-REPORT-001")
 
         response = self.client.get(self.report_url)
@@ -861,6 +917,7 @@ class WriteOffHistoryAuditTests(APITestCase):
 
 class DroneWriteOffReasonTests(APITestCase):
     """Verify canonical write-off reasons and required custom descriptions."""
+
     def setUp(self):
         """Prepare an active drone and authenticated admin user for write-off tests."""
         self.admin_user = AdminUserFactory()
@@ -872,6 +929,7 @@ class DroneWriteOffReasonTests(APITestCase):
         self.client.force_authenticate(self.admin_user)
 
     def _write_off(self, **overrides):
+        """Write off the test drone using the supplied reason and description."""
         payload = {
             "status": "WRITTEN_OFF",
             "writeoff_reason": WriteOffRecord.Reason.LOSS,
@@ -882,6 +940,7 @@ class DroneWriteOffReasonTests(APITestCase):
         return self.client.patch(self.detail_url, payload, format="json")
 
     def test_each_canonical_reason_can_be_selected_and_saved(self):
+        """Verify that every supported write-off reason can be selected and saved."""
         canonical_reasons = [
             WriteOffRecord.Reason.LOSS,
             WriteOffRecord.Reason.DESTRUCTION,
@@ -910,6 +969,7 @@ class DroneWriteOffReasonTests(APITestCase):
                 self.assertEqual(writeoff_record.reason, reason)
 
     def test_reason_and_notes_are_saved(self):
+        """Verify that the write-off reason and accompanying notes are persisted."""
         response = self._write_off(
             writeoff_reason=WriteOffRecord.Reason.DAMAGE,
             writeoff_reason_description="Severe frame damage beyond repair.",
@@ -925,6 +985,9 @@ class DroneWriteOffReasonTests(APITestCase):
         )
 
     def test_reason_is_visible_from_writeoff_record_in_detail(self):
+        """
+        Verify that drone details expose the reason from the related write-off
+        record."""
         self._write_off(
             writeoff_reason=WriteOffRecord.Reason.DESTRUCTION,
             writeoff_reason_description="Destroyed by enemy fire.",
@@ -943,6 +1006,7 @@ class DroneWriteOffReasonTests(APITestCase):
         )
 
     def test_other_reason_with_custom_description_is_accepted(self):
+        """Verify that the 'other' reason is accepted with a custom description."""
         response = self._write_off(
             writeoff_reason=WriteOffRecord.Reason.OTHER,
             writeoff_reason_description="Repurposed for spare parts.",
@@ -958,6 +1022,7 @@ class DroneWriteOffReasonTests(APITestCase):
         )
 
     def test_other_reason_requires_custom_description(self):
+        """Verify that the 'other' reason requires a custom description."""
         response = self._write_off(writeoff_reason=WriteOffRecord.Reason.OTHER)
 
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
@@ -965,6 +1030,7 @@ class DroneWriteOffReasonTests(APITestCase):
         self.assertFalse(WriteOffRecord.objects.filter(drone=self.drone).exists())
 
     def test_other_reason_with_blank_description_is_rejected(self):
+        """Verify that the 'other' reason rejects a blank custom description."""
         response = self._write_off(
             writeoff_reason=WriteOffRecord.Reason.OTHER,
             writeoff_reason_description="   ",
@@ -974,6 +1040,7 @@ class DroneWriteOffReasonTests(APITestCase):
         self.assertIn("writeoff_reason_description", response.data)
 
     def test_invalid_reason_code_is_rejected(self):
+        """Verify that an unsupported write-off reason code is rejected."""
         response = self._write_off(writeoff_reason="NOT_A_REAL_REASON")
 
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
@@ -981,6 +1048,7 @@ class DroneWriteOffReasonTests(APITestCase):
         self.assertFalse(WriteOffRecord.objects.filter(drone=self.drone).exists())
 
     def test_blank_reason_is_rejected(self):
+        """Verify that a blank write-off reason is rejected."""
         response = self._write_off(writeoff_reason="")
 
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
@@ -992,6 +1060,7 @@ class DroneWriteOffReasonTests(APITestCase):
         self.assertFalse(WriteOffRecord.objects.filter(drone=self.drone).exists())
 
     def test_status_history_uses_human_readable_reason_label(self):
+        """Verify that a blank write-off reason is rejected."""
         self._write_off(writeoff_reason=WriteOffRecord.Reason.DAMAGE)
 
         history = DroneStatusHistory.objects.get(drone=self.drone)
@@ -1000,11 +1069,13 @@ class DroneWriteOffReasonTests(APITestCase):
 
 class WriteOffRecordModelTests(APITestCase):
     """Verify model-level validation for write-off reason codes."""
+
     def setUp(self):
         """Prepare an active drone for write-off model validation tests."""
         self.drone = DroneFactory(status="ACTIVE")
 
     def test_model_rejects_invalid_reason_code(self):
+        """Verify that model validation rejects an unsupported write-off reason code."""
         record = WriteOffRecord(drone=self.drone, reason="BOGUS")
 
         with self.assertRaises(ValidationError) as ctx:
@@ -1013,6 +1084,7 @@ class WriteOffRecordModelTests(APITestCase):
         self.assertIn("reason", ctx.exception.error_dict)
 
     def test_model_rejects_blank_reason(self):
+        """Verify that model validation rejects a blank write-off reason."""
         record = WriteOffRecord(drone=self.drone, reason="")
 
         with self.assertRaises(ValidationError) as ctx:
@@ -1021,6 +1093,9 @@ class WriteOffRecordModelTests(APITestCase):
         self.assertIn("reason", ctx.exception.error_dict)
 
     def test_model_requires_description_for_other_reason(self):
+        """
+        Verify that model validation requires a description for the 'other'
+        reason."""
         record = WriteOffRecord(drone=self.drone, reason=WriteOffRecord.Reason.OTHER)
 
         with self.assertRaises(ValidationError) as ctx:
@@ -1029,6 +1104,7 @@ class WriteOffRecordModelTests(APITestCase):
         self.assertIn("reason_description", ctx.exception.error_dict)
 
     def test_model_accepts_canonical_reason(self):
+        """Verify that model validation accepts a supported write-off reason."""
         record = WriteOffRecord(drone=self.drone, reason=WriteOffRecord.Reason.LOSS)
         record.save()
 
@@ -1039,7 +1115,10 @@ class WriteOffRecordModelTests(APITestCase):
 
 
 class DroneSearchTests(APITestCase):
+    """Verify drone listing, pagination, filtering, search, and ordering."""
+
     def setUp(self):
+        """Create authenticated users and drone records required by search tests."""
         self.create_url = reverse("drones:drone-create")
         self.military_unit = MilitaryUnitFactory()
         self.page_size = StandardResultsSetPagination.page_size
@@ -1050,11 +1129,13 @@ class DroneSearchTests(APITestCase):
         self.client.force_authenticate(self.user)
 
     def test_get_drone_list(self):
+        """Verify that the drone list endpoint returns available drones."""
         response = self.client.get(self.create_url)
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
 
     def test_pagination_get_first_page(self):
+        """Verify that the first page returns the expected paginated drone records."""
         response = self.client.get(self.create_url)
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
@@ -1067,6 +1148,7 @@ class DroneSearchTests(APITestCase):
         self.assertIsNone(response.data["previous"])
 
     def test_pagination_get_second_page(self):
+        """Verify that the second page returns the next set of drone records."""
         response = self.client.get(self.create_url, {"page": 2})
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
@@ -1077,11 +1159,13 @@ class DroneSearchTests(APITestCase):
         self.assertIsNotNone(response.data["previous"])
 
     def test_pagination_get_non_existing_page(self):
+        """Verify the response for a requested page that does not exist."""
         response = self.client.get(self.create_url, {"page": 10})
 
         self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
 
     def test_filtering_exact_field(self):
+        """Verify the response for a requested page that does not exist."""
         response = self.client.get(self.create_url, {"status": self.drones[0].status})
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
@@ -1089,6 +1173,7 @@ class DroneSearchTests(APITestCase):
             self.assertEqual(item["status"], self.drones[0].status)
 
     def test_filtering_icontains_field(self):
+        """Verify case-insensitive partial filtering by a drone field."""
         serial = self.drones[0].serial_number[:3]
         response = self.client.get(
             self.create_url, {"serial_number__icontains": serial}
@@ -1099,6 +1184,7 @@ class DroneSearchTests(APITestCase):
             self.assertIn(serial.lower(), item["serial_number"].lower())
 
     def test_ordering(self):
+        """Verify that drone records can be ordered by a supported field."""
         response = self.client.get(self.create_url, {"ordering": "name"})
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
@@ -1107,6 +1193,9 @@ class DroneSearchTests(APITestCase):
         self.assertEqual(names, sorted(names))
 
     def test_filtering_inactive_drones(self):
+        """
+        Verify that inactive drones are returned when explicitly filtered by
+        status."""
         inactive_drone = DroneFactory(status="WRITTEN_OFF")
 
         response = self.client.get(self.create_url, {"status": "WRITTEN_OFF"})
@@ -1116,6 +1205,7 @@ class DroneSearchTests(APITestCase):
         self.assertIn(inactive_drone.id, results_ids)
 
     def test_filtering_is_firmware_outdated(self):
+        """Verify filtering drones by outdated firmware status."""
         outdated_drone = DroneFactory(military_unit=self.military_unit)
         DroneSpecFactory(drone=outdated_drone, is_firmware_outdated=True)
 
@@ -1127,6 +1217,7 @@ class DroneSearchTests(APITestCase):
         self.assertIn(outdated_drone.id, results_ids)
 
     def test_filter_by_typical_range_km_gte(self):
+        """Verify filtering drones by outdated firmware status."""
         matching_drone = DroneFactory(military_unit=self.military_unit)
         DroneSpecFactory(drone=matching_drone, typical_range_km="120.00")
 
@@ -1147,7 +1238,10 @@ class DroneSearchTests(APITestCase):
 
 
 class DroneModelTests(APITestCase):
+    """Verify filtering drones by a minimum typical flight range."""
+
     def setUp(self):
+        """Create reusable drone model data for model validation tests."""
         self.create_url = reverse("drones:drone-model-create")
         self.base_payload = {
             "name": "Test Model Name",
@@ -1161,6 +1255,7 @@ class DroneModelTests(APITestCase):
         self.client.force_authenticate(self.user)
 
     def test_create_drone_model(self):
+        """Verify that a drone model can be created with supported classifications."""
         response = self.client.post(self.create_url, self.base_payload, format="json")
 
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
@@ -1170,6 +1265,7 @@ class DroneModelTests(APITestCase):
         self.assertEqual(drone_model.name, self.base_payload.get("name"))
 
     def test_create_drone_model_without_supported_classifications(self):
+        """Verify creation behavior when supported classifications are omitted."""
         payload = copy.deepcopy(self.base_payload)
         payload.pop("supported_classifications")
 
@@ -1179,6 +1275,7 @@ class DroneModelTests(APITestCase):
         self.assertIn("supported_classifications", response.data)
 
     def test_create_drone_model_with_empty_supported_classifications(self):
+        """Verify that a drone model can store an empty classification list."""
         payload = copy.deepcopy(self.base_payload)
         payload["supported_classifications"] = []
 
@@ -1188,6 +1285,7 @@ class DroneModelTests(APITestCase):
         self.assertIn("supported_classifications", response.data)
 
     def test_create_drone_model_with_wrong_classification(self):
+        """Verify that unsupported classification values fail model validation."""
         payload = copy.deepcopy(self.base_payload)
         payload["supported_classifications"] = ["unknown classification"]
 
@@ -1198,7 +1296,12 @@ class DroneModelTests(APITestCase):
 
 
 class DroneClassificationValidationTests(APITestCase):
+    """Verify drone classification compatibility with the selected drone model."""
+
     def setUp(self):
+        """
+        Create a drone model, drone data, and authenticated user for validation
+        tests."""
         self.create_url = reverse("drones:drone-create")
         self.military_unit = MilitaryUnitFactory()
         self.drone_model = DroneModelFactory()
@@ -1233,11 +1336,17 @@ class DroneClassificationValidationTests(APITestCase):
         self.client.force_authenticate(self.user)
 
     def test_create_drone_with_allowed_classification(self):
+        """
+        Verify that a drone can be created with a classification supported by its
+        model."""
         response = self.client.post(self.create_url, self.base_payload, format="json")
 
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
 
-    def test_create_drone_with_not_allowed_classififcation(self):
+    def test_create_drone_with_not_allowed_classification(self):
+        """
+        Verify that creation fails when the classification is not supported by the
+        model."""
         payload = copy.deepcopy(self.base_payload)
         payload["classification"] = "unknown"
 
@@ -1246,6 +1355,7 @@ class DroneClassificationValidationTests(APITestCase):
         self.assertIn("classification", response.data)
 
     def test_update_drone_classification_to_allowed(self):
+        """Verify that a drone classification can be changed to a supported value."""
         response = self.client.patch(
             self.detail_url,
             {"classification": self.drone_model.supported_classifications[1]},
@@ -1254,12 +1364,16 @@ class DroneClassificationValidationTests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
 
     def test_update_drone_classification_to_empty(self):
+        """
+        Verify validation behavior when updating a drone classification to an empty
+        value."""
         response = self.client.patch(self.detail_url, {"classification": ""})
 
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertIn("classification", response.data)
 
     def test_update_drone_classification_to_not_allowed(self):
+        """Verify that a drone cannot be updated to an unsupported classification."""
         response = self.client.patch(self.detail_url, {"classification": "unknown"})
 
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
@@ -1267,7 +1381,10 @@ class DroneClassificationValidationTests(APITestCase):
 
 
 class DroneDataExportsTests(APITestCase):
+    """Verify drone CSV export content, formatting, and filtering."""
+
     def setUp(self):
+        """Create authenticated users and drone records for CSV export tests."""
         self.export_url = reverse("drones:drone-export")
         self.admin_user = AdminUserFactory()
         self.military_unit = MilitaryUnitFactory(name="Unit A")
@@ -1282,6 +1399,7 @@ class DroneDataExportsTests(APITestCase):
         self.client.force_authenticate(self.admin_user)
 
     def test_export_csv_success_and_format(self):
+        """Verify that drone data is exported as a correctly formatted CSV file."""
         response = self.client.get(self.export_url)
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
@@ -1304,6 +1422,7 @@ class DroneDataExportsTests(APITestCase):
         self.assertIn("unit a", content_str)
 
     def test_export_csv_with_filters(self):
+        """Verify that CSV export respects the supplied drone filters."""
         response = self.client.get(self.export_url, {"status": "ACTIVE"})
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
@@ -1316,7 +1435,10 @@ class DroneDataExportsTests(APITestCase):
 
 
 class DroneDataImportTests(APITestCase):
+    """Verify drone CSV import validation, creation, and skipped-row handling."""
+
     def setUp(self):
+        """Create permissions and related records required by CSV import tests."""
         self.import_url = reverse("drones:drone-import")
 
         self.admin_user = AdminUserFactory()
@@ -1326,6 +1448,7 @@ class DroneDataImportTests(APITestCase):
         self.client.force_authenticate(self.admin_user)
 
     def _generate_csv_file(self, data_rows, headers=None, filename="drones.csv"):
+        """Create permissions and related records required by CSV import tests."""
         if headers is None:
             headers = [
                 "Serial Number",
@@ -1345,6 +1468,7 @@ class DroneDataImportTests(APITestCase):
         )
 
     def test_import_successful(self):
+        """Verify that valid CSV rows create drone records successfully."""
         csv_file = self._generate_csv_file(
             [
                 [
@@ -1380,7 +1504,10 @@ class DroneDataImportTests(APITestCase):
         drone = Drone.objects.get(serial_number="SN-IMP-01")
         self.assertIsNotNone(drone.spec)
 
-    def test_import_rejects_non_extension(self):
+    def test_import_rejects_invalid_file_extension(self):
+        """
+        Verify that the import endpoint rejects files without the required CSV
+        extension."""
         txt_file = self._generate_csv_file(
             [["SN-01", "INV-01", "Name", "Model", "Unit", "2026-01-01"]],
             filename="drones.txt",
@@ -1394,6 +1521,7 @@ class DroneDataImportTests(APITestCase):
         self.assertIn("file", response.data)
 
     def test_import_fails_on_missing_required_columns(self):
+        """Verify that import fails when required CSV columns are missing."""
         bad_headers_file = self._generate_csv_file(
             [["SN-01", "INV-01", "Name", "Model", "2026-01-01"]],
             headers=[
@@ -1414,6 +1542,7 @@ class DroneDataImportTests(APITestCase):
         self.assertIn("Invalid file format", response.data["error"])
 
     def test_import_skips_duplicate_serial_numbers(self):
+        """Verify that rows with existing serial numbers are skipped during import."""
         DroneFactory(serial_number="EXISTING-SN")
 
         csv_file = self._generate_csv_file(
@@ -1441,6 +1570,7 @@ class DroneDataImportTests(APITestCase):
         self.assertEqual(response.data["errors"][0]["row"], 2)
 
     def test_import_skips_unknown_military_unit(self):
+        """Verify that rows referencing an unknown military unit are skipped."""
         csv_file = self._generate_csv_file(
             [["SN-001", "INV-01", "Mavic 3", "DJI", "UNKNOWN UNIT", "2026-05-10"]]
         )
@@ -1455,6 +1585,7 @@ class DroneDataImportTests(APITestCase):
         self.assertIn("not found in database", response.data["errors"][0]["error"])
 
     def test_import_skips_rows_with_empty_required_fields(self):
+        """Verify that rows with empty required fields are skipped during import."""
         csv_file = self._generate_csv_file(
             [["", "INV-01", "Mavic 3", "DJI", "Test Unit 123", "2026-05-10"]]
         )
@@ -1471,13 +1602,19 @@ class DroneDataImportTests(APITestCase):
 
 
 class WriteOffRecordTests(APITestCase):
+    """
+    Verify write-off record API permissions, validation, and mission
+    relationships."""
+
     def setUp(self):
+        """Create users, drones, and permissions required by write-off API tests."""
         self.create_url = reverse("drones:write-off-create")
         self.drone = DroneFactory()
         self.admin_user = AdminUserFactory()
         self.viewer = ViewerUserFactory()
 
     def test_create_valid_write_off_record_as_admin(self):
+        """Verify that an administrator can create a valid write-off record."""
         self.client.force_authenticate(self.admin_user)
         payload = {
             "drone": self.drone.id,
@@ -1505,6 +1642,7 @@ class WriteOffRecordTests(APITestCase):
         self.assertEqual(status_history.related_writeoff, writeoff_record)
 
     def test_create_write_off_fails_as_viewer(self):
+        """Verify that an administrator can create a valid write-off record."""
         self.client.force_authenticate(self.viewer)
         payload = {"drone": self.drone.id, "reason": WriteOffRecord.Reason.LOSS}
         response = self.client.post(self.create_url, payload, format="json")
@@ -1512,12 +1650,14 @@ class WriteOffRecordTests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
 
     def test_list_write_off_as_viewer(self):
+        """Verify that a viewer cannot create a write-off record."""
         self.client.force_authenticate(self.viewer)
 
         response = self.client.get(self.create_url)
         self.assertEqual(response.status_code, status.HTTP_200_OK)
 
     def test_create_write_off_fails_with_empty_reason(self):
+        """Verify that a viewer can retrieve the list of write-off records."""
         self.client.force_authenticate(self.admin_user)
         payload = {"drone": self.drone.id, "reason": ""}
 
@@ -1526,6 +1666,7 @@ class WriteOffRecordTests(APITestCase):
         self.assertIn("reason", response.data)
 
     def test_create_write_off_fails_when_drone_has_inactive_status(self):
+        """Verify that a write-off cannot be created for an already inactive drone."""
         self.client.force_authenticate(self.admin_user)
         written_off_drone = DroneFactory(status=Drone.STATUS_SOLD)
         payload = {
@@ -1539,6 +1680,7 @@ class WriteOffRecordTests(APITestCase):
         self.assertIn("drone", response.data)
 
     def test_create_write_off_record_with_related_mission(self):
+        """Verify that a write-off record can reference a related drone mission."""
         self.client.force_authenticate(self.admin_user)
         mission_drone = MissionDroneFactory()
         payload = {
@@ -1556,6 +1698,9 @@ class WriteOffRecordTests(APITestCase):
         self.assertEqual(writeoff.related_mission_id, mission_drone.mission.id)
 
     def test_create_fails_when_drone_has_no_missions(self):
+        """
+        Verify that mission-related write-off creation fails when the drone has
+        no missions."""
         self.client.force_authenticate(self.admin_user)
         mission = MissionFactory()
         payload = {
@@ -1570,6 +1715,9 @@ class WriteOffRecordTests(APITestCase):
         self.assertIn("related_mission", response.data)
 
     def test_create_fails_when_drone_belongs_to_another_mission(self):
+        """
+        Verify that a write-off cannot reference a mission assigned to another
+        drone."""
         self.client.force_authenticate(self.admin_user)
         mission = MissionFactory()
         mission_drone = MissionDroneFactory()
@@ -1585,6 +1733,7 @@ class WriteOffRecordTests(APITestCase):
         self.assertIn("related_mission", response.data)
 
     def test_create_with_latest_drone_mission(self):
+        """Verify that a write-off can reference the drone's latest mission."""
         self.client.force_authenticate(self.admin_user)
         mission_drones = MissionDroneFactory.create_batch(3, drone=self.drone)
 
@@ -1603,6 +1752,9 @@ class WriteOffRecordTests(APITestCase):
         self.assertEqual(writeoff.related_mission_id, mission_drones[2].mission.id)
 
     def test_create_fails_when_drone_mission_is_not_the_latest(self):
+        """
+        Verify that write-off creation fails when referencing an older drone
+        mission."""
         self.client.force_authenticate(self.admin_user)
         mission_drones = MissionDroneFactory.create_batch(3, drone=self.drone)
 

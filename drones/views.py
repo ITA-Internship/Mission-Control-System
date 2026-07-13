@@ -55,6 +55,7 @@ class DroneComparisonView(TemplateView):
     selected drone count is capped so the comparison table and CSV export remain
     manageable.
     """
+
     template_name = "drones/compare.html"
 
     MAX_COMPARE_COUNT = 5
@@ -210,6 +211,7 @@ class DroneComparisonView(TemplateView):
 
 class DroneListCreateView(generics.ListCreateAPIView):
     """List drone inventory records and create drones with nested specifications."""
+
     serializer_class = DroneSerializer
     permission_classes = [DronePermission]
     filter_backends = (
@@ -229,7 +231,9 @@ class DroneListCreateView(generics.ListCreateAPIView):
         )
 
     def get_serializer_class(self):
-        """Use the compact serializer for list requests and the full serializer otherwise."""
+        """
+        Use the compact serializer for list requests and the full serializer
+        otherwise."""
         if self.request.method == "GET":
             return DroneListSerializer
 
@@ -238,6 +242,7 @@ class DroneListCreateView(generics.ListCreateAPIView):
 
 class DroneDetailView(generics.RetrieveUpdateAPIView):
     """Retrieve drone details and apply partial updates or lifecycle transitions."""
+
     queryset = (
         Drone.objects.select_related("military_unit", "spec")
         .prefetch_related("status_history")
@@ -256,6 +261,7 @@ class DroneDetailView(generics.RetrieveUpdateAPIView):
 
 class DroneModelListCreateView(generics.ListCreateAPIView):
     """List and create drone model catalog entries."""
+
     serializer_class = DroneModelSerializer
     permission_classes = [DronePermission]
     queryset = DroneModel.objects.all()
@@ -267,6 +273,7 @@ class WriteOffHistoryListView(generics.ListAPIView):
     The endpoint can return all write-off records or records scoped to a selected
     drone when the URL contains a drone primary key.
     """
+
     serializer_class = WriteOffAuditSerializer
     permission_classes = [WriteOffHistoryPermission]
     pagination_class = StandardResultsSetPagination
@@ -309,6 +316,7 @@ class WriteOffHistoryListView(generics.ListAPIView):
 
 class WriteOffHistoryReportView(ListView):
     """Render an HTML report of write-off audit records."""
+
     model = WriteOffRecord
     template_name = "drones/writeoff_history_report.html"
     context_object_name = "writeoff_records"
@@ -357,6 +365,7 @@ class WriteOffHistoryReportView(ListView):
 
 class DroneDataExportView(generics.ListAPIView):
     """Stream a filtered drone inventory export as CSV."""
+
     permission_classes = [DronePermission]
 
     filter_backends = (
@@ -392,6 +401,7 @@ class DroneDataExportView(generics.ListAPIView):
 
 class DroneDataImportView(generics.GenericAPIView):
     """Import drone inventory records from an uploaded CSV file."""
+
     permission_classes = [DronePermission]
     serializer_class = DroneImportSerializer
 
@@ -422,6 +432,7 @@ class DroneDataImportView(generics.GenericAPIView):
 
 class WriteOffRecordListCreateView(generics.ListCreateAPIView):
     """List existing write-offs or create a new immutable write-off record."""
+
     permission_classes = [WriteOffPermission]
 
     def get_queryset(self):

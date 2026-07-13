@@ -28,6 +28,7 @@ class DronePermission(BasePermission):
     permission. PATCH requests require update permission, and status transitions
     involving inactive states additionally require decommission permission.
     """
+
     message = "You do not have permission to perform this action."
 
     def _has_permission(self, user, permission_code):
@@ -60,7 +61,9 @@ class DronePermission(BasePermission):
         return False
 
     def has_object_permission(self, request, view, obj):
-        """Require decommission permission for transitions involving inactive statuses."""
+        """
+        Require decommission permission for transitions involving inactive
+        statuses."""
         if request.method in SAFE_METHODS:
             return self._has_permission(request.user, PERMISSION_DRONES_VIEW)
 
@@ -91,6 +94,7 @@ class DronePermission(BasePermission):
 
 class WriteOffHistoryPermission(BasePermission):
     """Allow read-only write-off history access to staff or authorized users."""
+
     message = "You do not have permission to view write-off history."
 
     def _has_permission(self, user):
@@ -113,6 +117,7 @@ class WriteOffHistoryPermission(BasePermission):
 
 class WriteOffPermission(BasePermission):
     """Enforce RBAC rules for write-off listing and creation."""
+
     message = "You do not have permission to perform this action."
 
     def has_permission(self, request, view):

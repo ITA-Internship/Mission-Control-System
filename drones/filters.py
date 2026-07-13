@@ -19,12 +19,14 @@ class DroneFilter(django_filters.FilterSet):
     views focused on active assets while still allowing targeted inactive-status
     queries.
     """
+
     is_firmware_outdated = django_filters.BooleanFilter(
         field_name="spec__is_firmware_outdated"
     )
 
     class Meta:
         """Configure Drone fields and lookup expressions supported by the filter."""
+
         model = Drone
         fields = {
             "serial_number": ["icontains"],
@@ -57,6 +59,7 @@ class DroneFilter(django_filters.FilterSet):
 
 class WriteOffRecordFilter(django_filters.FilterSet):
     """Filter write-off audit records by drone, author, mission, dates, and reason."""
+
     drone = django_filters.NumberFilter(field_name="drone_id")
     drone_serial_number = django_filters.CharFilter(
         field_name="drone__serial_number",
@@ -89,6 +92,7 @@ class WriteOffRecordFilter(django_filters.FilterSet):
 
     class Meta:
         """Configure fields supported by the write-off audit filter."""
+
         model = WriteOffRecord
         fields = (
             "drone",
