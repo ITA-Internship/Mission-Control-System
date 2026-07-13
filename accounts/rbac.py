@@ -111,6 +111,7 @@ def admin_permissions():
         PERMISSION_REPAIRS_EXPORT,
         PERMISSION_REPAIRS_VERIFY,
         PERMISSION_AUDIT_LOGS_VIEW_ALL,
+        PERMISSION_AUDIT_LOGS_VIEW_OWN,
         PERMISSION_SPECIFICATIONS_COMPARE,
     }
 
@@ -120,13 +121,18 @@ def commander_permissions():
         profile_permissions()
         | own_audit_log_permissions()
         | {
+            PERMISSION_DRONES_CREATE,
+            PERMISSION_DRONES_UPDATE,
+            PERMISSION_DRONES_DECOMMISSION,
             PERMISSION_DRONES_VIEW,
+            PERMISSION_DRONES_IMPORT_EXPORT,
             PERMISSION_SPECIFICATIONS_VIEW,
+            PERMISSION_SPECIFICATIONS_COMPARE,
             PERMISSION_MISSIONS_VIEW,
+            PERMISSION_MISSIONS_CREATE,
             PERMISSION_MISSIONS_ASSIGN,
             PERMISSION_MISSIONS_UPDATE_STATUS,
             PERMISSION_MEDIA_VIEW,
-            PERMISSION_MEDIA_DELETE,
             PERMISSION_MAINTENANCE_VIEW,
             PERMISSION_WRITEOFF_VIEW,
             PERMISSION_WRITEOFF_AUTHORIZE,
@@ -147,8 +153,11 @@ def dispatcher_permissions():
             PERMISSION_MISSIONS_VIEW,
             PERMISSION_MISSIONS_CREATE,
             PERMISSION_MISSIONS_ASSIGN,
+            PERMISSION_MISSIONS_RECORD_OUTCOME,
+            PERMISSION_MISSIONS_RECORD_CONDITION,
             PERMISSION_MEDIA_UPLOAD,
             PERMISSION_MEDIA_VIEW,
+            PERMISSION_WRITEOFF_VIEW,
             PERMISSION_REPAIRS_VIEW,
             PERMISSION_SPECIFICATIONS_COMPARE,
         }
@@ -169,8 +178,6 @@ def operator_permissions():
             PERMISSION_MEDIA_UPLOAD,
             PERMISSION_MEDIA_VIEW,
             PERMISSION_REPAIRS_VIEW,
-            PERMISSION_REPAIRS_CREATE,
-            PERMISSION_REPAIRS_MANAGE,
             PERMISSION_SPECIFICATIONS_COMPARE,
         }
     )
@@ -192,6 +199,7 @@ def technician_permissions():
             PERMISSION_REPAIRS_CREATE,
             PERMISSION_REPAIRS_MANAGE,
             PERMISSION_REPAIRS_EXPORT,
+            PERMISSION_MEDIA_VIEW,
             PERMISSION_SPECIFICATIONS_COMPARE,
         }
     )
@@ -203,6 +211,7 @@ def viewer_permissions():
         | own_audit_log_permissions()
         | {
             PERMISSION_DRONES_VIEW,
+            PERMISSION_MISSIONS_VIEW,
             PERMISSION_SPECIFICATIONS_VIEW,
             PERMISSION_MAINTENANCE_VIEW,
             PERMISSION_WRITEOFF_VIEW,
