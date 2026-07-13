@@ -1,13 +1,15 @@
 import csv
+import mimetypes
+import os
+import posixpath
 
 from django.conf import settings
 from django.contrib.auth import update_session_auth_hash
 from django.contrib.auth.tokens import default_token_generator
 from django.core.exceptions import ValidationError as DjangoValidationError
-from django.core.mail import send_mail
-from django.http import StreamingHttpResponse
+from django.http import FileResponse, Http404, HttpResponse, StreamingHttpResponse
 from django.shortcuts import get_object_or_404
-from django.utils.encoding import force_bytes, force_str
+from django.utils.encoding import escape_uri_path, force_bytes, force_str
 from django.utils.http import urlsafe_base64_decode, urlsafe_base64_encode
 from django_filters import rest_framework as filters
 from rest_framework import generics, permissions, status, viewsets
@@ -40,6 +42,7 @@ from .serializers import (
     UserStatusUpdateSerializer,
 )
 from .services import create_audit_log, set_user_password, update_user_role
+from .tasks import send_email_task
 from .throttles import (
     AccountActivationThrottle,
     PasswordResetConfirmThrottle,
@@ -283,6 +286,33 @@ class UserMeView(generics.RetrieveUpdateAPIView):
         )
 
 
+def invalidate_user_sessions(user):
+    from django.contrib.sessions.models import Session
+    from django.utils import timezone
+
+    from .models import UserSession
+
+    tracked = UserSession.objects.filter(user=user)
+    session_keys = list(tracked.values_list("session_key", flat=True))
+
+    if session_keys:
+        Session.objects.filter(session_key__in=session_keys).delete()
+        tracked.delete()
+    else:
+        # Fallback: scan sessions if UserSession tracking wasn't populated yet
+        active_sessions = Session.objects.filter(expire_date__gte=timezone.now())
+        user_pk_str = str(user.pk)
+
+        keys_to_delete = []
+        for session in active_sessions.iterator(chunk_size=500):
+            data = session.get_decoded()
+            if user_pk_str == str(data.get("_auth_user_id")):
+                keys_to_delete.append(session.session_key)
+
+        if keys_to_delete:
+            Session.objects.filter(session_key__in=keys_to_delete).delete()
+
+
 class ChangePasswordView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
@@ -341,13 +371,11 @@ class PasswordResetRequestView(APIView):
 
                 reset_link = f"{settings.FRONTEND_URL}/reset-password/{uid}/{token}/"
 
-                send_mail(
+                send_email_task.delay(
                     subject="Password Reset Request",
                     message=f"You requested a password reset. "
                     f"Click the link below to reset your password:\n\n{reset_link}",
-                    from_email=settings.DEFAULT_FROM_EMAIL,
                     recipient_list=[user.email],
-                    fail_silently=False,
                 )
 
                 create_audit_log(
@@ -398,13 +426,11 @@ class PasswordResetConfirmView(APIView):
                 request=request,
             )
 
-            send_mail(
+            send_email_task.delay(
                 subject="Password Changed Successfully",
                 message="Your password has been successfully updated. "
                 "If you did not make this change, contact support immediately.",
-                from_email=settings.DEFAULT_FROM_EMAIL,
                 recipient_list=[user.email],
-                fail_silently=True,
             )
 
             return Response(
@@ -426,3 +452,55 @@ class PasswordResetConfirmView(APIView):
             {"detail": "The reset link is invalid or has expired."},
             status=status.HTTP_400_BAD_REQUEST,
         )
+
+
+class ProtectedProfilePictureView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request, user_id):
+        user = get_object_or_404(User, pk=user_id)
+
+        if request.user != user and not request.user.is_staff:
+            return Response(
+                {"detail": "You do not have permission to view this profile picture."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        if not hasattr(user, "profile") or not user.profile.profile_picture:
+            return Response(
+                {"detail": "User does not have a profile picture."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        file_field = user.profile.profile_picture
+
+        if not file_field or not file_field.storage.exists(file_field.name):
+            raise Http404("File not found on server.")
+
+        content_type, _ = mimetypes.guess_type(file_field.name)
+        content_type = content_type or "application/octet-stream"
+        filename = os.path.basename(file_field.name)
+
+        if settings.DEBUG:
+            return FileResponse(
+                file_field,
+                content_type=content_type,
+                as_attachment=False,
+                filename=filename,
+            )
+        else:
+            response = HttpResponse(content_type=content_type)
+
+            safe_name = posixpath.normpath(file_field.name)
+            if safe_name.startswith("..") or safe_name.startswith("/"):
+                raise Http404("Invalid file path.")
+
+            internal_path = f"/internal-media/{safe_name}"
+            response["X-Accel-Redirect"] = internal_path
+
+            escaped_filename = escape_uri_path(filename)
+            response["Content-Disposition"] = (
+                f"inline; filename*=UTF-8''{escaped_filename}"
+            )
+
+            return response

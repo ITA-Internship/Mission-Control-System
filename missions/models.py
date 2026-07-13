@@ -172,7 +172,8 @@ class Mission(models.Model):
         indexes = [
             models.Index(fields=["started_at"]),
             models.Index(
-                fields=["status", "started_at", "ended_at"], name="mission_overlap_idx"
+                fields=["status", "started_at", "ended_at"],
+                name="mission_time_range_idx",
             ),
         ]
 
@@ -231,7 +232,14 @@ class MissionDrone(models.Model):
             ),
         ]
         indexes = [
-            models.Index(fields=["operator", "mission"], name="operator_mission_idx"),
+            models.Index(
+                fields=["drone", "mission"],
+                name="md_drone_mission_idx",
+            ),
+            models.Index(
+                fields=["operator", "mission"],
+                name="md_operator_mission_idx",
+            ),
         ]
 
     def __str__(self):
