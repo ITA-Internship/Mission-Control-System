@@ -1,4 +1,5 @@
 from django.db import transaction
+from django.db.models import Prefetch
 from rest_framework import generics, permissions
 from rest_framework.exceptions import ValidationError
 
@@ -136,11 +137,12 @@ class MissionOutcomeView(generics.UpdateAPIView):
         MissionsRecordOutcomeRBAC,
         IsAssignedOperatorOrAdmin,
     ]
+    queryset = Mission.objects.with_related()
     http_method_names = ["patch", "options", "head"]
 
     def get_queryset(self):
         return restrict_missions_for_user(
-            Mission.objects.with_related().prefetch_related("mission_drones"),
+            Mission.objects.with_related(),
             self.request.user,
         )
 
@@ -164,10 +166,16 @@ class MissionDroneConditionView(generics.UpdateAPIView):
 class MissionStatusUpdateView(generics.RetrieveUpdateAPIView):
     serializer_class = MissionStatusUpdateSerializer
     permission_classes = [permissions.IsAuthenticated, CanUpdateMissionStatus]
+    queryset = Mission.objects.prefetch_related(
+        Prefetch(
+            "mission_drones",
+            queryset=MissionDrone.objects.select_related("drone", "operator"),
+        )
+    )
 
     def get_queryset(self):
         return restrict_missions_for_user(
-            Mission.objects.prefetch_related("mission_drones"),
+            self.queryset,
             self.request.user,
         )
 
@@ -226,9 +234,13 @@ class MissionAssignmentListCreateView(generics.ListCreateAPIView):
 
     def get_queryset_for_list(self):
         mission = self.get_mission()
-        return MissionDrone.objects.filter(mission=mission).select_related(
-            "drone",
-            "operator",
+        return (
+            MissionDrone.objects.filter(mission=mission)
+            .select_related(
+                "drone",
+                "operator",
+            )
+            .order_by("id")
         )
 
     def get_queryset(self):

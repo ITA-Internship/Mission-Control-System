@@ -20,13 +20,22 @@ class CanViewMission(HasRBACPermission):
     required_permission = PERMISSION_MISSIONS_VIEW
 
 
+def _has_operator_in_mission(obj, user_id):
+    cache = getattr(obj, "_prefetched_objects_cache", {})
+    if "mission_drones" in cache:
+        return any(md.operator_id == user_id for md in obj.mission_drones.all())
+    return obj.mission_drones.filter(operator_id=user_id).exists()
+
+
 class IsAssignedOperatorOrAdmin(permissions.BasePermission):
     message = "Only the assigned Operator or an Admin can perform this action."
 
     def has_permission(self, request, view):
-        if not request.user or not request.user.is_authenticated:
-            return False
-        return get_user_role_code(request.user) in (ADMIN_CODE, OPERATOR_CODE)
+        return (
+            request.user
+            and request.user.is_authenticated
+            and get_user_role_code(request.user) in [OPERATOR_CODE, ADMIN_CODE]
+        )
 
     def has_object_permission(self, request, view, obj):
         role_code = get_user_role_code(request.user)
@@ -35,9 +44,7 @@ class IsAssignedOperatorOrAdmin(permissions.BasePermission):
         if role_code != OPERATOR_CODE:
             return False
         if isinstance(obj, Mission):
-            return any(
-                md.operator_id == request.user.id for md in obj.mission_drones.all()
-            )
+            return _has_operator_in_mission(obj, request.user.id)
         if isinstance(obj, MissionDrone):
             return obj.operator_id == request.user.id
         return False
@@ -58,8 +65,6 @@ class CanUpdateMissionStatus(permissions.BasePermission):
             return True
 
         if user_role == OPERATOR_CODE:
-            return any(
-                md.operator_id == request.user.id for md in obj.mission_drones.all()
-            )
+            return _has_operator_in_mission(obj, request.user.id)
 
         return False

@@ -23,6 +23,15 @@ def log_user_login(sender, request, user, **kwargs):
         request=request,
     )
 
+    from .models import UserSession
+
+    session_key = request.session.session_key
+    if session_key:
+        UserSession.objects.update_or_create(
+            user=user,
+            session_key=session_key,
+        )
+
 
 @receiver(user_login_failed)
 def log_user_login_failed(sender, credentials, request, **kwargs):

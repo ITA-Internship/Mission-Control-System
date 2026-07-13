@@ -1,7 +1,6 @@
 from django.conf import settings
 from django.contrib.auth.tokens import default_token_generator
 from django.core.exceptions import ValidationError
-from django.core.mail import send_mail
 from django.db import transaction
 
 from roles.models import ADMIN_CODE, Role
@@ -44,6 +43,8 @@ def create_user_account(validated_data: dict, created_by: User = None) -> User:
 
 
 def send_activation_email(user) -> None:
+    from .tasks import send_email_task
+
     token = default_token_generator.make_token(user)
 
     frontend_url = getattr(settings, "FRONTEND_URL", "http://localhost:3000")
@@ -61,12 +62,10 @@ def send_activation_email(user) -> None:
         f"For security reasons, this link is for one-time use only."
     )
 
-    send_mail(
+    send_email_task.delay(
         subject=subject,
         message=message,
-        from_email=settings.DEFAULT_FROM_EMAIL,
         recipient_list=[user.email],
-        fail_silently=False,
     )
 
 
