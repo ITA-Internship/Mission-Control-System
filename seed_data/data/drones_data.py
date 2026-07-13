@@ -464,7 +464,7 @@ STATUS_HISTORY = (
 WRITE_OFFS = (
     WriteOffSeed(
         drone_serial="FPV-ATK-24009",
-        reason="Combat loss",
+        reason="LOSS",
         reason_description=(
             "Drone lost during strike mission with no recoverable components."
         ),
