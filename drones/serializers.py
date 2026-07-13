@@ -356,7 +356,10 @@ class DroneUpdateSerializer(serializers.ModelSerializer):
         }
 
     def validate(self, attrs):
-        """Require write-off fields when a patch moves a drone to an inactive status."""
+        """
+        Validate classification compatibility and require write-off metadata for
+        inactive status transitions.
+        """
         requested_status = attrs.get("status")
 
         # Terminal inventory states require write-off metadata before the service
@@ -607,7 +610,10 @@ class WriteOffRecordCreateSerializer(serializers.ModelSerializer):
         )
 
     def validate(self, attrs):
-        """Validate business rules for creating a drone write-off record."""
+        """
+        Validate drone status, write-off uniqueness, and latest-mission ownership
+        rules.
+        """
         drone = attrs.get("drone")
         related_mission = attrs.get("related_mission")
 
@@ -669,7 +675,8 @@ class WriteOffRecordCreateSerializer(serializers.ModelSerializer):
     def create(self, validated_data):
         """
         Create the write-off through the service layer so status history is
-        recorded."""
+        recorded.
+        """
         user = self.context["request"].user
 
         return create_writeoff_record(user=user, **validated_data)

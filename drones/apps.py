@@ -4,6 +4,6 @@ from django.apps import AppConfig
 
 
 class DronesConfig(AppConfig):
-    """Configure the drones Django application."""
+    """Register the drones application with Django."""
 
     name = "drones"

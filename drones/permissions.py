@@ -62,8 +62,9 @@ class DronePermission(BasePermission):
 
     def has_object_permission(self, request, view, obj):
         """
-        Require decommission permission for transitions involving inactive
-        statuses."""
+        Require update permission for PATCH requests and decommission permission
+        when either the current or requested status is inactive.
+        """
         if request.method in SAFE_METHODS:
             return self._has_permission(request.user, PERMISSION_DRONES_VIEW)
 

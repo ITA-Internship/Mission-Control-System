@@ -8,7 +8,7 @@ from roles.models import ADMIN_CODE, VIEWER_CODE
 
 
 class AdminRoleFactory(factory.django.DjangoModelFactory):
-    """Build an admin role with drone-management permissions for tests."""
+    """Factory for admin roles with drone-management permissions."""
 
     class Meta:
         """Configure the Role model target for the admin role factory."""
@@ -21,7 +21,7 @@ class AdminRoleFactory(factory.django.DjangoModelFactory):
 
 
 class AdminUserFactory(factory.django.DjangoModelFactory):
-    """Build an admin user for drone tests."""
+    """Factory for admin users used in drone tests."""
 
     class Meta:
         """Configure the User model target for the admin user factory."""
@@ -35,7 +35,7 @@ class AdminUserFactory(factory.django.DjangoModelFactory):
 
 
 class ViewerRoleFactory(factory.django.DjangoModelFactory):
-    """Build a viewer role with read-only drone permissions for tests."""
+    """Factory for viewer roles with read-only drone permissions."""
 
     class Meta:
         """Configure the Role model target for the viewer role factory."""
@@ -48,7 +48,7 @@ class ViewerRoleFactory(factory.django.DjangoModelFactory):
 
 
 class ViewerUserFactory(factory.django.DjangoModelFactory):
-    """Build a viewer user for permission tests."""
+    """Factory for viewer users used in permission tests."""
 
     class Meta:
         """Configure the User model target for the viewer user factory."""
@@ -62,7 +62,7 @@ class ViewerUserFactory(factory.django.DjangoModelFactory):
 
 
 class MilitaryUnitFactory(factory.django.DjangoModelFactory):
-    """Build a military unit for drone assignment tests."""
+    """Factory for military units used in drone assignment tests."""
 
     class Meta:
         """Configure the MilitaryUnit model target for the factory."""
@@ -74,7 +74,7 @@ class MilitaryUnitFactory(factory.django.DjangoModelFactory):
 
 
 class DroneModelFactory(factory.django.DjangoModelFactory):
-    """Build a drone model with supported classifications for tests."""
+    """Factory for drone models with supported classifications."""
 
     class Meta:
         """Configure the DroneModel target for the factory."""
@@ -87,7 +87,7 @@ class DroneModelFactory(factory.django.DjangoModelFactory):
 
 
 class DroneFactory(factory.django.DjangoModelFactory):
-    """Build a drone tied to a model and military unit for tests."""
+    """Factory for drones assigned to a model and military unit."""
 
     class Meta:
         """Configure the Drone model target for the factory."""
@@ -111,7 +111,7 @@ class DroneFactory(factory.django.DjangoModelFactory):
 
 
 class DroneSpecFactory(factory.django.DjangoModelFactory):
-    """Build a technical specification for a drone test object."""
+    """Factory for drone technical specifications."""
 
     class Meta:
         """Configure the DroneSpec model target for the factory."""
