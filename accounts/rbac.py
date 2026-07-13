@@ -1,3 +1,5 @@
+"""Centralized RBAC permission codes and role-to-permission mappings."""
+
 from roles.models import (
     ADMIN_CODE,
     COMMANDER_CODE,
@@ -67,6 +69,7 @@ PERMISSION_SPECIFICATIONS_COMPARE = "specifications.compare"
 
 
 def profile_permissions():
+    """Permissions every authenticated role has for self-service profile access."""
     return {
         PERMISSION_PROFILE_VIEW_OWN,
         PERMISSION_PROFILE_UPDATE_OWN,
@@ -75,10 +78,12 @@ def profile_permissions():
 
 
 def own_audit_log_permissions():
+    """Permissions for viewing audit log entries created by the current user."""
     return {PERMISSION_AUDIT_LOGS_VIEW_OWN}
 
 
 def admin_permissions():
+    """Full access permissions for platform administrators."""
     return profile_permissions() | {
         PERMISSION_USERS_MANAGE_ROLES,
         PERMISSION_USERS_CREATE,
@@ -117,6 +122,7 @@ def admin_permissions():
 
 
 def commander_permissions():
+    """Permissions for command staff overseeing missions and approvals."""
     return (
         profile_permissions()
         | own_audit_log_permissions()
@@ -144,6 +150,7 @@ def commander_permissions():
 
 
 def dispatcher_permissions():
+    """Permissions for users coordinating mission preparation and assignment."""
     return (
         profile_permissions()
         | own_audit_log_permissions()
@@ -165,6 +172,7 @@ def dispatcher_permissions():
 
 
 def operator_permissions():
+    """Permissions for users executing assigned missions in the field."""
     return (
         profile_permissions()
         | own_audit_log_permissions()
@@ -184,6 +192,7 @@ def operator_permissions():
 
 
 def technician_permissions():
+    """Permissions for users responsible for maintenance and repair workflows."""
     return (
         profile_permissions()
         | own_audit_log_permissions()
@@ -206,6 +215,7 @@ def technician_permissions():
 
 
 def viewer_permissions():
+    """Read-focused permissions for users who should not modify operational data."""
     return (
         profile_permissions()
         | own_audit_log_permissions()
