@@ -21,7 +21,6 @@ def health_check(request):
     health = {"status": "healthy", "dependencies": {}}
     is_healthy = True
 
-    # --- PostgreSQL ---
     try:
         with connection.cursor() as cursor:
             cursor.execute("SELECT 1")
@@ -31,7 +30,6 @@ def health_check(request):
         health["dependencies"]["database"] = "unavailable"
         is_healthy = False
 
-    # --- Redis / cache ---
     try:
         cache.set("_health_check", "ok", timeout=5)
         if cache.get("_health_check") == "ok":
