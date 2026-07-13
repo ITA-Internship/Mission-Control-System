@@ -1,6 +1,9 @@
 #!/bin/sh
 set -e
 
+echo "Collecting static files..."
+python manage.py collectstatic --noinput
+
 case "$RUN_MIGRATIONS" in
     true|True|1|yes|YES)
         echo "Running database migrations..."
