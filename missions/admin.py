@@ -1,9 +1,13 @@
+"""Django admin registrations for the missions app."""
+
 from django.contrib import admin
 
 from .models import Mission, MissionAuditLog, MissionDrone
 
 
 class MissionDroneInline(admin.TabularInline):
+    """Inline editor for a mission's drone assignments."""
+
     model = MissionDrone
     extra = 0
     fields = ("drone", "operator", "condition_after")
@@ -11,6 +15,8 @@ class MissionDroneInline(admin.TabularInline):
 
 @admin.register(Mission)
 class MissionAdmin(admin.ModelAdmin):
+    """Admin configuration for missions."""
+
     list_display = (
         "id",
         "title",
@@ -28,6 +34,8 @@ class MissionAdmin(admin.ModelAdmin):
 
 @admin.register(MissionDrone)
 class MissionDroneAdmin(admin.ModelAdmin):
+    """Admin configuration for mission-drone assignments."""
+
     list_display = ("id", "mission", "drone", "operator", "created_at")
     list_select_related = ("mission", "drone", "operator")
     list_filter = ("mission__status",)
@@ -36,6 +44,8 @@ class MissionDroneAdmin(admin.ModelAdmin):
 
 @admin.register(MissionAuditLog)
 class MissionAuditLogAdmin(admin.ModelAdmin):
+    """Read-only admin for the append-only mission audit log."""
+
     list_display = ("id", "action", "target_model", "target_id", "created_at", "user")
     list_filter = ("action", "target_model")
     readonly_fields = (
@@ -48,10 +58,13 @@ class MissionAuditLogAdmin(admin.ModelAdmin):
     )
 
     def has_add_permission(self, request):
+        """Disallow creating audit-log rows through the admin."""
         return False
 
     def has_change_permission(self, request, obj=None):
+        """Disallow editing audit-log rows through the admin."""
         return False
 
     def has_delete_permission(self, request, obj=None):
+        """Disallow deleting audit-log rows through the admin."""
         return False
