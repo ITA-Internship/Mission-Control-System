@@ -1,7 +1,12 @@
 from django.urls import path
 from rest_framework.routers import DefaultRouter
 
-from .views import ArtifactDetailView, ArtifactListCreateView, MediaAuditLogViewSet
+from .views import (
+    ArtifactDetailView,
+    ArtifactListCreateView,
+    MediaAuditLogViewSet,
+    ProtectedMediaView,
+)
 
 app_name = "media"
 
@@ -15,6 +20,11 @@ urlpatterns = [
         "<int:artifact_pk>/",
         ArtifactDetailView.as_view(),
         name="artifact-detail",
+    ),
+    path(
+        "<int:artifact_pk>/download/",
+        ProtectedMediaView.as_view(),
+        name="artifact-download",
     ),
 ]
 

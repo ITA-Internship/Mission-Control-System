@@ -24,6 +24,13 @@ class CanViewMission(HasRBACPermission):
     required_permission = PERMISSION_MISSIONS_VIEW
 
 
+def _has_operator_in_mission(obj, user_id):
+    cache = getattr(obj, "_prefetched_objects_cache", {})
+    if "mission_drones" in cache:
+        return any(md.operator_id == user_id for md in obj.mission_drones.all())
+    return obj.mission_drones.filter(operator_id=user_id).exists()
+
+
 class CanCreateMission(HasRBACPermission):
     """Check if the user's role can create missions."""
 
@@ -88,9 +95,7 @@ class IsAssignedOperatorOrAdmin(permissions.BasePermission):
         if role_code != OPERATOR_CODE:
             return False
         if isinstance(obj, Mission):
-            return any(
-                md.operator_id == request.user.id for md in obj.mission_drones.all()
-            )
+            return _has_operator_in_mission(obj, request.user.id)
         if isinstance(obj, MissionDrone):
             return obj.operator_id == request.user.id
         return False
@@ -117,6 +122,8 @@ class IsAssignedToMissionOrAdmin(permissions.BasePermission):
         role_code = get_user_role_code(request.user)
         if role_code in (ADMIN_CODE, COMMANDER_CODE, DISPATCHER_CODE):
             return True
-        if role_code == OPERATOR_CODE:
-            return obj.mission_drones.filter(operator_id=request.user.id).exists()
+
+        if user_role == OPERATOR_CODE:
+            return _has_operator_in_mission(obj, request.user.id)
+
         return False
