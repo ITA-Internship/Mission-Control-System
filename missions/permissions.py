@@ -104,12 +104,8 @@ class IsAssignedOperatorOrAdmin(permissions.BasePermission):
         return False
 
 
-class CanUpdateMissionStatus(permissions.BasePermission):
-    """Who may drive a mission through its lifecycle.
-
-    Admins and Commanders can change any mission's status; an Operator can only
-    change status on a mission they are assigned to.
-    """
+class IsAssignedToMissionOrAdmin(permissions.BasePermission):
+    """Allow admins, commanders, dispatchers, or assigned operators to update."""
 
     def has_object_permission(self, request, view, obj):
         """Check whether the user can update this specific mission."""
