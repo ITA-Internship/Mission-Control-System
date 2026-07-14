@@ -1,5 +1,4 @@
 from django.db import transaction
-from django.db.models import Prefetch
 from rest_framework import generics, permissions
 from rest_framework.exceptions import ValidationError
 
@@ -140,6 +139,7 @@ class MissionStatusUpdateView(generics.RetrieveUpdateAPIView):
         CanUpdateMissionStatus,
         IsAssignedToMissionOrAdmin,
     ]
+    queryset = Mission.objects.prefetch_related("mission_drones")
 
     def get_queryset(self):
         return restrict_missions_for_user(

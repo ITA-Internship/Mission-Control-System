@@ -123,7 +123,7 @@ class IsAssignedToMissionOrAdmin(permissions.BasePermission):
         if role_code in (ADMIN_CODE, COMMANDER_CODE, DISPATCHER_CODE):
             return True
 
-        if user_role == OPERATOR_CODE:
+        if role_code == OPERATOR_CODE:
             return _has_operator_in_mission(obj, request.user.id)
 
         return False
