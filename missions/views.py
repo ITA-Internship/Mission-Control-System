@@ -2,24 +2,19 @@ from django.db import transaction
 from rest_framework import generics, permissions
 from rest_framework.exceptions import ValidationError
 
-from accounts.permissions import HasRBACPermission
-from accounts.rbac import (
-    PERMISSION_MISSIONS_ASSIGN,
-    PERMISSION_MISSIONS_CREATE,
-    PERMISSION_MISSIONS_RECORD_CONDITION,
-    PERMISSION_MISSIONS_RECORD_OUTCOME,
-    PERMISSION_MISSIONS_UPDATE_STATUS,
-    PERMISSION_MISSIONS_VIEW,
-)
 from common.pagination import StandardResultsSetPagination
 from roles.models import OPERATOR_CODE
 
 from .models import Mission, MissionAuditLog, MissionDrone, Status
 from .permissions import (
+    CanAssignMission,
+    CanCreateMission,
+    CanRecordCondition,
+    CanRecordOutcome,
     CanUpdateMissionStatus,
     CanViewMission,
     IsAssignedOperatorOrAdmin,
-    IsDispatcherOrAdmin,
+    IsAssignedToMissionOrAdmin,
 )
 from .serializers import (
     MissionDroneConditionSerializer,
@@ -38,30 +33,6 @@ def restrict_missions_for_user(queryset, user):
     return queryset
 
 
-class MissionsUpdateStatusRBAC(HasRBACPermission):
-    required_permission = PERMISSION_MISSIONS_UPDATE_STATUS
-
-
-class MissionsRecordOutcomeRBAC(HasRBACPermission):
-    required_permission = PERMISSION_MISSIONS_RECORD_OUTCOME
-
-
-class MissionsRecordConditionRBAC(HasRBACPermission):
-    required_permission = PERMISSION_MISSIONS_RECORD_CONDITION
-
-
-class MissionsViewRBAC(HasRBACPermission):
-    required_permission = PERMISSION_MISSIONS_VIEW
-
-
-class MissionsCreateRBAC(HasRBACPermission):
-    required_permission = PERMISSION_MISSIONS_CREATE
-
-
-class MissionsAssignRBAC(HasRBACPermission):
-    required_permission = PERMISSION_MISSIONS_ASSIGN
-
-
 class MissionListCreateView(generics.ListCreateAPIView):
     serializer_class = MissionSerializer
     pagination_class = StandardResultsSetPagination
@@ -72,8 +43,7 @@ class MissionListCreateView(generics.ListCreateAPIView):
         else:
             permission_classes = [
                 permissions.IsAuthenticated,
-                IsDispatcherOrAdmin,
-                MissionsCreateRBAC,
+                CanCreateMission,
             ]
         return [permission() for permission in permission_classes]
 
@@ -133,7 +103,7 @@ class MissionOutcomeView(generics.UpdateAPIView):
     serializer_class = MissionOutcomeSerializer
     permission_classes = [
         permissions.IsAuthenticated,
-        MissionsRecordOutcomeRBAC,
+        CanRecordOutcome,
         IsAssignedOperatorOrAdmin,
     ]
     http_method_names = ["patch", "options", "head"]
@@ -149,7 +119,7 @@ class MissionDroneConditionView(generics.UpdateAPIView):
     serializer_class = MissionDroneConditionSerializer
     permission_classes = [
         permissions.IsAuthenticated,
-        MissionsRecordConditionRBAC,
+        CanRecordCondition,
         IsAssignedOperatorOrAdmin,
     ]
     lookup_url_kwarg = "assignment_id"
@@ -163,7 +133,11 @@ class MissionDroneConditionView(generics.UpdateAPIView):
 
 class MissionStatusUpdateView(generics.RetrieveUpdateAPIView):
     serializer_class = MissionStatusUpdateSerializer
-    permission_classes = [permissions.IsAuthenticated, CanUpdateMissionStatus]
+    permission_classes = [
+        permissions.IsAuthenticated,
+        CanUpdateMissionStatus,
+        IsAssignedToMissionOrAdmin,
+    ]
 
     def get_queryset(self):
         return restrict_missions_for_user(
@@ -205,13 +179,12 @@ class MissionAssignmentListCreateView(generics.ListCreateAPIView):
         if self.request.method == "POST":
             permission_classes = [
                 permissions.IsAuthenticated,
-                IsDispatcherOrAdmin,
-                MissionsAssignRBAC,
+                CanAssignMission,
             ]
         else:
             permission_classes = [
                 permissions.IsAuthenticated,
-                MissionsViewRBAC,
+                CanViewMission,
             ]
 
         return [permission() for permission in permission_classes]
@@ -253,8 +226,7 @@ class MissionAssignmentListCreateView(generics.ListCreateAPIView):
 class MissionAssignmentDetailView(generics.DestroyAPIView):
     permission_classes = [
         permissions.IsAuthenticated,
-        IsDispatcherOrAdmin,
-        MissionsAssignRBAC,
+        CanAssignMission,
     ]
     lookup_url_kwarg = "pk"
 
