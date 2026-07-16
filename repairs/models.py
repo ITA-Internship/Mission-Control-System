@@ -4,8 +4,13 @@ from django.db import models
 from django.utils import timezone
 
 
-# some examples, since I don't know which ones might actually be needed
 class DefectType(models.TextChoices):
+    """
+    Categorization of physical drone components that can experience defects.
+
+    TODO: Finalize the exact list of defect types.
+    """
+
     MOTOR = "MOTOR", "Motor"
     BATTERY = "BATTERY", "Battery"
     CAMERA = "CAMERA", "Camera"
@@ -19,6 +24,8 @@ class DefectType(models.TextChoices):
 
 
 class Severity(models.TextChoices):
+    """Levels of criticality for reported defects to prioritize repair queue."""
+
     LOW = "LOW", "Low"
     MEDIUM = "MEDIUM", "Medium"
     HIGH = "HIGH", "High"
@@ -26,6 +33,12 @@ class Severity(models.TextChoices):
 
 
 class RepairStatus(models.TextChoices):
+    """
+    Lifecycle states of a DefectReport.
+
+    Tracks the triage and validation process from initial report to final verification.
+    """
+
     REPORTED = "REPORTED", "Reported"
     IN_PROGRESS = "IN_PROGRESS", "In progress"
     FIXED = "FIXED", "Fixed"
@@ -33,12 +46,22 @@ class RepairStatus(models.TextChoices):
 
 
 class RepairOrderStatus(models.TextChoices):
+    """
+    Lifecycle states of a RepairOrder.
+
+    Defines the workflow states for a technician's active task. Valid transitions
+    are enforced by REPAIR_ORDER_TRANSITIONS.
+    """
+
     PENDING = "PENDING", "Pending"
     IN_PROGRESS = "IN_PROGRESS", "In progress"
     COMPLETED = "COMPLETED", "Completed"
     CANCELLED = "CANCELLED", "Cancelled"
 
 
+# Defines allowed state transitions for RepairOrders
+# to prevent bypassing business steps.
+# Validated during update operations in the service layer.
 REPAIR_ORDER_TRANSITIONS = {
     RepairOrderStatus.PENDING: [
         RepairOrderStatus.IN_PROGRESS,
@@ -54,6 +77,8 @@ REPAIR_ORDER_TRANSITIONS = {
 
 
 class ComponentType(models.TextChoices):
+    """Hardware categories available for physical replacement on a drone."""
+
     MOTOR = "MOTOR", "Motor"
     BATTERY = "BATTERY", "Battery"
     CAMERA = "CAMERA", "Camera"
@@ -67,6 +92,12 @@ class ComponentType(models.TextChoices):
 
 
 class DefectReport(models.Model):
+    """
+    A logged issue or damage report for a drone.
+
+    Acts as the initial triage ticket before a formal RepairOrder is created.
+    """
+
     drone = models.ForeignKey(
         "drones.Drone",
         on_delete=models.PROTECT,
@@ -119,6 +150,7 @@ class DefectReport(models.Model):
         ]
 
     def __str__(self) -> str:
+        """Return a human-readable summary of the defect report."""
         return (
             f"{self.get_severity_display()} "
             f"{self.get_defect_type_display()} on {self.drone}"
@@ -126,6 +158,12 @@ class DefectReport(models.Model):
 
 
 class RepairOrder(models.Model):
+    """
+    An actionable maintenance task assigned to a technician.
+
+    Can be linked to a DefectReport or created directly for routine maintenance.
+    """
+
     drone = models.ForeignKey(
         "drones.Drone",
         on_delete=models.PROTECT,
@@ -180,10 +218,17 @@ class RepairOrder(models.Model):
         ]
 
     def __str__(self) -> str:
+        """Return a string identifying the repair order and its current status."""
         return f"Repair #{self.pk} [{self.get_status_display()}] " f"on {self.drone}"
 
 
 class RepairEvent(models.Model):
+    """
+    Audit log for state changes on a DefectReport.
+
+    Used to track the lifecycle and resolution timeline of an issue.
+    """
+
     defect_report = models.ForeignKey(
         DefectReport,
         on_delete=models.PROTECT,
@@ -206,10 +251,17 @@ class RepairEvent(models.Model):
         ordering = ("-created_at",)
 
     def __str__(self) -> str:
+        """Return a string summarizing the status transition of the report."""
         return f"{self.defect_report} status changed to {self.to_status}"
 
 
 class ComponentReplacement(models.Model):
+    """
+    Tracks physical hardware changes on a drone.
+
+    Critical for maintaining accurate inventory and drone configuration history.
+    """
+
     drone = models.ForeignKey(
         "drones.Drone",
         on_delete=models.PROTECT,
@@ -261,6 +313,12 @@ class ComponentReplacement(models.Model):
         ]
 
     def clean(self):
+        """
+        Validate replacement data.
+
+        Ensures the replacement date is not in the future and that a specific
+        name is provided when the generic 'OTHER' category is used.
+        """
         errors = {}
 
         if self.replaced_at is not None and self.replaced_at > timezone.now():
@@ -276,6 +334,7 @@ class ComponentReplacement(models.Model):
             raise ValidationError(errors)
 
     def __str__(self) -> str:
+        """Return a string identifying the replaced component and the drone."""
         component = (
             self.component_name
             if self.component_type == ComponentType.OTHER and self.component_name
