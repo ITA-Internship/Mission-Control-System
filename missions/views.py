@@ -6,8 +6,8 @@ permission mixins gate each action.
 """
 
 from django.db import transaction
-from drf_spectacular.utils import extend_schema_view
 from django.db.models import Prefetch
+from drf_spectacular.utils import extend_schema_view
 from rest_framework import generics, permissions
 from rest_framework.exceptions import ValidationError
 
