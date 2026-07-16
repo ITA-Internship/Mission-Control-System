@@ -23,6 +23,12 @@ from .models import (
 
 
 def _get_authenticated_user(user):
+    """
+    Extract a valid user object or return None if unauthenticated.
+
+    Prevents AnonymousUser instances from being incorrectly assigned
+    to ForeignKey fields in the database.
+    """
     if user and getattr(user, "is_authenticated", False):
         return user
     return None
@@ -38,6 +44,12 @@ def create_defect_report(
     description,
     detected_at,
 ):
+    """
+    Create a new DefectReport for a specific drone.
+
+    Acts as the entry point for the repair lifecycle. Automatically links
+    the reporter if they are an authenticated user.
+    """
     return DefectReport.objects.create(
         drone=drone,
         reporter=_get_authenticated_user(reporter),
@@ -50,6 +62,17 @@ def create_defect_report(
 
 @transaction.atomic
 def update_defect_status(*, defect_id: int, new_status: str, action_taken: str, user):
+    """
+    Safely update the status of a DefectReport and record an audit trail.
+
+    Enforces the following business rules:
+    - Takes a row lock (`select_for_update`) to prevent concurrent updates.
+    - Validates that a defect can only become VERIFIED if it is currently FIXED.
+    - Enforces RBAC: Only Technicians/Commanders can mark as IN_PROGRESS/FIXED,
+      and only Commanders can VERIFY.
+    - Generates a RepairEvent audit log for the transition.
+    - Triggers an asynchronous email notification to the original reporter.
+    """
     try:
         defect = DefectReport.objects.select_for_update().get(pk=defect_id)
     except DefectReport.DoesNotExist:
@@ -113,6 +136,12 @@ def create_repair_order(
     assigned_to=None,
     created_by=None,
 ):
+    """
+    Create a new actionable RepairOrder for a technician.
+
+    Can be created standalone for routine maintenance or linked to an
+    existing DefectReport.
+    """
     return RepairOrder.objects.create(
         drone=drone,
         description=description,
@@ -124,6 +153,15 @@ def create_repair_order(
 
 @transaction.atomic
 def update_repair_order_status(*, repair_order, new_status, user=None, notes=""):
+    """
+    Safely transition a RepairOrder through its lifecycle states.
+
+    Enforces the following business rules:
+    - Takes a row lock (`select_for_update`) to prevent concurrent state drift.
+    - Validates transitions strictly against REPAIR_ORDER_TRANSITIONS.
+    - Automatically sets `started_at` when entering IN_PROGRESS.
+    - Automatically sets `completed_at` when reaching terminal states.
+    """
     repair_order = RepairOrder.objects.select_for_update().get(pk=repair_order.pk)
     allowed = REPAIR_ORDER_TRANSITIONS.get(repair_order.status, [])
     if new_status not in allowed:
@@ -159,6 +197,13 @@ def create_component_replacement(
     replaced_at,
     replaced_by,
 ):
+    """
+    Record a physical hardware replacement on a drone.
+
+    Used for standalone replacements not tied to a specific RepairOrder.
+    Invokes model-level `full_clean()` to validate domain constraints
+    before saving to the database.
+    """
     replacement = ComponentReplacement(
         drone=drone,
         component_type=component_type,
@@ -186,6 +231,13 @@ def add_component_replacement(
     replaced_at,
     replaced_by,
 ):
+    """
+    Record a hardware replacement as part of an active RepairOrder.
+
+    Links the replacement to the repair order for historical grouping.
+    Invokes model-level `full_clean()` to validate domain constraints
+    before saving to the database.
+    """
     replacement = ComponentReplacement(
         drone=repair_order.drone,
         repair_order=repair_order,
@@ -209,6 +261,13 @@ def get_drone_repair_history(
     date_to=None,
     event_types=None,
 ):
+    """
+    Aggregate a unified chronological timeline of all repair-related events.
+
+    Queries four different models (DefectReport, RepairEvent, RepairOrder,
+    ComponentReplacement) and merges them into a single timeline sorted
+    descending by timestamp. Allows filtering by date range and event types.
+    """
     timeline = []
 
     allowed_types = set(event_types) if event_types else None
@@ -325,6 +384,12 @@ def get_drone_repair_history(
 
 
 def generate_repair_history_csv(timeline_data):
+    """
+    Stream a CSV export of a drone's repair history timeline.
+
+    Uses a generator pattern with EchoBuffer to allow efficient streaming
+    of large timelines over HTTP without loading the entire file in memory.
+    """
     buffer = EchoBuffer()
     writer = csv.writer(buffer)
 
