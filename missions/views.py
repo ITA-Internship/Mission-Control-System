@@ -19,9 +19,7 @@ from .api_details import (
     mission_assignment_post_schema,
     mission_detail_schema,
     mission_drone_condition_schema,
-    mission_get_schema,
     mission_outcome_schema,
-    mission_post_schema,
     mission_status_get_schema,
     mission_status_update_schema,
 )
@@ -57,6 +55,7 @@ def restrict_missions_for_user(queryset, user):
     if role_code == OPERATOR_CODE:
         return queryset.filter(mission_drones__operator_id=user.id).distinct()
     return queryset
+
 
 class MissionListCreateView(generics.ListCreateAPIView):
     """List missions or create one.
