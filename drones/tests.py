@@ -608,15 +608,25 @@ class DroneUpdateAndDecommissionTests(APITestCase):
         self.assertEqual(response.data["status_indicator"], "warning")
         self.assertEqual(response.data["status_category"], "downtime")
 
-        self.assertIn("status_history", response.data)
-        self.assertEqual(len(response.data["status_history"]), 1)
+        history_url = reverse(
+            "drones:drone-status-history", kwargs={"pk": self.drone.pk}
+        )
+        history_response = self.client.get(history_url)
+        self.assertEqual(history_response.status_code, status.HTTP_200_OK)
 
-        history_item = response.data["status_history"][0]
+        self.assertIn("results", history_response.data)
+        self.assertEqual(len(history_response.data["results"]), 1)
+
+        history_item = history_response.data["results"][0]
 
         self.assertEqual(history_item["from_status"], Drone.STATUS_ACTIVE)
         self.assertEqual(history_item["to_status"], Drone.STATUS_DAMAGED)
         self.assertEqual(history_item["reason"], "Motor damaged")
         self.assertEqual(history_item["event_type"], "status_change")
+
+        non_existent_url = reverse("drones:drone-status-history", kwargs={"pk": 999999})
+        not_found_response = self.client.get(non_existent_url)
+        self.assertEqual(not_found_response.status_code, status.HTTP_404_NOT_FOUND)
 
     def test_decommission_requires_written_off_at(self):
         self.client.force_authenticate(self.admin_user)

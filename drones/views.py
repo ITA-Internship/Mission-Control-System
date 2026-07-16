@@ -9,6 +9,9 @@ from django.http import (
     HttpResponseForbidden,
     StreamingHttpResponse,
 )
+from django.shortcuts import get_object_or_404
+from django.utils.decorators import method_decorator
+from django.views.decorators.cache import cache_page
 from django.views.generic import ListView, TemplateView
 from django_filters.rest_framework import DjangoFilterBackend
 from drf_spectacular.utils import extend_schema_view
@@ -31,13 +34,21 @@ from .api_details import (
     drone_post_schema,
 )
 from .filters import DroneFilter, WriteOffRecordFilter
-from .models import Drone, DroneModel, WriteOffRecord
+from .models import (
+    Drone,
+    DroneModel,
+    DroneSpecChangeLog,
+    DroneStatusHistory,
+    WriteOffRecord,
+)
 from .permissions import DronePermission, WriteOffHistoryPermission, WriteOffPermission
 from .serializers import (
     DroneImportSerializer,
     DroneListSerializer,
     DroneModelSerializer,
     DroneSerializer,
+    DroneSpecChangeLogSerializer,
+    DroneStatusHistorySerializer,
     DroneUpdateSerializer,
     WriteOffAuditSerializer,
     WriteOffRecordCreateSerializer,
@@ -207,9 +218,9 @@ class DroneListCreateView(generics.ListCreateAPIView):
     ordering_fields = ["created_at", "status", "name", "classification"]
 
     def get_queryset(self):
-        return Drone.objects.select_related("military_unit", "drone_model").order_by(
-            "id"
-        )
+        return Drone.objects.select_related(
+            "military_unit", "spec", "drone_model"
+        ).order_by("id")
 
     def get_serializer_class(self):
         if self.request.method == "GET":
@@ -220,13 +231,12 @@ class DroneListCreateView(generics.ListCreateAPIView):
 
 @extend_schema_view(get=drone_detail_get_schema, patch=drone_detail_patch_schema)
 class DroneDetailView(generics.RetrieveUpdateAPIView):
-    queryset = (
-        Drone.objects.select_related("military_unit", "drone_model", "spec")
-        .prefetch_related("status_history")
-        .all()
-    )
     permission_classes = [DronePermission]
     http_method_names = ["get", "patch", "head", "options"]
+
+    queryset = Drone.objects.select_related(
+        "military_unit", "drone_model", "spec"
+    ).all()
 
     def get_serializer_class(self):
         if self.request.method == "PATCH":
@@ -235,12 +245,54 @@ class DroneDetailView(generics.RetrieveUpdateAPIView):
         return DroneSerializer
 
 
+class DroneStatusHistoryPagination(StandardResultsSetPagination):
+    page_size = 50
+    max_page_size = 200
+
+
+class DroneStatusHistoryListView(generics.ListAPIView):
+    serializer_class = DroneStatusHistorySerializer
+    permission_classes = [DronePermission]
+    pagination_class = DroneStatusHistoryPagination
+
+    def get_queryset(self):
+        get_object_or_404(Drone, pk=self.kwargs["pk"])
+        return (
+            DroneStatusHistory.objects.filter(drone_id=self.kwargs["pk"])
+            .select_related("changed_by")
+            .order_by("-created_at")
+        )
+
+
+class DroneSpecChangeLogPagination(StandardResultsSetPagination):
+    page_size = 20
+    max_page_size = 100
+
+
+class DroneSpecChangeLogListView(generics.ListAPIView):
+    serializer_class = DroneSpecChangeLogSerializer
+    permission_classes = [DronePermission]
+    pagination_class = DroneSpecChangeLogPagination
+
+    def get_queryset(self):
+        get_object_or_404(Drone, pk=self.kwargs["pk"])
+        return (
+            DroneSpecChangeLog.objects.filter(drone_spec__drone_id=self.kwargs["pk"])
+            .select_related("changed_by")
+            .order_by("-created_at")
+        )
+
+
 @extend_schema_view(get=drone_model_get_schema, post=drone_model_post_schema)
 class DroneModelListCreateView(generics.ListCreateAPIView):
     serializer_class = DroneModelSerializer
     permission_classes = [DronePermission]
     queryset = DroneModel.objects.all()
     pagination_class = StandardResultsSetPagination
+
+    @method_decorator(cache_page(60 * 5))
+    def list(self, request, *args, **kwargs):
+        return super().list(request, *args, **kwargs)
 
 
 class WriteOffHistoryListView(generics.ListAPIView):

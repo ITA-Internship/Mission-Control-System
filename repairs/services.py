@@ -2,13 +2,13 @@ import csv
 from operator import itemgetter
 
 from django.conf import settings
-from django.core.mail import send_mail
 from django.db import transaction
 from django.utils import timezone
 from rest_framework.exceptions import PermissionDenied, ValidationError
 
 from accounts.permissions import user_has_permission
 from accounts.rbac import PERMISSION_REPAIRS_MANAGE, PERMISSION_REPAIRS_VERIFY
+from accounts.tasks import send_email_task
 from common.utils import EchoBuffer
 
 from .models import (
@@ -90,7 +90,7 @@ def update_defect_status(*, defect_id: int, new_status: str, action_taken: str, 
 
     if new_status in [RepairStatus.IN_PROGRESS, RepairStatus.FIXED]:
         if defect.reporter and getattr(defect.reporter, "email", None):
-            send_mail(
+            send_email_task.delay(
                 subject=f"Status Update: Defect on {defect.drone}",
                 message=(
                     f"The status of the defect you reported"
@@ -99,7 +99,6 @@ def update_defect_status(*, defect_id: int, new_status: str, action_taken: str, 
                 ),
                 from_email=settings.DEFAULT_FROM_EMAIL,
                 recipient_list=[defect.reporter.email],
-                fail_silently=True,
             )
 
     return event

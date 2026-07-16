@@ -1,3 +1,5 @@
+"""URL routing for the missions app."""
+
 from django.urls import include, path
 
 from .views import (

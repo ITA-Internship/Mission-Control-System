@@ -202,15 +202,6 @@ class Drone(models.Model):
     def status_category(self):
         return self.STATUS_UI.get(self.status, {}).get("category", "unknown")
 
-    class Meta:
-        indexes = [
-            GinIndex(
-                fields=["serial_number"],
-                name="serial_number_gin_idx",
-                opclasses=["gin_trgm_ops"],
-            )
-        ]
-
     def clean(self):
         super().clean()
 
@@ -226,6 +217,25 @@ class Drone(models.Model):
                         f'{", ".join([c.title() for c in allowed_classifications])}'
                     }
                 )
+
+    class Meta:
+        indexes = [
+            GinIndex(
+                fields=["serial_number"],
+                opclasses=["gin_trgm_ops"],
+                name="drone_serial_trgm_idx",
+            ),
+            GinIndex(
+                fields=["inventory_number"],
+                opclasses=["gin_trgm_ops"],
+                name="drone_invnum_trgm_idx",
+            ),
+        ]
+
+    def save(self, *args, **kwargs):
+        if not kwargs.get("update_fields"):
+            self.full_clean()
+        super().save(*args, **kwargs)
 
 
 class DroneSpec(models.Model):
@@ -489,6 +499,12 @@ class DroneStatusHistory(models.Model):
 
     class Meta:
         ordering = ["-created_at"]
+        indexes = [
+            models.Index(
+                fields=["drone", "-created_at"],
+                name="dsh_drone_created_idx",
+            ),
+        ]
 
     def __str__(self) -> str:
         return f"{self.drone}: {self.from_status} -> {self.to_status}"

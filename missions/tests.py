@@ -290,6 +290,9 @@ class MissionDroneConditionTests(APITestCase):
         self.assertEqual(WriteOffRecord.objects.count(), 0)
 
     def test_condition_lost_writes_off_drone_and_creates_record(self):
+        # A "lost" condition must cascade across apps: the drone is written off
+        # (status WRITTEN_OFF), a WriteOffRecord is created, and a history row is
+        # written linking the change to both the write-off and the mission.
         self.client.force_authenticate(self.admin)
 
         response = self.client.patch(
@@ -535,6 +538,9 @@ class MissionStatusLifecycleTests(APITestCase):
         self.mission.refresh_from_db()
         self.drone.refresh_from_db()
 
+        # Finishing a mission only returns IN_MISSION drones to ACTIVE. A drone
+        # already marked DAMAGED keeps that status (and writes no history row),
+        # so an out-of-band condition isn't silently reset by mission cleanup.
         self.assertEqual(self.mission.status, "completed")
         self.assertEqual(self.drone.status, Drone.STATUS_DAMAGED)
         self.assertEqual(

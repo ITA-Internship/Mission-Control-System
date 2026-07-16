@@ -11,6 +11,7 @@ https://docs.djangoproject.com/en/6.0/ref/settings/
 """
 
 import os
+import sys
 from pathlib import Path
 
 from decouple import config
@@ -115,6 +116,7 @@ DATABASES = {
         "PASSWORD": config("DB_PASSWORD"),
         "HOST": config("DB_HOST", default="localhost"),
         "PORT": config("DB_PORT", default="5432"),
+        "CONN_MAX_AGE": int(config("DB_CONN_MAX_AGE", default="600")),
     }
 }
 
@@ -163,7 +165,7 @@ REST_FRAMEWORK = {
             "THROTTLE_PASSWORD_RESET_CONFIRM",
             "5/hour",
         ),
-        "audit_export": os.getenv("THROTTLE_AUDIT_EXPORT", "10/hour"),
+        "audit_export": os.getenv("THROTTLE_AUDIT_EXPORT", "5/min"),
         "drone_export": os.getenv("THROTTLE_DRONE_EXPORT", "10/hour"),
         "component_replacement_export": os.getenv(
             "THROTTLE_COMPONENT_REPLACEMENT_EXPORT",
@@ -235,6 +237,39 @@ DRONES_IMPORT_MAX_ROWS = 10000
 DRONES_IMPORT_BATCH_SIZE = 1000
 
 MAX_PAGINATION_OFFSET = 10000
+
+REDIS_URL = os.environ.get("REDIS_URL", "redis://localhost:6379/0")
+
+if (
+    os.getenv("GITHUB_ACTIONS") == "true"
+    or os.getenv("USE_LOCAL_CACHE") == "true"
+    or "test" in sys.argv
+    or any("pytest" in arg for arg in sys.argv)
+):
+    CACHES = {
+        "default": {
+            "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
+            "LOCATION": "test-cache",
+        }
+    }
+    CELERY_TASK_ALWAYS_EAGER = True
+    CELERY_TASK_EAGER_PROPAGATES = True
+    CELERY_BROKER_URL = "memory://"
+    CELERY_RESULT_BACKEND = "cache+memory://"
+else:
+    CACHES = {
+        "default": {
+            "BACKEND": os.getenv(
+                "CACHE_BACKEND", "django.core.cache.backends.redis.RedisCache"
+            ),
+            "LOCATION": REDIS_URL,
+            "KEY_PREFIX": "mc",
+            "TIMEOUT": 300,
+        }
+    }
+
+SESSION_ENGINE = "django.contrib.sessions.backends.cached_db"
+SESSION_CACHE_ALIAS = "default"
 
 
 SPECTACULAR_SETTINGS = {

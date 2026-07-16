@@ -258,7 +258,7 @@ class PasswordResetConfirmViewTests(APITestCase):
             kwargs={"uidb64": self.uidb64, "token": self.token},
         )
 
-    @patch("accounts.views.send_mail")
+    @patch("accounts.tasks.send_mail")
     def test_password_reset_success(self, mock_send_mail):
         payload = {
             "new_password": "BrandNewPassword123!",
