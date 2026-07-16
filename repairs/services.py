@@ -31,8 +31,7 @@ from .models import (
 
 
 def _get_authenticated_user(user):
-    """
-    Extract a valid user object or return None if unauthenticated.
+    """Extract a valid user object or return None if unauthenticated.
 
     Prevents AnonymousUser instances from being incorrectly assigned
     to ForeignKey fields in the database.
@@ -52,8 +51,7 @@ def create_defect_report(
     description,
     detected_at,
 ):
-    """
-    Create a new DefectReport for a specific drone.
+    """Create a new DefectReport for a specific drone.
 
     Acts as the entry point for the repair lifecycle. Automatically links
     the reporter if they are an authenticated user.
@@ -70,18 +68,19 @@ def create_defect_report(
 
 @transaction.atomic
 def update_defect_status(*, defect_id: int, new_status: str, action_taken: str, user):
-    """
-    Safely update the status of a DefectReport and record an audit trail.
+    """Safely update the status of a DefectReport and record an audit trail.
 
-    Takes a row lock to prevent concurrent updates, validates the state
-    machine, enforces RBAC, and triggers email notifications.
+    Takes a row lock (select_for_update) to prevent race conditions where
+    multiple technicians attempt concurrent updates. Validates the state
+    machine and enforces RBAC (differentiating between normal progression
+    and final verification). Asynchronously notifies the original reporter
+    via email so they are informed of progress without blocking the request.
     """
     try:
-        # Lock the row to prevent race conditions where two technicians
-        # try to transition the same defect simultaneously.
         defect = DefectReport.objects.select_for_update().get(pk=defect_id)
     except DefectReport.DoesNotExist:
         raise ValidationError({"detail": "Defect report not found."})
+
     old_status = defect.status
 
     if old_status == new_status:
@@ -92,7 +91,6 @@ def update_defect_status(*, defect_id: int, new_status: str, action_taken: str, 
             {"status": "A defect can only be verified if its current status is FIXED."}
         )
 
-    # RBAC Enforcement: Differentiate between normal progression and final verification.
     if new_status in [RepairStatus.IN_PROGRESS, RepairStatus.FIXED]:
         if not (
             user_has_permission(user, PERMISSION_REPAIRS_MANAGE)
@@ -117,8 +115,6 @@ def update_defect_status(*, defect_id: int, new_status: str, action_taken: str, 
         technician=_get_authenticated_user(user),
     )
 
-    # Asynchronously notify the original reporter so they aren't left in the dark,
-    # without blocking the HTTP response for the technician.
     if new_status in [RepairStatus.IN_PROGRESS, RepairStatus.FIXED]:
         if defect.reporter and getattr(defect.reporter, "email", None):
             send_email_task.delay(
@@ -144,8 +140,7 @@ def create_repair_order(
     assigned_to=None,
     created_by=None,
 ):
-    """
-    Create a new actionable RepairOrder for a technician.
+    """Create a new actionable RepairOrder for a technician.
 
     Can be created standalone for routine maintenance or linked to an
     existing DefectReport.
@@ -161,12 +156,12 @@ def create_repair_order(
 
 @transaction.atomic
 def update_repair_order_status(*, repair_order, new_status, user=None, notes=""):
-    """
-    Safely transition a RepairOrder through its lifecycle states.
+    """Safely transition a RepairOrder through its lifecycle states.
 
-    Enforces state machine logic and automatically handles timestamps.
+    Takes a row lock to prevent concurrent state drift. Enforces state
+    machine logic and automatically stamps operational times (started_at,
+    completed_at) to ensure accurate metrics.
     """
-    # Lock the row to prevent concurrent state drift.
     repair_order = RepairOrder.objects.select_for_update().get(pk=repair_order.pk)
 
     allowed = REPAIR_ORDER_TRANSITIONS.get(repair_order.status, [])
@@ -178,7 +173,6 @@ def update_repair_order_status(*, repair_order, new_status, user=None, notes="")
 
     repair_order.status = new_status
 
-    # Automatically stamp operational times to ensure accurate metrics.
     if new_status == RepairOrderStatus.IN_PROGRESS and not repair_order.started_at:
         repair_order.started_at = timezone.now()
 
@@ -204,12 +198,11 @@ def create_component_replacement(
     replaced_at,
     replaced_by,
 ):
-    """
-    Record a physical hardware replacement on a drone.
+    """Record a physical hardware replacement on a drone.
 
     Used for standalone replacements not tied to a specific RepairOrder.
-    Invokes model-level `full_clean()` to validate domain constraints
-    before saving to the database.
+    Invokes model-level full_clean() to validate domain constraints
+    (e.g., future dates) before saving to the database.
     """
     replacement = ComponentReplacement(
         drone=drone,
@@ -221,7 +214,6 @@ def create_component_replacement(
         replaced_at=replaced_at,
         replaced_by=_get_authenticated_user(replaced_by),
     )
-    # Explicitly call full_clean to trigger model-level validation (e.g. future dates).
     replacement.full_clean()
     replacement.save()
     return replacement
@@ -239,11 +231,10 @@ def add_component_replacement(
     replaced_at,
     replaced_by,
 ):
-    """
-    Record a hardware replacement as part of an active RepairOrder.
+    """Record a hardware replacement as part of an active RepairOrder.
 
     Links the replacement to the repair order for historical grouping.
-    Invokes model-level `full_clean()` to validate domain constraints
+    Invokes model-level full_clean() to validate domain constraints
     before saving to the database.
     """
     replacement = ComponentReplacement(
@@ -269,19 +260,17 @@ def get_drone_repair_history(
     date_to=None,
     event_types=None,
 ):
-    """
-    Aggregate a unified chronological timeline of all repair-related events.
+    """Aggregate a unified chronological timeline of all repair-related events.
 
-    Queries four different models (DefectReport, RepairEvent, RepairOrder,
+    Queries distinct models (DefectReport, RepairEvent, RepairOrder,
     ComponentReplacement) and merges them into a single timeline sorted
-    descending by timestamp. Allows filtering by date range and event types.
+    descending by timestamp. Querying separate models is more efficient
+    here than creating a complex polymorphic query. Allows filtering by
+    date range and event types.
     """
     timeline = []
 
     allowed_types = set(event_types) if event_types else None
-
-    # Querying separate models to build a unified timeline is more efficient here
-    # than creating a complex polymorphic query, as each event type has unique details.
 
     if not allowed_types or "defect" in allowed_types:
         defects_qs = DefectReport.objects.filter(drone_id=drone_id)
@@ -395,8 +384,7 @@ def get_drone_repair_history(
 
 
 def generate_repair_history_csv(timeline_data):
-    """
-    Stream a CSV export of a drone's repair history timeline.
+    """Stream a CSV export of a drone's repair history timeline.
 
     Uses a generator pattern with EchoBuffer to allow efficient streaming
     of large timelines over HTTP without loading the entire file in memory.

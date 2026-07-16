@@ -11,8 +11,7 @@ from django.utils import timezone
 
 
 class DefectType(models.TextChoices):
-    """
-    Categorization of physical drone components that can experience defects.
+    """Categorization of physical drone components that can experience defects.
 
     TODO: Finalize the exact list of defect types.
     """
@@ -39,10 +38,10 @@ class Severity(models.TextChoices):
 
 
 class RepairStatus(models.TextChoices):
-    """
-    Lifecycle states of a DefectReport.
+    """Lifecycle states of a DefectReport.
 
-    Tracks the triage and validation process from initial report to final verification.
+    Tracks the triage and validation process from initial report to final
+    verification.
     """
 
     REPORTED = "REPORTED", "Reported"
@@ -52,8 +51,7 @@ class RepairStatus(models.TextChoices):
 
 
 class RepairOrderStatus(models.TextChoices):
-    """
-    Lifecycle states of a RepairOrder.
+    """Lifecycle states of a RepairOrder.
 
     Defines the workflow states for a technician's active task. Valid transitions
     are enforced by REPAIR_ORDER_TRANSITIONS.
@@ -65,8 +63,6 @@ class RepairOrderStatus(models.TextChoices):
     CANCELLED = "CANCELLED", "Cancelled"
 
 
-# Allowed repair order status transitions (domain state machine).
-# Validated during update operations in the service layer.
 REPAIR_ORDER_TRANSITIONS = {
     RepairOrderStatus.PENDING: [
         RepairOrderStatus.IN_PROGRESS,
@@ -97,14 +93,17 @@ class ComponentType(models.TextChoices):
 
 
 class DefectReport(models.Model):
-    """
-    A logged issue or damage report for a drone.
+    """A logged issue or damage report for a drone.
 
     Acts as the initial triage ticket before a formal RepairOrder is created.
+
+    Constraints:
+    - drone (PROTECT): A drone with a logged defect cannot be hard-deleted
+      to ensure the maintenance history remains intact.
+    - reporter (SET_NULL): If the reporting user is deleted (e.g., an employee
+      leaves), the defect record itself must survive.
     """
 
-    # PROTECT: a drone with a logged defect cannot be hard-deleted,
-    # ensuring the maintenance history remains intact.
     drone = models.ForeignKey(
         "drones.Drone",
         on_delete=models.PROTECT,
@@ -128,9 +127,6 @@ class DefectReport(models.Model):
     )
     description = models.TextField()
     detected_at = models.DateTimeField()
-
-    # SET_NULL: if the reporting user is deleted (e.g., an employee leaves),
-    # the defect record itself must survive.
     reporter = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         null=True,
@@ -168,21 +164,23 @@ class DefectReport(models.Model):
 
 
 class RepairOrder(models.Model):
-    """
-    An actionable maintenance task assigned to a technician.
+    """An actionable maintenance task assigned to a technician.
 
     Can be linked to a DefectReport or created directly for routine maintenance.
+
+    Constraints:
+    - drone (PROTECT): Maintaining the drone's lifetime repair history is critical.
+    - defect_report (SET_NULL): The repair order must remain intact even if
+      the original triage ticket is removed.
+    - assigned_to / created_by (SET_NULL): The order and labor accounting must
+      survive even if the technician or creator's account is deleted.
     """
 
-    # PROTECT: maintaining the drone's lifetime repair history is critical.
     drone = models.ForeignKey(
         "drones.Drone",
         on_delete=models.PROTECT,
         related_name="repair_orders",
     )
-
-    # SET_NULL: if a defect report is removed, the repair order (and its accounting
-    # of technician labor) must remain intact.
     defect_report = models.ForeignKey(
         DefectReport,
         null=True,
@@ -197,8 +195,6 @@ class RepairOrder(models.Model):
         db_index=True,
     )
     description = models.TextField()
-
-    # SET_NULL: keep the order intact even if the assigned technician is deleted.
     assigned_to = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         null=True,
@@ -209,8 +205,6 @@ class RepairOrder(models.Model):
     started_at = models.DateTimeField(null=True, blank=True)
     completed_at = models.DateTimeField(null=True, blank=True)
     notes = models.TextField(blank=True)
-
-    # SET_NULL: keep the order intact even if the creator is deleted.
     created_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         null=True,
@@ -241,13 +235,16 @@ class RepairOrder(models.Model):
 
 
 class RepairEvent(models.Model):
-    """
-    Audit log for state changes on a DefectReport.
+    """Audit log for state changes on a DefectReport.
 
     Used to track the lifecycle and resolution timeline of an issue.
+
+    Constraints:
+    - defect_report (PROTECT): Audit logs must never lose their parent report.
+    - technician (SET_NULL): The audit log row must remain even if the
+      technician account is deleted.
     """
 
-    # PROTECT: audit logs must never lose their parent report.
     defect_report = models.ForeignKey(
         DefectReport,
         on_delete=models.PROTECT,
@@ -256,8 +253,6 @@ class RepairEvent(models.Model):
     from_status = models.CharField(max_length=20, choices=RepairStatus.choices)
     to_status = models.CharField(max_length=20, choices=RepairStatus.choices)
     action_taken = models.TextField()
-
-    # SET_NULL: the audit log row must remain even if the technician account is deleted.
     technician = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.SET_NULL,
@@ -277,20 +272,23 @@ class RepairEvent(models.Model):
 
 
 class ComponentReplacement(models.Model):
-    """
-    Tracks physical hardware changes on a drone.
+    """Tracks physical hardware changes on a drone.
 
     Critical for maintaining accurate inventory and drone configuration history.
+
+    Constraints:
+    - drone (PROTECT): Physical hardware changes must be permanently tied
+      to the drone.
+    - repair_order (SET_NULL): A replacement record should survive even if
+      its parent order is removed.
+    - replaced_by (SET_NULL): Retain the record even if the user is deleted.
     """
 
-    # PROTECT: physical hardware changes must be permanently tied to the drone.
     drone = models.ForeignKey(
         "drones.Drone",
         on_delete=models.PROTECT,
         related_name="component_replacements",
     )
-
-    # SET_NULL: a replacement record should survive even if its parent order is removed.
     repair_order = models.ForeignKey(
         RepairOrder,
         null=True,
@@ -337,8 +335,7 @@ class ComponentReplacement(models.Model):
         ]
 
     def clean(self):
-        """
-        Validate replacement data.
+        """Validate replacement data.
 
         Ensures the replacement date is not in the future and that a specific
         name is provided when the generic 'OTHER' category is used.

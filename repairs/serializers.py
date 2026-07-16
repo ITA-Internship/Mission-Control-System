@@ -51,8 +51,9 @@ class DateRangeSerializer(serializers.Serializer):
 class DefectReportSerializer(serializers.ModelSerializer):
     """Serialize a defect report for creation and detailed view.
 
-    The reporter field is derived securely from the request context during
-    creation rather than accepting it from the payload.
+    The reporter field is strictly read-only because it must be securely
+    bound to the authenticated user making the request via the service
+    layer, rather than accepting it from the payload.
     """
 
     class Meta:
@@ -68,8 +69,6 @@ class DefectReportSerializer(serializers.ModelSerializer):
             "created_at",
             "updated_at",
         )
-        # 'reporter' is strictly read-only because it must be securely bound to the
-        # authenticated user making the request via the service layer.
         read_only_fields = ("id", "reporter", "created_at", "updated_at")
 
     def validate_description(self, value):
@@ -85,9 +84,12 @@ class DefectReportSerializer(serializers.ModelSerializer):
         return stripped
 
     def validate_detected_at(self, value):
-        """Reject a detection time in the future, allowing a short grace period."""
-        # Allow a small grace period for future dates to account for clock skew
-        # between offline clients (e.g., a technician's tablet) and the server.
+        """Reject a detection time in the future.
+
+        Allows a small grace period for future dates to account for clock
+        skew between offline clients (e.g., a technician's tablet) and
+        the server.
+        """
         if value > timezone.now() + DETECTED_AT_GRACE_PERIOD:
             raise serializers.ValidationError("detected_at cannot be in the future.")
         return value
@@ -140,9 +142,11 @@ class DefectStatusUpdateSerializer(serializers.Serializer):
     action_taken = serializers.CharField(trim_whitespace=True)
 
     def validate_action_taken(self, value):
-        """Ensure an audit comment is provided for the status change."""
-        # Status changes mandate a comment (action_taken) so the audit log
-        # always explains *why* the status was moved (e.g., "Soldered the VTX wire").
+        """Ensure an audit comment is provided for the status change.
+
+        Status changes mandate a comment (action_taken) so the audit log
+        always explains *why* the status was moved (e.g., "Soldered wire").
+        """
         if not value:
             raise serializers.ValidationError("Action taken comment is required.")
         return value
@@ -202,7 +206,13 @@ class ComponentReplacementSerializer(serializers.ModelSerializer):
         return value
 
     def validate(self, attrs):
-        """Cross-validate component type and custom naming rules."""
+        """Cross-validate component type and custom naming rules.
+
+        Enforces data consistency: if the component is a known type
+        (e.g., MOTOR), it wipes any user-provided custom name. This prevents
+        database pollution where standard components get arbitrary names,
+        which breaks inventory grouping.
+        """
         attrs = super().validate(attrs)
         component_type = attrs.get("component_type")
         component_name = attrs.get("component_name")
@@ -212,9 +222,6 @@ class ComponentReplacementSerializer(serializers.ModelSerializer):
                 {"component_name": ["Component name is required for OTHER."]}
             )
 
-        # Enforce data consistency: if the component is a known type (e.g., MOTOR),
-        # wipe any user-provided custom name. This prevents database pollution where
-        # standard components get arbitrary names, which breaks inventory grouping.
         if component_type != ComponentType.OTHER and (
             self.instance is None or "component_name" in attrs
         ):
@@ -334,9 +341,12 @@ class RepairOrderStatusUpdateSerializer(serializers.Serializer):
     notes = serializers.CharField(required=False, allow_blank=True, default="")
 
     def validate_status(self, value):
-        """Ensure the transition is permitted by the state machine."""
-        # Validate against the state machine definition so clients cannot skip
-        # required operational steps (e.g., jumping from PENDING straight to COMPLETED).
+        """Ensure the transition is permitted by the state machine.
+
+        Validates against the state machine definition so clients cannot
+        skip required operational steps (e.g., jumping from PENDING
+        straight to COMPLETED).
+        """
         repair_order = self.context["repair_order"]
         allowed = REPAIR_ORDER_TRANSITIONS.get(repair_order.status, [])
         if value not in allowed:
