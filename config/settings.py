@@ -14,6 +14,7 @@ import os
 import sys
 from pathlib import Path
 
+from celery.schedules import crontab
 from decouple import config
 from django.core.exceptions import ImproperlyConfigured
 from dotenv import load_dotenv
@@ -206,6 +207,15 @@ ARTIFACT_MAX_FILE_SIZE_MB = int(os.getenv("ARTIFACT_MAX_FILE_SIZE_MB", "50"))
 # only the rightmost `TRUSTED_PROXY_COUNT` entries are appended by our own infra
 # and can be trusted. Set to 0 when Django is exposed directly (no proxy).
 TRUSTED_PROXY_COUNT = int(os.getenv("TRUSTED_PROXY_COUNT", "0"))
+
+# Media audit-log retention (in days). MediaAuditLog entries older than this
+# window are removed by the `purge_audit_logs` management command / Celery
+# task. Set to 0 to disable purging and retain entries indefinitely. Review
+# this window with the deployment team against the applicable compliance /
+# incident-review requirements before changing it.
+MEDIA_AUDIT_LOG_RETENTION_DAYS = int(
+    os.getenv("MEDIA_AUDIT_LOG_RETENTION_DAYS", "365")
+)
 VIDEO_MAX_FILE_SIZE_MB = int(os.getenv("VIDEO_MAX_FILE_SIZE_MB", "200"))
 
 # Allowed file extensions for artifact uploads, grouped by file type.
@@ -232,6 +242,15 @@ FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:3000")
 
 CELERY_BROKER_URL = os.environ.get("REDIS_URL", "redis://localhost:6379/0")
 CELERY_RESULT_BACKEND = os.environ.get("REDIS_URL", "redis://localhost:6379/0")
+
+# Enforce the media audit-log retention policy daily (Celery beat). Honours
+# MEDIA_AUDIT_LOG_RETENTION_DAYS.
+CELERY_BEAT_SCHEDULE = {
+    "purge-media-audit-logs-daily": {
+        "task": "media.tasks.purge_media_audit_logs_task",
+        "schedule": crontab(hour=3, minute=30),
+    },
+}
 MAX_EXPORT_LIMIT = 10000
 DRONES_IMPORT_MAX_ROWS = 10000
 DRONES_IMPORT_BATCH_SIZE = 1000

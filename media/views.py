@@ -36,7 +36,12 @@ from .serializers import (
     VideoMetadataSerializer,
     VideoUploadSerializer,
 )
-from .services import delete_artifact, record_artifact_view, upload_artifact
+from .services import (
+    delete_artifact,
+    record_artifact_download,
+    record_artifact_view,
+    upload_artifact,
+)
 from .tasks import extract_video_duration_task
 
 logger = logging.getLogger(__name__)
@@ -191,6 +196,12 @@ class ProtectedMediaView(APIView):
         content_type, _ = mimetypes.guess_type(file_field.name)
         content_type = content_type or "application/octet-stream"
         filename = artifact.original_filename or os.path.basename(file_field.name)
+
+        record_artifact_download(
+            user=request.user,
+            artifact=artifact,
+            request=request,
+        )
 
         if settings.DEBUG:
             return FileResponse(
