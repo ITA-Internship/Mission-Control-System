@@ -27,6 +27,7 @@ from django.shortcuts import get_object_or_404
 from django.utils.encoding import escape_uri_path, force_bytes, force_str
 from django.utils.http import urlsafe_base64_decode, urlsafe_base64_encode
 from django_filters import rest_framework as filters
+from drf_spectacular.utils import extend_schema_view
 from rest_framework import generics, permissions, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.permissions import AllowAny
@@ -37,6 +38,20 @@ from rest_framework.views import APIView
 from common.pagination import AuditLogPagination
 from common.utils import EchoBuffer
 
+from .api_details import (
+    activate_account_schema,
+    audit_log_export_schema,
+    audit_log_retrieve_schema,
+    audit_log_view_schema,
+    change_password_schema,
+    password_reset_confirm_schema,
+    password_reset_schema,
+    user_me_get_schema,
+    user_me_update_schema,
+    user_registration_schema,
+    user_role_update_schema,
+    user_status_update_schema,
+)
 from .models import AuditLog, User, UserStatusLog
 from .permissions import HasRBACPermission, IsSystemAdmin, user_has_permission
 from .rbac import (
@@ -65,6 +80,7 @@ from .throttles import (
 )
 
 
+@user_registration_schema
 class UserRegistrationView(generics.CreateAPIView):
     """Register a new user account."""
 
@@ -74,6 +90,7 @@ class UserRegistrationView(generics.CreateAPIView):
     required_permission = PERMISSION_USERS_CREATE
 
 
+@user_role_update_schema
 class UserRoleUpdateAPIView(APIView):
     """Handle role updates for user accounts."""
 
@@ -108,6 +125,7 @@ class UserRoleUpdateAPIView(APIView):
         return Response(response_serializer.data, status=status.HTTP_200_OK)
 
 
+@activate_account_schema
 class ActivateAccountAPIView(APIView):
     """Handle account activation requests."""
 
@@ -168,6 +186,11 @@ class AuditLogFilter(filters.FilterSet):
         fields = ["actor", "target_user", "action_type", "result"]
 
 
+@extend_schema_view(
+    list=audit_log_view_schema,
+    retrieve=audit_log_retrieve_schema,
+    export=audit_log_export_schema,
+)
 class AuditLogViewSet(viewsets.ReadOnlyModelViewSet):
     """Provide read-only API endpoints for viewing and exporting logs"""
 
@@ -182,6 +205,9 @@ class AuditLogViewSet(viewsets.ReadOnlyModelViewSet):
 
     def get_queryset(self):
         """Return a queryset of audit logs base on RBAC permissions."""
+        if getattr(self, "swagger_fake_view", False):
+            return AuditLog.objects.none()
+
         user = self.request.user
 
         if user_has_permission(user, PERMISSION_AUDIT_LOGS_VIEW_ALL):
@@ -246,6 +272,7 @@ class AuditLogViewSet(viewsets.ReadOnlyModelViewSet):
         return response
 
 
+@user_status_update_schema
 class UserStatusUpdateView(APIView):
     """Handle activation and deactivation of user accounts by administrators."""
 
@@ -317,6 +344,9 @@ class UserStatusUpdateView(APIView):
         )
 
 
+@extend_schema_view(
+    get=user_me_get_schema, put=user_me_update_schema, patch=user_me_update_schema
+)
 class UserMeView(generics.RetrieveUpdateAPIView):
     """Retrieve or update the currently authenticated user's profile."""
 
@@ -372,6 +402,7 @@ def invalidate_user_sessions(user):
             Session.objects.filter(session_key__in=keys_to_delete).delete()
 
 
+@change_password_schema
 class ChangePasswordView(APIView):
     """Handle password change requests for the authenticated user."""
 
@@ -414,6 +445,7 @@ class ChangePasswordView(APIView):
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
+@password_reset_schema
 class PasswordResetRequestView(APIView):
     """Handle requests to send password reset link via email."""
 
@@ -462,6 +494,7 @@ class PasswordResetRequestView(APIView):
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
+@password_reset_confirm_schema
 class PasswordResetConfirmView(APIView):
     """Handle password reset confirmations using a secure token."""
 
