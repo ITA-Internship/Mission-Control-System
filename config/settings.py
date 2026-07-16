@@ -213,9 +213,7 @@ TRUSTED_PROXY_COUNT = int(os.getenv("TRUSTED_PROXY_COUNT", "0"))
 # task. Set to 0 to disable purging and retain entries indefinitely. Review
 # this window with the deployment team against the applicable compliance /
 # incident-review requirements before changing it.
-MEDIA_AUDIT_LOG_RETENTION_DAYS = int(
-    os.getenv("MEDIA_AUDIT_LOG_RETENTION_DAYS", "365")
-)
+MEDIA_AUDIT_LOG_RETENTION_DAYS = int(os.getenv("MEDIA_AUDIT_LOG_RETENTION_DAYS", "365"))
 VIDEO_MAX_FILE_SIZE_MB = int(os.getenv("VIDEO_MAX_FILE_SIZE_MB", "200"))
 
 # Allowed file extensions for artifact uploads, grouped by file type.
