@@ -199,7 +199,7 @@ class DroneStatusHistorySerializer(serializers.ModelSerializer):
         )
         read_only_fields = fields
 
-    def get_changed_by_display(self, obj):
+    def get_changed_by_display(self, obj) -> str:
         user = obj.changed_by
 
         if not user:
@@ -209,7 +209,7 @@ class DroneStatusHistorySerializer(serializers.ModelSerializer):
             getattr(user, "username", None) or getattr(user, "email", None) or str(user)
         )
 
-    def get_event_type(self, obj):
+    def get_event_type(self, obj) -> str:
         if obj.related_writeoff_id:
             return "writeoff"
 

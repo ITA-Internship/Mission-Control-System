@@ -7,6 +7,7 @@ permission mixins gate each action.
 
 from django.db import transaction
 from django.db.models import Prefetch
+from drf_spectacular.utils import extend_schema_view
 from rest_framework import generics, permissions
 from rest_framework.exceptions import ValidationError
 
@@ -22,6 +23,18 @@ from accounts.rbac import (
 from common.pagination import StandardResultsSetPagination
 from roles.models import OPERATOR_CODE
 
+from .api_details import (
+    mission_assignment_delete_schema,
+    mission_assignment_get_schema,
+    mission_assignment_post_schema,
+    mission_detail_schema,
+    mission_drone_condition_schema,
+    mission_get_schema,
+    mission_outcome_schema,
+    mission_post_schema,
+    mission_status_get_schema,
+    mission_status_update_schema,
+)
 from .models import Mission, MissionAuditLog, MissionDrone, Status
 from .permissions import (
     CanUpdateMissionStatus,
@@ -88,6 +101,7 @@ class MissionsAssignRBAC(HasRBACPermission):
     required_permission = PERMISSION_MISSIONS_ASSIGN
 
 
+@extend_schema_view(get=mission_get_schema, post=mission_post_schema)
 class MissionListCreateView(generics.ListCreateAPIView):
     """List missions or create one.
 
@@ -160,6 +174,7 @@ class MissionListCreateView(generics.ListCreateAPIView):
         serializer.save(created_by=self.request.user)
 
 
+@mission_detail_schema
 class MissionDetailView(generics.RetrieveAPIView):
     """Retrieve a single mission (requires the view permission)."""
 
@@ -174,6 +189,7 @@ class MissionDetailView(generics.RetrieveAPIView):
         )
 
 
+@mission_outcome_schema
 class MissionOutcomeView(generics.UpdateAPIView):
     """Record the outcome of a completed/aborted mission via PATCH.
 
@@ -198,6 +214,7 @@ class MissionOutcomeView(generics.UpdateAPIView):
         )
 
 
+@mission_drone_condition_schema
 class MissionDroneConditionView(generics.UpdateAPIView):
     """Record a drone's post-mission condition for one assignment via PATCH.
 
@@ -228,6 +245,11 @@ class MissionDroneConditionView(generics.UpdateAPIView):
         ).select_related("mission", "drone", "operator")
 
 
+@extend_schema_view(
+    get=mission_status_get_schema,
+    put=mission_status_update_schema,
+    patch=mission_status_update_schema,
+)
 class MissionStatusUpdateView(generics.RetrieveUpdateAPIView):
     """Retrieve or update a mission's status through its lifecycle.
 
@@ -282,6 +304,9 @@ class MissionStatusUpdateView(generics.RetrieveUpdateAPIView):
         )
 
 
+@extend_schema_view(
+    get=mission_assignment_get_schema, post=mission_assignment_post_schema
+)
 class MissionAssignmentListCreateView(generics.ListCreateAPIView):
     """List a mission's drone assignments or create one.
 
@@ -352,6 +377,7 @@ class MissionAssignmentListCreateView(generics.ListCreateAPIView):
         serializer.save(mission=mission)
 
 
+@mission_assignment_delete_schema
 class MissionAssignmentDetailView(generics.DestroyAPIView):
     """Delete a drone assignment from a mission (Dispatcher/Admin only)."""
 
