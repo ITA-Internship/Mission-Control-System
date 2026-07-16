@@ -1,3 +1,11 @@
+"""Service layer for repair operations.
+
+Holds the transactional business logic for defect triage, repair orders,
+and component replacements. Each state-changing public function takes
+the necessary row locks, enforces RBAC, and writes audit logs so the API
+remains consistent.
+"""
+
 import csv
 from operator import itemgetter
 
@@ -65,15 +73,12 @@ def update_defect_status(*, defect_id: int, new_status: str, action_taken: str, 
     """
     Safely update the status of a DefectReport and record an audit trail.
 
-    Enforces the following business rules:
-    - Takes a row lock (`select_for_update`) to prevent concurrent updates.
-    - Validates that a defect can only become VERIFIED if it is currently FIXED.
-    - Enforces RBAC: Only Technicians/Commanders can mark as IN_PROGRESS/FIXED,
-      and only Commanders can VERIFY.
-    - Generates a RepairEvent audit log for the transition.
-    - Triggers an asynchronous email notification to the original reporter.
+    Takes a row lock to prevent concurrent updates, validates the state
+    machine, enforces RBAC, and triggers email notifications.
     """
     try:
+        # Lock the row to prevent race conditions where two technicians
+        # try to transition the same defect simultaneously.
         defect = DefectReport.objects.select_for_update().get(pk=defect_id)
     except DefectReport.DoesNotExist:
         raise ValidationError({"detail": "Defect report not found."})
@@ -87,6 +92,7 @@ def update_defect_status(*, defect_id: int, new_status: str, action_taken: str, 
             {"status": "A defect can only be verified if its current status is FIXED."}
         )
 
+    # RBAC Enforcement: Differentiate between normal progression and final verification.
     if new_status in [RepairStatus.IN_PROGRESS, RepairStatus.FIXED]:
         if not (
             user_has_permission(user, PERMISSION_REPAIRS_MANAGE)
@@ -111,6 +117,8 @@ def update_defect_status(*, defect_id: int, new_status: str, action_taken: str, 
         technician=_get_authenticated_user(user),
     )
 
+    # Asynchronously notify the original reporter so they aren't left in the dark,
+    # without blocking the HTTP response for the technician.
     if new_status in [RepairStatus.IN_PROGRESS, RepairStatus.FIXED]:
         if defect.reporter and getattr(defect.reporter, "email", None):
             send_email_task.delay(
@@ -156,13 +164,11 @@ def update_repair_order_status(*, repair_order, new_status, user=None, notes="")
     """
     Safely transition a RepairOrder through its lifecycle states.
 
-    Enforces the following business rules:
-    - Takes a row lock (`select_for_update`) to prevent concurrent state drift.
-    - Validates transitions strictly against REPAIR_ORDER_TRANSITIONS.
-    - Automatically sets `started_at` when entering IN_PROGRESS.
-    - Automatically sets `completed_at` when reaching terminal states.
+    Enforces state machine logic and automatically handles timestamps.
     """
+    # Lock the row to prevent concurrent state drift.
     repair_order = RepairOrder.objects.select_for_update().get(pk=repair_order.pk)
+
     allowed = REPAIR_ORDER_TRANSITIONS.get(repair_order.status, [])
     if new_status not in allowed:
         raise ValueError(
@@ -172,6 +178,7 @@ def update_repair_order_status(*, repair_order, new_status, user=None, notes="")
 
     repair_order.status = new_status
 
+    # Automatically stamp operational times to ensure accurate metrics.
     if new_status == RepairOrderStatus.IN_PROGRESS and not repair_order.started_at:
         repair_order.started_at = timezone.now()
 
@@ -214,6 +221,7 @@ def create_component_replacement(
         replaced_at=replaced_at,
         replaced_by=_get_authenticated_user(replaced_by),
     )
+    # Explicitly call full_clean to trigger model-level validation (e.g. future dates).
     replacement.full_clean()
     replacement.save()
     return replacement
@@ -271,6 +279,9 @@ def get_drone_repair_history(
     timeline = []
 
     allowed_types = set(event_types) if event_types else None
+
+    # Querying separate models to build a unified timeline is more efficient here
+    # than creating a complex polymorphic query, as each event type has unique details.
 
     if not allowed_types or "defect" in allowed_types:
         defects_qs = DefectReport.objects.filter(drone_id=drone_id)
