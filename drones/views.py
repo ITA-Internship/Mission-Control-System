@@ -14,6 +14,7 @@ from django.utils.decorators import method_decorator
 from django.views.decorators.cache import cache_page
 from django.views.generic import ListView, TemplateView
 from django_filters.rest_framework import DjangoFilterBackend
+from drf_spectacular.utils import extend_schema_view
 from rest_framework import filters, generics, status
 from rest_framework.response import Response
 from rest_framework.throttling import ScopedRateThrottle
@@ -22,6 +23,16 @@ from accounts.permissions import HasRBACPermission
 from accounts.rbac import PERMISSION_SPECIFICATIONS_COMPARE
 from common.pagination import StandardResultsSetPagination
 
+from .api_details import (
+    drone_data_export_schema,
+    drone_data_import_schema,
+    drone_detail_get_schema,
+    drone_detail_patch_schema,
+    drone_get_schema,
+    drone_model_get_schema,
+    drone_model_post_schema,
+    drone_post_schema,
+)
 from .filters import DroneFilter, WriteOffRecordFilter
 from .models import (
     Drone,
@@ -194,6 +205,7 @@ class DroneComparisonView(TemplateView):
         return response
 
 
+@extend_schema_view(get=drone_get_schema, post=drone_post_schema)
 class DroneListCreateView(generics.ListCreateAPIView):
     serializer_class = DroneSerializer
     permission_classes = [DronePermission]
@@ -217,6 +229,7 @@ class DroneListCreateView(generics.ListCreateAPIView):
         return self.serializer_class
 
 
+@extend_schema_view(get=drone_detail_get_schema, patch=drone_detail_patch_schema)
 class DroneDetailView(generics.RetrieveUpdateAPIView):
     permission_classes = [DronePermission]
     http_method_names = ["get", "patch", "head", "options"]
@@ -270,6 +283,7 @@ class DroneSpecChangeLogListView(generics.ListAPIView):
         )
 
 
+@extend_schema_view(get=drone_model_get_schema, post=drone_model_post_schema)
 class DroneModelListCreateView(generics.ListCreateAPIView):
     serializer_class = DroneModelSerializer
     permission_classes = [DronePermission]
@@ -365,6 +379,7 @@ class WriteOffHistoryReportView(ListView):
         return context
 
 
+@drone_data_export_schema
 class DroneDataExportView(generics.ListAPIView):
     permission_classes = [DronePermission]
 
@@ -400,6 +415,7 @@ class DroneDataExportView(generics.ListAPIView):
         return response
 
 
+@drone_data_import_schema
 class DroneDataImportView(generics.GenericAPIView):
     permission_classes = [DronePermission]
     serializer_class = DroneImportSerializer

@@ -276,6 +276,14 @@ SPECTACULAR_SETTINGS = {
     "TITLE": "Mission Control System API",
     "DESCRIPTION": "Documentation for Mission-Control-System",
     "SERVE_INCLUDE_SCHEMA": False,
+    "ENUM_NAME_OVERRIDES": {
+        "DroneStatus": "drones.models.Drone.STATUS_CHOICES",
+        "MissionStatus": "missions.models.Status",
+        "MissionResult": "missions.models.Result",
+        "DefectType": "repairs.models.DefectType",
+        "WriteOffReason": "drones.models.WriteOffRecord.Reason",
+    },
+    "ENUM_GENERATE_CHOICE_DESCRIPTION": False,
 }
 
 
