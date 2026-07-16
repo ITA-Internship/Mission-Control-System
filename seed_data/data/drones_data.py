@@ -2,7 +2,7 @@ from dataclasses import dataclass
 from datetime import date
 from decimal import Decimal
 
-from drones.models import Drone
+from drones.models import Drone, WriteOffRecord
 
 
 @dataclass(frozen=True)
@@ -464,7 +464,7 @@ STATUS_HISTORY = (
 WRITE_OFFS = (
     WriteOffSeed(
         drone_serial="FPV-ATK-24009",
-        reason="Combat loss",
+        reason=WriteOffRecord.Reason.LOSS,
         reason_description=(
             "Drone lost during strike mission with no recoverable components."
         ),
