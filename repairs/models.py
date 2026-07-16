@@ -1,3 +1,9 @@
+"""Database models for the repairs app.
+
+Defines the DefectReport triage tickets, actionable RepairOrders, hardware
+ComponentReplacements, and the append-only RepairEvent audit log.
+"""
+
 from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.db import models
@@ -59,8 +65,7 @@ class RepairOrderStatus(models.TextChoices):
     CANCELLED = "CANCELLED", "Cancelled"
 
 
-# Defines allowed state transitions for RepairOrders
-# to prevent bypassing business steps.
+# Allowed repair order status transitions (domain state machine).
 # Validated during update operations in the service layer.
 REPAIR_ORDER_TRANSITIONS = {
     RepairOrderStatus.PENDING: [
@@ -98,6 +103,8 @@ class DefectReport(models.Model):
     Acts as the initial triage ticket before a formal RepairOrder is created.
     """
 
+    # PROTECT: a drone with a logged defect cannot be hard-deleted,
+    # ensuring the maintenance history remains intact.
     drone = models.ForeignKey(
         "drones.Drone",
         on_delete=models.PROTECT,
@@ -121,6 +128,9 @@ class DefectReport(models.Model):
     )
     description = models.TextField()
     detected_at = models.DateTimeField()
+
+    # SET_NULL: if the reporting user is deleted (e.g., an employee leaves),
+    # the defect record itself must survive.
     reporter = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         null=True,
@@ -164,11 +174,15 @@ class RepairOrder(models.Model):
     Can be linked to a DefectReport or created directly for routine maintenance.
     """
 
+    # PROTECT: maintaining the drone's lifetime repair history is critical.
     drone = models.ForeignKey(
         "drones.Drone",
         on_delete=models.PROTECT,
         related_name="repair_orders",
     )
+
+    # SET_NULL: if a defect report is removed, the repair order (and its accounting
+    # of technician labor) must remain intact.
     defect_report = models.ForeignKey(
         DefectReport,
         null=True,
@@ -183,6 +197,8 @@ class RepairOrder(models.Model):
         db_index=True,
     )
     description = models.TextField()
+
+    # SET_NULL: keep the order intact even if the assigned technician is deleted.
     assigned_to = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         null=True,
@@ -193,6 +209,8 @@ class RepairOrder(models.Model):
     started_at = models.DateTimeField(null=True, blank=True)
     completed_at = models.DateTimeField(null=True, blank=True)
     notes = models.TextField(blank=True)
+
+    # SET_NULL: keep the order intact even if the creator is deleted.
     created_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         null=True,
@@ -219,7 +237,7 @@ class RepairOrder(models.Model):
 
     def __str__(self) -> str:
         """Return a string identifying the repair order and its current status."""
-        return f"Repair #{self.pk} [{self.get_status_display()}] " f"on {self.drone}"
+        return f"Repair #{self.pk} [{self.get_status_display()}] on {self.drone}"
 
 
 class RepairEvent(models.Model):
@@ -229,6 +247,7 @@ class RepairEvent(models.Model):
     Used to track the lifecycle and resolution timeline of an issue.
     """
 
+    # PROTECT: audit logs must never lose their parent report.
     defect_report = models.ForeignKey(
         DefectReport,
         on_delete=models.PROTECT,
@@ -237,6 +256,8 @@ class RepairEvent(models.Model):
     from_status = models.CharField(max_length=20, choices=RepairStatus.choices)
     to_status = models.CharField(max_length=20, choices=RepairStatus.choices)
     action_taken = models.TextField()
+
+    # SET_NULL: the audit log row must remain even if the technician account is deleted.
     technician = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.SET_NULL,
@@ -262,11 +283,14 @@ class ComponentReplacement(models.Model):
     Critical for maintaining accurate inventory and drone configuration history.
     """
 
+    # PROTECT: physical hardware changes must be permanently tied to the drone.
     drone = models.ForeignKey(
         "drones.Drone",
         on_delete=models.PROTECT,
         related_name="component_replacements",
     )
+
+    # SET_NULL: a replacement record should survive even if its parent order is removed.
     repair_order = models.ForeignKey(
         RepairOrder,
         null=True,
