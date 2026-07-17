@@ -37,8 +37,9 @@ class MediaUploadPermission(MediaAuditedDenialMixin, HasRBACPermission):
     required_permission = PERMISSION_MEDIA_UPLOAD
 
 
-class MediaViewPermission(MediaAuditedDenialMixin, HasRBACPermission):
-    required_permission = PERMISSION_MEDIA_VIEW
+class MediaObjectPermission(MediaAuditedDenialMixin, HasRBACPermission):
+    """Base for object-level media checks: records the denial and delegates the
+    authorization rule to ``_check_object`` (implemented per subclass)."""
 
     def has_object_permission(self, request, view, obj):
         if self._check_object(request, obj):
@@ -47,38 +48,34 @@ class MediaViewPermission(MediaAuditedDenialMixin, HasRBACPermission):
         self._record_denied(request, reason="object_permission_denied", obj=obj)
         return False
 
-    def _check_object(self, request, obj):
+    def _is_owner_or_admin(self, request, obj):
         if get_user_role_code(request.user) == ADMIN_CODE:
             return True
 
-        if getattr(obj, "uploaded_by_id", None) == request.user.id:
+        return getattr(obj, "uploaded_by_id", None) == request.user.id
+
+    def _check_object(self, request, obj):
+        raise NotImplementedError
+
+
+class MediaViewPermission(MediaObjectPermission):
+    required_permission = PERMISSION_MEDIA_VIEW
+
+    def _check_object(self, request, obj):
+        if self._is_owner_or_admin(request, obj):
             return True
 
         mission = getattr(obj, "mission", None)
-        if mission and getattr(mission, "unit_id", None) == request.user.unit_id:
-            return True
+        return bool(
+            mission and getattr(mission, "unit_id", None) == request.user.unit_id
+        )
 
-        return False
 
-
-class MediaDeletePermission(MediaAuditedDenialMixin, HasRBACPermission):
+class MediaDeletePermission(MediaObjectPermission):
     required_permission = PERMISSION_MEDIA_DELETE
 
-    def has_object_permission(self, request, view, obj):
-        if self._check_object(request, obj):
-            return True
-
-        self._record_denied(request, reason="object_permission_denied", obj=obj)
-        return False
-
     def _check_object(self, request, obj):
-        if get_user_role_code(request.user) == ADMIN_CODE:
-            return True
-
-        if getattr(obj, "uploaded_by_id", None) == request.user.id:
-            return True
-
-        return False
+        return self._is_owner_or_admin(request, obj)
 
 
 class MediaViewLogsPermission(MediaAuditedDenialMixin, HasRBACPermission):

@@ -32,13 +32,14 @@ class Command(BaseCommand):
             return
 
         cutoff = timezone.now() - timedelta(days=days)
-        expired = MediaAuditLog.objects.filter(created_at__lt=cutoff)
-        count = expired.count()
 
-        if not dry_run and count:
-            MediaAuditLog.objects.purge_older_than(cutoff)
+        if dry_run:
+            count = MediaAuditLog.objects.filter(created_at__lt=cutoff).count()
+            verb = "Would remove"
+        else:
+            count = MediaAuditLog.objects.purge_older_than(cutoff)
+            verb = "Removed"
 
-        verb = "Would remove" if dry_run else "Removed"
         self.stdout.write(
             self.style.SUCCESS(
                 f"{verb} {count} MediaAuditLog entries older than {cutoff.isoformat()}."

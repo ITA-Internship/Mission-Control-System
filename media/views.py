@@ -210,6 +210,10 @@ class ProtectedMediaView(APIView):
         content_type = content_type or "application/octet-stream"
         filename = artifact.original_filename or os.path.basename(file_field.name)
 
+        safe_name = posixpath.normpath(file_field.name)
+        if safe_name.startswith("..") or safe_name.startswith("/"):
+            raise Http404("Invalid file path.")
+
         record_artifact_download(
             user=request.user,
             artifact=artifact,
@@ -225,10 +229,6 @@ class ProtectedMediaView(APIView):
             )
         else:
             response = HttpResponse(content_type=content_type)
-
-            safe_name = posixpath.normpath(file_field.name)
-            if safe_name.startswith("..") or safe_name.startswith("/"):
-                raise Http404("Invalid file path.")
 
             internal_path = f"/internal-media/{safe_name}"
             response["X-Accel-Redirect"] = internal_path
