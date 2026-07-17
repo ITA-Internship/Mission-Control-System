@@ -1,0 +1,6181 @@
+openapi: 3.0.3
+info:
+  title: Mission Control System API
+  version: 0.0.0
+  description: Documentation for Mission-Control-System
+paths:
+  /api/accounts/activate/{user_id}/{token}/:
+    post:
+      operationId: accounts_activate_create
+      description: |-
+        Validates the activation token provided via the URL parameters. If the token is valid, it sets the user's new password and creates an audit log entry.
+
+        Required permission: `AllowAny`.
+      summary: Activate user account
+      parameters:
+      - in: path
+        name: token
+        schema:
+          type: string
+        description: The one-time activation token generated for the user.
+        required: true
+      - in: path
+        name: user_id
+        schema:
+          type: integer
+        description: ID of the user activating the account.
+        required: true
+      tags:
+      - accounts
+      security:
+      - cookieAuth: []
+      - basicAuth: []
+      - {}
+      responses:
+        '200':
+          description: Your account has been activated. You can now log in.
+        '400':
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+              examples:
+                ActivationLinkError:
+                  value:
+                    detail: Invalid or expired activation link.
+                  summary: Activation link error
+                MissingRequiredField:
+                  value:
+                    password: This field is required.
+                  summary: Missing required field
+          description: Bad Request
+        '404':
+          description: Not Found.
+  /api/accounts/audit-log/:
+    get:
+      operationId: accounts_audit_log_list
+      description: |-
+        Retrieves a paginated and filtered list of audit logs. Depending on permissions, users can view all logs or only logs where they are the actor or the target.
+
+        Required permission: `PERMISSION_AUDIT_LOGS_VIEW_OWN, PERMISSION_AUDIT_LOGS_VIEW_ALL`.
+      summary: List audit logs
+      parameters:
+      - in: query
+        name: action_type
+        schema:
+          type: string
+          enum:
+          - ACCOUNT_ACTIVATED
+          - ACCOUNT_DEACTIVATED
+          - LOGIN_FAILED
+          - LOGIN_SUCCESS
+          - LOGOUT
+          - PASSWORD_CHANGED
+          - PASSWORD_RESET_REQUESTED
+          - PERMISSION_DENIED
+          - PROFILE_UPDATED
+          - ROLE_CHANGED
+          - USER_CREATED
+      - in: query
+        name: actor
+        schema:
+          type: integer
+      - in: query
+        name: end_date
+        schema:
+          type: string
+          format: date
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      - name: page_size
+        required: false
+        in: query
+        description: Number of results to return per page.
+        schema:
+          type: integer
+      - in: query
+        name: result
+        schema:
+          type: string
+          enum:
+          - FAILED
+          - SUCCESS
+      - in: query
+        name: start_date
+        schema:
+          type: string
+          format: date
+      - in: query
+        name: target_user
+        schema:
+          type: integer
+      tags:
+      - accounts
+      security:
+      - cookieAuth: []
+      - basicAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedAuditLogList'
+              examples:
+                ValidRequest:
+                  value:
+                    count: 123
+                    next: http://api.example.org/accounts/?page=4
+                    previous: http://api.example.org/accounts/?page=2
+                    results:
+                    - id: 3
+                      actor: 1
+                      actor_username: user
+                      target_user: 1
+                      target_user_username: user
+                      action_type: LOGOUT
+                      result: SUCCESS
+                      description: User logged out successfully
+                      ip_address: 127.0.0.1
+                      user_agent: Test Agent Value
+                      created_at: '2026-06-25T14:44:49.068836Z'
+                  summary: Valid Request
+          description: Successfully retrieved the list of audit logs.
+        '403':
+          description: Forbidden. User does not have permission to perform this action.
+  /api/accounts/audit-log/{id}/:
+    get:
+      operationId: accounts_audit_log_retrieve
+      description: |-
+        Retrieves detailed information about specific audit log entry by its ID. Depending on permissions, users can view all logs or only logs where they are the actor or the target.
+
+        Required permission: `PERMISSION_AUDIT_LOGS_VIEW_OWN, PERMISSION_AUDIT_LOGS_VIEW_ALL`.
+      summary: Retrieve an audit log
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: ID of specific audit log.
+        required: true
+      tags:
+      - accounts
+      security:
+      - cookieAuth: []
+      - basicAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuditLog'
+              examples:
+                ValidRequest:
+                  value:
+                    id: 3
+                    actor: 1
+                    actor_username: user
+                    target_user: 1
+                    target_user_username: user
+                    action_type: LOGOUT
+                    result: SUCCESS
+                    description: User logged out successfully
+                    ip_address: 127.0.0.1
+                    user_agent: Test Agent Value
+                    created_at: '2026-06-25T14:44:49.068836Z'
+                  summary: Valid Request
+          description: Audit log details successfully retrieved.
+        '403':
+          description: Forbidden. User does not have permission to perform this action.
+        '404':
+          description: Not Found.
+  /api/accounts/audit-log/export/:
+    get:
+      operationId: accounts_audit_log_export_retrieve
+      description: "Generates and downloads a CSV file with the filtered audit logs.
+        Supports full filtering and sorting identical to the standard list endpoint.
+        \n\nThe export is limited to a maximum of 10000 records.\n\nRequired permission:
+        `PERMISSION_AUDIT_LOGS_VIEW_OWN, PERMISSION_AUDIT_LOGS_VIEW_ALL`."
+      summary: Export audit logs to CSV
+      tags:
+      - accounts
+      security:
+      - cookieAuth: []
+      - basicAuth: []
+      responses:
+        '200':
+          description: A CSV file containing audit logs generated successfully.
+        '403':
+          description: Forbidden. User does not have permission to perform this action.
+        '429':
+          description: Export rate limit exceeded.
+  /api/accounts/users/:
+    post:
+      operationId: accounts_users_create
+      description: "Creates a new user. Sends an activation email to the user and
+        creates an audit log entry. \n\nValidation: \n- Image file size cannot exceed
+        5 MB. \n- Supported image file formats: .jpg, .jpeg, .png, .webp.\n\nRequired
+        permission: `PERMISSION_USERS_CREATE`."
+      summary: Register a new user
+      tags:
+      - accounts
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UserRegistration'
+            examples:
+              ValidRequest:
+                value:
+                  username: oleksandr.koval
+                  email: oleksandr.koval@example.com
+                  first_name: Oleksandr
+                  last_name: Koval
+                  rank: Colonel
+                  contact: '+380000000000'
+                  role: 1
+                  unit: 7
+                summary: Valid request
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/UserRegistration'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/UserRegistration'
+        required: true
+      security:
+      - cookieAuth: []
+      - basicAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserRegistration'
+              examples:
+                ValidRequest:
+                  value:
+                    username: oleksandr.koval
+                    email: oleksandr.koval@example.com
+                    first_name: Oleksandr
+                    last_name: Koval
+                    rank: Colonel
+                    contact: '+380000000000'
+                    role: 1
+                    unit: 7
+                  summary: Valid request
+          description: User account successfully created.
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserRegistration'
+              examples:
+                InvalidProfilePictureFileExtension:
+                  value:
+                    profile_picture: 'Unsupported file format. Allowed are: .jpg,
+                      .jpeg, .png, .webp.'
+                  summary: Invalid profile picture file extension
+                InvalidProfilePictureFileSize:
+                  value:
+                    profile_picture: Image size cannot exceed 5MB.
+                  summary: Invalid profile picture file size
+          description: Bad Request
+        '403':
+          description: Forbidden. User does not have permission to perform this action.
+  /api/accounts/users/{id}/status/:
+    patch:
+      operationId: accounts_users_status_partial_update
+      description: "Allows system administrators to activate or deactivate a user's
+        account, creates an audit log entry. \n\nValidation: \n- User cannot deactivate
+        their own account.\n\nRequired permission: `IsSystemAdmin`."
+      summary: Update user status
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        required: true
+      - in: path
+        name: pk
+        schema:
+          type: integer
+        description: The ID of the target user whose status is being updated.
+        required: true
+      tags:
+      - accounts
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedUserStatusUpdate'
+            examples:
+              ValidRequest:
+                value:
+                  is_active: true
+                summary: Valid request
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedUserStatusUpdate'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedUserStatusUpdate'
+      security:
+      - cookieAuth: []
+      - basicAuth: []
+      responses:
+        '200':
+          description: User status updated successfully.
+        '400':
+          description: Bad Request
+        '403':
+          description: Forbidden. User does not have permission to perform this action.
+        '404':
+          description: Not Found.
+  /api/accounts/users/{user_id}/profile-picture/:
+    get:
+      operationId: accounts_users_profile_picture_retrieve
+      description: "Returns the profile picture image file of the specified user,
+        served inline. In production the file is delivered through a protected `X-Accel-Redirect`
+        internal redirect; in debug mode the file is streamed directly.\n\nAccess
+        rules: \n- Any authenticated user may retrieve their own profile picture.
+        \n- Only staff users may retrieve another user's profile picture. \n- Returns
+        404 if the target user has no profile picture, or if the stored file is missing
+        from the server.\n\nRequired permission: `IsAuthenticated`."
+      summary: Retrieve a user's profile picture
+      parameters:
+      - in: path
+        name: user_id
+        schema:
+          type: integer
+        description: ID of the user whose profile picture is being retrieved.
+        required: true
+      tags:
+      - accounts
+      security:
+      - cookieAuth: []
+      - basicAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: string
+                format: binary
+          description: The profile picture image file is returned inline with the
+            appropriate content type.
+        '403':
+          description: Forbidden
+        '404':
+          description: Not Found
+  /api/accounts/users/{user_id}/role/:
+    patch:
+      operationId: accounts_users_role_partial_update
+      description: "Updates the role of a specific user and creates an audit log entry.
+        \n\nValidation: \n- The role of an inactive user cannot be changed. \n- Admin
+        user cannot remove their own admin role. \n- The admin role cannot be removed
+        from the root account. \n- The admin role cannot be removed from the last
+        admin user.\n\nRequired permission: `PERMISSION_USERS_MANAGE_ROLES`."
+      summary: Update user role
+      parameters:
+      - in: path
+        name: user_id
+        schema:
+          type: integer
+        description: ID of the user whose role is being updated.
+        required: true
+      tags:
+      - accounts
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedUserRoleUpdate'
+            examples:
+              ValidRequest:
+                value:
+                  role_id: 3
+                summary: Valid request
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedUserRoleUpdate'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedUserRoleUpdate'
+      security:
+      - cookieAuth: []
+      - basicAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserRoleUpdateResponse'
+              examples:
+                ValidRequest:
+                  value:
+                    role_id: 3
+                  summary: Valid request
+          description: User role successfully updated.
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserRoleUpdateResponse'
+              examples:
+                MissingRequiredField:
+                  value:
+                    role_id: This field is required.
+                  summary: Missing required field
+                InvalidFieldValue:
+                  value:
+                    role_id: Invalid role_id
+                  summary: Invalid field value
+                ChangingRoleOfAnInactiveUser:
+                  value:
+                    role_id: Cannot change the role of an inactive user.
+                  summary: Changing role of an inactive user
+          description: Bad Request
+        '403':
+          description: Forbidden. User does not have permission to perform this action.
+        '404':
+          description: Not Found.
+  /api/accounts/users/me/:
+    get:
+      operationId: accounts_users_me_retrieve
+      description: |-
+        Retrieves the profile details of the currently authenticated user.
+
+        Required permission: `IsAuthenticated`.
+      summary: Retrieve current user profile
+      tags:
+      - accounts
+      security:
+      - cookieAuth: []
+      - basicAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserMe'
+              examples:
+                ValidRequest:
+                  value:
+                    id: 24
+                    username: oleksander.koval
+                    email: oleksander.koval@example.com
+                    first_name: Oleksandr
+                    last_name: Koval
+                    rank: Colonel
+                    contact: '+380000000000'
+                    profile_picture: null
+                    role: 1
+                    unit: 7
+                    is_active: true
+                  summary: Valid Request
+          description: Profile details successfully retrieved.
+        '403':
+          description: Forbidden. User does not have permission to perform this action.
+    put:
+      operationId: accounts_users_me_update
+      description: "Updates the currently authenticated user's profile information
+        and creates an audit log entry.\n\nValidation: \n- Image file size cannot
+        exceed 5 MB. \n- Supported image file formats: .jpg, .jpeg, .png, .webp.\n\nRequired
+        permission: `IsAuthenticated`."
+      summary: Update current user profile
+      tags:
+      - accounts
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UserMe'
+            examples:
+              ValidRequest:
+                value:
+                  first_name: Oleksandr
+                  last_name: Koval
+                  rank: Colonel
+                  contact: '+380000000000'
+                summary: Valid Request
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/UserMe'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/UserMe'
+      security:
+      - cookieAuth: []
+      - basicAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserMe'
+              examples:
+                ValidRequest:
+                  value:
+                    id: 24
+                    username: oleksander.koval
+                    email: oleksander.koval@example.com
+                    first_name: Oleksandr
+                    last_name: Koval
+                    rank: Colonel
+                    contact: '+380000000000'
+                    profile_picture: null
+                    role: 1
+                    unit: 7
+                    is_active: true
+                  summary: Valid Request
+          description: Profile information successfully updated.
+        '400':
+          description: Bad Request. Provided payload contains validation errors.
+        '403':
+          description: Forbidden. User does not have permission to perform this action.
+    patch:
+      operationId: accounts_users_me_partial_update
+      description: "Updates the currently authenticated user's profile information
+        and creates an audit log entry.\n\nValidation: \n- Image file size cannot
+        exceed 5 MB. \n- Supported image file formats: .jpg, .jpeg, .png, .webp.\n\nRequired
+        permission: `IsAuthenticated`."
+      summary: Update current user profile
+      tags:
+      - accounts
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedUserMe'
+            examples:
+              ValidRequest:
+                value:
+                  first_name: Oleksandr
+                  last_name: Koval
+                  rank: Colonel
+                  contact: '+380000000000'
+                summary: Valid Request
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedUserMe'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedUserMe'
+      security:
+      - cookieAuth: []
+      - basicAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserMe'
+              examples:
+                ValidRequest:
+                  value:
+                    id: 24
+                    username: oleksander.koval
+                    email: oleksander.koval@example.com
+                    first_name: Oleksandr
+                    last_name: Koval
+                    rank: Colonel
+                    contact: '+380000000000'
+                    profile_picture: null
+                    role: 1
+                    unit: 7
+                    is_active: true
+                  summary: Valid Request
+          description: Profile information successfully updated.
+        '400':
+          description: Bad Request. Provided payload contains validation errors.
+        '403':
+          description: Forbidden. User does not have permission to perform this action.
+  /api/accounts/users/me/change-password/:
+    post:
+      operationId: accounts_users_me_change_password_create
+      description: |-
+        Changes the password for the currently authenticated user and creates an audit log entry. Upon a successful password change, all active sessions for this user are invalidated.
+
+        Required permission: `IsAuthenticated`.
+      summary: Change user password
+      tags:
+      - accounts
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChangePassword'
+            examples:
+              ValidRequest:
+                value:
+                  old_password: my_old_password_123
+                  new_password: my_new_password_123
+                summary: Valid Request
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/ChangePassword'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/ChangePassword'
+        required: true
+      security:
+      - cookieAuth: []
+      - basicAuth: []
+      responses:
+        '200':
+          description: Password changed successfully. Active sessions have been invalidated.
+        '400':
+          description: Bad Request. Provided payload contains validation errors.
+        '403':
+          description: Forbidden. User does not have permission to perform this action.
+  /api/accounts/users/password-reset/:
+    post:
+      operationId: accounts_users_password_reset_create
+      description: |-
+        Accepts a user's email address and sends a password reset link containing a one-time token to that email. An audit log entry and an email are only generated if a matching user is found.
+
+        Required permission: `AllowAny`.
+      summary: Initiate password reset
+      tags:
+      - accounts
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PasswordResetRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PasswordResetRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PasswordResetRequest'
+        required: true
+      security:
+      - cookieAuth: []
+      - basicAuth: []
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PasswordResetRequest'
+          description: If an account with this email exists, a password reset link
+            has been sent.
+        '400':
+          description: Bad Request. Provided payload contains validation errors.
+  /api/accounts/users/password-reset-confirm/{uidb64}/{token}/:
+    post:
+      operationId: accounts_users_password_reset_confirm_create
+      description: |-
+        Validates the link parameters sent via email. If valid, updates the user's password to the newly provided one, invalidates all current sessions for this user, sends a confirmation email, and creates an audit log entry.
+
+        Required permission: `AllowAny`.
+      summary: Confirm password reset
+      parameters:
+      - in: path
+        name: token
+        schema:
+          type: string
+        description: The one-time password reset token generated for the user.
+        required: true
+      - in: path
+        name: uidb64
+        schema:
+          type: string
+        description: The Base64-encoded unique identifier of the user.
+        required: true
+      tags:
+      - accounts
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PasswordResetConfirm'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PasswordResetConfirm'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PasswordResetConfirm'
+        required: true
+      security:
+      - cookieAuth: []
+      - basicAuth: []
+      - {}
+      responses:
+        '200':
+          description: Password has been reset successfully.
+        '400':
+          description: Bad Request. Provided payload contains validation errors.
+  /api/drones/:
+    get:
+      operationId: drones_list
+      description: |-
+        Retrieves a paginated and filtered list of all drones in the system.
+
+        By default list displays only drones with active statuses. Choose one of the inactive statuses during filtration to get drones with inactive status.
+
+        Required permission: `PERMISSION_DRONES_VIEW`.
+      summary: List drones
+      parameters:
+      - in: query
+        name: classification
+        schema:
+          type: string
+          enum:
+          - COMBAT
+          - RECONNAISSANCE
+          - SURVEILLANCE
+          - TRANSPORT
+      - in: query
+        name: drone_model
+        schema:
+          type: integer
+      - in: query
+        name: drone_model__name
+        schema:
+          type: string
+      - in: query
+        name: inventory_number
+        schema:
+          type: string
+      - in: query
+        name: inventory_number__icontains
+        schema:
+          type: string
+      - in: query
+        name: is_firmware_outdated
+        schema:
+          type: boolean
+      - in: query
+        name: military_unit
+        schema:
+          type: string
+      - in: query
+        name: military_unit__name__icontains
+        schema:
+          type: string
+      - name: ordering
+        required: false
+        in: query
+        description: Which field to use when ordering the results.
+        schema:
+          type: string
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      - name: page_size
+        required: false
+        in: query
+        description: Number of results to return per page.
+        schema:
+          type: integer
+      - in: query
+        name: serial_number
+        schema:
+          type: string
+      - in: query
+        name: serial_number__icontains
+        schema:
+          type: string
+      - in: query
+        name: spec__max_flight_time_min
+        schema:
+          type: number
+      - in: query
+        name: spec__max_flight_time_min__gte
+        schema:
+          type: number
+      - in: query
+        name: spec__max_flight_time_min__lte
+        schema:
+          type: number
+      - in: query
+        name: spec__max_range_km
+        schema:
+          type: number
+      - in: query
+        name: spec__max_range_km__gte
+        schema:
+          type: number
+      - in: query
+        name: spec__max_range_km__lte
+        schema:
+          type: number
+      - in: query
+        name: spec__max_speed_kmh
+        schema:
+          type: number
+      - in: query
+        name: spec__max_speed_kmh__gte
+        schema:
+          type: number
+      - in: query
+        name: spec__max_speed_kmh__lte
+        schema:
+          type: number
+      - in: query
+        name: spec__payload_capacity_g
+        schema:
+          type: integer
+      - in: query
+        name: spec__payload_capacity_g__gte
+        schema:
+          type: integer
+      - in: query
+        name: spec__payload_capacity_g__lte
+        schema:
+          type: integer
+      - in: query
+        name: spec__typical_flight_time_min
+        schema:
+          type: number
+      - in: query
+        name: spec__typical_flight_time_min__gte
+        schema:
+          type: number
+      - in: query
+        name: spec__typical_flight_time_min__lte
+        schema:
+          type: number
+      - in: query
+        name: spec__typical_range_km
+        schema:
+          type: number
+      - in: query
+        name: spec__typical_range_km__gte
+        schema:
+          type: number
+      - in: query
+        name: spec__typical_range_km__lte
+        schema:
+          type: number
+      - in: query
+        name: status
+        schema:
+          type: string
+          enum:
+          - ACTIVE
+          - DAMAGED
+          - DECOMMISSIONED
+          - IN_MISSION
+          - LOST
+          - MAINTENANCE
+          - SOLD
+          - TRANSFERRED
+          - WRITTEN_OFF
+      tags:
+      - drones
+      security:
+      - cookieAuth: []
+      - basicAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedDroneListList'
+              examples:
+                GetListOfAllActiveDrones:
+                  value:
+                    count: 123
+                    next: http://api.example.org/accounts/?page=4
+                    previous: http://api.example.org/accounts/?page=2
+                    results:
+                    - id: 21
+                      serial_number: FPV-AER-24001
+                      inventory_number: INV-AER-001
+                      name: Falcon Eye 1
+                      drone_model: 15
+                      classification: RECONNAISSANCE
+                      status: ACTIVE
+                      status_label: Active
+                      status_indicator: success
+                      status_category: available
+                      military_unit: 7
+                      created_at: '2026-07-02T02:21:31.174390Z'
+                  summary: Get list of all active drones
+                GetListOfAllWritten-offDrones:
+                  value:
+                    count: 123
+                    next: http://api.example.org/accounts/?page=4
+                    previous: http://api.example.org/accounts/?page=2
+                    results:
+                    - id: 29
+                      serial_number: FPV-ATK-24009
+                      inventory_number: INV-ATK-009
+                      name: Lancer 1
+                      drone_model: 21
+                      classification: COMBAT
+                      status: WRITTEN_OFF
+                      status_label: Written off
+                      status_indicator: danger
+                      status_category: written_off
+                      military_unit: 8
+                      created_at: '2026-07-02T02:21:31.218672Z'
+                  summary: Get list of all written-off drones
+          description: Successfully retrieved the list of drones.
+        '403':
+          description: Forbidden. User does not have permission to perform this action.
+    post:
+      operationId: drones_create
+      description: "Creates a new drone with its technical specification. Creates
+        an audit log entry with all spec values written down as `new_values`. \n\nValidation:
+        \n- Classification of a drone must be supported by its model.\n\nRequired
+        permission: `PERMISSION_DRONES_CREATE`."
+      summary: Create a new drone
+      tags:
+      - drones
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Drone'
+            examples:
+              ValidRequest:
+                value:
+                  spec:
+                    frame_type: 7-inch carbon frame
+                    motor_model: XING2 2806.5 1300KV
+                    battery_type: Li-Ion 6S
+                    battery_capacity_mah: 4000
+                    camera_model: RunCam Phoenix 2
+                    vtx_model: Rush Tank Solo
+                    flight_controller: Matek H743
+                    firmware_version: INAV 7.1
+                    is_firmware_outdated: false
+                    max_speed_kmh: '118.50'
+                    typical_range_km: '14.60'
+                    max_range_km: '18.20'
+                    typical_flight_time_min: '21.00'
+                    max_flight_time_min: '24.00'
+                    frequency_mhz: 5800
+                    payload_capacity_g: 250
+                  status_label: Active
+                  status_indicator: success
+                  status_category: available
+                  serial_number: FPV-AER-24001
+                  inventory_number: INV-AER-001
+                  name: Falcon Eye 1
+                  classification: RECONNAISSANCE
+                  status: ACTIVE
+                  acquired_at: '2025-01-12'
+                  notes: Recon platform configured for stable daytime observation
+                    sorties.
+                  drone_model: 15
+                  military_unit: 7
+                summary: Valid Request
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/Drone'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/Drone'
+        required: true
+      security:
+      - cookieAuth: []
+      - basicAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Drone'
+              examples:
+                ValidRequest:
+                  value:
+                    id: 32
+                    spec:
+                      id: 32
+                      frame_type: 7-inch carbon frame
+                      motor_model: XING2 2806.5 1300KV
+                      battery_type: Li-Ion 6S
+                      battery_capacity_mah: 4000
+                      battery_model: ''
+                      camera_model: RunCam Phoenix 2
+                      camera_specs: {}
+                      vtx_model: Rush Tank Solo
+                      flight_controller: Matek H743
+                      firmware_version: INAV 7.1
+                      is_firmware_outdated: false
+                      communication_protocol: ''
+                      control_channel: ''
+                      telemetry_channel: ''
+                      max_speed_kmh: '118.50'
+                      typical_range_km: '14.60'
+                      max_range_km: '18.20'
+                      typical_flight_time_min: '21.00'
+                      max_flight_time_min: '24.00'
+                      frequency_mhz: 5800
+                      payload_capacity_g: 250
+                      additional_modules: []
+                      technical_documentation_url: ''
+                      firmware_file_url: ''
+                      updated_at: '2026-07-03T00:40:00.799313Z'
+                      change_history:
+                      - id: 2
+                        changed_by: 24
+                        changed_fields:
+                        - frame_type
+                        - motor_model
+                        - battery_type
+                        - battery_capacity_mah
+                        - camera_model
+                        - vtx_model
+                        - flight_controller
+                        - firmware_version
+                        - is_firmware_outdated
+                        - max_speed_kmh
+                        - typical_range_km
+                        - max_range_km
+                        - typical_flight_time_min
+                        - max_flight_time_min
+                        - frequency_mhz
+                        - payload_capacity_g
+                        old_values: {}
+                        new_values:
+                          vtx_model: Rush Tank Solo
+                          frame_type: 7-inch carbon frame
+                          motor_model: XING2 2806.5 1300KV
+                          battery_type: Li-Ion 6S
+                          camera_model: RunCam Phoenix 2
+                          max_range_km: '18.20'
+                          frequency_mhz: 5800
+                          max_speed_kmh: '118.50'
+                          firmware_version: INAV 7.1
+                          typical_range_km: '14.60'
+                          flight_controller: Matek H743
+                          payload_capacity_g: 250
+                          max_flight_time_min: '24.00'
+                          battery_capacity_mah: 4000
+                          is_firmware_outdated: false
+                          typical_flight_time_min: '21.00'
+                        created_at: '2026-07-03T00:40:00.800251Z'
+                    writeoff_record: null
+                    status_history: []
+                    status_label: Active
+                    status_indicator: success
+                    status_category: available
+                    serial_number: FPV-AER-24001
+                    inventory_number: INV-AER-001
+                    name: Falcon Eye 1
+                    classification: RECONNAISSANCE
+                    status: ACTIVE
+                    acquired_at: '2025-01-12'
+                    notes: Recon platform configured for stable daytime observation
+                      sorties.
+                    created_at: '2026-07-03T00:40:00.798536Z'
+                    updated_at: '2026-07-03T00:40:00.798549Z'
+                    drone_model: 15
+                    military_unit: 7
+                  summary: Valid Request
+          description: Drone created successfully.
+        '400':
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+              examples:
+                InvalidSupportedClassification:
+                  value:
+                    classification: 'Classification "RECONNAISSANCE" is not supported
+                      by drone model "Atlas Relay 8". Allowed: Transport, Surveillance'
+                  summary: Invalid supported classification
+          description: Bad Request
+        '403':
+          description: Forbidden. User does not have permission to perform this action.
+  /api/drones/{drone_pk}/write-offs/history/:
+    get:
+      operationId: drones_write_offs_history_list_2
+      parameters:
+      - in: query
+        name: authorized_by
+        schema:
+          type: number
+      - in: query
+        name: document_number
+        schema:
+          type: string
+      - in: query
+        name: drone
+        schema:
+          type: number
+      - in: query
+        name: drone_inventory_number
+        schema:
+          type: string
+      - in: path
+        name: drone_pk
+        schema:
+          type: integer
+        required: true
+      - in: query
+        name: drone_serial_number
+        schema:
+          type: string
+      - name: ordering
+        required: false
+        in: query
+        description: Which field to use when ordering the results.
+        schema:
+          type: string
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      - name: page_size
+        required: false
+        in: query
+        description: Number of results to return per page.
+        schema:
+          type: integer
+      - in: query
+        name: reason
+        schema:
+          type: string
+      - in: query
+        name: related_mission
+        schema:
+          type: number
+      - name: search
+        required: false
+        in: query
+        description: A search term.
+        schema:
+          type: string
+      - in: query
+        name: written_off_at_after
+        schema:
+          type: string
+          format: date
+      - in: query
+        name: written_off_at_before
+        schema:
+          type: string
+          format: date
+      tags:
+      - drones
+      security:
+      - cookieAuth: []
+      - basicAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedWriteOffAuditList'
+          description: ''
+  /api/drones/{id}/:
+    get:
+      operationId: drones_retrieve
+      description: |-
+        Retrieves detailed information about a specific drone by its ID, including technical specification and history.
+
+        Required permission: `PERMISSION_DRONES_VIEW`.
+      summary: Retrieve drone details
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: ID of specific drone.
+        required: true
+      tags:
+      - drones
+      security:
+      - cookieAuth: []
+      - basicAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Drone'
+              examples:
+                ValidRequest:
+                  value:
+                    id: 21
+                    spec:
+                      id: 21
+                      frame_type: 7-inch carbon frame
+                      motor_model: XING2 2806.5 1300KV
+                      battery_type: Li-Ion 6S
+                      battery_capacity_mah: 4000
+                      battery_model: ''
+                      camera_model: RunCam Phoenix 2
+                      camera_specs: {}
+                      vtx_model: Rush Tank Solo
+                      flight_controller: Matek H743
+                      firmware_version: INAV 7.1
+                      is_firmware_outdated: false
+                      communication_protocol: ''
+                      control_channel: ''
+                      telemetry_channel: ''
+                      max_speed_kmh: '118.50'
+                      typical_range_km: '14.60'
+                      max_range_km: '18.20'
+                      typical_flight_time_min: '21.00'
+                      max_flight_time_min: '24.00'
+                      frequency_mhz: 5800
+                      payload_capacity_g: 250
+                      additional_modules: []
+                      technical_documentation_url: ''
+                      firmware_file_url: ''
+                      updated_at: '2026-07-02T02:21:31.177903Z'
+                      change_history: []
+                    writeoff_record: null
+                    status_history: []
+                    status_label: Active
+                    status_indicator: success
+                    status_category: available
+                    serial_number: FPV-AER-24001
+                    inventory_number: INV-AER-001
+                    name: Falcon Eye 1
+                    classification: RECONNAISSANCE
+                    status: ACTIVE
+                    acquired_at: '2025-01-12'
+                    notes: Recon platform configured for stable daytime observation
+                      sorties.
+                    created_at: '2026-07-02T02:21:31.174390Z'
+                    updated_at: '2026-07-02T02:21:31.174396Z'
+                    drone_model: 15
+                    military_unit: 7
+                  summary: Valid request
+          description: Detailed information about the drone.
+        '403':
+          description: Forbidden. User does not have permission to perform this action.
+        '404':
+          description: Not Found.
+    patch:
+      operationId: drones_partial_update
+      description: "Updates specific fields of an existing drone record.\n\nValidation:
+        \n- New classification of a drone must be supported by its model. \n- If a
+        drone is being decommissioned, sold, transferred, or written off the reason
+        must be provided.\n\nRequired permission: `PERMISSION_DRONES_UPDATE`."
+      summary: Partially update a drone
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - drones
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedDroneUpdate'
+            examples:
+              ValidRequest:
+                value:
+                  name: Falcon Eye 1
+                summary: Valid Request
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedDroneUpdate'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedDroneUpdate'
+      security:
+      - cookieAuth: []
+      - basicAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Drone'
+              examples:
+                ValidRequest:
+                  value:
+                    id: 21
+                    spec:
+                      id: 21
+                      frame_type: 7-inch carbon frame
+                      motor_model: XING2 2806.5 1300KV
+                      battery_type: Li-Ion 6S
+                      battery_capacity_mah: 4000
+                      battery_model: ''
+                      camera_model: RunCam Phoenix 2
+                      camera_specs: {}
+                      vtx_model: Rush Tank Solo
+                      flight_controller: Matek H743
+                      firmware_version: INAV 7.1
+                      is_firmware_outdated: false
+                      communication_protocol: ''
+                      control_channel: ''
+                      telemetry_channel: ''
+                      max_speed_kmh: '118.50'
+                      typical_range_km: '14.60'
+                      max_range_km: '18.20'
+                      typical_flight_time_min: '21.00'
+                      max_flight_time_min: '24.00'
+                      frequency_mhz: 5800
+                      payload_capacity_g: 250
+                      additional_modules: []
+                      technical_documentation_url: ''
+                      firmware_file_url: ''
+                      updated_at: '2026-07-02T02:21:31.177903Z'
+                      change_history: []
+                    writeoff_record: null
+                    status_history: []
+                    status_label: Active
+                    status_indicator: success
+                    status_category: available
+                    serial_number: FPV-AER-24001
+                    inventory_number: INV-AER-001
+                    name: Falcon Eye 1
+                    classification: RECONNAISSANCE
+                    status: ACTIVE
+                    acquired_at: '2025-01-12'
+                    notes: Recon platform configured for stable daytime observation
+                      sorties.
+                    created_at: '2026-07-02T02:21:31.174390Z'
+                    updated_at: '2026-07-02T02:21:31.174396Z'
+                    drone_model: 15
+                    military_unit: 7
+                  summary: Valid Request
+          description: Drone updated successfully.
+        '400':
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+              examples:
+                MissingWrite-offReason:
+                  value:
+                    writeoff_reason: This field is required when drone is decommissioned,
+                      sold, transferred, or written off.
+                  summary: Missing write-off reason
+                InvalidSupportedClassification:
+                  value:
+                    classification: 'Classification "RECONNAISSANCE" is not supported
+                      by drone model "Atlas Relay 8". Allowed: Transport, Surveillance'
+                  summary: Invalid supported classification
+          description: Bad Request
+        '403':
+          description: Forbidden. User does not have permission to perform this action.
+        '404':
+          description: Not Found.
+  /api/drones/{id}/history/:
+    get:
+      operationId: drones_history_list
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        required: true
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      - name: page_size
+        required: false
+        in: query
+        description: Number of results to return per page.
+        schema:
+          type: integer
+      tags:
+      - drones
+      security:
+      - cookieAuth: []
+      - basicAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedDroneStatusHistoryList'
+          description: ''
+  /api/drones/{id}/spec-changes/:
+    get:
+      operationId: drones_spec_changes_list
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        required: true
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      - name: page_size
+        required: false
+        in: query
+        description: Number of results to return per page.
+        schema:
+          type: integer
+      tags:
+      - drones
+      security:
+      - cookieAuth: []
+      - basicAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedDroneSpecChangeLogList'
+          description: ''
+  /api/drones/export/:
+    get:
+      operationId: drones_export_list
+      description: "Generates and downloads a CSV file with the filtered list of drones.
+        Supports full filtering and sorting identical to the standard list endpoint.
+        \n\nThe export is limited to a maximum of 10000 records.\n\nRequired permission:
+        `PERMISSION_DRONES_VIEW`."
+      summary: Export drones data to CSV
+      parameters:
+      - in: query
+        name: classification
+        schema:
+          type: string
+          enum:
+          - COMBAT
+          - RECONNAISSANCE
+          - SURVEILLANCE
+          - TRANSPORT
+      - in: query
+        name: drone_model
+        schema:
+          type: integer
+      - in: query
+        name: drone_model__name
+        schema:
+          type: string
+      - in: query
+        name: inventory_number
+        schema:
+          type: string
+      - in: query
+        name: inventory_number__icontains
+        schema:
+          type: string
+      - in: query
+        name: is_firmware_outdated
+        schema:
+          type: boolean
+      - in: query
+        name: military_unit
+        schema:
+          type: string
+      - in: query
+        name: military_unit__name__icontains
+        schema:
+          type: string
+      - name: ordering
+        required: false
+        in: query
+        description: Which field to use when ordering the results.
+        schema:
+          type: string
+      - in: query
+        name: serial_number
+        schema:
+          type: string
+      - in: query
+        name: serial_number__icontains
+        schema:
+          type: string
+      - in: query
+        name: spec__max_flight_time_min
+        schema:
+          type: number
+      - in: query
+        name: spec__max_flight_time_min__gte
+        schema:
+          type: number
+      - in: query
+        name: spec__max_flight_time_min__lte
+        schema:
+          type: number
+      - in: query
+        name: spec__max_range_km
+        schema:
+          type: number
+      - in: query
+        name: spec__max_range_km__gte
+        schema:
+          type: number
+      - in: query
+        name: spec__max_range_km__lte
+        schema:
+          type: number
+      - in: query
+        name: spec__max_speed_kmh
+        schema:
+          type: number
+      - in: query
+        name: spec__max_speed_kmh__gte
+        schema:
+          type: number
+      - in: query
+        name: spec__max_speed_kmh__lte
+        schema:
+          type: number
+      - in: query
+        name: spec__payload_capacity_g
+        schema:
+          type: integer
+      - in: query
+        name: spec__payload_capacity_g__gte
+        schema:
+          type: integer
+      - in: query
+        name: spec__payload_capacity_g__lte
+        schema:
+          type: integer
+      - in: query
+        name: spec__typical_flight_time_min
+        schema:
+          type: number
+      - in: query
+        name: spec__typical_flight_time_min__gte
+        schema:
+          type: number
+      - in: query
+        name: spec__typical_flight_time_min__lte
+        schema:
+          type: number
+      - in: query
+        name: spec__typical_range_km
+        schema:
+          type: number
+      - in: query
+        name: spec__typical_range_km__gte
+        schema:
+          type: number
+      - in: query
+        name: spec__typical_range_km__lte
+        schema:
+          type: number
+      - in: query
+        name: status
+        schema:
+          type: string
+          enum:
+          - ACTIVE
+          - DAMAGED
+          - DECOMMISSIONED
+          - IN_MISSION
+          - LOST
+          - MAINTENANCE
+          - SOLD
+          - TRANSFERRED
+          - WRITTEN_OFF
+      tags:
+      - drones
+      security:
+      - cookieAuth: []
+      - basicAuth: []
+      responses:
+        '200':
+          description: A CSV file containing drone data generated successfully.
+        '403':
+          description: Forbidden. User does not have permission to perform this action.
+  /api/drones/import/:
+    post:
+      operationId: drones_import_create
+      description: "Uploads a CSV file to batch-import drone data. Processes the file
+        record row by row, validates data and return error logs if any. Rows with
+        existing `Serial Number`s will be skipped and reported in the API error summary.\n\nValidation:
+        \n- In uploaded .csv file following headers must be present: Serial Number,
+        Inventory Number, Name, Model, Military Unit, Acquired At. \n- `Military Unit`
+        must exactly match the name of an existing unit in the database.\n\nRequired
+        permission: `PERMISSION_DRONES_CREATE`."
+      summary: Import drones data via CSV
+      tags:
+      - drones
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DroneImport'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/DroneImport'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/DroneImport'
+        required: true
+      security:
+      - cookieAuth: []
+      - basicAuth: []
+      responses:
+        '200':
+          description: Import processing completed.
+        '400':
+          description: Bad Request. Provided payload contains validation errors.
+        '403':
+          description: Forbidden. User does not have permission to perform this action.
+  /api/drones/models/:
+    get:
+      operationId: drones_models_list
+      description: |-
+        Retrieves a list of all drone models.
+
+        Required permission: `PERMISSION_DRONES_VIEW`.
+      summary: List drone models
+      parameters:
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      - name: page_size
+        required: false
+        in: query
+        description: Number of results to return per page.
+        schema:
+          type: integer
+      tags:
+      - drones
+      security:
+      - cookieAuth: []
+      - basicAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedDroneModelList'
+              examples:
+                ValidRequest:
+                  value:
+                    count: 123
+                    next: http://api.example.org/accounts/?page=4
+                    previous: http://api.example.org/accounts/?page=2
+                    results:
+                    - id: 18
+                      name: Atlas Relay 8
+                      manufacturer: Quantum Systems
+                      description: Long-endurance signal relay and perimeter monitoring
+                        platform.
+                      supported_classifications:
+                      - TRANSPORT
+                      - SURVEILLANCE
+                      is_active: true
+                      created_at: '2026-07-02T02:21:31.163658Z'
+                      updated_at: '2026-07-02T02:21:31.163664Z'
+                  summary: Valid Request
+          description: Successfully retrieved the list of drone models.
+        '403':
+          description: Forbidden. User does not have permission to perform this action.
+    post:
+      operationId: drones_models_create
+      description: "Creates a new drone model in the system. \n\nValidation: \n- Drone
+        model must have at least one valid supported classification.\n\nRequired permission:
+        `PERMISSION_DRONES_CREATE`."
+      summary: Create a new drone model
+      tags:
+      - drones
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DroneModel'
+            examples:
+              ValidRequest:
+                value:
+                  name: Atlas Relay 8
+                  manufacturer: Quantum Systems
+                  description: Long-endurance signal relay and perimeter monitoring
+                    platform.
+                  supported_classifications:
+                  - TRANSPORT
+                  - SURVEILLANCE
+                summary: Valid Request
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/DroneModel'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/DroneModel'
+        required: true
+      security:
+      - cookieAuth: []
+      - basicAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DroneModel'
+              examples:
+                ValidRequest:
+                  value:
+                    id: 18
+                    name: Atlas Relay 8
+                    manufacturer: Quantum Systems
+                    description: Long-endurance signal relay and perimeter monitoring
+                      platform.
+                    supported_classifications:
+                    - TRANSPORT
+                    - SURVEILLANCE
+                    is_active: true
+                    created_at: '2026-07-02T02:21:31.163658Z'
+                    updated_at: '2026-07-02T02:21:31.163664Z'
+                  summary: Valid Request
+          description: Drone model created successfully.
+        '400':
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+              examples:
+                SupportedClassificationNotProvided:
+                  value:
+                    supported_classifications: A drone model must support at least
+                      one classification.
+                  summary: Supported classification not provided
+                InvalidSupportedClassification:
+                  value:
+                    supported_classifications: 'Value [''Example classification'']
+                      are not valid classifications. Valid classifications: RECONNAISSANCE,
+                      COMBAT, TRANSPORT, SURVEILLANCE'
+                  summary: Invalid supported classification
+          description: Bad Request
+        '403':
+          description: Forbidden. User does not have permission to perform this action.
+  /api/drones/write-offs/:
+    get:
+      operationId: drones_write_offs_list
+      tags:
+      - drones
+      security:
+      - cookieAuth: []
+      - basicAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/WriteOffRecord'
+          description: ''
+    post:
+      operationId: drones_write_offs_create
+      tags:
+      - drones
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WriteOffRecordCreate'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/WriteOffRecordCreate'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/WriteOffRecordCreate'
+        required: true
+      security:
+      - cookieAuth: []
+      - basicAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WriteOffRecordCreate'
+          description: ''
+  /api/drones/write-offs/history/:
+    get:
+      operationId: drones_write_offs_history_list
+      parameters:
+      - in: query
+        name: authorized_by
+        schema:
+          type: number
+      - in: query
+        name: document_number
+        schema:
+          type: string
+      - in: query
+        name: drone
+        schema:
+          type: number
+      - in: query
+        name: drone_inventory_number
+        schema:
+          type: string
+      - in: query
+        name: drone_serial_number
+        schema:
+          type: string
+      - name: ordering
+        required: false
+        in: query
+        description: Which field to use when ordering the results.
+        schema:
+          type: string
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      - name: page_size
+        required: false
+        in: query
+        description: Number of results to return per page.
+        schema:
+          type: integer
+      - in: query
+        name: reason
+        schema:
+          type: string
+      - in: query
+        name: related_mission
+        schema:
+          type: number
+      - name: search
+        required: false
+        in: query
+        description: A search term.
+        schema:
+          type: string
+      - in: query
+        name: written_off_at_after
+        schema:
+          type: string
+          format: date
+      - in: query
+        name: written_off_at_before
+        schema:
+          type: string
+          format: date
+      tags:
+      - drones
+      security:
+      - cookieAuth: []
+      - basicAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedWriteOffAuditList'
+          description: ''
+  /api/media/audit-logs/:
+    get:
+      operationId: media_audit_logs_list
+      parameters:
+      - in: query
+        name: action
+        schema:
+          type: string
+          enum:
+          - delete
+          - update
+          - upload
+          - view
+      - in: query
+        name: artifact
+        schema:
+          type: integer
+      - in: query
+        name: end_date
+        schema:
+          type: string
+          format: date-time
+      - in: query
+        name: mission
+        schema:
+          type: integer
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      - name: page_size
+        required: false
+        in: query
+        description: Number of results to return per page.
+        schema:
+          type: integer
+      - in: query
+        name: start_date
+        schema:
+          type: string
+          format: date-time
+      - in: query
+        name: user
+        schema:
+          type: integer
+      tags:
+      - media
+      security:
+      - cookieAuth: []
+      - basicAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedMediaAuditLogList'
+          description: ''
+  /api/media/audit-logs/{id}/:
+    get:
+      operationId: media_audit_logs_retrieve
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this media audit log.
+        required: true
+      tags:
+      - media
+      security:
+      - cookieAuth: []
+      - basicAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MediaAuditLog'
+          description: ''
+  /api/media/videos/:
+    get:
+      operationId: media_videos_list
+      parameters:
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      - name: page_size
+        required: false
+        in: query
+        description: Number of results to return per page.
+        schema:
+          type: integer
+      tags:
+      - media
+      security:
+      - cookieAuth: []
+      - basicAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedVideoMetadataList'
+          description: ''
+    post:
+      operationId: media_videos_create
+      tags:
+      - media
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/VideoUpload'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/VideoUpload'
+          application/json:
+            schema:
+              $ref: '#/components/schemas/VideoUpload'
+        required: true
+      security:
+      - cookieAuth: []
+      - basicAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VideoUpload'
+          description: ''
+  /api/media/videos/{id}/:
+    get:
+      operationId: media_videos_retrieve
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this video metadata.
+        required: true
+      tags:
+      - media
+      security:
+      - cookieAuth: []
+      - basicAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VideoMetadata'
+          description: ''
+    put:
+      operationId: media_videos_update
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this video metadata.
+        required: true
+      tags:
+      - media
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/VideoMetadata'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/VideoMetadata'
+          application/json:
+            schema:
+              $ref: '#/components/schemas/VideoMetadata'
+        required: true
+      security:
+      - cookieAuth: []
+      - basicAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VideoMetadata'
+          description: ''
+    patch:
+      operationId: media_videos_partial_update
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this video metadata.
+        required: true
+      tags:
+      - media
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedVideoMetadata'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedVideoMetadata'
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedVideoMetadata'
+      security:
+      - cookieAuth: []
+      - basicAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VideoMetadata'
+          description: ''
+    delete:
+      operationId: media_videos_destroy
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this video metadata.
+        required: true
+      tags:
+      - media
+      security:
+      - cookieAuth: []
+      - basicAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/missions/:
+    get:
+      operationId: missions_list
+      description: |-
+        Retrieves a paginated and filtered by status list of missions, assigned to the currently authenticated user.
+
+        Required permission: `IsDispatcherOrAdmin, PERMISSION_MISSIONS_VIEW`.
+      summary: List missions
+      parameters:
+      - in: query
+        name: assigned_to
+        schema:
+          type: string
+          enum:
+          - me
+        description: Filter to only show missions where the currently authenticated
+          user is assigned to.
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      - name: page_size
+        required: false
+        in: query
+        description: Number of results to return per page.
+        schema:
+          type: integer
+      - in: query
+        name: status
+        schema:
+          type: string
+          enum:
+          - aborted
+          - active
+          - completed
+          - planned
+        description: Filter missions by their current state.
+      tags:
+      - missions
+      security:
+      - cookieAuth: []
+      - basicAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedMissionList'
+              examples:
+                ValidRequest:
+                  value:
+                    count: 123
+                    next: http://api.example.org/accounts/?page=4
+                    previous: http://api.example.org/accounts/?page=2
+                    results:
+                    - id: 31
+                      title: Fallback Route Mapping
+                      commander:
+                        id: 27
+                        username: commander.south
+                        email: commander.south@example.com
+                      status: planned
+                      result: null
+                      location_description: Secondary fallback route south-west of
+                        artillery support line.
+                      latitude: '48.619700'
+                      longitude: '22.287900'
+                      started_at: '2026-07-09T01:17:37.650595Z'
+                      ended_at: '2026-07-09T01:49:37.650595Z'
+                      notes: 'Objective: capture updated terrain references and route
+                        obstacles.'
+                      incident_notes: ''
+                      created_by:
+                        id: 24
+                        username: oleksander.koval
+                        email: oleksander.koval@example.com
+                      created_at: '2026-07-02T02:21:31.151234Z'
+                      updated_at: '2026-07-03T01:17:37.651465Z'
+                      drones: []
+                  summary: Valid Request
+          description: Successfully retrieved the filtered list of missions.
+        '403':
+          description: Forbidden. User does not have permission to perform this action.
+    post:
+      operationId: missions_create
+      description: "Creates a new mission. The logged-in user is automatically assigned
+        as the creator (`created_by`).\n\nValidation: \n- Title of the mission must
+        be at least 3 character long. \n- User assigned as a commander must have a
+        Commander role. \n- Either location or latitude and longitude must be provided.
+        \n- Assigned drones and operators cannot already be assigned to another mission.\n\nRequired
+        permission: `IsDispatcherOrAdmin, PERMISSION_MISSIONS_CREATE`."
+      summary: Create a new mission
+      tags:
+      - missions
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Mission'
+            examples:
+              ValidRequest:
+                value:
+                  title: Fallback Route Mapping
+                  status: planned
+                  location_description: Secondary fallback route south-west of artillery
+                    support line.
+                  latitude: '48.619700'
+                  longitude: '22.287900'
+                  started_at: '2026-07-09T01:17:37.650595Z'
+                  ended_at: '2026-07-09T01:49:37.650595Z'
+                  notes: 'Objective: capture updated terrain references.'
+                summary: Valid Request
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/Mission'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/Mission'
+        required: true
+      security:
+      - cookieAuth: []
+      - basicAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Mission'
+              examples:
+                ValidRequest:
+                  value:
+                    id: 33
+                    title: Fallback Route Mapping
+                    commander: null
+                    status: planned
+                    result: null
+                    location_description: Secondary fallback route south-west of artillery
+                      support line.
+                    latitude: '48.619700'
+                    longitude: '22.287900'
+                    started_at: '2026-07-09T01:17:37.650595Z'
+                    ended_at: '2026-07-09T01:49:37.650595Z'
+                    notes: 'Objective: capture updated terrain references.'
+                    incident_notes: ''
+                    created_by:
+                      id: 24
+                      username: oleksander.koval
+                      email: oleksander.koval@example.com
+                    created_at: '2026-07-03T01:24:28.367298Z'
+                    updated_at: '2026-07-03T01:24:28.367301Z'
+                    drones: []
+                  summary: Valid Request
+          description: Mission successfully created.
+        '400':
+          description: Bad Request. Provided payload contains validation errors.
+        '403':
+          description: Forbidden. User does not have permission to perform this action.
+  /api/missions/{mission_pk}/artifacts/:
+    get:
+      operationId: missions_artifacts_list
+      description: |-
+        Retrieves a paginated list of artifacts associated with a given mission.
+
+        Required permission: `PERMISSION_MEDIA_VIEW`.
+      summary: List all artifacts for a specific mission
+      parameters:
+      - in: path
+        name: mission_pk
+        schema:
+          type: integer
+        description: ID of the mission.
+        required: true
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      - name: page_size
+        required: false
+        in: query
+        description: Number of results to return per page.
+        schema:
+          type: integer
+      tags:
+      - media
+      security:
+      - cookieAuth: []
+      - basicAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedMissionArtifactList'
+              examples:
+                ValidRequest:
+                  value:
+                    count: 123
+                    next: http://api.example.org/accounts/?page=4
+                    previous: http://api.example.org/accounts/?page=2
+                    results:
+                    - id: 1
+                      mission: 11
+                      uploaded_by:
+                        id: 24
+                        username: oleksandr.koval
+                        email: oleksandr.koval@example.com
+                      title: Example Title
+                      description: null
+                      file: http://localhost:8000/media/artifacts/mission_11/d4ab2e.png
+                      file_type: image
+                      original_filename: test_drone_photo.png
+                      file_size: 982936
+                      storage_backend: local
+                      captured_at: '2026-06-02T02:28:43.353809Z'
+                      uploaded_at: '2026-07-02T02:28:43.353809Z'
+                  summary: Valid Request
+          description: Successfully retrieved the list of mission artifacts.
+        '403':
+          description: Forbidden. User does not have permission to perform this action.
+        '404':
+          description: Not Found.
+    post:
+      operationId: missions_artifacts_create
+      description: "Uploads a media file or document as an artifact for a specific
+        mission. \n\nValidation: \n- File must have one of the following formats:\n\t-
+        image: .jpg, .jpeg, .png\n\t- data: .csv, .json\n- File size cannot be empty
+        or exceed 50MB.\n\nRequired permission: `PERMISSION_MEDIA_UPLOAD`."
+      summary: Upload a new artifact to a mission
+      parameters:
+      - in: path
+        name: mission_pk
+        schema:
+          type: integer
+        description: ID of the mission.
+        required: true
+      tags:
+      - media
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/MissionArtifactUpload'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/MissionArtifactUpload'
+        required: true
+      security:
+      - cookieAuth: []
+      - basicAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MissionArtifact'
+              examples:
+                ValidRequest.:
+                  value:
+                    id: 1
+                    mission: 11
+                    uploaded_by:
+                      id: 24
+                      username: oleksandr.koval
+                      email: oleksandr.koval@example.com
+                    title: Example Title
+                    description: null
+                    file: http://localhost:8000/media/artifacts/mission_11/d4ab2e.png
+                    file_type: image
+                    original_filename: test_drone_photo.png
+                    file_size: 982936
+                    storage_backend: local
+                    captured_at: '2026-06-02T02:28:43.353809Z'
+                    uploaded_at: '2026-07-02T02:28:43.353809Z'
+                  summary: Valid Request.
+          description: Artifact successfully uploaded.
+        '400':
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+              examples:
+                MissingRequiredFild:
+                  value:
+                    title: Title is required.
+                  summary: Missing required fild
+                InvalidUploadedFile:
+                  value:
+                    file: File is empty or its size cannot be determined.
+                  summary: Invalid uploaded file
+                UnsupportedFileFormat:
+                  value:
+                    file: 'Unsupported file type ''.md''. Allowed: .csv, .jpeg, .jpg,
+                      .json, .png.'
+                  summary: Unsupported file format
+          description: Bad Request
+        '403':
+          description: Forbidden. User does not have permission to perform this action.
+        '404':
+          description: Not Found.
+  /api/missions/{mission_pk}/artifacts/{artifact_pk}/:
+    get:
+      operationId: missions_artifacts_retrieve
+      description: |-
+        Retrieves detailed information for a single mission artifact by its ID.
+
+        Required permission: `PERMISSION_MEDIA_VIEW`.
+      summary: Retrieve specific artifact details
+      parameters:
+      - in: path
+        name: artifact_pk
+        schema:
+          type: integer
+        description: ID of the artifact.
+        required: true
+      - in: path
+        name: mission_pk
+        schema:
+          type: integer
+        description: ID of the mission.
+        required: true
+      tags:
+      - media
+      security:
+      - cookieAuth: []
+      - basicAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MissionArtifact'
+              examples:
+                ValidRequest:
+                  value:
+                    id: 1
+                    mission: 11
+                    uploaded_by:
+                      id: 24
+                      username: oleksandr.koval
+                      email: oleksandr.koval@example.com
+                    title: Example Title
+                    description: null
+                    file: http://localhost:8000/media/artifacts/mission_11/d4ab2e.png
+                    file_type: image
+                    original_filename: test_drone_photo.png
+                    file_size: 982936
+                    storage_backend: local
+                    captured_at: '2026-06-02T02:28:43.353809Z'
+                    uploaded_at: '2026-07-02T02:28:43.353809Z'
+                  summary: Valid Request
+          description: Artifact detailed profile.
+        '403':
+          description: Forbidden. User does not have permission to perform this action.
+        '404':
+          description: Not Found.
+    delete:
+      operationId: missions_artifacts_destroy
+      description: |-
+        Deletes the specified artifact from the mission and creates an audit log entry.
+
+        Required permission: `PERMISSION_MEDIA_DELETE`.
+      summary: Delete a mission artifact
+      parameters:
+      - in: path
+        name: artifact_pk
+        schema:
+          type: integer
+        description: ID of the artifact.
+        required: true
+      - in: path
+        name: mission_pk
+        schema:
+          type: integer
+        description: ID of the mission.
+        required: true
+      tags:
+      - media
+      security:
+      - cookieAuth: []
+      - basicAuth: []
+      responses:
+        '204':
+          description: Artifact successfully deleted. No content returned.
+        '403':
+          description: Forbidden. User does not have permission to perform this action.
+        '404':
+          description: Not Found.
+  /api/missions/{mission_pk}/artifacts/{artifact_pk}/download/:
+    get:
+      operationId: missions_artifacts_download_retrieve
+      parameters:
+      - in: path
+        name: artifact_pk
+        schema:
+          type: integer
+        required: true
+      - in: path
+        name: mission_pk
+        schema:
+          type: integer
+        required: true
+      tags:
+      - missions
+      security:
+      - cookieAuth: []
+      - basicAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/missions/{mission_pk}/assignments/:
+    get:
+      operationId: missions_assignments_list
+      description: |-
+        Retrieves a list of all drones and their designated operators assigned to a specific mission.
+
+        Required permission: `PERMISSION_MISSIONS_VIEW`.
+      summary: List drone assignments for a mission
+      parameters:
+      - in: path
+        name: mission_pk
+        schema:
+          type: integer
+        description: ID of the mission.
+        required: true
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      - name: page_size
+        required: false
+        in: query
+        description: Number of results to return per page.
+        schema:
+          type: integer
+      tags:
+      - mission assignments
+      security:
+      - cookieAuth: []
+      - basicAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedMissionDroneList'
+              examples:
+                ValidRequest:
+                  value:
+                    count: 123
+                    next: http://api.example.org/accounts/?page=4
+                    previous: http://api.example.org/accounts/?page=2
+                    results:
+                    - id: 1
+                      mission: 34
+                      drone: 21
+                      drone_details:
+                        id: 21
+                        name: Falcon Eye 1
+                        serial_number: FPV-AER-24001
+                        drone_model: 15
+                        status: ACTIVE
+                      operator: 28
+                      operator_details:
+                        id: 28
+                        username: operator.alpha
+                        email: operator.alpha@example.com
+                      condition_after: null
+                      condition_description: null
+                      flight_started_at: null
+                      flight_ended_at: null
+                      created_at: '2026-07-06T02:19:18.140785Z'
+                  summary: Valid Request
+          description: Successfully retrieved the list of mission drone and operator
+            assignments.
+        '403':
+          description: Forbidden. User does not have permission to perform this action.
+        '404':
+          description: Not Found.
+    post:
+      operationId: missions_assignments_create
+      description: "Deploys a specific drone and maps an operator to the given mission.
+        Validation: \n- User selected as a operator must have an Operator role. \n-
+        Assignments can only be added to planned missions. \n- Mission must have a
+        start time before assigning drones or operators. \n- All assigned drones must
+        be active. \n- Operators and drones cannot be assigned to overlapping missions.\n\nRequired
+        permission: `IsDispatcherOrAdmin, PERMISSION_MISSIONS_ASSIGN`."
+      summary: Assign a drone and operator to a mission
+      parameters:
+      - in: path
+        name: mission_pk
+        schema:
+          type: integer
+        description: ID of the target mission.
+        required: true
+      tags:
+      - mission assignments
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MissionDrone'
+            examples:
+              ValidRequest.:
+                value:
+                  id: 1
+                  mission: 34
+                  drone: 21
+                  drone_details:
+                    id: 21
+                    name: Falcon Eye 1
+                    serial_number: FPV-AER-24001
+                    drone_model: 15
+                    status: ACTIVE
+                  operator: 28
+                  operator_details:
+                    id: 28
+                    username: operator.alpha
+                    email: operator.alpha@example.com
+                  condition_after: null
+                  condition_description: null
+                  flight_started_at: null
+                  flight_ended_at: null
+                  created_at: '2026-07-06T02:19:18.140785Z'
+                summary: Valid Request.
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/MissionDrone'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/MissionDrone'
+        required: true
+      security:
+      - cookieAuth: []
+      - basicAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MissionDrone'
+              examples:
+                ValidRequest.:
+                  value:
+                    id: 1
+                    mission: 34
+                    drone: 21
+                    drone_details:
+                      id: 21
+                      name: Falcon Eye 1
+                      serial_number: FPV-AER-24001
+                      drone_model: 15
+                      status: ACTIVE
+                    operator: 28
+                    operator_details:
+                      id: 28
+                      username: operator.alpha
+                      email: operator.alpha@example.com
+                    condition_after: null
+                    condition_description: null
+                    flight_started_at: null
+                    flight_ended_at: null
+                    created_at: '2026-07-06T02:19:18.140785Z'
+                  summary: Valid Request.
+          description: Drone and operator successfully assigned to the mission.
+        '400':
+          description: Bad Request. Provided payload contains validation errors.
+        '403':
+          description: Forbidden. User does not have permission to perform this action.
+        '404':
+          description: Not Found.
+  /api/missions/{mission_pk}/assignments/{id}/:
+    delete:
+      operationId: missions_assignments_destroy
+      description: "Deletes a specific drone assignment and creates an audit log entry.
+        \n\nValidation: \n- Cannot delete assignment unless mission is planned.\n\nRequired
+        permission: `IsDispatcherOrAdmin, PERMISSION_MISSIONS_ASSIGN`."
+      summary: Remove a drone assignment from a mission
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        required: true
+      - in: path
+        name: mission_pk
+        schema:
+          type: integer
+        description: ID of the parent mission.
+        required: true
+      - in: path
+        name: pk
+        schema:
+          type: integer
+        description: ID of the specific drone assignment to be removed.
+        required: true
+      tags:
+      - mission assignments
+      security:
+      - cookieAuth: []
+      - basicAuth: []
+      responses:
+        '204':
+          description: Assignment successfully deleted. No content is returned.
+        '400':
+          description: Cannot delete assignment unless mission is planned.
+        '403':
+          description: Forbidden. User does not have permission to perform this action.
+        '404':
+          description: Not Found.
+  /api/missions/{id}/:
+    get:
+      operationId: missions_retrieve
+      description: |-
+        Retrieves detailed information about a single mission by its ID.
+
+        Required permission: `PERMISSION_MISSIONS_VIEW`.
+      summary: Retrieve mission details
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: ID of the mission.
+        required: true
+      tags:
+      - missions
+      security:
+      - cookieAuth: []
+      - basicAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Mission'
+              examples:
+                ValidRequest:
+                  value:
+                    id: 31
+                    title: Fallback Route Mapping
+                    commander:
+                      id: 27
+                      username: commander.south
+                      email: commander.south@example.com
+                    status: planned
+                    result: null
+                    location_description: Secondary fallback route south-west of artillery
+                      support line.
+                    latitude: '48.619700'
+                    longitude: '22.287900'
+                    started_at: '2026-07-09T01:17:37.650595Z'
+                    ended_at: '2026-07-09T01:49:37.650595Z'
+                    notes: 'Objective: capture updated terrain references and route
+                      obstacles.'
+                    incident_notes: ''
+                    created_by:
+                      id: 24
+                      username: oleksander.koval
+                      email: oleksander.koval@example.com
+                    created_at: '2026-07-02T02:21:31.151234Z'
+                    updated_at: '2026-07-03T01:17:37.651465Z'
+                    drones: []
+                  summary: Valid Request
+          description: Detailed mission profile.
+        '403':
+          description: Forbidden. User does not have permission to perform this action.
+        '404':
+          description: Not Found.
+  /api/missions/{id}/assignments/{assignment_id}/condition/:
+    patch:
+      operationId: missions_assignments_condition_partial_update
+      description: "Updates the condition of a specific drone assigned to a mission
+        and creates an audit log entry. \n\nValidation: \n- Drone condition can only
+        be recorded for missions with status `completed` or `aborted`. \n- Condition
+        `lost` cannot be overwritten.\n\nRequired permission: `PERMISSION_MISSIONS_RECORD_CONDITION,
+        IsAssignedOperatorOrAdmin`."
+      summary: Update drone post-mission condition
+      parameters:
+      - in: path
+        name: assignment_id
+        schema:
+          type: integer
+        description: ID of the specific drone-to-mission assignment.
+        required: true
+      - in: path
+        name: id
+        schema:
+          type: integer
+        required: true
+      - in: path
+        name: pk
+        schema:
+          type: integer
+        description: ID of the parent mission.
+        required: true
+      tags:
+      - mission assignments
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedMissionDroneCondition'
+            examples:
+              ValidRequest:
+                value:
+                  condition_after: ok
+                summary: Valid Request
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedMissionDroneCondition'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedMissionDroneCondition'
+      security:
+      - cookieAuth: []
+      - basicAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MissionDroneCondition'
+              examples:
+                ValidRequest:
+                  value:
+                    id: 1
+                    condition_after: ok
+                    condition_description: null
+                  summary: Valid Request
+          description: Drone condition successfully updated.
+        '400':
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+              examples:
+                InvalidMissionStatus:
+                  value:
+                    mission: Drone condition can only be recorded for missions with
+                      status 'completed' or 'aborted'.
+                  summary: Invalid mission status
+                OverwritingLostCondition:
+                  value:
+                    condition_after: 'Cannot reverse a ''lost'' condition: a writeoff
+                      record has been created and requires a manual reversal process.'
+                  summary: Overwriting lost condition
+                Written-offDrone:
+                  value:
+                    condition_after: Drone is already written off; cannot record 'lost'
+                      condition again.
+                  summary: Written-off drone
+          description: Bad Request
+        '403':
+          description: Forbidden. User does not have permission to perform this action.
+        '404':
+          description: Not Found.
+  /api/missions/{id}/outcome/:
+    patch:
+      operationId: missions_outcome_partial_update
+      description: "Partially updates the mission record to record status, result
+        and incident notes for the mission. Creates an audit log entry. \n\nValidation:
+        \n- Status can only be recorded for completed or aborted mission. \n- Already
+        recorded outcome cannot be overwritten. \n- If result of a mission is a failure,
+        incident notes must be provided.\n\nRequired permission: `IsAssignedOperatorOrAdmin,
+        PERMISSION_MISSIONS_RECORD_OUTCOME`."
+      summary: Record mission outcome
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: ID of the mission.
+        required: true
+      tags:
+      - missions
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedMissionOutcome'
+            examples:
+              ValidRequest:
+                value:
+                  result: success
+                summary: Valid Request
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedMissionOutcome'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedMissionOutcome'
+      security:
+      - cookieAuth: []
+      - basicAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MissionOutcome'
+              examples:
+                ValidRequest:
+                  value:
+                    id: 35
+                    status: completed
+                    result: success
+                    notes: The mission was completed successfully.
+                    incident_notes: ''
+                  summary: Valid Request
+          description: Mission outcome recorded successfully.
+        '400':
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+              examples:
+                InvalidMissionStatus:
+                  value:
+                    status: Outcome can only be recorded for missions with status
+                      'completed' or 'aborted'.
+                  summary: Invalid mission status
+                OutcomeAlreadyRecorded:
+                  value:
+                    result: Outcome has already been recorded for this mission and
+                      cannot be overwritten.
+                  summary: Outcome already recorded
+                IncidentNotesNotProvidedForFailedMission:
+                  value:
+                    incident_notes: Incident notes are required when result is 'failure'.
+                  summary: Incident notes not provided for failed mission
+          description: Bad Request.
+        '403':
+          description: Forbidden. User does not have permission to perform this action.
+        '404':
+          description: Not Found.
+  /api/missions/{id}/status/:
+    get:
+      operationId: missions_status_retrieve
+      description: |-
+        Retrieves the current status of a mission.
+
+        Required permission: `CanUpdateMissionStatus`.
+      summary: Retrieve mission status
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: ID of the mission.
+        required: true
+      tags:
+      - missions
+      security:
+      - cookieAuth: []
+      - basicAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MissionStatusUpdate'
+              examples:
+                ValidRequest:
+                  value:
+                    status: planned
+                  summary: Valid Request
+          description: Current mission status successfully retrieved.
+        '403':
+          description: Forbidden. User does not have permission to perform this action.
+        '404':
+          description: Not Found.
+    put:
+      operationId: missions_status_update
+      description: "Updates the mission status and creates an audit log entry. \n\nValidation:
+        \n- Status validation restrictions: \n\t- status `PLANNED` can be updated
+        to `ACTIVE` or `ABORTED`; \n\t- status `ACTIVE` can be updated to `COMPLETED`
+        or `ABORTED`; \n\t- statuses `COMPLETED` or `ABORTED` cannot be updated. \n-
+        Mission cannot be updated to status `ACTIVE` if it has assigned inactive drones.\n\nRequired
+        permission: `CanUpdateMissionStatus`."
+      summary: Update mission status
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: ID of the mission.
+        required: true
+      tags:
+      - missions
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MissionStatusUpdate'
+            examples:
+              ValidRequest:
+                value:
+                  status: completed
+                summary: Valid Request
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/MissionStatusUpdate'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/MissionStatusUpdate'
+      security:
+      - cookieAuth: []
+      - basicAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MissionStatusUpdate'
+              examples:
+                ValidRequest:
+                  value:
+                    status: completed
+                  summary: Valid Request
+          description: Mission status updated successfully.
+        '400':
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+              examples:
+                InvalidStatus:
+                  value:
+                    status: Cannot change status from 'completed' to 'planned'.
+                  summary: Invalid status
+          description: Bad Request
+        '403':
+          description: Forbidden. User does not have permission to perform this action.
+        '404':
+          description: Not Found.
+    patch:
+      operationId: missions_status_partial_update
+      description: "Updates the mission status and creates an audit log entry. \n\nValidation:
+        \n- Status validation restrictions: \n\t- status `PLANNED` can be updated
+        to `ACTIVE` or `ABORTED`; \n\t- status `ACTIVE` can be updated to `COMPLETED`
+        or `ABORTED`; \n\t- statuses `COMPLETED` or `ABORTED` cannot be updated. \n-
+        Mission cannot be updated to status `ACTIVE` if it has assigned inactive drones.\n\nRequired
+        permission: `CanUpdateMissionStatus`."
+      summary: Update mission status
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: ID of the mission.
+        required: true
+      tags:
+      - missions
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedMissionStatusUpdate'
+            examples:
+              ValidRequest:
+                value:
+                  status: completed
+                summary: Valid Request
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedMissionStatusUpdate'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedMissionStatusUpdate'
+      security:
+      - cookieAuth: []
+      - basicAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MissionStatusUpdate'
+              examples:
+                ValidRequest:
+                  value:
+                    status: completed
+                  summary: Valid Request
+          description: Mission status updated successfully.
+        '400':
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+              examples:
+                InvalidStatus:
+                  value:
+                    status: Cannot change status from 'completed' to 'planned'.
+                  summary: Invalid status
+          description: Bad Request
+        '403':
+          description: Forbidden. User does not have permission to perform this action.
+        '404':
+          description: Not Found.
+  /api/repairs/defects/:
+    get:
+      operationId: repairs_defects_list
+      description: |-
+        Retrieves a paginated and filtered list of all recorded drone defect reports.
+
+        Required permission: `PERMISSION_REPAIRS_VIEW`.
+      summary: List defect reports
+      parameters:
+      - in: query
+        name: defect_type
+        schema:
+          type: string
+          enum:
+          - BATTERY
+          - CAMERA
+          - FIRMWARE
+          - FLIGHT_CONTROLLER
+          - FRAME
+          - MOTOR
+          - OTHER
+          - PROPELLER
+          - VTX
+          - WIRING
+      - in: query
+        name: drone
+        schema:
+          type: integer
+      - name: ordering
+        required: false
+        in: query
+        description: Which field to use when ordering the results.
+        schema:
+          type: string
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      - name: page_size
+        required: false
+        in: query
+        description: Number of results to return per page.
+        schema:
+          type: integer
+      - in: query
+        name: reporter
+        schema:
+          type: integer
+      - in: query
+        name: severity
+        schema:
+          type: string
+          enum:
+          - CRITICAL
+          - HIGH
+          - LOW
+          - MEDIUM
+      tags:
+      - repairs
+      security:
+      - cookieAuth: []
+      - basicAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedDefectReportListList'
+              examples:
+                ValidRequest.:
+                  value:
+                    count: 123
+                    next: http://api.example.org/accounts/?page=4
+                    previous: http://api.example.org/accounts/?page=2
+                    results:
+                    - id: 4
+                      drone: 21
+                      defect_type: CAMERA
+                      severity: MEDIUM
+                      detected_at: '2026-05-19T16:05:00Z'
+                      reporter: 28
+                      created_at: '2026-07-02T02:21:31.254932Z'
+                  summary: Valid Request.
+          description: Successfully retrieved the list of defect reports.
+        '403':
+          description: Forbidden. User does not have permission to perform this action.
+    post:
+      operationId: repairs_defects_create
+      description: "Creates a new defect report. \n\nValidation: \n- Description must
+        be at least 10 character long.\n\nRequired permission: `PERMISSION_REPAIRS_CREATE`."
+      summary: Create a new defect report
+      tags:
+      - repairs
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DefectReport'
+            examples:
+              ValidRequest:
+                value:
+                  drone: 21
+                  defect_type: CAMERA
+                  severity: MEDIUM
+                  description: Camera feed intermittently flickers during high-speed
+                    turns.
+                  detected_at: '2026-07-02'
+                summary: Valid Request
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/DefectReport'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/DefectReport'
+        required: true
+      security:
+      - cookieAuth: []
+      - basicAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DefectReport'
+              examples:
+                ValidRequest:
+                  value:
+                    id: 5
+                    drone: 21
+                    defect_type: CAMERA
+                    severity: MEDIUM
+                    description: Camera feed intermittently flickers during high-speed
+                      turns.
+                    detected_at: '2026-07-02T00:00:00Z'
+                    reporter: 24
+                    created_at: '2026-07-03T05:03:12.266745Z'
+                    updated_at: '2026-07-03T05:03:12.266754Z'
+                  summary: Valid Request
+          description: Defect report successfully created.
+        '400':
+          description: Bad Request. Provided payload contains validation errors.
+        '403':
+          description: Forbidden. User does not have permission to perform this action.
+  /api/repairs/defects/{id}/:
+    get:
+      operationId: repairs_defects_retrieve
+      description: |-
+        Retrieves detailed information about specific defect report by its ID.
+
+        Required permission: `PERMISSION_REPAIRS_VIEW`.
+      summary: Retrieve specific defect report details
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: ID of specific defect report.
+        required: true
+      tags:
+      - repairs
+      security:
+      - cookieAuth: []
+      - basicAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DefectReport'
+              examples:
+                ValidRequest:
+                  value:
+                    id: 4
+                    drone: 21
+                    defect_type: CAMERA
+                    severity: MEDIUM
+                    description: Camera feed intermittently flickers during high-speed
+                      turns.
+                    detected_at: '2026-05-19T16:05:00Z'
+                    reporter: 28
+                    created_at: '2026-07-02T02:21:31.254932Z'
+                    updated_at: '2026-07-03T01:17:37.754142Z'
+                  summary: Valid Request
+          description: Detailed information about the drone defect report.
+        '403':
+          description: Forbidden. User does not have permission to perform this action.
+        '404':
+          description: Not Found.
+  /api/repairs/defects/{id}/history/:
+    get:
+      operationId: repairs_defects_history_list
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        required: true
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      - name: page_size
+        required: false
+        in: query
+        description: Number of results to return per page.
+        schema:
+          type: integer
+      tags:
+      - repairs
+      security:
+      - cookieAuth: []
+      - basicAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedRepairEventList'
+          description: ''
+  /api/repairs/defects/{id}/update-status/:
+    post:
+      operationId: repairs_defects_update_status_create
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - repairs
+      security:
+      - cookieAuth: []
+      - basicAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/repairs/drones/{drone_id}/history/:
+    get:
+      operationId: repairs_drones_history_retrieve
+      parameters:
+      - in: path
+        name: drone_id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - repairs
+      security:
+      - cookieAuth: []
+      - basicAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RepairHistoryTimeline'
+          description: ''
+  /api/repairs/drones/{drone_id}/history/export/:
+    get:
+      operationId: repairs_drones_history_export_retrieve
+      parameters:
+      - in: path
+        name: drone_id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - repairs
+      security:
+      - cookieAuth: []
+      - basicAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/repairs/orders/:
+    get:
+      operationId: repairs_orders_list
+      parameters:
+      - in: query
+        name: assigned_to
+        schema:
+          type: integer
+      - in: query
+        name: created_at__gte
+        schema:
+          type: string
+          format: date-time
+      - in: query
+        name: created_at__lte
+        schema:
+          type: string
+          format: date-time
+      - in: query
+        name: defect_report
+        schema:
+          type: integer
+      - in: query
+        name: drone
+        schema:
+          type: integer
+      - name: ordering
+        required: false
+        in: query
+        description: Which field to use when ordering the results.
+        schema:
+          type: string
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      - name: page_size
+        required: false
+        in: query
+        description: Number of results to return per page.
+        schema:
+          type: integer
+      - in: query
+        name: status
+        schema:
+          type: string
+          enum:
+          - CANCELLED
+          - COMPLETED
+          - IN_PROGRESS
+          - PENDING
+      tags:
+      - repairs
+      security:
+      - cookieAuth: []
+      - basicAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedRepairOrderListList'
+          description: ''
+    post:
+      operationId: repairs_orders_create
+      tags:
+      - repairs
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RepairOrderCreate'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/RepairOrderCreate'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/RepairOrderCreate'
+        required: true
+      security:
+      - cookieAuth: []
+      - basicAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RepairOrderCreate'
+          description: ''
+  /api/repairs/orders/{id}/:
+    get:
+      operationId: repairs_orders_retrieve
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - repairs
+      security:
+      - cookieAuth: []
+      - basicAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RepairOrder'
+          description: ''
+    patch:
+      operationId: repairs_orders_partial_update
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - repairs
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedRepairOrderStatusUpdate'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedRepairOrderStatusUpdate'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedRepairOrderStatusUpdate'
+      security:
+      - cookieAuth: []
+      - basicAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RepairOrderStatusUpdate'
+          description: ''
+  /api/repairs/orders/{id}/replacements/:
+    post:
+      operationId: repairs_orders_replacements_create
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - repairs
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RepairOrderReplacement'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/RepairOrderReplacement'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/RepairOrderReplacement'
+        required: true
+      security:
+      - cookieAuth: []
+      - basicAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RepairOrderReplacement'
+          description: ''
+  /api/repairs/replacements/:
+    get:
+      operationId: repairs_replacements_list
+      description: |-
+        Retrieves a paginated and filtered list of all recorded component replacements performed on drones.
+
+        Required permission: `PERMISSION_REPAIRS_VIEW`.
+      summary: List component replacements
+      parameters:
+      - in: query
+        name: component_type
+        schema:
+          type: string
+          enum:
+          - BATTERY
+          - CAMERA
+          - FIRMWARE
+          - FLIGHT_CONTROLLER
+          - FRAME
+          - MOTOR
+          - OTHER
+          - PROPELLER
+          - VTX
+          - WIRING
+      - in: query
+        name: drone
+        schema:
+          type: integer
+      - in: query
+        name: end_date
+        schema:
+          type: string
+          format: date-time
+      - name: ordering
+        required: false
+        in: query
+        description: Which field to use when ordering the results.
+        schema:
+          type: string
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      - name: page_size
+        required: false
+        in: query
+        description: Number of results to return per page.
+        schema:
+          type: integer
+      - in: query
+        name: replaced_by
+        schema:
+          type: integer
+      - in: query
+        name: start_date
+        schema:
+          type: string
+          format: date-time
+      tags:
+      - repairs
+      security:
+      - cookieAuth: []
+      - basicAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedComponentReplacementListList'
+              examples:
+                ValidRequest:
+                  value:
+                    count: 123
+                    next: http://api.example.org/accounts/?page=4
+                    previous: http://api.example.org/accounts/?page=2
+                    results:
+                    - id: 1
+                      drone: 24
+                      component_type: MOTOR
+                      component_name: null
+                      new_serial_number: TM-F60PV-24004-B
+                      replaced_at: '2026-05-09T09:30:00Z'
+                      replaced_by: 31
+                      created_at: '2026-07-02T02:21:31.258041Z'
+                  summary: Valid Request
+          description: Successfully retrieved the list of component replacements.
+        '403':
+          description: Forbidden. User does not have permission to perform this action.
+    post:
+      operationId: repairs_replacements_create
+      description: "Creates a new component replacement report. \n\nValidation: \n-
+        If component type is `OTHER`, component name must be provided.\n\nRequired
+        permission: `PERMISSION_REPAIRS_CREATE`."
+      summary: Record a component replacement
+      tags:
+      - repairs
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ComponentReplacement'
+            examples:
+              ValidRequest:
+                value:
+                  drone: 25
+                  component_type: FRAME
+                  component_name: null
+                  old_serial_number: FRAME-SPEAR1-OLD
+                  new_serial_number: FRAME-SPEAR1-NEW
+                  reason: Frame section replaced after structural damage from forced
+                    landing.
+                  replaced_at: '2026-07-03'
+                summary: Valid Request
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/ComponentReplacement'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/ComponentReplacement'
+        required: true
+      security:
+      - cookieAuth: []
+      - basicAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ComponentReplacement'
+              examples:
+                ValidRequest:
+                  value:
+                    id: 5
+                    drone: 25
+                    component_type: FRAME
+                    component_name: null
+                    old_serial_number: FRAME-SPEAR1-OLD
+                    new_serial_number: FRAME-SPEAR1-NEW
+                    reason: Frame section replaced after structural damage from forced
+                      landing.
+                    replaced_at: '2026-07-03T00:00:00Z'
+                    replaced_by: 24
+                    created_at: '2026-07-03T05:09:09.903830Z'
+                    updated_at: '2026-07-03T05:09:09.903879Z'
+                  summary: Valid Request
+          description: Component replacement report successfully created.
+        '400':
+          description: Bad Request. Provided payload contains validation errors.
+        '403':
+          description: Forbidden. User does not have permission to perform this action.
+  /api/repairs/replacements/{id}/:
+    get:
+      operationId: repairs_replacements_retrieve
+      description: |-
+        Retrieves detailed information about specific component replacement report by its ID.
+
+        Required permission: `PERMISSION_REPAIRS_VIEW`.
+      summary: Retrieve specific component replacement details
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: ID of specific component replacement report.
+        required: true
+      tags:
+      - repairs
+      security:
+      - cookieAuth: []
+      - basicAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ComponentReplacement'
+              examples:
+                ValidRequest:
+                  value:
+                    id: 1
+                    drone: 24
+                    component_type: MOTOR
+                    component_name: null
+                    old_serial_number: TM-F60PV-24004-A
+                    new_serial_number: TM-F60PV-24004-B
+                    reason: Motor replaced after abnormal vibration was confirmed
+                      in inspection.
+                    replaced_at: '2026-05-09T09:30:00Z'
+                    replaced_by: 31
+                    created_at: '2026-07-02T02:21:31.258041Z'
+                    updated_at: '2026-07-03T01:17:37.756512Z'
+                  summary: Valid Request
+          description: Detailed information about the component replacement record.
+        '403':
+          description: Forbidden. User does not have permission to perform this action.
+        '404':
+          description: Not Found.
+  /api/repairs/replacements/export/:
+    get:
+      operationId: repairs_replacements_export_retrieve
+      description: "Generates and downloads a CSV file with the filtered component
+        replacement history.Supports full filtering identical to the standard list
+        endpoint. \n\nThe export is limited to a maximum of 10000 records.\n\nRequired
+        permission: `PERMISSION_REPAIRS_VIEW`."
+      summary: Export component replacement data to CSV
+      tags:
+      - repairs
+      security:
+      - cookieAuth: []
+      - basicAuth: []
+      responses:
+        '200':
+          description: A CSV file generated successfully.
+        '403':
+          description: Forbidden. User does not have permission to perform this action.
+components:
+  schemas:
+    ActionEnum:
+      enum:
+      - view
+      - upload
+      - update
+      - delete
+      type: string
+    ActionTypeEnum:
+      enum:
+      - LOGIN_SUCCESS
+      - LOGIN_FAILED
+      - LOGOUT
+      - USER_CREATED
+      - ROLE_CHANGED
+      - ACCOUNT_ACTIVATED
+      - ACCOUNT_DEACTIVATED
+      - PROFILE_UPDATED
+      - PASSWORD_CHANGED
+      - PASSWORD_RESET_REQUESTED
+      - PERMISSION_DENIED
+      type: string
+    AuditLog:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        actor:
+          type: integer
+          nullable: true
+          description: User performing the action (can be Null for system actions)
+        actor_username:
+          type: string
+          readOnly: true
+        target_user:
+          type: integer
+          nullable: true
+          description: User on whom the action was taken
+        target_user_username:
+          type: string
+          readOnly: true
+        action_type:
+          $ref: '#/components/schemas/ActionTypeEnum'
+        result:
+          $ref: '#/components/schemas/AuditLogResultEnum'
+        description:
+          type: string
+        ip_address:
+          type: string
+          nullable: true
+        user_agent:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - action_type
+      - actor_username
+      - created_at
+      - id
+      - result
+      - target_user_username
+    AuditLogResultEnum:
+      enum:
+      - SUCCESS
+      - FAILED
+      type: string
+    BlankEnum:
+      enum:
+      - ''
+    ChangePassword:
+      type: object
+      properties:
+        old_password:
+          type: string
+          writeOnly: true
+        new_password:
+          type: string
+          writeOnly: true
+      required:
+      - new_password
+      - old_password
+    ClassificationEnum:
+      enum:
+      - RECONNAISSANCE
+      - COMBAT
+      - TRANSPORT
+      - SURVEILLANCE
+      type: string
+    ComponentReplacement:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        drone:
+          type: integer
+        component_type:
+          $ref: '#/components/schemas/DefectType'
+        component_name:
+          type: string
+          nullable: true
+          maxLength: 255
+        old_serial_number:
+          type: string
+          maxLength: 100
+        new_serial_number:
+          type: string
+          maxLength: 100
+        reason:
+          type: string
+        replaced_at:
+          type: string
+          format: date-time
+        replaced_by:
+          type: integer
+          readOnly: true
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - component_type
+      - created_at
+      - drone
+      - id
+      - new_serial_number
+      - reason
+      - replaced_at
+      - replaced_by
+      - updated_at
+    ComponentReplacementList:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        drone:
+          type: integer
+          readOnly: true
+        component_type:
+          allOf:
+          - $ref: '#/components/schemas/DefectType'
+          readOnly: true
+        component_name:
+          type: string
+          readOnly: true
+          nullable: true
+        new_serial_number:
+          type: string
+          readOnly: true
+        replaced_at:
+          type: string
+          format: date-time
+          readOnly: true
+        replaced_by:
+          type: integer
+          readOnly: true
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - component_name
+      - component_type
+      - created_at
+      - drone
+      - id
+      - new_serial_number
+      - replaced_at
+      - replaced_by
+    ConditionAfterEnum:
+      enum:
+      - ok
+      - damaged
+      - lost
+      type: string
+    DefectReport:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        drone:
+          type: integer
+        defect_type:
+          $ref: '#/components/schemas/DefectType'
+        severity:
+          $ref: '#/components/schemas/SeverityEnum'
+        description:
+          type: string
+        detected_at:
+          type: string
+          format: date-time
+        reporter:
+          type: integer
+          readOnly: true
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - created_at
+      - defect_type
+      - description
+      - detected_at
+      - drone
+      - id
+      - reporter
+      - severity
+      - updated_at
+    DefectReportList:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        drone:
+          type: integer
+          readOnly: true
+        defect_type:
+          allOf:
+          - $ref: '#/components/schemas/DefectType'
+          readOnly: true
+        severity:
+          allOf:
+          - $ref: '#/components/schemas/SeverityEnum'
+          readOnly: true
+        detected_at:
+          type: string
+          format: date-time
+          readOnly: true
+        reporter:
+          type: integer
+          readOnly: true
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - created_at
+      - defect_type
+      - detected_at
+      - drone
+      - id
+      - reporter
+      - severity
+    DefectType:
+      enum:
+      - MOTOR
+      - BATTERY
+      - CAMERA
+      - FRAME
+      - PROPELLER
+      - FLIGHT_CONTROLLER
+      - VTX
+      - WIRING
+      - FIRMWARE
+      - OTHER
+      type: string
+    Drone:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        spec:
+          $ref: '#/components/schemas/DroneSpecDetail'
+        writeoff_record:
+          allOf:
+          - $ref: '#/components/schemas/WriteOffRecord'
+          readOnly: true
+        status_label:
+          type: string
+          readOnly: true
+        status_indicator:
+          type: string
+          readOnly: true
+        status_category:
+          type: string
+          readOnly: true
+        serial_number:
+          type: string
+          maxLength: 100
+        inventory_number:
+          type: string
+          maxLength: 100
+        name:
+          type: string
+          maxLength: 100
+        classification:
+          $ref: '#/components/schemas/ClassificationEnum'
+        status:
+          $ref: '#/components/schemas/DroneStatus'
+        acquired_at:
+          type: string
+          format: date
+        notes:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+        drone_model:
+          type: integer
+          description: Drone Model
+        military_unit:
+          type: integer
+      required:
+      - acquired_at
+      - classification
+      - created_at
+      - drone_model
+      - id
+      - inventory_number
+      - military_unit
+      - name
+      - serial_number
+      - spec
+      - status_category
+      - status_indicator
+      - status_label
+      - updated_at
+      - writeoff_record
+    DroneBrief:
+      type: object
+      description: |-
+        Read-only summary of a drone, embedded in mission/assignment responses.
+
+        Output-only: all fields are read-only, so it never creates or updates.
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        name:
+          type: string
+          readOnly: true
+        serial_number:
+          type: string
+          readOnly: true
+        drone_model:
+          type: integer
+          readOnly: true
+          description: Drone Model
+        status:
+          allOf:
+          - $ref: '#/components/schemas/DroneStatus'
+          readOnly: true
+      required:
+      - drone_model
+      - id
+      - name
+      - serial_number
+      - status
+    DroneImport:
+      type: object
+      properties:
+        file:
+          type: string
+          format: uri
+          description: CSV file with drone inventory data.
+      required:
+      - file
+    DroneList:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        serial_number:
+          type: string
+          maxLength: 100
+        inventory_number:
+          type: string
+          maxLength: 100
+        name:
+          type: string
+          maxLength: 100
+        drone_model:
+          type: integer
+          description: Drone Model
+        classification:
+          $ref: '#/components/schemas/ClassificationEnum'
+        status:
+          $ref: '#/components/schemas/DroneStatus'
+        status_label:
+          type: string
+          readOnly: true
+        status_indicator:
+          type: string
+          readOnly: true
+        status_category:
+          type: string
+          readOnly: true
+        military_unit:
+          type: integer
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - classification
+      - created_at
+      - drone_model
+      - id
+      - inventory_number
+      - military_unit
+      - name
+      - serial_number
+      - status_category
+      - status_indicator
+      - status_label
+    DroneModel:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        name:
+          type: string
+          maxLength: 255
+        manufacturer:
+          type: string
+          maxLength: 255
+        description:
+          type: string
+        supported_classifications:
+          description: List of supported classifications
+        is_active:
+          type: boolean
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - created_at
+      - id
+      - manufacturer
+      - name
+      - updated_at
+    DroneSpecChangeLog:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        changed_by:
+          type: integer
+          readOnly: true
+          nullable: true
+        changed_fields:
+          readOnly: true
+        old_values:
+          readOnly: true
+        new_values:
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - changed_by
+      - changed_fields
+      - created_at
+      - id
+      - new_values
+      - old_values
+    DroneSpecDetail:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        frame_type:
+          type: string
+          maxLength: 255
+        motor_model:
+          type: string
+          maxLength: 255
+        battery_type:
+          type: string
+          maxLength: 255
+        battery_capacity_mah:
+          type: integer
+          maximum: 2147483647
+          minimum: 0
+        battery_model:
+          type: string
+          maxLength: 255
+        camera_model:
+          type: string
+          maxLength: 255
+        camera_specs: {}
+        vtx_model:
+          type: string
+          maxLength: 255
+        flight_controller:
+          type: string
+          maxLength: 255
+        firmware_version:
+          type: string
+          maxLength: 255
+        is_firmware_outdated:
+          type: boolean
+          description: Indicates if the firmware or communication parameters are unsupported.
+        communication_protocol:
+          type: string
+          maxLength: 100
+        control_channel:
+          type: string
+          maxLength: 255
+        telemetry_channel:
+          type: string
+          maxLength: 255
+        max_speed_kmh:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,4}(?:\.\d{0,2})?$
+        typical_range_km:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,4}(?:\.\d{0,2})?$
+          nullable: true
+        max_range_km:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,4}(?:\.\d{0,2})?$
+        typical_flight_time_min:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,4}(?:\.\d{0,2})?$
+          nullable: true
+        max_flight_time_min:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,4}(?:\.\d{0,2})?$
+        frequency_mhz:
+          type: integer
+          maximum: 2147483647
+          minimum: 0
+        payload_capacity_g:
+          type: integer
+          maximum: 2147483647
+          minimum: 0
+          nullable: true
+        additional_modules: {}
+        technical_documentation_url:
+          oneOf:
+          - type: string
+            format: uri
+            maxLength: 200
+          - type: string
+            maxLength: 0
+        firmware_file_url:
+          oneOf:
+          - type: string
+            format: uri
+            maxLength: 500
+          - type: string
+            maxLength: 0
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - battery_capacity_mah
+      - battery_type
+      - camera_model
+      - flight_controller
+      - frame_type
+      - frequency_mhz
+      - id
+      - max_flight_time_min
+      - max_range_km
+      - max_speed_kmh
+      - motor_model
+      - updated_at
+    DroneSpecUpdate:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        frame_type:
+          type: string
+          maxLength: 255
+        motor_model:
+          type: string
+          maxLength: 255
+        battery_type:
+          type: string
+          maxLength: 255
+        battery_capacity_mah:
+          type: integer
+          maximum: 2147483647
+          minimum: 0
+        battery_model:
+          type: string
+          maxLength: 255
+        camera_model:
+          type: string
+          maxLength: 255
+        camera_specs: {}
+        vtx_model:
+          type: string
+          maxLength: 255
+        flight_controller:
+          type: string
+          maxLength: 255
+        firmware_version:
+          type: string
+          maxLength: 255
+        is_firmware_outdated:
+          type: boolean
+          description: Indicates if the firmware or communication parameters are unsupported.
+        communication_protocol:
+          type: string
+          maxLength: 100
+        control_channel:
+          type: string
+          maxLength: 255
+        telemetry_channel:
+          type: string
+          maxLength: 255
+        max_speed_kmh:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,4}(?:\.\d{0,2})?$
+        typical_range_km:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,4}(?:\.\d{0,2})?$
+          nullable: true
+        max_range_km:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,4}(?:\.\d{0,2})?$
+        typical_flight_time_min:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,4}(?:\.\d{0,2})?$
+          nullable: true
+        max_flight_time_min:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,4}(?:\.\d{0,2})?$
+        frequency_mhz:
+          type: integer
+          maximum: 2147483647
+          minimum: 0
+        payload_capacity_g:
+          type: integer
+          maximum: 2147483647
+          minimum: 0
+          nullable: true
+        additional_modules: {}
+        technical_documentation_url:
+          oneOf:
+          - type: string
+            format: uri
+            maxLength: 200
+          - type: string
+            maxLength: 0
+        firmware_file_url:
+          oneOf:
+          - type: string
+            format: uri
+            maxLength: 500
+          - type: string
+            maxLength: 0
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - id
+      - updated_at
+    DroneStatus:
+      enum:
+      - ACTIVE
+      - IN_MISSION
+      - DAMAGED
+      - LOST
+      - MAINTENANCE
+      - DECOMMISSIONED
+      - SOLD
+      - TRANSFERRED
+      - WRITTEN_OFF
+      type: string
+    DroneStatusHistory:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        from_status:
+          type: string
+          readOnly: true
+        to_status:
+          type: string
+          readOnly: true
+        changed_by:
+          type: integer
+          readOnly: true
+          nullable: true
+        changed_by_display:
+          type: string
+          readOnly: true
+        reason:
+          type: string
+          readOnly: true
+        event_type:
+          type: string
+          readOnly: true
+        related_mission_id:
+          type: integer
+          readOnly: true
+        related_repair_order:
+          type: integer
+          readOnly: true
+          nullable: true
+        related_writeoff:
+          type: integer
+          readOnly: true
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - changed_by
+      - changed_by_display
+      - created_at
+      - event_type
+      - from_status
+      - id
+      - reason
+      - related_mission_id
+      - related_repair_order
+      - related_writeoff
+      - to_status
+    EventTypeEnum:
+      enum:
+      - defect
+      - status_change
+      - repair
+      - replacement
+      type: string
+    FileTypeEnum:
+      enum:
+      - video
+      - image
+      - data
+      type: string
+    FromStatusEnum:
+      enum:
+      - REPORTED
+      - IN_PROGRESS
+      - FIXED
+      - VERIFIED
+      type: string
+    MediaAuditLog:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        action:
+          allOf:
+          - $ref: '#/components/schemas/ActionEnum'
+          readOnly: true
+        artifact:
+          type: integer
+          readOnly: true
+          nullable: true
+          description: Null after the referenced artifact is deleted.
+        mission:
+          type: integer
+          readOnly: true
+          nullable: true
+        user:
+          allOf:
+          - $ref: '#/components/schemas/UserBrief'
+          readOnly: true
+        changes:
+          readOnly: true
+        ip_address:
+          type: string
+          readOnly: true
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - action
+      - artifact
+      - changes
+      - created_at
+      - id
+      - ip_address
+      - mission
+      - user
+    Mission:
+      type: object
+      description: |-
+        Serialize a mission, including its nested drone assignments.
+
+        Handles both create and update. Assignments may only be set at creation
+        time; on update the nested ``drones`` field is forced read-only (see
+        ``__init__``) so they are managed through the dedicated assignment endpoints
+        instead.
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        title:
+          type: string
+          maxLength: 255
+        commander:
+          allOf:
+          - $ref: '#/components/schemas/UserBrief'
+          readOnly: true
+        commander_id:
+          type: integer
+          writeOnly: true
+          nullable: true
+        status:
+          allOf:
+          - $ref: '#/components/schemas/MissionStatus'
+          readOnly: true
+        result:
+          readOnly: true
+          nullable: true
+          oneOf:
+          - $ref: '#/components/schemas/MissionResult'
+          - $ref: '#/components/schemas/NullEnum'
+        location_description:
+          type: string
+          nullable: true
+        latitude:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,3}(?:\.\d{0,6})?$
+          nullable: true
+        longitude:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,3}(?:\.\d{0,6})?$
+          nullable: true
+        started_at:
+          type: string
+          format: date-time
+          nullable: true
+        ended_at:
+          type: string
+          format: date-time
+          nullable: true
+        notes:
+          type: string
+          maxLength: 5000
+        incident_notes:
+          type: string
+          maxLength: 5000
+        created_by:
+          allOf:
+          - $ref: '#/components/schemas/UserBrief'
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+        drones:
+          type: array
+          items:
+            $ref: '#/components/schemas/MissionDroneInput'
+      required:
+      - commander
+      - created_at
+      - created_by
+      - id
+      - result
+      - status
+      - title
+      - updated_at
+    MissionArtifact:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        mission:
+          type: integer
+        uploaded_by:
+          allOf:
+          - $ref: '#/components/schemas/UserBrief'
+          readOnly: true
+        title:
+          type: string
+          maxLength: 255
+        description:
+          type: string
+          nullable: true
+        file:
+          type: string
+          format: uri
+          nullable: true
+          readOnly: true
+        file_type:
+          allOf:
+          - $ref: '#/components/schemas/FileTypeEnum'
+          readOnly: true
+        original_filename:
+          type: string
+          readOnly: true
+        file_size:
+          type: integer
+          readOnly: true
+          description: File size in bytes
+        storage_backend:
+          type: string
+          readOnly: true
+        captured_at:
+          type: string
+          format: date-time
+          nullable: true
+        uploaded_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - file
+      - file_size
+      - file_type
+      - id
+      - mission
+      - original_filename
+      - storage_backend
+      - title
+      - uploaded_at
+      - uploaded_by
+    MissionArtifactUpload:
+      type: object
+      properties:
+        file:
+          type: string
+          format: uri
+        title:
+          type: string
+          maxLength: 255
+        description:
+          type: string
+        captured_at:
+          type: string
+          format: date-time
+          nullable: true
+      required:
+      - file
+      - title
+    MissionDrone:
+      type: object
+      description: |-
+        Serialize a mission-drone assignment with drone and operator details.
+
+        Used to list assignments and to create new ones; ``create`` delegates to
+        the service layer so locking and auditing stay consistent.
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        mission:
+          type: integer
+          readOnly: true
+        drone:
+          type: integer
+        drone_details:
+          allOf:
+          - $ref: '#/components/schemas/DroneBrief'
+          readOnly: true
+        operator:
+          type: integer
+          nullable: true
+        operator_details:
+          allOf:
+          - $ref: '#/components/schemas/UserBrief'
+          readOnly: true
+        condition_after:
+          nullable: true
+          oneOf:
+          - $ref: '#/components/schemas/ConditionAfterEnum'
+          - $ref: '#/components/schemas/BlankEnum'
+          - $ref: '#/components/schemas/NullEnum'
+        condition_description:
+          type: string
+          nullable: true
+        flight_started_at:
+          type: string
+          format: date-time
+          nullable: true
+        flight_ended_at:
+          type: string
+          format: date-time
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - created_at
+      - drone
+      - drone_details
+      - id
+      - mission
+      - operator_details
+    MissionDroneCondition:
+      type: object
+      description: |-
+        Record a drone's condition after a mission for a single assignment.
+
+        Update-only; ``update`` delegates persistence and drone-status propagation
+        to the service layer.
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        condition_after:
+          $ref: '#/components/schemas/ConditionAfterEnum'
+        condition_description:
+          type: string
+          nullable: true
+      required:
+      - condition_after
+      - id
+    MissionDroneInput:
+      type: object
+      description: |-
+        Nested write serializer for assigning a drone/operator on mission create.
+
+        Exposes ``drone_id`` (required) and ``operator_id`` (optional, nullable),
+        mapped to the ``drone`` and ``operator`` relations of :class:`MissionDrone`.
+      properties:
+        drone_id:
+          type: integer
+        operator_id:
+          type: integer
+          nullable: true
+      required:
+      - drone_id
+    MissionOutcome:
+      type: object
+      description: |-
+        Record the result and notes of a completed/aborted mission.
+
+        Update-only; ``update`` delegates persistence to the service layer.
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        status:
+          allOf:
+          - $ref: '#/components/schemas/MissionStatus'
+          readOnly: true
+        result:
+          $ref: '#/components/schemas/MissionResult'
+        notes:
+          type: string
+          maxLength: 5000
+        incident_notes:
+          type: string
+          maxLength: 5000
+      required:
+      - id
+      - result
+      - status
+    MissionResult:
+      enum:
+      - success
+      - failure
+      type: string
+    MissionStatus:
+      enum:
+      - planned
+      - active
+      - completed
+      - aborted
+      type: string
+    MissionStatusUpdate:
+      type: object
+      description: |-
+        Drive a mission through its lifecycle and propagate drone statuses.
+
+        Exposes only ``status``; ``update`` applies the change transactionally and
+        cascades the assigned drones' statuses.
+      properties:
+        status:
+          $ref: '#/components/schemas/MissionStatus'
+    NullEnum:
+      enum:
+      - null
+    PaginatedAuditLogList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/AuditLog'
+    PaginatedComponentReplacementListList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/ComponentReplacementList'
+    PaginatedDefectReportListList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/DefectReportList'
+    PaginatedDroneListList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/DroneList'
+    PaginatedDroneModelList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/DroneModel'
+    PaginatedDroneSpecChangeLogList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/DroneSpecChangeLog'
+    PaginatedDroneStatusHistoryList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/DroneStatusHistory'
+    PaginatedMediaAuditLogList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/MediaAuditLog'
+    PaginatedMissionArtifactList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/MissionArtifact'
+    PaginatedMissionDroneList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/MissionDrone'
+    PaginatedMissionList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/Mission'
+    PaginatedRepairEventList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/RepairEvent'
+    PaginatedRepairOrderListList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/RepairOrderList'
+    PaginatedVideoMetadataList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/VideoMetadata'
+    PaginatedWriteOffAuditList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/WriteOffAudit'
+    PasswordResetConfirm:
+      type: object
+      properties:
+        new_password:
+          type: string
+          writeOnly: true
+      required:
+      - new_password
+    PasswordResetRequest:
+      type: object
+      properties:
+        email:
+          type: string
+          format: email
+      required:
+      - email
+    PatchedDroneUpdate:
+      type: object
+      properties:
+        serial_number:
+          type: string
+          maxLength: 100
+        inventory_number:
+          type: string
+          maxLength: 100
+        name:
+          type: string
+          maxLength: 100
+        drone_model:
+          type: integer
+          description: Drone Model
+        classification:
+          $ref: '#/components/schemas/ClassificationEnum'
+        status:
+          $ref: '#/components/schemas/DroneStatus'
+        military_unit:
+          type: integer
+        acquired_at:
+          type: string
+          format: date
+        notes:
+          type: string
+        spec:
+          $ref: '#/components/schemas/DroneSpecUpdate'
+        writeoff_reason:
+          writeOnly: true
+          oneOf:
+          - $ref: '#/components/schemas/WriteOffReason'
+          - $ref: '#/components/schemas/BlankEnum'
+        writeoff_reason_description:
+          type: string
+          writeOnly: true
+        status_change_reason:
+          type: string
+          writeOnly: true
+        document_number:
+          type: string
+          writeOnly: true
+        written_off_at:
+          type: string
+          format: date
+          writeOnly: true
+        related_mission_id:
+          type: integer
+          writeOnly: true
+          nullable: true
+    PatchedMissionDroneCondition:
+      type: object
+      description: |-
+        Record a drone's condition after a mission for a single assignment.
+
+        Update-only; ``update`` delegates persistence and drone-status propagation
+        to the service layer.
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        condition_after:
+          $ref: '#/components/schemas/ConditionAfterEnum'
+        condition_description:
+          type: string
+          nullable: true
+    PatchedMissionOutcome:
+      type: object
+      description: |-
+        Record the result and notes of a completed/aborted mission.
+
+        Update-only; ``update`` delegates persistence to the service layer.
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        status:
+          allOf:
+          - $ref: '#/components/schemas/MissionStatus'
+          readOnly: true
+        result:
+          $ref: '#/components/schemas/MissionResult'
+        notes:
+          type: string
+          maxLength: 5000
+        incident_notes:
+          type: string
+          maxLength: 5000
+    PatchedMissionStatusUpdate:
+      type: object
+      description: |-
+        Drive a mission through its lifecycle and propagate drone statuses.
+
+        Exposes only ``status``; ``update`` applies the change transactionally and
+        cascades the assigned drones' statuses.
+      properties:
+        status:
+          $ref: '#/components/schemas/MissionStatus'
+    PatchedRepairOrderStatusUpdate:
+      type: object
+      properties:
+        status:
+          $ref: '#/components/schemas/StatusFccEnum'
+        notes:
+          type: string
+          default: ''
+    PatchedUserMe:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        username:
+          type: string
+          readOnly: true
+          description: Required. 150 characters or fewer. Letters, digits and @/./+/-/_
+            only.
+        email:
+          type: string
+          format: email
+          readOnly: true
+        first_name:
+          type: string
+          maxLength: 150
+        last_name:
+          type: string
+          maxLength: 150
+        rank:
+          type: string
+        contact:
+          type: string
+        profile_picture:
+          type: string
+          format: uri
+          nullable: true
+        role:
+          type: integer
+          readOnly: true
+          nullable: true
+        unit:
+          type: integer
+          readOnly: true
+          nullable: true
+        is_active:
+          type: boolean
+          readOnly: true
+          title: Active
+          description: Designates whether this user should be treated as active. Unselect
+            this instead of deleting accounts.
+        must_change_password:
+          type: boolean
+          readOnly: true
+    PatchedUserRoleUpdate:
+      type: object
+      properties:
+        role_id:
+          type: integer
+          minimum: 1
+    PatchedUserStatusUpdate:
+      type: object
+      properties:
+        is_active:
+          type: boolean
+        reason:
+          type: string
+          maxLength: 255
+    PatchedVideoMetadata:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        mission:
+          type: integer
+          description: Mission associated with this video
+        drone:
+          type: integer
+          description: Drone used to capture this video
+        uploader:
+          type: integer
+          readOnly: true
+          nullable: true
+          description: User who uploaded the file
+        uploader_username:
+          type: string
+          readOnly: true
+        file:
+          type: string
+          format: uri
+          nullable: true
+          readOnly: true
+        file_name:
+          type: string
+          readOnly: true
+        file_size:
+          type: integer
+          readOnly: true
+          description: File size in bytes
+        content_type:
+          type: string
+          readOnly: true
+        status:
+          allOf:
+          - $ref: '#/components/schemas/VideoMetadataStatusEnum'
+          readOnly: true
+        checksum:
+          type: string
+          description: Optional SHA-256 checksum of the file
+          maxLength: 64
+        duration_seconds:
+          type: integer
+          readOnly: true
+          nullable: true
+        recorded_at:
+          type: string
+          format: date-time
+          nullable: true
+          description: Video recording timestamp from drone metadata
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+        url:
+          type: string
+          readOnly: true
+    RepairEvent:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        from_status:
+          allOf:
+          - $ref: '#/components/schemas/FromStatusEnum'
+          readOnly: true
+        to_status:
+          allOf:
+          - $ref: '#/components/schemas/ToStatusEnum'
+          readOnly: true
+        action_taken:
+          type: string
+          readOnly: true
+        technician:
+          type: integer
+          readOnly: true
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - action_taken
+      - created_at
+      - from_status
+      - id
+      - technician
+      - to_status
+    RepairHistoryTimeline:
+      type: object
+      properties:
+        event_type:
+          $ref: '#/components/schemas/EventTypeEnum'
+        timestamp:
+          type: string
+          format: date-time
+        summary:
+          type: string
+        details:
+          type: object
+          additionalProperties: {}
+      required:
+      - details
+      - event_type
+      - summary
+      - timestamp
+    RepairOrder:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        drone:
+          type: integer
+          readOnly: true
+        defect_report:
+          type: integer
+          readOnly: true
+          nullable: true
+        status:
+          allOf:
+          - $ref: '#/components/schemas/StatusFccEnum'
+          readOnly: true
+        description:
+          type: string
+          readOnly: true
+        assigned_to:
+          type: integer
+          readOnly: true
+          nullable: true
+        started_at:
+          type: string
+          format: date-time
+          readOnly: true
+          nullable: true
+        completed_at:
+          type: string
+          format: date-time
+          readOnly: true
+          nullable: true
+        notes:
+          type: string
+          readOnly: true
+        created_by:
+          type: integer
+          readOnly: true
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - assigned_to
+      - completed_at
+      - created_at
+      - created_by
+      - defect_report
+      - description
+      - drone
+      - id
+      - notes
+      - started_at
+      - status
+      - updated_at
+    RepairOrderCreate:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        drone:
+          type: integer
+        defect_report:
+          type: integer
+          nullable: true
+        description:
+          type: string
+        assigned_to:
+          type: integer
+          nullable: true
+      required:
+      - description
+      - drone
+      - id
+    RepairOrderList:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        drone:
+          type: integer
+          readOnly: true
+        defect_report:
+          type: integer
+          readOnly: true
+          nullable: true
+        status:
+          allOf:
+          - $ref: '#/components/schemas/StatusFccEnum'
+          readOnly: true
+        assigned_to:
+          type: integer
+          readOnly: true
+          nullable: true
+        created_by:
+          type: integer
+          readOnly: true
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - assigned_to
+      - created_at
+      - created_by
+      - defect_report
+      - drone
+      - id
+      - status
+    RepairOrderReplacement:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        component_type:
+          $ref: '#/components/schemas/DefectType'
+        component_name:
+          type: string
+          nullable: true
+          maxLength: 255
+        old_serial_number:
+          type: string
+          maxLength: 100
+        new_serial_number:
+          type: string
+          maxLength: 100
+        reason:
+          type: string
+        replaced_at:
+          type: string
+          format: date-time
+        replaced_by:
+          type: integer
+          readOnly: true
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - component_type
+      - created_at
+      - id
+      - new_serial_number
+      - reason
+      - replaced_at
+      - replaced_by
+      - updated_at
+    RepairOrderStatusUpdate:
+      type: object
+      properties:
+        status:
+          $ref: '#/components/schemas/StatusFccEnum'
+        notes:
+          type: string
+          default: ''
+      required:
+      - status
+    SeverityEnum:
+      enum:
+      - LOW
+      - MEDIUM
+      - HIGH
+      - CRITICAL
+      type: string
+    StatusFccEnum:
+      enum:
+      - PENDING
+      - IN_PROGRESS
+      - COMPLETED
+      - CANCELLED
+      type: string
+    ToStatusEnum:
+      enum:
+      - REPORTED
+      - IN_PROGRESS
+      - FIXED
+      - VERIFIED
+      type: string
+    UserBrief:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        username:
+          type: string
+          readOnly: true
+          description: Required. 150 characters or fewer. Letters, digits and @/./+/-/_
+            only.
+        email:
+          type: string
+          format: email
+          readOnly: true
+      required:
+      - email
+      - id
+      - username
+    UserMe:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        username:
+          type: string
+          readOnly: true
+          description: Required. 150 characters or fewer. Letters, digits and @/./+/-/_
+            only.
+        email:
+          type: string
+          format: email
+          readOnly: true
+        first_name:
+          type: string
+          maxLength: 150
+        last_name:
+          type: string
+          maxLength: 150
+        rank:
+          type: string
+        contact:
+          type: string
+        profile_picture:
+          type: string
+          format: uri
+          nullable: true
+        role:
+          type: integer
+          readOnly: true
+          nullable: true
+        unit:
+          type: integer
+          readOnly: true
+          nullable: true
+        is_active:
+          type: boolean
+          readOnly: true
+          title: Active
+          description: Designates whether this user should be treated as active. Unselect
+            this instead of deleting accounts.
+        must_change_password:
+          type: boolean
+          readOnly: true
+      required:
+      - email
+      - id
+      - is_active
+      - must_change_password
+      - role
+      - unit
+      - username
+    UserRegistration:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        username:
+          type: string
+          description: Required. 150 characters or fewer. Letters, digits and @/./+/-/_
+            only.
+          pattern: ^[\w.@+-]+$
+          maxLength: 150
+        email:
+          type: string
+          format: email
+          maxLength: 254
+        first_name:
+          type: string
+          maxLength: 150
+        last_name:
+          type: string
+          maxLength: 150
+        role:
+          type: integer
+          nullable: true
+        unit:
+          type: integer
+          nullable: true
+        rank:
+          type: string
+        contact:
+          type: string
+        profile_picture:
+          type: string
+          format: uri
+          nullable: true
+      required:
+      - email
+      - id
+      - username
+    UserRoleUpdateResponse:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        username:
+          type: string
+          description: Required. 150 characters or fewer. Letters, digits and @/./+/-/_
+            only.
+          pattern: ^[\w.@+-]+$
+          maxLength: 150
+        email:
+          type: string
+          format: email
+          maxLength: 254
+        role:
+          type: object
+          additionalProperties: {}
+          nullable: true
+          readOnly: true
+      required:
+      - email
+      - id
+      - role
+      - username
+    VideoMetadata:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        mission:
+          type: integer
+          description: Mission associated with this video
+        drone:
+          type: integer
+          description: Drone used to capture this video
+        uploader:
+          type: integer
+          readOnly: true
+          nullable: true
+          description: User who uploaded the file
+        uploader_username:
+          type: string
+          readOnly: true
+        file:
+          type: string
+          format: uri
+          nullable: true
+          readOnly: true
+        file_name:
+          type: string
+          readOnly: true
+        file_size:
+          type: integer
+          readOnly: true
+          description: File size in bytes
+        content_type:
+          type: string
+          readOnly: true
+        status:
+          allOf:
+          - $ref: '#/components/schemas/VideoMetadataStatusEnum'
+          readOnly: true
+        checksum:
+          type: string
+          description: Optional SHA-256 checksum of the file
+          maxLength: 64
+        duration_seconds:
+          type: integer
+          readOnly: true
+          nullable: true
+        recorded_at:
+          type: string
+          format: date-time
+          nullable: true
+          description: Video recording timestamp from drone metadata
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+        url:
+          type: string
+          readOnly: true
+      required:
+      - content_type
+      - created_at
+      - drone
+      - duration_seconds
+      - file
+      - file_name
+      - file_size
+      - id
+      - mission
+      - status
+      - updated_at
+      - uploader
+      - uploader_username
+      - url
+    VideoMetadataStatusEnum:
+      enum:
+      - uploading
+      - ready
+      - failed
+      type: string
+    VideoUpload:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        mission:
+          type: integer
+          description: Mission associated with this video
+        drone:
+          type: integer
+          description: Drone used to capture this video
+        file:
+          type: string
+          format: uri
+          pattern: (?:mp4|avi|mov|mkv)$
+        recorded_at:
+          type: string
+          format: date-time
+          nullable: true
+          description: Video recording timestamp from drone metadata
+        checksum:
+          type: string
+          description: Optional SHA-256 checksum of the file
+          maxLength: 64
+      required:
+      - drone
+      - file
+      - id
+      - mission
+    WriteOffAudit:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        drone_id:
+          type: integer
+          readOnly: true
+        drone_name:
+          type: string
+          readOnly: true
+        drone_serial_number:
+          type: string
+          readOnly: true
+        drone_inventory_number:
+          type: string
+          readOnly: true
+        reason:
+          allOf:
+          - $ref: '#/components/schemas/WriteOffReason'
+          readOnly: true
+          description: Canonical reason for writing off the drone.
+        reason_description:
+          type: string
+          readOnly: true
+          description: Free-form details about the write-off. Required when the reason
+            is 'Other'.
+        authorized_by:
+          type: integer
+          readOnly: true
+          nullable: true
+        authorized_by_username:
+          type: string
+          readOnly: true
+          nullable: true
+        related_mission:
+          type: integer
+          readOnly: true
+          nullable: true
+        related_mission_id:
+          type: integer
+          readOnly: true
+        document_number:
+          type: string
+          readOnly: true
+        written_off_at:
+          type: string
+          format: date
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - authorized_by
+      - authorized_by_username
+      - created_at
+      - document_number
+      - drone_id
+      - drone_inventory_number
+      - drone_name
+      - drone_serial_number
+      - id
+      - reason
+      - reason_description
+      - related_mission
+      - related_mission_id
+      - written_off_at
+    WriteOffReason:
+      enum:
+      - LOSS
+      - DESTRUCTION
+      - DAMAGE
+      - OTHER
+      type: string
+    WriteOffRecord:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        reason:
+          allOf:
+          - $ref: '#/components/schemas/WriteOffReason'
+          readOnly: true
+          description: Canonical reason for writing off the drone.
+        reason_label:
+          type: string
+          readOnly: true
+        reason_description:
+          type: string
+          readOnly: true
+          description: Free-form details about the write-off. Required when the reason
+            is 'Other'.
+        authorized_by:
+          type: integer
+          readOnly: true
+          nullable: true
+        related_mission_id:
+          type: integer
+          readOnly: true
+        document_number:
+          type: string
+          readOnly: true
+        written_off_at:
+          type: string
+          format: date
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - authorized_by
+      - created_at
+      - document_number
+      - id
+      - reason
+      - reason_description
+      - reason_label
+      - related_mission_id
+      - written_off_at
+    WriteOffRecordCreate:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        drone:
+          type: integer
+        reason:
+          allOf:
+          - $ref: '#/components/schemas/WriteOffReason'
+          description: Canonical reason for writing off the drone.
+        reason_description:
+          type: string
+          description: Free-form details about the write-off. Required when the reason
+            is 'Other'.
+        related_mission:
+          type: integer
+          nullable: true
+        document_number:
+          type: string
+          maxLength: 100
+        written_off_at:
+          type: string
+          format: date
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - created_at
+      - drone
+      - id
+      - reason
+  securitySchemes:
+    basicAuth:
+      type: http
+      scheme: basic
+    cookieAuth:
+      type: apiKey
+      in: cookie
+      name: sessionid

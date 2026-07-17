@@ -245,7 +245,7 @@ Not Found.
 
 Export audit logs to CSV
 
-Generates and downloads a CSV file with the filtered audit logs. Supports full filtering and sorting identical to the standard list endpoint.
+Generates and downloads a CSV file with the filtered audit logs. Supports full filtering and sorting identical to the standard list endpoint. 
 
 The export is limited to a maximum of 10000 records.
 
@@ -284,10 +284,10 @@ Export rate limit exceeded.
 
 Register a new user
 
-Creates a new user. Sends an activation email to the user and creates an audit log entry.
+Creates a new user. Sends an activation email to the user and creates an audit log entry. 
 
-Validation:
-- Image file size cannot exceed 5 MB.
+Validation: 
+- Image file size cannot exceed 5 MB. 
 - Supported image file formats: .jpg, .jpeg, .png, .webp.
 
 Required permission: `PERMISSION_USERS_CREATE`.
@@ -421,9 +421,9 @@ Forbidden. User does not have permission to perform this action.
 
 Update user status
 
-Allows system administrators to activate or deactivate a user's account, creates an audit log entry.
+Allows system administrators to activate or deactivate a user's account, creates an audit log entry. 
 
-Validation:
+Validation: 
 - User cannot deactivate their own account.
 
 Required permission: `IsSystemAdmin`.
@@ -506,16 +506,69 @@ Not Found.
 
 
 
+## GET /api/accounts/users/{user_id}/profile-picture/
+
+Retrieve a user's profile picture
+
+Returns the profile picture image file of the specified user, served inline. In production the file is delivered through a protected `X-Accel-Redirect` internal redirect; in debug mode the file is streamed directly.
+
+Access rules: 
+- Any authenticated user may retrieve their own profile picture. 
+- Only staff users may retrieve another user's profile picture. 
+- Returns 404 if the target user has no profile picture, or if the stored file is missing from the server.
+
+Required permission: `IsAuthenticated`.
+
+
+### Parameters
+
+| Name | Type | Required | Description |
+|------|------|----------|-------------|
+| user_id | integer | True | ID of the user whose profile picture is being retrieved. |
+
+
+### Responses
+
+#### 200
+
+
+The profile picture image file is returned inline with the appropriate content type.
+
+
+string
+
+
+
+
+
+
+
+#### 403
+
+
+Forbidden
+
+
+
+
+#### 404
+
+
+Not Found
+
+
+
+
 ## PATCH /api/accounts/users/{user_id}/role/
 
 Update user role
 
-Updates the role of a specific user and creates an audit log entry.
+Updates the role of a specific user and creates an audit log entry. 
 
-Validation:
-- The role of an inactive user cannot be changed.
-- Admin user cannot remove their own admin role.
-- The admin role cannot be removed from the root account.
+Validation: 
+- The role of an inactive user cannot be changed. 
+- Admin user cannot remove their own admin role. 
+- The admin role cannot be removed from the root account. 
 - The admin role cannot be removed from the last admin user.
 
 Required permission: `PERMISSION_USERS_MANAGE_ROLES`.
@@ -717,8 +770,8 @@ Update current user profile
 
 Updates the currently authenticated user's profile information and creates an audit log entry.
 
-Validation:
-- Image file size cannot exceed 5 MB.
+Validation: 
+- Image file size cannot exceed 5 MB. 
 - Supported image file formats: .jpg, .jpeg, .png, .webp.
 
 Required permission: `IsAuthenticated`.
@@ -825,8 +878,8 @@ Update current user profile
 
 Updates the currently authenticated user's profile information and creates an audit log entry.
 
-Validation:
-- Image file size cannot exceed 5 MB.
+Validation: 
+- Image file size cannot exceed 5 MB. 
 - Supported image file formats: .jpg, .jpeg, .png, .webp.
 
 Required permission: `IsAuthenticated`.
@@ -1249,9 +1302,9 @@ Forbidden. User does not have permission to perform this action.
 
 Create a new drone
 
-Creates a new drone with its technical specification. Creates an audit log entry with all spec values written down as `new_values`.
+Creates a new drone with its technical specification. Creates an audit log entry with all spec values written down as `new_values`. 
 
-Validation:
+Validation: 
 - Classification of a drone must be supported by its model.
 
 Required permission: `PERMISSION_DRONES_CREATE`.
@@ -1627,8 +1680,8 @@ Partially update a drone
 
 Updates specific fields of an existing drone record.
 
-Validation:
-- New classification of a drone must be supported by its model.
+Validation: 
+- New classification of a drone must be supported by its model. 
 - If a drone is being decommissioned, sold, transferred, or written off the reason must be provided.
 
 Required permission: `PERMISSION_DRONES_UPDATE`.
@@ -1802,11 +1855,69 @@ Not Found.
 
 
 
+## GET /api/drones/{id}/history/
+
+
+
+
+
+### Parameters
+
+| Name | Type | Required | Description |
+|------|------|----------|-------------|
+| id | integer | True |  |
+| page | integer | False | A page number within the paginated result set. |
+| page_size | integer | False | Number of results to return per page. |
+
+
+### Responses
+
+#### 200
+
+
+
+[PaginatedDroneStatusHistoryList](#paginateddronestatushistorylist)
+
+
+
+
+
+
+
+## GET /api/drones/{id}/spec-changes/
+
+
+
+
+
+### Parameters
+
+| Name | Type | Required | Description |
+|------|------|----------|-------------|
+| id | integer | True |  |
+| page | integer | False | A page number within the paginated result set. |
+| page_size | integer | False | Number of results to return per page. |
+
+
+### Responses
+
+#### 200
+
+
+
+[PaginatedDroneSpecChangeLogList](#paginateddronespecchangeloglist)
+
+
+
+
+
+
+
 ## GET /api/drones/export/
 
 Export drones data to CSV
 
-Generates and downloads a CSV file with the filtered list of drones. Supports full filtering and sorting identical to the standard list endpoint.
+Generates and downloads a CSV file with the filtered list of drones. Supports full filtering and sorting identical to the standard list endpoint. 
 
 The export is limited to a maximum of 10000 records.
 
@@ -1873,8 +1984,8 @@ Import drones data via CSV
 
 Uploads a CSV file to batch-import drone data. Processes the file record row by row, validates data and return error logs if any. Rows with existing `Serial Number`s will be skipped and reported in the API error summary.
 
-Validation:
-- In uploaded .csv file following headers must be present: Serial Number, Inventory Number, Name, Model, Military Unit, Acquired At.
+Validation: 
+- In uploaded .csv file following headers must be present: Serial Number, Inventory Number, Name, Model, Military Unit, Acquired At. 
 - `Military Unit` must exactly match the name of an existing unit in the database.
 
 Required permission: `PERMISSION_DRONES_CREATE`.
@@ -2005,9 +2116,9 @@ Forbidden. User does not have permission to perform this action.
 
 Create a new drone model
 
-Creates a new drone model in the system.
+Creates a new drone model in the system. 
 
-Validation:
+Validation: 
 - Drone model must have at least one valid supported classification.
 
 Required permission: `PERMISSION_DRONES_CREATE`.
@@ -2617,10 +2728,10 @@ Create a new mission
 
 Creates a new mission. The logged-in user is automatically assigned as the creator (`created_by`).
 
-Validation:
-- Title of the mission must be at least 3 character long.
-- User assigned as a commander must have a Commander role.
-- Either location or latitude and longitude must be provided.
+Validation: 
+- Title of the mission must be at least 3 character long. 
+- User assigned as a commander must have a Commander role. 
+- Either location or latitude and longitude must be provided. 
 - Assigned drones and operators cannot already be assigned to another mission.
 
 Required permission: `IsDispatcherOrAdmin, PERMISSION_MISSIONS_CREATE`.
@@ -2823,9 +2934,9 @@ Not Found.
 
 Upload a new artifact to a mission
 
-Uploads a media file or document as an artifact for a specific mission.
+Uploads a media file or document as an artifact for a specific mission. 
 
-Validation:
+Validation: 
 - File must have one of the following formats:
 	- image: .jpg, .jpeg, .png
 	- data: .csv, .json
@@ -3082,6 +3193,30 @@ Not Found.
 
 
 
+## GET /api/missions/{mission_pk}/artifacts/{artifact_pk}/download/
+
+
+
+
+
+### Parameters
+
+| Name | Type | Required | Description |
+|------|------|----------|-------------|
+| artifact_pk | integer | True |  |
+| mission_pk | integer | True |  |
+
+
+### Responses
+
+#### 200
+
+
+No response body
+
+
+
+
 ## GET /api/missions/{mission_pk}/assignments/
 
 List drone assignments for a mission
@@ -3176,11 +3311,11 @@ Not Found.
 
 Assign a drone and operator to a mission
 
-Deploys a specific drone and maps an operator to the given mission. Validation:
-- User selected as a operator must have an Operator role.
-- Assignments can only be added to planned missions.
-- Mission must have a start time before assigning drones or operators.
-- All assigned drones must be active.
+Deploys a specific drone and maps an operator to the given mission. Validation: 
+- User selected as a operator must have an Operator role. 
+- Assignments can only be added to planned missions. 
+- Mission must have a start time before assigning drones or operators. 
+- All assigned drones must be active. 
 - Operators and drones cannot be assigned to overlapping missions.
 
 Required permission: `IsDispatcherOrAdmin, PERMISSION_MISSIONS_ASSIGN`.
@@ -3325,9 +3460,9 @@ Not Found.
 
 Remove a drone assignment from a mission
 
-Deletes a specific drone assignment and creates an audit log entry.
+Deletes a specific drone assignment and creates an audit log entry. 
 
-Validation:
+Validation: 
 - Cannot delete assignment unless mission is planned.
 
 Required permission: `IsDispatcherOrAdmin, PERMISSION_MISSIONS_ASSIGN`.
@@ -3464,10 +3599,10 @@ Not Found.
 
 Update drone post-mission condition
 
-Updates the condition of a specific drone assigned to a mission and creates an audit log entry.
+Updates the condition of a specific drone assigned to a mission and creates an audit log entry. 
 
-Validation:
-- Drone condition can only be recorded for missions with status `completed` or `aborted`.
+Validation: 
+- Drone condition can only be recorded for missions with status `completed` or `aborted`. 
 - Condition `lost` cannot be overwritten.
 
 Required permission: `PERMISSION_MISSIONS_RECORD_CONDITION, IsAssignedOperatorOrAdmin`.
@@ -3613,11 +3748,11 @@ Not Found.
 
 Record mission outcome
 
-Partially updates the mission record to record status, result and incident notes for the mission. Creates an audit log entry.
+Partially updates the mission record to record status, result and incident notes for the mission. Creates an audit log entry. 
 
-Validation:
-- Status can only be recorded for completed or aborted mission.
-- Already recorded outcome cannot be overwritten.
+Validation: 
+- Status can only be recorded for completed or aborted mission. 
+- Already recorded outcome cannot be overwritten. 
 - If result of a mission is a failure, incident notes must be provided.
 
 Required permission: `IsAssignedOperatorOrAdmin, PERMISSION_MISSIONS_RECORD_OUTCOME`.
@@ -3824,13 +3959,13 @@ Not Found.
 
 Update mission status
 
-Updates the mission status and creates an audit log entry.
+Updates the mission status and creates an audit log entry. 
 
-Validation:
-- Status validation restrictions:
-	- status `PLANNED` can be updated to `ACTIVE` or `ABORTED`;
-	- status `ACTIVE` can be updated to `COMPLETED` or `ABORTED`;
-	- statuses `COMPLETED` or `ABORTED` cannot be updated.
+Validation: 
+- Status validation restrictions: 
+	- status `PLANNED` can be updated to `ACTIVE` or `ABORTED`; 
+	- status `ACTIVE` can be updated to `COMPLETED` or `ABORTED`; 
+	- statuses `COMPLETED` or `ABORTED` cannot be updated. 
 - Mission cannot be updated to status `ACTIVE` if it has assigned inactive drones.
 
 Required permission: `CanUpdateMissionStatus`.
@@ -3954,13 +4089,13 @@ Not Found.
 
 Update mission status
 
-Updates the mission status and creates an audit log entry.
+Updates the mission status and creates an audit log entry. 
 
-Validation:
-- Status validation restrictions:
-	- status `PLANNED` can be updated to `ACTIVE` or `ABORTED`;
-	- status `ACTIVE` can be updated to `COMPLETED` or `ABORTED`;
-	- statuses `COMPLETED` or `ABORTED` cannot be updated.
+Validation: 
+- Status validation restrictions: 
+	- status `PLANNED` can be updated to `ACTIVE` or `ABORTED`; 
+	- status `ACTIVE` can be updated to `COMPLETED` or `ABORTED`; 
+	- statuses `COMPLETED` or `ABORTED` cannot be updated. 
 - Mission cannot be updated to status `ACTIVE` if it has assigned inactive drones.
 
 Required permission: `CanUpdateMissionStatus`.
@@ -4156,9 +4291,9 @@ Forbidden. User does not have permission to perform this action.
 
 Create a new defect report
 
-Creates a new defect report.
+Creates a new defect report. 
 
-Validation:
+Validation: 
 - Description must be at least 10 character long.
 
 Required permission: `PERMISSION_REPAIRS_CREATE`.
@@ -4711,9 +4846,9 @@ Forbidden. User does not have permission to perform this action.
 
 Record a component replacement
 
-Creates a new component replacement report.
+Creates a new component replacement report. 
 
-Validation:
+Validation: 
 - If component type is `OTHER`, component name must be provided.
 
 Required permission: `PERMISSION_REPAIRS_CREATE`.
@@ -4892,7 +5027,7 @@ Not Found.
 
 Export component replacement data to CSV
 
-Generates and downloads a CSV file with the filtered component replacement history.Supports full filtering identical to the standard list endpoint.
+Generates and downloads a CSV file with the filtered component replacement history.Supports full filtering identical to the standard list endpoint. 
 
 The export is limited to a maximum of 10000 records.
 
@@ -5070,7 +5205,6 @@ Forbidden. User does not have permission to perform this action.
 | id | integer |  |
 | spec |  |  |
 | writeoff_record |  |  |
-| status_history | array |  |
 | status_label | string |  |
 | status_indicator | string |  |
 | status_category | string |  |
@@ -5089,6 +5223,10 @@ Forbidden. User does not have permission to perform this action.
 
 ## DroneBrief
 
+
+Read-only summary of a drone, embedded in mission/assignment responses.
+
+Output-only: all fields are read-only, so it never creates or updates.
 
 
 | Field | Type | Description |
@@ -5145,7 +5283,21 @@ Forbidden. User does not have permission to perform this action.
 | updated_at | string |  |
 
 
-## DroneSpec
+## DroneSpecChangeLog
+
+
+
+| Field | Type | Description |
+|-------|------|-------------|
+| id | integer |  |
+| changed_by | integer |  |
+| changed_fields |  |  |
+| old_values |  |  |
+| new_values |  |  |
+| created_at | string |  |
+
+
+## DroneSpecDetail
 
 
 
@@ -5174,24 +5326,9 @@ Forbidden. User does not have permission to perform this action.
 | frequency_mhz | integer |  |
 | payload_capacity_g | integer |  |
 | additional_modules |  |  |
-| technical_documentation_url | string |  |
-| firmware_file_url | string |  |
+| technical_documentation_url |  |  |
+| firmware_file_url |  |  |
 | updated_at | string |  |
-| change_history | array |  |
-
-
-## DroneSpecChangeLog
-
-
-
-| Field | Type | Description |
-|-------|------|-------------|
-| id | integer |  |
-| changed_by | integer |  |
-| changed_fields |  |  |
-| old_values |  |  |
-| new_values |  |  |
-| created_at | string |  |
 
 
 ## DroneSpecUpdate
@@ -5223,8 +5360,8 @@ Forbidden. User does not have permission to perform this action.
 | frequency_mhz | integer |  |
 | payload_capacity_g | integer |  |
 | additional_modules |  |  |
-| technical_documentation_url | string |  |
-| firmware_file_url | string |  |
+| technical_documentation_url |  |  |
+| firmware_file_url |  |  |
 | updated_at | string |  |
 
 
@@ -5290,6 +5427,13 @@ Forbidden. User does not have permission to perform this action.
 ## Mission
 
 
+Serialize a mission, including its nested drone assignments.
+
+Handles both create and update. Assignments may only be set at creation
+time; on update the nested ``drones`` field is forced read-only (see
+``__init__``) so they are managed through the dedicated assignment endpoints
+instead.
+
 
 | Field | Type | Description |
 |-------|------|-------------|
@@ -5347,6 +5491,11 @@ Forbidden. User does not have permission to perform this action.
 ## MissionDrone
 
 
+Serialize a mission-drone assignment with drone and operator details.
+
+Used to list assignments and to create new ones; ``create`` delegates to
+the service layer so locking and auditing stay consistent.
+
 
 | Field | Type | Description |
 |-------|------|-------------|
@@ -5366,6 +5515,11 @@ Forbidden. User does not have permission to perform this action.
 ## MissionDroneCondition
 
 
+Record a drone's condition after a mission for a single assignment.
+
+Update-only; ``update`` delegates persistence and drone-status propagation
+to the service layer.
+
 
 | Field | Type | Description |
 |-------|------|-------------|
@@ -5377,6 +5531,11 @@ Forbidden. User does not have permission to perform this action.
 ## MissionDroneInput
 
 
+Nested write serializer for assigning a drone/operator on mission create.
+
+Exposes ``drone_id`` (required) and ``operator_id`` (optional, nullable),
+mapped to the ``drone`` and ``operator`` relations of :class:`MissionDrone`.
+
 
 | Field | Type | Description |
 |-------|------|-------------|
@@ -5386,6 +5545,10 @@ Forbidden. User does not have permission to perform this action.
 
 ## MissionOutcome
 
+
+Record the result and notes of a completed/aborted mission.
+
+Update-only; ``update`` delegates persistence to the service layer.
 
 
 | Field | Type | Description |
@@ -5411,6 +5574,11 @@ Forbidden. User does not have permission to perform this action.
 
 ## MissionStatusUpdate
 
+
+Drive a mission through its lifecycle and propagate drone statuses.
+
+Exposes only ``status``; ``update`` applies the change transactionally and
+cascades the assigned drones' statuses.
 
 
 | Field | Type | Description |
@@ -5473,6 +5641,30 @@ Forbidden. User does not have permission to perform this action.
 
 
 ## PaginatedDroneModelList
+
+
+
+| Field | Type | Description |
+|-------|------|-------------|
+| count | integer |  |
+| next | string |  |
+| previous | string |  |
+| results | array |  |
+
+
+## PaginatedDroneSpecChangeLogList
+
+
+
+| Field | Type | Description |
+|-------|------|-------------|
+| count | integer |  |
+| next | string |  |
+| previous | string |  |
+| results | array |  |
+
+
+## PaginatedDroneStatusHistoryList
 
 
 
@@ -5625,6 +5817,11 @@ Forbidden. User does not have permission to perform this action.
 ## PatchedMissionDroneCondition
 
 
+Record a drone's condition after a mission for a single assignment.
+
+Update-only; ``update`` delegates persistence and drone-status propagation
+to the service layer.
+
 
 | Field | Type | Description |
 |-------|------|-------------|
@@ -5635,6 +5832,10 @@ Forbidden. User does not have permission to perform this action.
 
 ## PatchedMissionOutcome
 
+
+Record the result and notes of a completed/aborted mission.
+
+Update-only; ``update`` delegates persistence to the service layer.
 
 
 | Field | Type | Description |
@@ -5648,6 +5849,11 @@ Forbidden. User does not have permission to perform this action.
 
 ## PatchedMissionStatusUpdate
 
+
+Drive a mission through its lifecycle and propagate drone statuses.
+
+Exposes only ``status``; ``update`` applies the change transactionally and
+cascades the assigned drones' statuses.
 
 
 | Field | Type | Description |
