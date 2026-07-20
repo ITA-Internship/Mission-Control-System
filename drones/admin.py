@@ -1,3 +1,5 @@
+"""Configure Django admin interfaces for drones, specifications, and audit records."""
+
 from django.contrib import admin
 
 from .models import (
@@ -12,6 +14,8 @@ from .models import (
 
 @admin.register(Drone)
 class DroneAdmin(admin.ModelAdmin):
+    """Configure admin search, filters, and list display for drone records."""
+
     list_display = (
         "id",
         "serial_number",
@@ -34,6 +38,8 @@ class DroneAdmin(admin.ModelAdmin):
 
 @admin.register(DroneSpec)
 class DroneSpecAdmin(admin.ModelAdmin):
+    """Configure admin search, filters, and list display for drone specifications."""
+
     list_display = (
         "id",
         "drone",
@@ -63,6 +69,8 @@ class DroneSpecAdmin(admin.ModelAdmin):
 
 @admin.register(DroneSpecChangeLog)
 class DroneSpecChangeLogAdmin(admin.ModelAdmin):
+    """Configure read-only admin access for specification audit entries."""
+
     list_display = (
         "id",
         "drone_spec",
@@ -86,14 +94,18 @@ class DroneSpecChangeLogAdmin(admin.ModelAdmin):
     )
 
     def has_add_permission(self, request):
+        """Reject manual creation of specification audit entries in admin."""
         return False
 
     def has_delete_permission(self, request, obj=None):
+        """Reject deletion of specification audit entries in admin."""
         return False
 
 
 @admin.register(WriteOffRecord)
 class WriteOffRecordAdmin(admin.ModelAdmin):
+    """Configure read-only admin access for immutable write-off records."""
+
     list_display = (
         "id",
         "drone",
@@ -131,12 +143,15 @@ class WriteOffRecordAdmin(admin.ModelAdmin):
     )
 
     def has_add_permission(self, request):
+        """Reject manual creation of write-off records in admin."""
         return False
 
     def has_change_permission(self, request, obj=None):
+        """Reject editing immutable write-off records in admin."""
         return False
 
     def has_view_permission(self, request, obj=None):
+        """Allow users with view or change permission to inspect write-off records."""
         return super().has_view_permission(
             request, obj
         ) or super().has_change_permission(
@@ -145,11 +160,14 @@ class WriteOffRecordAdmin(admin.ModelAdmin):
         )
 
     def has_delete_permission(self, request, obj=None):
+        """Reject deletion of immutable write-off records in admin."""
         return False
 
 
 @admin.register(DroneStatusHistory)
 class DroneStatusHistoryAdmin(admin.ModelAdmin):
+    """Configure admin search, filters, and list display for status history."""
+
     list_display = (
         "id",
         "drone",
@@ -168,6 +186,8 @@ class DroneStatusHistoryAdmin(admin.ModelAdmin):
 
 @admin.register(DroneModel)
 class DroneModelAdmin(admin.ModelAdmin):
+    """Configure admin search, filters, and list display for drone models."""
+
     list_display = (
         "id",
         "name",
