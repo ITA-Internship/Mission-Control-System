@@ -37,6 +37,7 @@ def health_check(request):
         else:
             health["dependencies"]["cache"] = "unexpected_value"
             is_healthy = False
+        cache.delete("_health_check")
     except Exception as exc:
         logger.warning("Health check: cache unreachable — %s", exc)
         health["dependencies"]["cache"] = "unavailable"
