@@ -579,6 +579,13 @@
 - Finalize all docstrings (by **Yevhen Yedynets**)
 - Merge pull request #136 from ITA-Internship/task#119-comments-repairs-app (by **Yevhen Yedynets**)
 - Task#119 comments repairs app (by **Yevhen Yedynets**)
+- Corrected one mistake in seeding data (by **yana-donda**)
+- Add comments to drones tests (by **yana-donda**)
+- Corrected some comments (by **yana-donda**)
+- Merge origin/develop into 115-add-meaningful-comments-drones-app (by **yana-donda**)
+- Pre commit (by **yana-donda**)
+- Merge pull request #127 from ITA-Internship/115-add-meaningful-comments-drones-app (by **Yana**)
+- 115 add comments drones app (by **Yana**)
 
 ### Refactor
 
@@ -589,6 +596,7 @@
 
 - Add project bootstrapping instructions (by **yana-donda**)
 - Add project bootstrapping instructions (by **Yana**)
+- *(drones)* Document drone business logic (by **yana-donda**)
 
 ### Styling
 
@@ -608,5 +616,6 @@
 
 ### Miscellaneous Tasks
 
+- *(changelog)* Update CHANGELOG.md [skip ci] (by **github-actions[bot]**)
 - *(changelog)* Update CHANGELOG.md [skip ci] (by **github-actions[bot]**)
 - *(changelog)* Update CHANGELOG.md [skip ci] (by **github-actions[bot]**)
