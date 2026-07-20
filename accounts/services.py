@@ -1,7 +1,20 @@
+"""Provide service-layer functions for user account management.
+
+Functions:
+    create_user_account: Creates a new user, profile, and triggers activation email.
+    send_activation_email: Sends a one-time activation link to a user.
+    is_admin_role: Checks if a specific role has admin privileges.
+    count_admin_users: Returns the total number of admin users.
+    count_admin_users_locked: Returns the total number of admin
+        users with a database lock.
+    set_user_password: Sets and saves a new password for a user.
+    update_user_role: Safely changes a user's role with business logic validation.
+    create_audit_log: Records an action in the system's audit log.
+"""
+
 from django.conf import settings
 from django.contrib.auth.tokens import default_token_generator
 from django.core.exceptions import ValidationError
-from django.core.mail import send_mail
 from django.db import transaction
 
 from roles.models import ADMIN_CODE, Role
@@ -11,6 +24,14 @@ from .models import AuditLog, User, UserProfile, UserRoleAuditLog
 
 @transaction.atomic
 def create_user_account(validated_data: dict, created_by: User = None) -> User:
+    """Create a new user account and associated profile, then send an activation email.
+    Args:
+        validated_data (dict): A dictionary containing user data.
+        created_by (User): The user who created this account.
+    Returns:
+        User: The newly created user instance.
+    """
+
     rank = validated_data.pop("rank", "")
     contact = validated_data.pop("contact", "")
     profile_picture = validated_data.pop("profile_picture", "")
@@ -44,6 +65,9 @@ def create_user_account(validated_data: dict, created_by: User = None) -> User:
 
 
 def send_activation_email(user) -> None:
+    """Send a one-time activation link to the new user's email."""
+    from .tasks import send_email_task
+
     token = default_token_generator.make_token(user)
 
     frontend_url = getattr(settings, "FRONTEND_URL", "http://localhost:3000")
@@ -61,29 +85,52 @@ def send_activation_email(user) -> None:
         f"For security reasons, this link is for one-time use only."
     )
 
-    send_mail(
+    send_email_task.delay(
         subject=subject,
         message=message,
-        from_email=settings.DEFAULT_FROM_EMAIL,
         recipient_list=[user.email],
-        fail_silently=False,
     )
 
 
 def is_admin_role(role: Role | None) -> bool:
+    """Check if the given role is an admin role."""
     return bool(role and role.code == ADMIN_CODE)
 
 
 def count_admin_users() -> int:
+    """Return the count of users with admin role."""
     return User.objects.filter(role__code=ADMIN_CODE).count()
 
 
 def count_admin_users_locked() -> int:
+    """Return the count of users with the admin role and apply a database lock."""
     return User.objects.select_for_update().filter(role__code=ADMIN_CODE).count()
+
+
+def set_user_password(user: User, raw_password: str) -> None:
+    """Set and save a new password for the user."""
+    user.set_password(raw_password)
+    user.must_change_password = False
+    user.save(update_fields=["password", "must_change_password"])
 
 
 @transaction.atomic
 def update_user_role(*, target_user: User, new_role_id: int, changed_by: User) -> User:
+    """Update the role of a user while enforcing security and business rules.
+
+    Args:
+        target_user (User): The user whose role is to be updated.
+        new_role_id (int): The ID of the new role to be assigned.
+        changed_by (User): The user who is performing the role change.
+
+    Returns:
+        User: The updated user object.
+
+    Raises:
+        ValidationError: If the role_id is invalid, the user is inactive,
+            or if the action violates admin role restrictions (e.g., removing
+            the last admin).
+    """
     if not new_role_id:
         raise ValidationError({"role_id": ["This field is required."]})
 
@@ -153,6 +200,20 @@ def update_user_role(*, target_user: User, new_role_id: int, changed_by: User) -
 def create_audit_log(
     actor, action_type, result, target_user=None, description="", request=None
 ):
+    """Create a new audit log entry in the database.
+
+    Args:
+        actor (User): The user who performed the action.
+        action_type (str): The type of action performed (from AuditLog.ActionType).
+        result (str): The result of the action (from AuditLog.ResultStatus).
+        target_user (User): The user on whom the action was performed.
+        description (str): A text description of the action. Defaults to "".
+        request (HttpRequest): The HTTP request object, used to extract
+            the IP address and User-Agent. Defaults to None.
+
+    Returns:
+        AuditLog: The created audit log instance.
+    """
     ip_address = None
     user_agent = ""
 

@@ -20,6 +20,12 @@ class DroneFilter(django_filters.FilterSet):
     queries.
     """
 
+    serial_number = django_filters.CharFilter(lookup_expr="icontains", max_length=100)
+    inventory_number = django_filters.CharFilter(
+        lookup_expr="icontains", max_length=100
+    )
+    military_unit = django_filters.CharFilter(lookup_expr="icontains", max_length=100)
+
     is_firmware_outdated = django_filters.BooleanFilter(
         field_name="spec__is_firmware_outdated"
     )
@@ -52,7 +58,7 @@ class DroneFilter(django_filters.FilterSet):
         has_status_filter = self.data and self.data.get("status")
 
         if not has_status_filter:
-            return parent_qs.exclude(status__in=Drone.INACTIVE_STATUSES)
+            return parent_qs.filter(status__in=Drone.ACTIVE_STATUSES)
 
         return parent_qs
 

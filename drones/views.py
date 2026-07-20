@@ -23,23 +23,46 @@ from django.http import (
     HttpResponseForbidden,
     StreamingHttpResponse,
 )
+from django.shortcuts import get_object_or_404
+from django.utils.decorators import method_decorator
+from django.views.decorators.cache import cache_page
 from django.views.generic import ListView, TemplateView
 from django_filters.rest_framework import DjangoFilterBackend
+from drf_spectacular.utils import extend_schema_view
 from rest_framework import filters, generics, status
 from rest_framework.response import Response
+from rest_framework.throttling import ScopedRateThrottle
 
 from accounts.permissions import HasRBACPermission
 from accounts.rbac import PERMISSION_SPECIFICATIONS_COMPARE
 from common.pagination import StandardResultsSetPagination
 
+from .api_details import (
+    drone_data_export_schema,
+    drone_data_import_schema,
+    drone_detail_get_schema,
+    drone_detail_patch_schema,
+    drone_get_schema,
+    drone_model_get_schema,
+    drone_model_post_schema,
+    drone_post_schema,
+)
 from .filters import DroneFilter, WriteOffRecordFilter
-from .models import Drone, DroneModel, WriteOffRecord
+from .models import (
+    Drone,
+    DroneModel,
+    DroneSpecChangeLog,
+    DroneStatusHistory,
+    WriteOffRecord,
+)
 from .permissions import DronePermission, WriteOffHistoryPermission, WriteOffPermission
 from .serializers import (
     DroneImportSerializer,
     DroneListSerializer,
     DroneModelSerializer,
     DroneSerializer,
+    DroneSpecChangeLogSerializer,
+    DroneStatusHistorySerializer,
     DroneUpdateSerializer,
     WriteOffAuditSerializer,
     WriteOffRecordCreateSerializer,
@@ -209,6 +232,7 @@ class DroneComparisonView(TemplateView):
         return response
 
 
+@extend_schema_view(get=drone_get_schema, post=drone_post_schema)
 class DroneListCreateView(generics.ListCreateAPIView):
     """List drone inventory records and create drones with nested specifications."""
 
@@ -224,11 +248,9 @@ class DroneListCreateView(generics.ListCreateAPIView):
 
     def get_queryset(self):
         """Return drones with related data needed by list and create responses."""
-        return (
-            Drone.objects.select_related("military_unit", "spec")
-            .prefetch_related("status_history")
-            .order_by("id")
-        )
+        return Drone.objects.select_related(
+            "military_unit", "spec", "drone_model"
+        ).order_by("id")
 
     def get_serializer_class(self):
         """
@@ -240,16 +262,15 @@ class DroneListCreateView(generics.ListCreateAPIView):
         return self.serializer_class
 
 
+@extend_schema_view(get=drone_detail_get_schema, patch=drone_detail_patch_schema)
 class DroneDetailView(generics.RetrieveUpdateAPIView):
     """Retrieve drone details and apply partial updates or lifecycle transitions."""
-
-    queryset = (
-        Drone.objects.select_related("military_unit", "spec")
-        .prefetch_related("status_history")
-        .all()
-    )
     permission_classes = [DronePermission]
     http_method_names = ["get", "patch", "head", "options"]
+
+    queryset = Drone.objects.select_related(
+        "military_unit", "drone_model", "spec"
+    ).all()
 
     def get_serializer_class(self):
         """Use the update serializer for PATCH requests."""
@@ -259,12 +280,56 @@ class DroneDetailView(generics.RetrieveUpdateAPIView):
         return DroneSerializer
 
 
+class DroneStatusHistoryPagination(StandardResultsSetPagination):
+    page_size = 50
+    max_page_size = 200
+
+
+class DroneStatusHistoryListView(generics.ListAPIView):
+    serializer_class = DroneStatusHistorySerializer
+    permission_classes = [DronePermission]
+    pagination_class = DroneStatusHistoryPagination
+
+    def get_queryset(self):
+        get_object_or_404(Drone, pk=self.kwargs["pk"])
+        return (
+            DroneStatusHistory.objects.filter(drone_id=self.kwargs["pk"])
+            .select_related("changed_by")
+            .order_by("-created_at")
+        )
+
+
+class DroneSpecChangeLogPagination(StandardResultsSetPagination):
+    page_size = 20
+    max_page_size = 100
+
+
+class DroneSpecChangeLogListView(generics.ListAPIView):
+    serializer_class = DroneSpecChangeLogSerializer
+    permission_classes = [DronePermission]
+    pagination_class = DroneSpecChangeLogPagination
+
+    def get_queryset(self):
+        get_object_or_404(Drone, pk=self.kwargs["pk"])
+        return (
+            DroneSpecChangeLog.objects.filter(drone_spec__drone_id=self.kwargs["pk"])
+            .select_related("changed_by")
+            .order_by("-created_at")
+        )
+
+
+@extend_schema_view(get=drone_model_get_schema, post=drone_model_post_schema)
 class DroneModelListCreateView(generics.ListCreateAPIView):
     """List and create drone model catalog entries."""
 
     serializer_class = DroneModelSerializer
     permission_classes = [DronePermission]
     queryset = DroneModel.objects.all()
+    pagination_class = StandardResultsSetPagination
+
+    @method_decorator(cache_page(60 * 5))
+    def list(self, request, *args, **kwargs):
+        return super().list(request, *args, **kwargs)
 
 
 class WriteOffHistoryListView(generics.ListAPIView):
@@ -363,10 +428,14 @@ class WriteOffHistoryReportView(ListView):
         return context
 
 
+@drone_data_export_schema
 class DroneDataExportView(generics.ListAPIView):
     """Stream a filtered drone inventory export as CSV."""
 
     permission_classes = [DronePermission]
+
+    throttle_classes = [ScopedRateThrottle]
+    throttle_scope = "drone_export"
 
     filter_backends = (
         DjangoFilterBackend,
@@ -399,6 +468,7 @@ class DroneDataExportView(generics.ListAPIView):
         return response
 
 
+@drone_data_import_schema
 class DroneDataImportView(generics.GenericAPIView):
     """Import drone inventory records from an uploaded CSV file."""
 

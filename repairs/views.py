@@ -6,8 +6,10 @@ from django.http import StreamingHttpResponse
 from django.shortcuts import get_object_or_404
 from django.views.generic import DetailView, TemplateView
 from django_filters.rest_framework import DjangoFilterBackend
+from drf_spectacular.utils import extend_schema_view
 from rest_framework import filters, generics, status
 from rest_framework.response import Response
+from rest_framework.throttling import ScopedRateThrottle
 from rest_framework.views import APIView
 
 from accounts.permissions import user_has_permission
@@ -16,6 +18,15 @@ from common.pagination import StandardResultsSetPagination
 from common.utils import EchoBuffer
 from drones.models import Drone
 
+from .api_details import (
+    component_replacement_detail_schema,
+    component_replacement_export_schema,
+    component_replacement_get_schema,
+    component_replacement_post_schema,
+    defect_detail_schema,
+    defect_get_schema,
+    defect_post_schema,
+)
 from .filters import ComponentReplacementFilter, DefectFilter, RepairOrderFilter
 from .models import ComponentReplacement, DefectReport, RepairEvent, RepairOrder
 from .permissions import (
@@ -45,6 +56,7 @@ from .services import (
 )
 
 
+@extend_schema_view(get=defect_get_schema, post=defect_post_schema)
 class DefectListCreateView(generics.ListCreateAPIView):
     serializer_class = DefectReportSerializer
     permission_classes = [RepairPermission]
@@ -66,6 +78,7 @@ class DefectListCreateView(generics.ListCreateAPIView):
         return self.serializer_class
 
 
+@defect_detail_schema
 class DefectDetailView(generics.RetrieveAPIView):
     queryset = DefectReport.objects.select_related("drone", "reporter").all()
     serializer_class = DefectReportSerializer
@@ -103,6 +116,9 @@ class DefectStatusUpdateView(APIView):
         return Response(response_serializer.data, status=status.HTTP_200_OK)
 
 
+@extend_schema_view(
+    get=component_replacement_get_schema, post=component_replacement_post_schema
+)
 class ComponentReplacementListCreateView(generics.ListCreateAPIView):
     serializer_class = ComponentReplacementSerializer
     permission_classes = [RepairPermission]
@@ -124,6 +140,7 @@ class ComponentReplacementListCreateView(generics.ListCreateAPIView):
         return self.serializer_class
 
 
+@component_replacement_detail_schema
 class ComponentReplacementDetailView(generics.RetrieveAPIView):
     queryset = ComponentReplacement.objects.select_related("drone", "replaced_by").all()
     serializer_class = ComponentReplacementSerializer
@@ -131,19 +148,21 @@ class ComponentReplacementDetailView(generics.RetrieveAPIView):
     http_method_names = ["get", "head", "options"]
 
 
+@component_replacement_export_schema
 class ComponentReplacementExportView(generics.GenericAPIView):
     permission_classes = [RepairPermission]
     filter_backends = (DjangoFilterBackend,)
     filterset_class = ComponentReplacementFilter
+
+    throttle_classes = [ScopedRateThrottle]
+    throttle_scope = "component_replacement_export"
 
     def get_queryset(self):
         return ComponentReplacement.objects.select_related("drone", "replaced_by")
 
     def get(self, request, *args, **kwargs):
         max_export_limit = getattr(settings, "MAX_EXPORT_LIMIT", 10000)
-        queryset = self.filter_queryset(self.get_queryset())
-        total_count = queryset.count()
-        export_truncated = total_count > max_export_limit
+        queryset = self.filter_queryset(self.get_queryset())[:max_export_limit]
 
         def generate_csv():
             writer = csv.writer(EchoBuffer())
@@ -163,13 +182,7 @@ class ComponentReplacementExportView(generics.GenericAPIView):
                 ]
             )
 
-            for index, replacement in enumerate(
-                queryset.iterator(chunk_size=2000),
-                start=1,
-            ):
-                if index > max_export_limit:
-                    break
-
+            for replacement in queryset.iterator(chunk_size=2000):
                 yield writer.writerow(
                     [
                         replacement.id,
@@ -194,7 +207,7 @@ class ComponentReplacementExportView(generics.GenericAPIView):
             'attachment; filename="component_replacements.csv"'
         )
         response["X-Export-Limit"] = str(max_export_limit)
-        response["X-Export-Truncated"] = str(export_truncated).lower()
+
         return response
 
 

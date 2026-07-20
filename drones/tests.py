@@ -653,15 +653,25 @@ class DroneUpdateAndDecommissionTests(APITestCase):
         self.assertEqual(response.data["status_indicator"], "warning")
         self.assertEqual(response.data["status_category"], "downtime")
 
-        self.assertIn("status_history", response.data)
-        self.assertEqual(len(response.data["status_history"]), 1)
+        history_url = reverse(
+            "drones:drone-status-history", kwargs={"pk": self.drone.pk}
+        )
+        history_response = self.client.get(history_url)
+        self.assertEqual(history_response.status_code, status.HTTP_200_OK)
 
-        history_item = response.data["status_history"][0]
+        self.assertIn("results", history_response.data)
+        self.assertEqual(len(history_response.data["results"]), 1)
+
+        history_item = history_response.data["results"][0]
 
         self.assertEqual(history_item["from_status"], Drone.STATUS_ACTIVE)
         self.assertEqual(history_item["to_status"], Drone.STATUS_DAMAGED)
         self.assertEqual(history_item["reason"], "Motor damaged")
         self.assertEqual(history_item["event_type"], "status_change")
+
+        non_existent_url = reverse("drones:drone-status-history", kwargs={"pk": 999999})
+        not_found_response = self.client.get(non_existent_url)
+        self.assertEqual(not_found_response.status_code, status.HTTP_404_NOT_FOUND)
 
     def test_decommission_requires_written_off_at(self):
         """Verify that decommissioning requires the write-off date and time."""
@@ -1238,6 +1248,21 @@ class DroneSearchTests(APITestCase):
         self.assertIn(matching_drone.id, results_ids)
         self.assertNotIn(non_matching_drone.id, results_ids)
 
+    def test_pagination_max_offset_exceeded(self):
+        response = self.client.get(self.create_url, {"page": 1002, "page_size": 10})
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("page", response.data)
+        self.assertIn("Max pagination depth exceeded", str(response.data["page"]))
+
+    def test_pagination_empty_page_parameter_handled_gracefully(self):
+        response = self.client.get(self.create_url, {"page": ""})
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        self.assertEqual(response.data["count"], self.page_size + 1)
+        self.assertIsNotNone(response.data["next"])
+
 
 class DroneModelTests(APITestCase):
     """Verify drone model creation and classification validation."""
@@ -1586,7 +1611,7 @@ class DroneDataImportTests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.data["added_count"], 0)
         self.assertEqual(len(response.data["errors"]), 1)
-        self.assertIn("not found in database", response.data["errors"][0]["error"])
+        self.assertIn("not found", response.data["errors"][0]["error"])
 
     def test_import_skips_rows_with_empty_required_fields(self):
         """Verify that rows with empty required fields are skipped during import."""

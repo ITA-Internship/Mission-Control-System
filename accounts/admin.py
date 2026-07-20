@@ -1,3 +1,5 @@
+"""Configure Django admin interface for Users, Military Unit and Audit Log. """
+
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin
 
@@ -12,6 +14,8 @@ from .models import (
 
 
 class UserProfileInline(admin.StackedInline):
+    """Provide inline admin interface for UserProfile within the User admin."""
+
     model = UserProfile
     can_delete = False
     verbose_name_plural = "Profile Information"
@@ -21,6 +25,8 @@ class UserProfileInline(admin.StackedInline):
 
 @admin.register(User)
 class CustomUserAdmin(UserAdmin):
+    """Configure admin search, filter, and display for the custom User model."""
+
     list_display = (
         "id",
         "username",
@@ -68,6 +74,8 @@ class CustomUserAdmin(UserAdmin):
 
 @admin.register(MilitaryUnit)
 class MilitaryUnitAdmin(admin.ModelAdmin):
+    """Configure admin interface for Military Unit management."""
+
     list_display = ("id", "name", "code", "is_active", "created_at", "updated_at")
     search_fields = ("name", "code")
     list_filter = ("is_active",)
@@ -77,6 +85,8 @@ class MilitaryUnitAdmin(admin.ModelAdmin):
 
 @admin.register(UserProfile)
 class UserProfileAdmin(admin.ModelAdmin):
+    """Configure admin interface for standalone User Profile management."""
+
     list_display = ("id", "user", "rank", "contact", "created_at", "updated_at")
     search_fields = ("user__username", "user__email", "rank", "contact")
     readonly_fields = ("created_at", "updated_at")
@@ -85,6 +95,8 @@ class UserProfileAdmin(admin.ModelAdmin):
 
 @admin.register(UserStatusLog)
 class UserStatusLogAdmin(admin.ModelAdmin):
+    """Configure read-only admin interface for user status change logs."""
+
     list_display = (
         "target_user",
         "changed_by",
@@ -102,14 +114,18 @@ class UserStatusLogAdmin(admin.ModelAdmin):
     )
 
     def has_add_permission(self, request):
+        """Reject manual creation of user status logs."""
         return False
 
     def has_delete_permission(self, request, obj=None):
+        """Reject manual deletion of user status logs."""
         return False
 
 
 @admin.register(UserRoleAuditLog)
 class UserRoleAuditLogAdmin(admin.ModelAdmin):
+    """Configure read-only admin interface for user role audit logs."""
+
     list_display = (
         "id",
         "target_user",
@@ -137,6 +153,7 @@ class UserRoleAuditLogAdmin(admin.ModelAdmin):
     list_select_related = ("target_user", "previous_role", "new_role", "changed_by")
 
     def _read_only_permission(self, request, obj=None):
+        """Reject manual adding, changing, or deleting of role audit logs."""
         return False
 
     has_add_permission = _read_only_permission
@@ -146,6 +163,8 @@ class UserRoleAuditLogAdmin(admin.ModelAdmin):
 
 @admin.register(AuditLog)
 class AuditLogAdmin(admin.ModelAdmin):
+    """Configure read-only admin interface for audit log records."""
+
     list_display = (
         "created_at",
         "actor",
@@ -164,15 +183,19 @@ class AuditLogAdmin(admin.ModelAdmin):
     readonly_fields = [f.name for f in AuditLog._meta.fields]
 
     def has_add_permission(self, request):
+        """Reject manual creation audit logs."""
         return False
 
     def has_change_permission(self, request, obj=None):
+        """Reject manual updates to existing audit logs."""
         return False
 
     def has_delete_permission(self, request, obj=None):
+        """Reject manual deletion of audit logs."""
         return False
 
     def get_actions(self, request):
+        """Reject the default 'delete_selected' action to project log integrity."""
         actions = super().get_actions(request)
         if "delete_selected" in actions:
             del actions["delete_selected"]

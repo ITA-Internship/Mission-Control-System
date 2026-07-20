@@ -4,6 +4,7 @@ Classes:
     DroneSpecChangeLogSerializer: Read-only serializer for spec audit entries.
     DroneSpecValidationMixin: Shared JSON validation for specification fields.
     DroneSpecSerializer: Full technical specification serializer.
+    DroneSpecDetailSerializer: Detailed technical specification serializer.
     DroneSpecUpdateSerializer: Partial technical specification update serializer.
     WriteOffRecordSerializer: Read-only write-off record serializer.
     DroneStatusHistorySerializer: Status history serializer with display fields.
@@ -82,12 +83,10 @@ class DroneSpecValidationMixin:
 
 
 class DroneSpecSerializer(DroneSpecValidationMixin, serializers.ModelSerializer):
-    """Serialize full technical specifications and change history for a drone."""
-
-    change_history = DroneSpecChangeLogSerializer(many=True, read_only=True)
-
+    """Serialize technical specifications for a drone."""
+    
     class Meta:
-        """Configure full DroneSpec fields exposed by the API."""
+        """Configure fields exposed for drone specifications."""
 
         model = DroneSpec
         fields = (
@@ -117,9 +116,46 @@ class DroneSpecSerializer(DroneSpecValidationMixin, serializers.ModelSerializer)
             "technical_documentation_url",
             "firmware_file_url",
             "updated_at",
-            "change_history",
         )
-        read_only_fields = ("id", "updated_at", "change_history")
+        read_only_fields = ("id", "updated_at")
+
+
+class DroneSpecDetailSerializer(DroneSpecValidationMixin, serializers.ModelSerializer):
+    """Serialize technical specifications included in drone detail responses."""
+
+    class Meta:
+        """Configure specification fields exposed in drone detail responses."""
+
+        model = DroneSpec
+        fields = (
+            "id",
+            "frame_type",
+            "motor_model",
+            "battery_type",
+            "battery_capacity_mah",
+            "battery_model",
+            "camera_model",
+            "camera_specs",
+            "vtx_model",
+            "flight_controller",
+            "firmware_version",
+            "is_firmware_outdated",
+            "communication_protocol",
+            "control_channel",
+            "telemetry_channel",
+            "max_speed_kmh",
+            "typical_range_km",
+            "max_range_km",
+            "typical_flight_time_min",
+            "max_flight_time_min",
+            "frequency_mhz",
+            "payload_capacity_g",
+            "additional_modules",
+            "technical_documentation_url",
+            "firmware_file_url",
+            "updated_at",
+        )
+        read_only_fields = ("id", "updated_at")
 
 
 class DroneSpecUpdateSerializer(DroneSpecValidationMixin, serializers.ModelSerializer):
@@ -213,7 +249,8 @@ class DroneStatusHistorySerializer(serializers.ModelSerializer):
         )
         read_only_fields = fields
 
-    def get_changed_by_display(self, obj):
+
+    def get_changed_by_display(self, obj) -> str:
         """Return a readable name for the user who changed the status."""
         user = obj.changed_by
 
@@ -224,7 +261,8 @@ class DroneStatusHistorySerializer(serializers.ModelSerializer):
             getattr(user, "username", None) or getattr(user, "email", None) or str(user)
         )
 
-    def get_event_type(self, obj):
+
+    def get_event_type(self, obj) -> str:
         """Return the domain event type that caused this status history entry."""
         if obj.related_writeoff_id:
             return "writeoff"
@@ -244,10 +282,8 @@ class DroneSerializer(serializers.ModelSerializer):
     Creation is delegated to the service layer so the drone, DroneSpec, and
     initial DroneSpecChangeLog are created consistently in one workflow.
     """
-
-    spec = DroneSpecSerializer()
+    spec = DroneSpecDetailSerializer()
     writeoff_record = WriteOffRecordSerializer(read_only=True)
-    status_history = DroneStatusHistorySerializer(many=True, read_only=True)
     status_label = serializers.CharField(read_only=True)
     status_indicator = serializers.CharField(read_only=True)
     status_category = serializers.CharField(read_only=True)

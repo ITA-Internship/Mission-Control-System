@@ -13,6 +13,7 @@ Classes:
 import uuid
 
 from django.conf import settings
+from django.contrib.postgres.indexes import GinIndex
 from django.core.exceptions import ValidationError
 from django.db import models
 from django.utils import timezone
@@ -139,6 +140,14 @@ class Drone(models.Model):
         STATUS_WRITTEN_OFF,
     )
 
+    ACTIVE_STATUSES = (
+        STATUS_ACTIVE,
+        STATUS_IN_MISSION,
+        STATUS_DAMAGED,
+        STATUS_LOST,
+        STATUS_MAINTENANCE,
+    )
+
     STATUS_UI = {
         STATUS_ACTIVE: {
             "label": "Active",
@@ -208,7 +217,9 @@ class Drone(models.Model):
         help_text="Drone Model",
     )
     classification = models.CharField(max_length=20, choices=CLASSIFICATION_CHOICES)
-    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="ACTIVE")
+    status = models.CharField(
+        max_length=20, choices=STATUS_CHOICES, default="ACTIVE", db_index=True
+    )
     military_unit = models.ForeignKey(
         "accounts.MilitaryUnit",
         on_delete=models.PROTECT,
@@ -255,9 +266,24 @@ class Drone(models.Model):
                     }
                 )
 
+    class Meta:
+        indexes = [
+            GinIndex(
+                fields=["serial_number"],
+                opclasses=["gin_trgm_ops"],
+                name="drone_serial_trgm_idx",
+            ),
+            GinIndex(
+                fields=["inventory_number"],
+                opclasses=["gin_trgm_ops"],
+                name="drone_invnum_trgm_idx",
+            ),
+        ]
+
     def save(self, *args, **kwargs):
         """Validate the drone before saving it."""
-        self.full_clean()
+        if not kwargs.get("update_fields"):
+            self.full_clean()
         super().save(*args, **kwargs)
 
 
@@ -579,6 +605,12 @@ class DroneStatusHistory(models.Model):
         """Show the newest drone status history entries first."""
 
         ordering = ["-created_at"]
+        indexes = [
+            models.Index(
+                fields=["drone", "-created_at"],
+                name="dsh_drone_created_idx",
+            ),
+        ]
 
     def __str__(self) -> str:
         """Return a readable status transition label."""

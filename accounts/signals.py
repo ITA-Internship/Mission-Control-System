@@ -1,3 +1,9 @@
+"""Signal receivers for user authentication events.
+
+This module listens to Django's built-in auth signals to maintain
+audit logs and track active user sessions.
+"""
+
 from django.contrib.auth import get_user_model
 from django.contrib.auth.signals import (
     user_logged_in,
@@ -14,6 +20,11 @@ User = get_user_model()
 
 @receiver(user_logged_in)
 def log_user_login(sender, request, user, **kwargs):
+    """Record a successful user login event.
+
+    Creates an AuditLog entry for the login action and ensures the user's
+    current session is tracked in the UserSession model.
+    """
     create_audit_log(
         actor=user,
         action_type=AuditLog.ActionType.LOGIN_SUCCESS,
@@ -23,9 +34,23 @@ def log_user_login(sender, request, user, **kwargs):
         request=request,
     )
 
+    from .models import UserSession
+
+    session_key = request.session.session_key
+    if session_key:
+        UserSession.objects.update_or_create(
+            user=user,
+            session_key=session_key,
+        )
+
 
 @receiver(user_login_failed)
 def log_user_login_failed(sender, credentials, request, **kwargs):
+    """Record a failed user login attempt.
+
+    Attempts to identify the target user by the provided username
+    and creates a failed AuditLog entry.
+    """
     username = credentials.get("username", "Unknown")
 
     target_user = None
@@ -47,6 +72,10 @@ def log_user_login_failed(sender, credentials, request, **kwargs):
 
 @receiver(user_logged_out)
 def log_user_logout(sender, request, user, **kwargs):
+    """Record a successful user logout event.
+
+    Creates an AuditLog entry indicating that the user has logged out.
+    """
     create_audit_log(
         actor=user,
         action_type=AuditLog.ActionType.LOGOUT,

@@ -1,3 +1,6 @@
+"""URL routing for user accounts, profile management,
+password recovery, and audit logs."""
+
 from django.urls import include, path
 from rest_framework.routers import DefaultRouter
 
@@ -7,6 +10,7 @@ from .views import (
     ChangePasswordView,
     PasswordResetConfirmView,
     PasswordResetRequestView,
+    ProtectedProfilePictureView,
     UserMeView,
     UserRegistrationView,
     UserRoleUpdateAPIView,
@@ -55,5 +59,10 @@ urlpatterns = [
         "users/<int:pk>/status/",
         UserStatusUpdateView.as_view(),
         name="user-status-update",
+    ),
+    path(
+        "users/<int:user_id>/profile-picture/",
+        ProtectedProfilePictureView.as_view(),
+        name="user-profile-picture",
     ),
 ]

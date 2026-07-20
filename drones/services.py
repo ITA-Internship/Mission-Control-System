@@ -8,12 +8,13 @@ Functions:
     import_drones_csv: Import drones from CSV with row-level validation errors.
     create_writeoff_record: Write off a drone and record status history.
 """
-
+import codecs
 import csv
 import datetime
-import io
+import os
 from decimal import Decimal
 
+from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.db import IntegrityError, transaction
 
@@ -308,7 +309,7 @@ def generate_drones_csv(queryset):
         ]
     )
 
-    for drone in queryset:
+    for drone in queryset.iterator(chunk_size=2000):
         yield writer.writerow(
             [
                 drone.id,
@@ -328,33 +329,31 @@ def generate_drones_csv(queryset):
         )
 
 
-@transaction.atomic
-def import_drones_csv(drones_csv_file, user=None):
-    """Import drone inventory records from a UTF-8 CSV file.
+CSV_IMPORT_MAX_SIZE_MB = int(os.getenv("CSV_IMPORT_MAX_SIZE_MB", "10"))
 
-    Valid rows are created while invalid rows are collected as row-level errors.
-    The current import creates placeholder technical specifications because
-    DroneSpec fields are required by the database schema.
+
+def import_drones_csv(drones_csv_file, user=None):
+    """Import drone inventory records from a UTF-8 CSV file in batches.
+
+    The import validates file-level limits and required columns, then checks
+    each row for required values, duplicate identifiers, valid dates, and
+    existing related records. Valid rows are created in batches together with
+    placeholder technical specifications and initial audit-log entries.
 
     Args:
         drones_csv_file: Uploaded CSV file object.
         user: User responsible for the import.
 
     Returns:
-        A dictionary with success status, created row count, and row errors.
+        A dictionary with the operation status, created row count, and errors.
     """
-    try:
-        decoded_file = drones_csv_file.read().decode("utf-8")
-    except UnicodeDecodeError:
-        return {
-            "success": False,
-            "error": "Read file soon. "
-            "Verify that it is a valid UTF-8 encoded text file. ",
-        }
-
-    io_string = io.StringIO(decoded_file)
-
-    reader = csv.DictReader(io_string)
+    if hasattr(drones_csv_file, "size") and drones_csv_file.size:
+        max_bytes = CSV_IMPORT_MAX_SIZE_MB * 1024 * 1024
+        if drones_csv_file.size > max_bytes:
+            return {
+                "success": False,
+                "error": f"File exceeds {CSV_IMPORT_MAX_SIZE_MB} MB limit.",
+            }
 
     required_columns = {
         "Serial Number",
@@ -365,107 +364,25 @@ def import_drones_csv(drones_csv_file, user=None):
         "Acquired At",
     }
 
-    if not reader.fieldnames or not required_columns.issubset(set(reader.fieldnames)):
-        return {
-            "success": False,
-            "error": f"Invalid file format. Required columns: "
-            f"{', '.join(required_columns)}",
-        }
+    max_rows = getattr(settings, "DRONES_IMPORT_MAX_ROWS", 10000)
+    batch_size = getattr(settings, "DRONES_IMPORT_BATCH_SIZE", 1000)
 
-    success_cnt = 0
-    errors = []
+    try:
+        decoded_file = codecs.iterdecode(drones_csv_file, "utf-8")
+        reader_iterator = csv.DictReader(decoded_file)
 
-    for row_num, row in enumerate(reader, start=2):
-        serial_number = row.get("Serial Number", "").strip()
-        inventory_number = row.get("Inventory Number", "").strip()
-        name = row.get("Name", "").strip()
-        drone_model_name = row.get("Model", "").strip()
-        military_unit_name = row.get("Military Unit", "").strip()
-        acquired_at = row.get("Acquired At", "").strip()
-
-        if not all(
-            [
-                serial_number,
-                inventory_number,
-                name,
-                drone_model_name,
-                military_unit_name,
-                acquired_at,
-            ]
+        if not reader_iterator.fieldnames or not required_columns.issubset(
+            set(reader_iterator.fieldnames)
         ):
-            errors.append(
-                {"row": row_num, "error": "Missing one or more required fields."}
-            )
-            continue
+            return {
+                "success": False,
+                "error": f"Invalid file format. Required columns: "
+                f"{', '.join(required_columns)}",
+            }
 
-        if Drone.objects.filter(serial_number=serial_number).exists():
-            errors.append(
-                {
-                    "row": row_num,
-                    "error": f"Drone with serial number "
-                    f"'{serial_number}' already exists.",
-                }
-            )
-            continue
-
-        if Drone.objects.filter(inventory_number=inventory_number).exists():
-            errors.append(
-                {
-                    "row": row_num,
-                    "error": f"Drone with inventory number "
-                    f"'{inventory_number}' already exists.",
-                }
-            )
-            continue
-
-        try:
-            datetime.datetime.strptime(acquired_at, "%Y-%m-%d")
-        except ValueError:
-            errors.append(
-                {
-                    "row": row_num,
-                    "error": f"Invalid date format for Acquired At: "
-                    f"'{acquired_at}'. Expected format: YYYY-MM-DD.",
-                }
-            )
-            continue
-
-        try:
-            military_unit = MilitaryUnit.objects.get(name=military_unit_name)
-        except MilitaryUnit.DoesNotExist:
-            errors.append(
-                {
-                    "row": row_num,
-                    "error": f"Military unit "
-                    f"'{military_unit_name}' not found in database.",
-                }
-            )
-            continue
-
-        try:
-            drone_model_obj = DroneModel.objects.get(name=drone_model_name)
-        except DroneModel.DoesNotExist:
-            errors.append(
-                {
-                    "row": row_num,
-                    "error": f"Drone model '{drone_model_name}' not found in database.",
-                }
-            )
-            continue
-
-        drone_data = {
-            "serial_number": serial_number,
-            "inventory_number": inventory_number,
-            "name": name,
-            "drone_model": drone_model_obj,
-            "classification": (
-                drone_model_obj.supported_classifications[0]
-                if drone_model_obj.supported_classifications
-                else "RECONNAISSANCE"
-            ),
-            "military_unit": military_unit,
-            "acquired_at": acquired_at,
-        }
+        success_cnt = 0
+        errors = []
+        auth_user = _get_authenticated_user(user) if user else None
 
         # TODO: CSV import cannot know the full technical specification yet, but
         # DroneSpec fields are currently NOT NULL. Make spec fields nullable or
@@ -484,21 +401,237 @@ def import_drones_csv(drones_csv_file, user=None):
             "frequency_mhz": 0,
         }
 
-        try:
-            create_drone_with_spec(drone_data, spec_data=dummy_spec_data, user=user)
-            success_cnt += 1
-        except IntegrityError:
-            errors.append(
-                {
-                    "row": row_num,
-                    "error": f"Database constraint error: "
-                    f"Drone with serial number '{serial_number}' "
-                    f"or inventory number "
-                    f"'{inventory_number}' was just created by another process.",
-                }
+        static_audit_values = {
+            k: _serialize_audit_value(v) for k, v in dummy_spec_data.items()
+        }
+
+        models_cache = {}
+        units_cache = {}
+        seen_serials = set()
+        seen_invs = set()
+
+        total_rows = 0
+        current_row_num = 2
+
+        while True:
+            chunk_rows = []
+            for _ in range(batch_size):
+                try:
+                    row = next(reader_iterator)
+                except StopIteration:
+                    break
+                total_rows += 1
+                if total_rows > max_rows:
+                    return {
+                        "success": False,
+                        "error": f"File is too large. "
+                        f"Maximum allowed is {max_rows} rows per import.",
+                    }
+                chunk_rows.append((current_row_num, row))
+                current_row_num += 1
+
+            if not chunk_rows:
+                break
+
+            chunk_serials = set()
+            chunk_invs = set()
+            chunk_models = set()
+            chunk_units = set()
+
+            for _, row in chunk_rows:
+                chunk_serials.add(row.get("Serial Number", "").strip())
+                chunk_invs.add(row.get("Inventory Number", "").strip())
+                chunk_models.add(row.get("Model", "").strip())
+                chunk_units.add(row.get("Military Unit", "").strip())
+
+            chunk_serials.discard("")
+            chunk_invs.discard("")
+            chunk_models.discard("")
+            chunk_units.discard("")
+
+            missing_models = chunk_models - set(models_cache.keys())
+            if missing_models:
+                for m in DroneModel.objects.filter(name__in=missing_models):
+                    models_cache[m.name] = m
+
+            missing_units = chunk_units - set(units_cache.keys())
+            if missing_units:
+                for u in MilitaryUnit.objects.filter(name__in=missing_units):
+                    units_cache[u.name] = u
+
+            existing_serials = set(
+                Drone.objects.filter(serial_number__in=chunk_serials).values_list(
+                    "serial_number", flat=True
+                )
             )
-        except Exception as e:
-            errors.append({"row": row_num, "error": f"Failed to create: {str(e)}"})
+            existing_invs = set(
+                Drone.objects.filter(inventory_number__in=chunk_invs).values_list(
+                    "inventory_number", flat=True
+                )
+            )
+
+            valid_drones_data = []
+
+            for row_num, row in chunk_rows:
+                serial_number = row.get("Serial Number", "").strip()
+                inventory_number = row.get("Inventory Number", "").strip()
+                name = row.get("Name", "").strip()
+                drone_model_name = row.get("Model", "").strip()
+                military_unit_name = row.get("Military Unit", "").strip()
+                acquired_at = row.get("Acquired At", "").strip()
+
+                if not all(
+                    [
+                        serial_number,
+                        inventory_number,
+                        name,
+                        drone_model_name,
+                        military_unit_name,
+                        acquired_at,
+                    ]
+                ):
+                    errors.append(
+                        {
+                            "row": row_num,
+                            "error": "Missing one or more required fields.",
+                        }
+                    )
+                    continue
+
+                if serial_number in existing_serials or serial_number in seen_serials:
+                    errors.append(
+                        {
+                            "row": row_num,
+                            "error": f"Drone with serial number "
+                            f"'{serial_number}' already exists.",
+                        }
+                    )
+                    continue
+
+                if inventory_number in existing_invs or inventory_number in seen_invs:
+                    errors.append(
+                        {
+                            "row": row_num,
+                            "error": f"Drone with inventory number "
+                            f"'{inventory_number}' already exists.",
+                        }
+                    )
+                    continue
+
+                try:
+                    datetime.datetime.strptime(acquired_at, "%Y-%m-%d")
+                except ValueError:
+                    errors.append(
+                        {
+                            "row": row_num,
+                            "error": f"Invalid date format for "
+                            f"Acquired At: '{acquired_at}'. Expected: YYYY-MM-DD.",
+                        }
+                    )
+                    continue
+
+                military_unit = units_cache.get(military_unit_name)
+                if not military_unit:
+                    errors.append(
+                        {
+                            "row": row_num,
+                            "error": f"Military unit '{military_unit_name}' not found.",
+                        }
+                    )
+                    continue
+
+                drone_model_obj = models_cache.get(drone_model_name)
+                if not drone_model_obj:
+                    errors.append(
+                        {
+                            "row": row_num,
+                            "error": f"Drone model '{drone_model_name}' not found.",
+                        }
+                    )
+                    continue
+
+                valid_drones_data.append(
+                    {
+                        "serial_number": serial_number,
+                        "inventory_number": inventory_number,
+                        "name": name,
+                        "drone_model": drone_model_obj,
+                        "classification": (
+                            drone_model_obj.supported_classifications[0]
+                            if drone_model_obj.supported_classifications
+                            else "RECONNAISSANCE"
+                        ),
+                        "military_unit": military_unit,
+                        "acquired_at": acquired_at,
+                        "row_num": row_num,
+                    }
+                )
+
+                seen_serials.add(serial_number)
+                seen_invs.add(inventory_number)
+
+            if valid_drones_data:
+                try:
+                    with transaction.atomic():
+                        drones_to_create = [
+                            Drone(**{k: v for k, v in data.items() if k != "row_num"})
+                            for data in valid_drones_data
+                        ]
+
+                        created_drones = Drone.objects.bulk_create(
+                            drones_to_create, batch_size=batch_size
+                        )
+
+                        specs_to_create = [
+                            DroneSpec(drone=d, **dummy_spec_data)
+                            for d in created_drones
+                        ]
+                        created_specs = DroneSpec.objects.bulk_create(
+                            specs_to_create, batch_size=batch_size
+                        )
+
+                        logs_to_create = [
+                            DroneSpecChangeLog(
+                                drone_spec=spec,
+                                changed_by=auth_user,
+                                changed_fields=list(dummy_spec_data.keys()),
+                                old_values={},
+                                new_values=static_audit_values,
+                            )
+                            for spec in created_specs
+                        ]
+                        DroneSpecChangeLog.objects.bulk_create(
+                            logs_to_create, batch_size=batch_size
+                        )
+
+                        success_cnt += len(valid_drones_data)
+
+                except IntegrityError as e:
+                    start_row = valid_drones_data[0]["row_num"]
+                    end_row = valid_drones_data[-1]["row_num"]
+                    errors.append(
+                        {
+                            "row": f"{start_row}-{end_row}",
+                            "error": f"Batch insert failed due to database constraint "
+                            f"(likely concurrent duplicate): {str(e)}",
+                        }
+                    )
+                except Exception as e:
+                    start_row = valid_drones_data[0]["row_num"]
+                    end_row = valid_drones_data[-1]["row_num"]
+                    errors.append(
+                        {
+                            "row": f"{start_row}-{end_row}",
+                            "error": f"Unexpected batch failure: {str(e)}",
+                        }
+                    )
+
+    except UnicodeDecodeError:
+        return {
+            "success": False,
+            "error": "Read file failed. "
+            "Verify that it is a valid UTF-8 encoded text file.",
+        }
 
     return {
         "success": True,
