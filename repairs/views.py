@@ -1,3 +1,10 @@
+"""API and HTML views for the repairs app.
+
+Provides endpoints for creating and managing defect reports, repair orders,
+component replacements, and retrieving historical timelines via REST and CSV.
+All state-mutating logic is delegated to the service layer.
+"""
+
 import csv
 
 from django.conf import settings
@@ -58,6 +65,8 @@ from .services import (
 
 @extend_schema_view(get=defect_get_schema, post=defect_post_schema)
 class DefectListCreateView(generics.ListCreateAPIView):
+    """List existing defect reports or create a new one."""
+
     serializer_class = DefectReportSerializer
     permission_classes = [RepairPermission]
     filter_backends = (
@@ -69,9 +78,11 @@ class DefectListCreateView(generics.ListCreateAPIView):
     ordering_fields = ["detected_at", "created_at", "severity"]
 
     def get_queryset(self):
+        """Return the base queryset with relations pre-selected for performance."""
         return DefectReport.objects.select_related("drone", "reporter")
 
     def get_serializer_class(self):
+        """Use a slim serializer for listing and a detailed one for creation."""
         if self.request.method == "GET":
             return DefectReportListSerializer
 
@@ -80,6 +91,8 @@ class DefectListCreateView(generics.ListCreateAPIView):
 
 @defect_detail_schema
 class DefectDetailView(generics.RetrieveAPIView):
+    """Retrieve detailed information about a specific defect report."""
+
     queryset = DefectReport.objects.select_related("drone", "reporter").all()
     serializer_class = DefectReportSerializer
     permission_classes = [RepairPermission]
@@ -87,11 +100,14 @@ class DefectDetailView(generics.RetrieveAPIView):
 
 
 class DefectHistoryView(generics.ListAPIView):
+    """List the audit history of state changes for a specific defect report."""
+
     serializer_class = RepairEventSerializer
     permission_classes = [RepairPermission]
     pagination_class = StandardResultsSetPagination
 
     def get_queryset(self):
+        """Filter repair events to the defect requested in the URL."""
         defect_id = self.kwargs.get("pk")
         return RepairEvent.objects.select_related("technician").filter(
             defect_report_id=defect_id
@@ -99,9 +115,12 @@ class DefectHistoryView(generics.ListAPIView):
 
 
 class DefectStatusUpdateView(APIView):
+    """Transition a defect report to a new status."""
+
     permission_classes = [RepairPermission]
 
     def post(self, request, pk):
+        """Apply the status transition via the service layer."""
         serializer = DefectStatusUpdateSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
@@ -120,6 +139,8 @@ class DefectStatusUpdateView(APIView):
     get=component_replacement_get_schema, post=component_replacement_post_schema
 )
 class ComponentReplacementListCreateView(generics.ListCreateAPIView):
+    """List hardware replacements or record a new one."""
+
     serializer_class = ComponentReplacementSerializer
     permission_classes = [RepairPermission]
     filter_backends = (
@@ -131,9 +152,11 @@ class ComponentReplacementListCreateView(generics.ListCreateAPIView):
     ordering_fields = ["replaced_at", "created_at", "component_type"]
 
     def get_queryset(self):
+        """Return the base queryset with relations pre-selected for performance."""
         return ComponentReplacement.objects.select_related("drone", "replaced_by")
 
     def get_serializer_class(self):
+        """Use a slim serializer for listing and a detailed one for creation."""
         if self.request.method == "GET":
             return ComponentReplacementListSerializer
 
@@ -142,6 +165,8 @@ class ComponentReplacementListCreateView(generics.ListCreateAPIView):
 
 @component_replacement_detail_schema
 class ComponentReplacementDetailView(generics.RetrieveAPIView):
+    """Retrieve detailed information about a specific component replacement."""
+
     queryset = ComponentReplacement.objects.select_related("drone", "replaced_by").all()
     serializer_class = ComponentReplacementSerializer
     permission_classes = [RepairPermission]
@@ -150,6 +175,8 @@ class ComponentReplacementDetailView(generics.RetrieveAPIView):
 
 @component_replacement_export_schema
 class ComponentReplacementExportView(generics.GenericAPIView):
+    """Stream a CSV export of filtered component replacements."""
+
     permission_classes = [RepairPermission]
     filter_backends = (DjangoFilterBackend,)
     filterset_class = ComponentReplacementFilter
@@ -158,9 +185,11 @@ class ComponentReplacementExportView(generics.GenericAPIView):
     throttle_scope = "component_replacement_export"
 
     def get_queryset(self):
+        """Return the base queryset configured for the export generator."""
         return ComponentReplacement.objects.select_related("drone", "replaced_by")
 
     def get(self, request, *args, **kwargs):
+        """Assemble and stream the CSV response chunk by chunk."""
         max_export_limit = getattr(settings, "MAX_EXPORT_LIMIT", 10000)
         queryset = self.filter_queryset(self.get_queryset())[:max_export_limit]
 
@@ -212,15 +241,20 @@ class ComponentReplacementExportView(generics.GenericAPIView):
 
 
 class DefectUIDetailView(LoginRequiredMixin, UserPassesTestMixin, DetailView):
+    """Render the HTML detail page for a specific defect report."""
+
     model = DefectReport
     template_name = "repairs/defect_detail.html"
     context_object_name = "defect"
 
     def test_func(self):
+        """Ensure the user possesses the required viewing permission."""
         return user_has_permission(self.request.user, PERMISSION_REPAIRS_VIEW)
 
 
 class RepairOrderListCreateView(generics.ListCreateAPIView):
+    """List existing repair orders or create a new one."""
+
     permission_classes = [RepairManagePermission]
     filter_backends = (DjangoFilterBackend, filters.OrderingFilter)
     filterset_class = RepairOrderFilter
@@ -228,31 +262,38 @@ class RepairOrderListCreateView(generics.ListCreateAPIView):
     ordering_fields = ["created_at", "status"]
 
     def get_queryset(self):
+        """Return the base queryset with relations pre-selected for performance."""
         return RepairOrder.objects.select_related(
             "drone", "defect_report", "assigned_to", "created_by"
         )
 
     def get_serializer_class(self):
+        """Use a slim serializer for listing and a detailed one for creation."""
         if self.request.method == "GET":
             return RepairOrderListSerializer
         return RepairOrderCreateSerializer
 
 
 class RepairOrderDetailView(generics.RetrieveAPIView):
+    """Retrieve or transition a specific repair order."""
+
     permission_classes = [RepairManagePermission]
     http_method_names = ["get", "patch", "head", "options"]
 
     def get_queryset(self):
+        """Return the base queryset for retrieval."""
         return RepairOrder.objects.select_related(
             "drone", "defect_report", "assigned_to", "created_by"
         )
 
     def get_serializer_class(self):
+        """Route to the transition serializer for PATCH requests."""
         if self.request.method == "PATCH":
             return RepairOrderStatusUpdateSerializer
         return RepairOrderSerializer
 
     def patch(self, request, *args, **kwargs):
+        """Delegate state transitions to the dedicated service method."""
         repair_order = self.get_object()
         serializer = RepairOrderStatusUpdateSerializer(
             data=request.data,
@@ -267,22 +308,29 @@ class RepairOrderDetailView(generics.RetrieveAPIView):
 
 
 class RepairOrderReplacementView(generics.CreateAPIView):
+    """Attach a new component replacement to an existing repair order."""
+
     permission_classes = [RepairManagePermission]
     serializer_class = RepairOrderReplacementSerializer
 
     def get_repair_order(self):
+        """Fetch the parent repair order from the URL kwargs."""
         return get_object_or_404(RepairOrder, pk=self.kwargs["pk"])
 
     def perform_create(self, serializer):
+        """Inject the parent order into the serializer prior to creation."""
         serializer.save(repair_order=self.get_repair_order())
 
 
 class DroneRepairHistoryView(generics.GenericAPIView):
+    """Retrieve a chronological, aggregated timeline of repair events for a drone."""
+
     permission_classes = [RepairPermission]
     serializer_class = RepairHistoryTimelineSerializer
     pagination_class = StandardResultsSetPagination
 
     def get(self, request, drone_id):
+        """Fetch, validate, and paginate the unified drone history timeline."""
         get_object_or_404(Drone, pk=drone_id)
 
         date_serializer = DateRangeSerializer(data=request.query_params)
@@ -311,9 +359,12 @@ class DroneRepairHistoryView(generics.GenericAPIView):
 
 
 class DroneRepairHistoryExportView(generics.GenericAPIView):
+    """Stream a CSV export of a drone's complete repair timeline."""
+
     permission_classes = [RepairHistoryExportPermission]
 
     def get(self, request, drone_id):
+        """Fetch the timeline and assemble the CSV streaming response."""
         drone = get_object_or_404(Drone, pk=drone_id)
 
         date_serializer = DateRangeSerializer(data=request.query_params)
@@ -345,12 +396,16 @@ class DroneRepairHistoryExportView(generics.GenericAPIView):
 
 
 class DroneRepairHistoryPageView(LoginRequiredMixin, UserPassesTestMixin, TemplateView):
+    """Render the HTML timeline page for a drone's repair history."""
+
     template_name = "repairs/history.html"
 
     def test_func(self):
+        """Ensure the user possesses the required viewing permission."""
         return user_has_permission(self.request.user, PERMISSION_REPAIRS_VIEW)
 
     def get_context_data(self, **kwargs):
+        """Assemble the drone, filter states, and timeline list for the template."""
         context = super().get_context_data(**kwargs)
         drone_id = self.kwargs["drone_id"]
         context["drone"] = get_object_or_404(Drone, pk=drone_id)

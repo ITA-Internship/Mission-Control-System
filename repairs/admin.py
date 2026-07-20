@@ -1,3 +1,9 @@
+"""Django admin configuration for the repairs app.
+
+Provides administrative interfaces for viewing, filtering, and managing
+defect reports, repair orders, and component replacements.
+"""
+
 from django.contrib import admin
 
 from .models import ComponentReplacement, DefectReport, RepairOrder
@@ -5,6 +11,8 @@ from .models import ComponentReplacement, DefectReport, RepairOrder
 
 @admin.register(DefectReport)
 class DefectReportAdmin(admin.ModelAdmin):
+    """Admin interface for managing drone defect reports."""
+
     list_display = (
         "id",
         "drone",
@@ -24,6 +32,8 @@ class DefectReportAdmin(admin.ModelAdmin):
 
 @admin.register(RepairOrder)
 class RepairOrderAdmin(admin.ModelAdmin):
+    """Admin interface for managing technician repair orders."""
+
     list_display = (
         "id",
         "drone",
@@ -43,6 +53,8 @@ class RepairOrderAdmin(admin.ModelAdmin):
 
 @admin.register(ComponentReplacement)
 class ComponentReplacementAdmin(admin.ModelAdmin):
+    """Admin interface for managing hardware component replacements."""
+
     list_display = (
         "id",
         "drone",
@@ -79,9 +91,11 @@ class ComponentReplacementAdmin(admin.ModelAdmin):
     )
 
     def save_model(self, request, obj, form, change):
+        """Automatically assign the current user as the replacer when creating."""
         if request.user.is_authenticated:
             obj.replaced_by = request.user
         super().save_model(request, obj, form, change)
 
     def has_delete_permission(self, request, obj=None):
+        """Prevent deletion of replacement records to preserve the audit trail."""
         return False
