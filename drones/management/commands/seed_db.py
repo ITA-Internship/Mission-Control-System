@@ -1,3 +1,5 @@
+"""Seed demo users, missions, drones, and repairs from project seed data."""
+
 import os
 
 from django.conf import settings
@@ -21,9 +23,12 @@ from seed_data.users import UNITS, USERS, seed_users
 
 
 class Command(BaseCommand):
+    """Seed demo data for local development and review environments."""
+
     help = "Seed database with demo data for users, missions, drones, and repairs."
 
     def add_arguments(self, parser):
+        """Register command options for clearing data and selecting a seed module."""
         parser.add_argument(
             "--clear",
             action="store_true",
@@ -41,6 +46,7 @@ class Command(BaseCommand):
 
     @transaction.atomic
     def handle(self, *args, **options):
+        """Run selected seeders and optionally clear existing seed data first."""
         if not settings.DEBUG:
             raise CommandError(
                 "seed_db is allowed only in local development when DEBUG=True."
@@ -81,6 +87,7 @@ class Command(BaseCommand):
         self.stdout.write(self.style.SUCCESS("Database seeding complete."))
 
     def _clear_seed_data(self) -> None:
+        """Remove known demo records in dependency-safe order before reseeding."""
         self.stdout.write(self.style.WARNING("Clearing existing seed data..."))
 
         mission_titles = [mission_seed.title for mission_seed in MISSIONS]
@@ -111,6 +118,7 @@ class Command(BaseCommand):
         MilitaryUnit.objects.filter(code__in=unit_codes).delete()
 
     def _format_stats(self, stats: dict[str, int]) -> str:
+        """Format seeding counters for console output."""
         return ", ".join(f"{key}={value}" for key, value in stats.items())
 
     def _resolve_seed_password(self, password_option: str | None) -> str:

@@ -1,3 +1,22 @@
+"""Serialize drone inventory, specifications, write-offs, and audit history.
+
+Classes:
+    DroneSpecChangeLogSerializer: Read-only serializer for spec audit entries.
+    DroneSpecValidationMixin: Shared JSON validation for specification fields.
+    DroneSpecSerializer: Full technical specification serializer.
+    DroneSpecDetailSerializer: Detailed technical specification serializer.
+    DroneSpecUpdateSerializer: Partial technical specification update serializer.
+    WriteOffRecordSerializer: Read-only write-off record serializer.
+    DroneStatusHistorySerializer: Status history serializer with display fields.
+    DroneSerializer: Create/detail serializer for drones and nested specs.
+    DroneUpdateSerializer: Partial update serializer with write-off transition data.
+    DroneListSerializer: Compact drone list serializer.
+    DroneModelSerializer: Drone model catalog serializer.
+    WriteOffAuditSerializer: Audit/history serializer for write-off records.
+    DroneImportSerializer: CSV upload validation serializer.
+    WriteOffRecordCreateSerializer: Serializer for creating write-off records.
+"""
+
 from django.core.exceptions import ValidationError
 from rest_framework import serializers
 from rest_framework.serializers import as_serializer_error
@@ -21,7 +40,11 @@ from .services import (
 
 
 class DroneSpecChangeLogSerializer(serializers.ModelSerializer):
+    """Serialize specification audit entries for read-only API responses."""
+
     class Meta:
+        """Configure read-only fields for specification change logs."""
+
         model = DroneSpecChangeLog
         fields = (
             "id",
@@ -35,12 +58,16 @@ class DroneSpecChangeLogSerializer(serializers.ModelSerializer):
 
 
 class DroneSpecValidationMixin:
+    """Provide shared JSON validation for drone specification serializers."""
+
     def validate_camera_specs(self, value):
+        """Validate that camera specs are submitted as a JSON object."""
         if not isinstance(value, dict):
             raise serializers.ValidationError("camera_specs must be a JSON object.")
         return value
 
     def validate_additional_modules(self, value):
+        """Validate that additional modules are submitted as a list of objects."""
         if not isinstance(value, list):
             raise serializers.ValidationError(
                 "additional_modules must be a JSON array."
@@ -56,7 +83,11 @@ class DroneSpecValidationMixin:
 
 
 class DroneSpecSerializer(DroneSpecValidationMixin, serializers.ModelSerializer):
+    """Serialize technical specifications for a drone."""
+
     class Meta:
+        """Configure fields exposed for drone specifications."""
+
         model = DroneSpec
         fields = (
             "id",
@@ -90,8 +121,11 @@ class DroneSpecSerializer(DroneSpecValidationMixin, serializers.ModelSerializer)
 
 
 class DroneSpecDetailSerializer(DroneSpecValidationMixin, serializers.ModelSerializer):
+    """Serialize technical specifications included in drone detail responses."""
 
     class Meta:
+        """Configure specification fields exposed in drone detail responses."""
+
         model = DroneSpec
         fields = (
             "id",
@@ -125,7 +159,11 @@ class DroneSpecDetailSerializer(DroneSpecValidationMixin, serializers.ModelSeria
 
 
 class DroneSpecUpdateSerializer(DroneSpecValidationMixin, serializers.ModelSerializer):
+    """Serialize partial updates to a drone technical specification."""
+
     class Meta:
+        """Configure optional DroneSpec fields accepted during partial updates."""
+
         model = DroneSpec
         exclude = ("drone",)
         read_only_fields = ("id", "updated_at")
@@ -158,10 +196,14 @@ class DroneSpecUpdateSerializer(DroneSpecValidationMixin, serializers.ModelSeria
 
 
 class WriteOffRecordSerializer(serializers.ModelSerializer):
+    """Serialize immutable write-off data attached to a drone."""
+
     related_mission_id = serializers.IntegerField(read_only=True)
     reason_label = serializers.CharField(read_only=True)
 
     class Meta:
+        """Configure read-only write-off record fields."""
+
         model = WriteOffRecord
         fields = (
             "id",
@@ -178,11 +220,19 @@ class WriteOffRecordSerializer(serializers.ModelSerializer):
 
 
 class DroneStatusHistorySerializer(serializers.ModelSerializer):
+    """Serialize drone lifecycle status history with display metadata.
+
+    Adds a readable user label and event type so clients can distinguish status
+    changes caused by missions, repairs, write-offs, or manual updates.
+    """
+
     related_mission_id = serializers.IntegerField(read_only=True)
     changed_by_display = serializers.SerializerMethodField()
     event_type = serializers.SerializerMethodField()
 
     class Meta:
+        """Configure status history fields exposed by the API."""
+
         model = DroneStatusHistory
         fields = (
             "id",
@@ -200,6 +250,7 @@ class DroneStatusHistorySerializer(serializers.ModelSerializer):
         read_only_fields = fields
 
     def get_changed_by_display(self, obj) -> str:
+        """Return a readable name for the user who changed the status."""
         user = obj.changed_by
 
         if not user:
@@ -210,6 +261,7 @@ class DroneStatusHistorySerializer(serializers.ModelSerializer):
         )
 
     def get_event_type(self, obj) -> str:
+        """Return the domain event type that caused this status history entry."""
         if obj.related_writeoff_id:
             return "writeoff"
 
@@ -223,6 +275,12 @@ class DroneStatusHistorySerializer(serializers.ModelSerializer):
 
 
 class DroneSerializer(serializers.ModelSerializer):
+    """Serialize drone create/detail data with nested technical specification.
+
+    Creation is delegated to the service layer so the drone, DroneSpec, and
+    initial DroneSpecChangeLog are created consistently in one workflow.
+    """
+
     spec = DroneSpecDetailSerializer()
     writeoff_record = WriteOffRecordSerializer(read_only=True)
     status_label = serializers.CharField(read_only=True)
@@ -230,10 +288,13 @@ class DroneSerializer(serializers.ModelSerializer):
     status_category = serializers.CharField(read_only=True)
 
     class Meta:
+        """Expose all Drone fields for create and detail responses."""
+
         model = Drone
         fields = "__all__"
 
     def create(self, validated_data):
+        """Create a drone through the service layer so initial audit logging is kept."""
         spec_data = validated_data.pop("spec")
         request = self.context.get("request")
         user = getattr(request, "user", None)
@@ -245,6 +306,7 @@ class DroneSerializer(serializers.ModelSerializer):
         )
 
     def validate(self, attrs):
+        """Validate that the selected classification is supported by the drone model."""
         drone_model = attrs.get("drone_model")
         classification = attrs.get("classification")
 
@@ -255,6 +317,12 @@ class DroneSerializer(serializers.ModelSerializer):
 
 
 class DroneUpdateSerializer(serializers.ModelSerializer):
+    """Serialize partial drone updates and inactive lifecycle transitions.
+
+    Inactive transitions require write-off metadata so the service layer can
+    create an immutable WriteOffRecord and link it to DroneStatusHistory.
+    """
+
     spec = DroneSpecUpdateSerializer(required=False)
 
     writeoff_reason = serializers.ChoiceField(
@@ -290,6 +358,8 @@ class DroneUpdateSerializer(serializers.ModelSerializer):
     )
 
     class Meta:
+        """Configure optional Drone fields and write-off inputs for partial updates."""
+
         model = Drone
         fields = (
             "serial_number",
@@ -321,8 +391,14 @@ class DroneUpdateSerializer(serializers.ModelSerializer):
         }
 
     def validate(self, attrs):
+        """
+        Validate classification compatibility and require write-off metadata for
+        inactive status transitions.
+        """
         requested_status = attrs.get("status")
 
+        # Terminal inventory states require write-off metadata before the service
+        # creates immutable audit records
         if requested_status not in Drone.INACTIVE_STATUSES:
             return attrs
 
@@ -353,12 +429,14 @@ class DroneUpdateSerializer(serializers.ModelSerializer):
         drone_model = attrs.get("drone_model")
         classification = attrs.get("classification")
 
+        # Keep serializer validation aligned with the model/service classification rule.
         if drone_model and classification:
             validate_drone_classification(drone_model, classification)
 
         return attrs
 
     def update(self, instance, validated_data):
+        """Apply drone updates through the service layer and map domain errors."""
         spec_data = validated_data.pop("spec", None)
 
         writeoff_reason = validated_data.pop("writeoff_reason", "")
@@ -374,6 +452,8 @@ class DroneUpdateSerializer(serializers.ModelSerializer):
         request = self.context.get("request")
         user = getattr(request, "user", None)
 
+        # Let the service perform the audit-sensitive update, then expose any model
+        # validation errors under the API field names used by clients.
         try:
             return update_drone(
                 drone=instance,
@@ -390,6 +470,7 @@ class DroneUpdateSerializer(serializers.ModelSerializer):
         except ValidationError as exc:
             raise serializers.ValidationError(self._map_writeoff_errors(exc))
 
+    # Map model-level write-off fields to serializer input field names.
     WRITEOFF_FIELD_MAP = {
         "reason": "writeoff_reason",
         "reason_description": "writeoff_reason_description",
@@ -397,6 +478,7 @@ class DroneUpdateSerializer(serializers.ModelSerializer):
 
     @classmethod
     def _map_writeoff_errors(cls, exc):
+        """Map WriteOffRecord validation errors to API-facing field names."""
         error_detail = as_serializer_error(exc)
 
         return {
@@ -405,15 +487,20 @@ class DroneUpdateSerializer(serializers.ModelSerializer):
         }
 
     def to_representation(self, instance):
+        """Return the full drone representation after a partial update."""
         return DroneSerializer(instance, context=self.context).data
 
 
 class DroneListSerializer(serializers.ModelSerializer):
+    """Serialize compact drone fields for list responses."""
+
     status_label = serializers.CharField(read_only=True)
     status_indicator = serializers.CharField(read_only=True)
     status_category = serializers.CharField(read_only=True)
 
     class Meta:
+        """Configure compact Drone fields exposed by list endpoints."""
+
         model = Drone
         fields = (
             "id",
@@ -432,7 +519,11 @@ class DroneListSerializer(serializers.ModelSerializer):
 
 
 class DroneModelSerializer(serializers.ModelSerializer):
+    """Serialize drone model catalog entries and supported classifications."""
+
     class Meta:
+        """Configure DroneModel fields exposed by the API."""
+
         model = DroneModel
         fields = (
             "id",
@@ -446,6 +537,7 @@ class DroneModelSerializer(serializers.ModelSerializer):
         )
 
     def validate(self, attrs):
+        """Validate that the model defines at least one known classification."""
         classifications = attrs.get("supported_classifications")
 
         if not classifications:
@@ -474,6 +566,8 @@ class DroneModelSerializer(serializers.ModelSerializer):
 
 
 class WriteOffAuditSerializer(serializers.ModelSerializer):
+    """Serialize write-off records for audit and history endpoints."""
+
     drone_id = serializers.IntegerField(source="drone.id", read_only=True)
     drone_name = serializers.CharField(source="drone.name", read_only=True)
     drone_serial_number = serializers.CharField(
@@ -490,6 +584,8 @@ class WriteOffAuditSerializer(serializers.ModelSerializer):
     related_mission_id = serializers.IntegerField(read_only=True)
 
     class Meta:
+        """Configure read-only write-off audit fields."""
+
         model = WriteOffRecord
         fields = (
             "id",
@@ -511,11 +607,14 @@ class WriteOffAuditSerializer(serializers.ModelSerializer):
 
 
 class DroneImportSerializer(serializers.Serializer):
+    """Validate uploaded files for drone CSV import."""
+
     file = serializers.FileField(
         help_text="CSV file with drone inventory data.",
     )
 
     def validate_file(self, file):
+        """Accept only files with the .csv extension for drone import."""
         if not file.name.endswith(".csv"):
             raise serializers.ValidationError(
                 "Only files with the extension .csv are allowed"
@@ -524,7 +623,15 @@ class DroneImportSerializer(serializers.Serializer):
 
 
 class WriteOffRecordCreateSerializer(serializers.ModelSerializer):
+    """Validate and create immutable drone write-off records.
+
+    A drone can be written off only once, cannot already be inactive, and when a
+    mission is supplied it must be the latest mission assigned to that drone.
+    """
+
     class Meta:
+        """Configure fields accepted when creating a write-off record."""
+
         model = WriteOffRecord
         fields = (
             "id",
@@ -538,11 +645,16 @@ class WriteOffRecordCreateSerializer(serializers.ModelSerializer):
         )
 
     def validate(self, attrs):
+        """
+        Validate drone status, write-off uniqueness, and latest-mission ownership
+        rules.
+        """
         drone = attrs.get("drone")
         related_mission = attrs.get("related_mission")
 
         if related_mission is not None:
-
+            # A mission-linked write-off must point to the drone's latest assignment,
+            # so loss/destruction is not attached to an older mission by mistake.
             mission_ids = list(
                 MissionDrone.objects.filter(drone=drone)
                 .order_by("-created_at")
@@ -596,6 +708,10 @@ class WriteOffRecordCreateSerializer(serializers.ModelSerializer):
         return attrs
 
     def create(self, validated_data):
+        """
+        Create the write-off through the service layer so status history is
+        recorded.
+        """
         user = self.context["request"].user
 
         return create_writeoff_record(user=user, **validated_data)

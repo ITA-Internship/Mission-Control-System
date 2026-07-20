@@ -1,3 +1,5 @@
+"""Define default drone model classification mappings used by seed data."""
+
 from drones.models import Drone
 
 DRONE_MODEL_CLASSIFICATIONS = {

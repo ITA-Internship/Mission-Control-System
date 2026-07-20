@@ -1,3 +1,15 @@
+"""Define drone inventory models, specifications, write-offs, and audit history.
+
+Classes:
+    DroneModel: Catalog entry that defines supported drone classifications.
+    Drone: Physical drone inventory record with lifecycle status metadata.
+    DroneSpec: Technical specification attached to one drone.
+    DroneSpecChangeLog: Audit entry for technical specification changes.
+    ImmutableWriteOffRecordQuerySet: QuerySet that blocks bulk write-off edits.
+    WriteOffRecord: Immutable record explaining why a drone left active inventory.
+    DroneStatusHistory: Audit trail entry for drone lifecycle status changes.
+"""
+
 import uuid
 
 from django.conf import settings
@@ -8,6 +20,17 @@ from django.utils import timezone
 
 
 class DroneModel(models.Model):
+    """Represent a drone model catalog entry.
+
+    A drone model defines the manufacturer, display name, description, and the
+    classifications that physical drones of this model may use. The validation logic
+    keeps model-to-classification compatibility consistent before drones are created.
+
+    Public helpers:
+        get_allowed_classifications: Return configured classification codes.
+        supports_classification: Check whether a classification is allowed.
+    """
+
     name = models.CharField(max_length=255, unique=True)
     manufacturer = models.CharField(max_length=255)
     description = models.TextField(blank=True)
@@ -21,20 +44,26 @@ class DroneModel(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
+        """Configure display names and default ordering for drone model records."""
+
         verbose_name = "Drone Model"
         verbose_name_plural = "Drone Models"
         ordering = ["name"]
 
     def __str__(self):
+        """Return the manufacturer and model name used in admin and API labels."""
         return f"{self.manufacturer} {self.name}"
 
     def get_allowed_classifications(self):
+        """Return classification codes configured for this drone model."""
         return self.supported_classifications or []
 
     def supports_classification(self, classification):
+        """Return whether this model supports the supplied classification code."""
         return classification in self.get_allowed_classifications()
 
     def clean(self):
+        """Validate that the model has at least one known drone classification."""
         super().clean()
 
         if not self.supported_classifications:
@@ -62,11 +91,23 @@ class DroneModel(models.Model):
             )
 
     def save(self, *args, **kwargs):
+        """Validate the model before saving it."""
         self.full_clean()
         super().save(*args, **kwargs)
 
 
 class Drone(models.Model):
+    """Represent one physical drone in the inventory.
+
+    Stores the drone identity, assigned model, classification, lifecycle status,
+    military unit ownership, acquisition date, and operational notes. The
+    classification must be supported by the selected DroneModel.
+
+    Important fields:
+        status: Current lifecycle state of the drone.
+        classification: Operational classification constrained by the drone model.
+        military_unit: Unit responsible for the drone.
+    """
 
     STATUS_ACTIVE = "ACTIVE"
     STATUS_IN_MISSION = "IN_MISSION"
@@ -90,6 +131,8 @@ class Drone(models.Model):
         (STATUS_WRITTEN_OFF, "Written off"),
     ]
 
+    # These statuses represent terminal inventory states and trigger
+    # decommission/write-off audit rules across serializers, services, and filters.
     INACTIVE_STATUSES = (
         STATUS_DECOMMISSIONED,
         STATUS_SOLD,
@@ -188,21 +231,26 @@ class Drone(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
 
     def __str__(self) -> str:
+        """Return a readable inventory label for this drone."""
         return f"{self.name} {self.drone_model} - {self.serial_number}"
 
     @property
     def status_label(self):
+        """Return the human-readable label for the current lifecycle status."""
         return self.STATUS_UI.get(self.status, {}).get("label", self.status)
 
     @property
     def status_indicator(self):
+        """Return the UI indicator style for the current lifecycle status."""
         return self.STATUS_UI.get(self.status, {}).get("indicator", "secondary")
 
     @property
     def status_category(self):
+        """Return the business category for the current lifecycle status."""
         return self.STATUS_UI.get(self.status, {}).get("category", "unknown")
 
     def clean(self):
+        """Validate that the selected classification is allowed by the drone model."""
         super().clean()
 
         if self.drone_model and self.classification:
@@ -233,12 +281,20 @@ class Drone(models.Model):
         ]
 
     def save(self, *args, **kwargs):
+        """Validate the drone before saving it."""
         if not kwargs.get("update_fields"):
             self.full_clean()
         super().save(*args, **kwargs)
 
 
 class DroneSpec(models.Model):
+    """Store technical specifications for one drone.
+
+    Keeps hardware, firmware, communication, range, payload, and documentation
+    metadata attached to a drone. JSON fields are validated so API responses and
+    audit logs keep predictable structures.
+    """
+
     drone = models.OneToOneField(Drone, on_delete=models.CASCADE, related_name="spec")
     frame_type = models.CharField(max_length=255)
     motor_model = models.CharField(max_length=255)
@@ -281,6 +337,7 @@ class DroneSpec(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
 
     def clean(self):
+        """Validate JSON structures used by camera specs and additional modules."""
         errors = {}
 
         if not isinstance(self.camera_specs, dict):
@@ -304,10 +361,18 @@ class DroneSpec(models.Model):
             raise ValidationError(errors)
 
     def __str__(self) -> str:
+        """Return a readable label for this drone specification."""
         return f"Specification for {self.drone}"
 
 
 class DroneSpecChangeLog(models.Model):
+    """Record an audit entry for drone specification changes.
+
+    Stores changed field names together with serialized old and new values.
+    This allows reviewers to inspect technical specification updates after they
+    were applied.
+    """
+
     drone_spec = models.ForeignKey(
         DroneSpec,
         on_delete=models.CASCADE,
@@ -326,6 +391,8 @@ class DroneSpecChangeLog(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
+        """Configure ordering and indexes for specification audit queries."""
+
         ordering = ["-created_at"]
         indexes = [
             models.Index(
@@ -343,6 +410,7 @@ class DroneSpecChangeLog(models.Model):
         ]
 
     def clean(self):
+        """Validate JSON structures stored in the specification change log."""
         errors = {}
 
         if not isinstance(self.changed_fields, list):
@@ -358,23 +426,44 @@ class DroneSpecChangeLog(models.Model):
             raise ValidationError(errors)
 
     def __str__(self) -> str:
+        """Return a readable label for this specification audit entry."""
         return f"Spec changes for {self.drone_spec.drone}"
 
 
 class ImmutableWriteOffRecordQuerySet(models.QuerySet):
+    """Block bulk mutations of immutable write-off records.
+
+    Write-off records are audit artifacts. Blocking QuerySet-level update and
+    delete operations prevents bypassing model-level immutability checks.
+    """
+
     def update(self, **kwargs):
+        """Reject bulk updates of write-off records."""
         raise ValidationError(
             "Write-off records are immutable and cannot be edited after creation."
         )
 
     def delete(self):
+        """Reject bulk deletion of write-off records."""
         raise ValidationError("Write-off records are immutable and cannot be deleted.")
 
 
 class WriteOffRecord(models.Model):
+    """Store an immutable write-off record for a drone.
+
+    A write-off explains why a drone left active inventory. Each drone can have
+    one write-off record containing the reason, optional mission context,
+    authorizing user, document number, and write-off date.
+
+    Records are append-only: after creation they cannot be changed or deleted,
+    which preserves audit integrity.
+    """
+
     objects = ImmutableWriteOffRecordQuerySet.as_manager()
 
     class Reason(models.TextChoices):
+        """Canonical reasons accepted for drone write-off records."""
+
         LOSS = "LOSS", "Loss"
         DESTRUCTION = "DESTRUCTION", "Destruction"
         DAMAGE = "DAMAGE", "Critical damage"
@@ -416,6 +505,8 @@ class WriteOffRecord(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
+        """Configure ordering and indexes for write-off audit records."""
+
         ordering = ["-created_at"]
         indexes = [
             models.Index(fields=["drone", "-created_at"]),
@@ -424,17 +515,21 @@ class WriteOffRecord(models.Model):
         ]
 
     def __str__(self) -> str:
+        """Return a readable label for this write-off record."""
         return f"Write-off record for {self.drone}"
 
     @classmethod
     def label_for(cls, reason_code):
+        """Return the display label for a write-off reason code."""
         return dict(cls.Reason.choices).get(reason_code, reason_code)
 
     @property
     def reason_label(self):
+        """Return the display label for this record's reason code."""
         return self.label_for(self.reason)
 
     def clean(self):
+        """Require a custom description when the generic Other reason is used."""
         super().clean()
 
         if self.reason == self.Reason.OTHER and not self.reason_description.strip():
@@ -447,6 +542,7 @@ class WriteOffRecord(models.Model):
             )
 
     def save(self, *args, **kwargs):
+        """Create the write-off record once and reject later edits."""
         if not self._state.adding:
             raise ValidationError(
                 "Write-off records are immutable and cannot be edited after creation."
@@ -456,10 +552,18 @@ class WriteOffRecord(models.Model):
         super().save(*args, **kwargs)
 
     def delete(self, *args, **kwargs):
+        """Reject deletion of immutable write-off records."""
         raise ValidationError("Write-off records are immutable and cannot be deleted.")
 
 
 class DroneStatusHistory(models.Model):
+    """Record one lifecycle status transition for a drone.
+
+    Links the transition to the user and optional mission, repair order, or
+    write-off record that caused it. This provides an audit trail for operational
+    status changes.
+    """
+
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     drone = models.ForeignKey(
         Drone, on_delete=models.PROTECT, related_name="status_history"
@@ -498,6 +602,8 @@ class DroneStatusHistory(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
+        """Show the newest drone status history entries first."""
+
         ordering = ["-created_at"]
         indexes = [
             models.Index(
@@ -507,4 +613,5 @@ class DroneStatusHistory(models.Model):
         ]
 
     def __str__(self) -> str:
+        """Return a readable status transition label."""
         return f"{self.drone}: {self.from_status} -> {self.to_status}"
