@@ -84,7 +84,7 @@ class DroneSpecValidationMixin:
 
 class DroneSpecSerializer(DroneSpecValidationMixin, serializers.ModelSerializer):
     """Serialize technical specifications for a drone."""
-    
+
     class Meta:
         """Configure fields exposed for drone specifications."""
 
@@ -249,7 +249,6 @@ class DroneStatusHistorySerializer(serializers.ModelSerializer):
         )
         read_only_fields = fields
 
-
     def get_changed_by_display(self, obj) -> str:
         """Return a readable name for the user who changed the status."""
         user = obj.changed_by
@@ -260,7 +259,6 @@ class DroneStatusHistorySerializer(serializers.ModelSerializer):
         return (
             getattr(user, "username", None) or getattr(user, "email", None) or str(user)
         )
-
 
     def get_event_type(self, obj) -> str:
         """Return the domain event type that caused this status history entry."""
@@ -282,6 +280,7 @@ class DroneSerializer(serializers.ModelSerializer):
     Creation is delegated to the service layer so the drone, DroneSpec, and
     initial DroneSpecChangeLog are created consistently in one workflow.
     """
+
     spec = DroneSpecDetailSerializer()
     writeoff_record = WriteOffRecordSerializer(read_only=True)
     status_label = serializers.CharField(read_only=True)

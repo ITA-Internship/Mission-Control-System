@@ -265,6 +265,7 @@ class DroneListCreateView(generics.ListCreateAPIView):
 @extend_schema_view(get=drone_detail_get_schema, patch=drone_detail_patch_schema)
 class DroneDetailView(generics.RetrieveUpdateAPIView):
     """Retrieve drone details and apply partial updates or lifecycle transitions."""
+
     permission_classes = [DronePermission]
     http_method_names = ["get", "patch", "head", "options"]
 
