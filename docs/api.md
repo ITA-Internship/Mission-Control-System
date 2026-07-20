@@ -245,7 +245,7 @@ Not Found.
 
 Export audit logs to CSV
 
-Generates and downloads a CSV file with the filtered audit logs. Supports full filtering and sorting identical to the standard list endpoint. 
+Generates and downloads a CSV file with the filtered audit logs. Supports full filtering and sorting identical to the standard list endpoint.
 
 The export is limited to a maximum of 10000 records.
 
@@ -284,10 +284,10 @@ Export rate limit exceeded.
 
 Register a new user
 
-Creates a new user. Sends an activation email to the user and creates an audit log entry. 
+Creates a new user. Sends an activation email to the user and creates an audit log entry.
 
-Validation: 
-- Image file size cannot exceed 5 MB. 
+Validation:
+- Image file size cannot exceed 5 MB.
 - Supported image file formats: .jpg, .jpeg, .png, .webp.
 
 Required permission: `PERMISSION_USERS_CREATE`.
@@ -421,9 +421,9 @@ Forbidden. User does not have permission to perform this action.
 
 Update user status
 
-Allows system administrators to activate or deactivate a user's account, creates an audit log entry. 
+Allows system administrators to activate or deactivate a user's account, creates an audit log entry.
 
-Validation: 
+Validation:
 - User cannot deactivate their own account.
 
 Required permission: `IsSystemAdmin`.
@@ -512,9 +512,9 @@ Retrieve a user's profile picture
 
 Returns the profile picture image file of the specified user, served inline. In production the file is delivered through a protected `X-Accel-Redirect` internal redirect; in debug mode the file is streamed directly.
 
-Access rules: 
-- Any authenticated user may retrieve their own profile picture. 
-- Only staff users may retrieve another user's profile picture. 
+Access rules:
+- Any authenticated user may retrieve their own profile picture.
+- Only staff users may retrieve another user's profile picture.
 - Returns 404 if the target user has no profile picture, or if the stored file is missing from the server.
 
 Required permission: `IsAuthenticated`.
@@ -563,12 +563,12 @@ Not Found
 
 Update user role
 
-Updates the role of a specific user and creates an audit log entry. 
+Updates the role of a specific user and creates an audit log entry.
 
-Validation: 
-- The role of an inactive user cannot be changed. 
-- Admin user cannot remove their own admin role. 
-- The admin role cannot be removed from the root account. 
+Validation:
+- The role of an inactive user cannot be changed.
+- Admin user cannot remove their own admin role.
+- The admin role cannot be removed from the root account.
 - The admin role cannot be removed from the last admin user.
 
 Required permission: `PERMISSION_USERS_MANAGE_ROLES`.
@@ -770,8 +770,8 @@ Update current user profile
 
 Updates the currently authenticated user's profile information and creates an audit log entry.
 
-Validation: 
-- Image file size cannot exceed 5 MB. 
+Validation:
+- Image file size cannot exceed 5 MB.
 - Supported image file formats: .jpg, .jpeg, .png, .webp.
 
 Required permission: `IsAuthenticated`.
@@ -878,8 +878,8 @@ Update current user profile
 
 Updates the currently authenticated user's profile information and creates an audit log entry.
 
-Validation: 
-- Image file size cannot exceed 5 MB. 
+Validation:
+- Image file size cannot exceed 5 MB.
 - Supported image file formats: .jpg, .jpeg, .png, .webp.
 
 Required permission: `IsAuthenticated`.
@@ -1302,9 +1302,9 @@ Forbidden. User does not have permission to perform this action.
 
 Create a new drone
 
-Creates a new drone with its technical specification. Creates an audit log entry with all spec values written down as `new_values`. 
+Creates a new drone with its technical specification. Creates an audit log entry with all spec values written down as `new_values`.
 
-Validation: 
+Validation:
 - Classification of a drone must be supported by its model.
 
 Required permission: `PERMISSION_DRONES_CREATE`.
@@ -1728,8 +1728,8 @@ Partially update a drone
 
 Updates specific fields of an existing drone record.
 
-Validation: 
-- New classification of a drone must be supported by its model. 
+Validation:
+- New classification of a drone must be supported by its model.
 - If a drone is being decommissioned, sold, transferred, or written off the reason must be provided.
 
 Required permission: `PERMISSION_DRONES_UPDATE`.
@@ -2071,7 +2071,7 @@ Not Found.
 
 Export drones data to CSV
 
-Generates and downloads a CSV file with the filtered list of drones. Supports full filtering and sorting identical to the standard list endpoint. 
+Generates and downloads a CSV file with the filtered list of drones. Supports full filtering and sorting identical to the standard list endpoint.
 
 The export is limited to a maximum of 10000 records.
 
@@ -2138,8 +2138,8 @@ Import drones data via CSV
 
 Uploads a CSV file to batch-import drone data. Processes the file record row by row, validates data and return error logs if any. Rows with existing `Serial Number`s will be skipped and reported in the API error summary.
 
-Validation: 
-- In uploaded .csv file following headers must be present: Serial Number, Inventory Number, Name, Model, Military Unit, Acquired At. 
+Validation:
+- In uploaded .csv file following headers must be present: Serial Number, Inventory Number, Name, Model, Military Unit, Acquired At.
 - `Military Unit` must exactly match the name of an existing unit in the database.
 
 Required permission: `PERMISSION_DRONES_CREATE`.
@@ -2270,9 +2270,9 @@ Forbidden. User does not have permission to perform this action.
 
 Create a new drone model
 
-Creates a new drone model in the system. 
+Creates a new drone model in the system.
 
-Validation: 
+Validation:
 - Drone model must have at least one valid supported classification.
 
 Required permission: `PERMISSION_DRONES_CREATE`.
@@ -2468,9 +2468,9 @@ Create a write-off record
 
 Creates a new immutable write-off record for a drone and records the resulting status transition in the drone status history.
 
-Validation: 
-- A drone can be written off only once; a second write-off is rejected. 
-- A drone that already has an inactive status cannot be written off. 
+Validation:
+- A drone can be written off only once; a second write-off is rejected.
+- A drone that already has an inactive status cannot be written off.
 - When a related mission is supplied, it must be the drone's latest assigned mission, and the drone must be assigned to that mission.
 
 Required permission: `PERMISSION_WRITEOFF_CREATE`.
@@ -2970,7 +2970,7 @@ Upload a video metadata record
 
 Uploads a new video file and creates its metadata record. The uploader is set to the authenticated user and the record starts in the `uploading` status while the duration is extracted asynchronously.
 
-Validation: 
+Validation:
 - The selected drone must be assigned to the selected mission.
 
 Required permission: `PERMISSION_MEDIA_UPLOAD`.
@@ -3564,10 +3564,10 @@ Create a new mission
 
 Creates a new mission. The logged-in user is automatically assigned as the creator (`created_by`).
 
-Validation: 
-- Title of the mission must be at least 3 character long. 
-- User assigned as a commander must have a Commander role. 
-- Either location or latitude and longitude must be provided. 
+Validation:
+- Title of the mission must be at least 3 character long.
+- User assigned as a commander must have a Commander role.
+- Either location or latitude and longitude must be provided.
 - Assigned drones and operators cannot already be assigned to another mission.
 
 Required permission: `IsDispatcherOrAdmin, PERMISSION_MISSIONS_CREATE`.
@@ -3770,9 +3770,9 @@ Not Found.
 
 Upload a new artifact to a mission
 
-Uploads a media file or document as an artifact for a specific mission. 
+Uploads a media file or document as an artifact for a specific mission.
 
-Validation: 
+Validation:
 - File must have one of the following formats:
 	- image: .jpg, .jpeg, .png
 	- data: .csv, .json
@@ -4174,11 +4174,11 @@ Not Found.
 
 Assign a drone and operator to a mission
 
-Deploys a specific drone and maps an operator to the given mission. Validation: 
-- User selected as a operator must have an Operator role. 
-- Assignments can only be added to planned missions. 
-- Mission must have a start time before assigning drones or operators. 
-- All assigned drones must be active. 
+Deploys a specific drone and maps an operator to the given mission. Validation:
+- User selected as a operator must have an Operator role.
+- Assignments can only be added to planned missions.
+- Mission must have a start time before assigning drones or operators.
+- All assigned drones must be active.
 - Operators and drones cannot be assigned to overlapping missions.
 
 Required permission: `IsDispatcherOrAdmin, PERMISSION_MISSIONS_ASSIGN`.
@@ -4323,9 +4323,9 @@ Not Found.
 
 Remove a drone assignment from a mission
 
-Deletes a specific drone assignment and creates an audit log entry. 
+Deletes a specific drone assignment and creates an audit log entry.
 
-Validation: 
+Validation:
 - Cannot delete assignment unless mission is planned.
 
 Required permission: `IsDispatcherOrAdmin, PERMISSION_MISSIONS_ASSIGN`.
@@ -4462,10 +4462,10 @@ Not Found.
 
 Update drone post-mission condition
 
-Updates the condition of a specific drone assigned to a mission and creates an audit log entry. 
+Updates the condition of a specific drone assigned to a mission and creates an audit log entry.
 
-Validation: 
-- Drone condition can only be recorded for missions with status `completed` or `aborted`. 
+Validation:
+- Drone condition can only be recorded for missions with status `completed` or `aborted`.
 - Condition `lost` cannot be overwritten.
 
 Required permission: `PERMISSION_MISSIONS_RECORD_CONDITION, IsAssignedOperatorOrAdmin`.
@@ -4611,11 +4611,11 @@ Not Found.
 
 Record mission outcome
 
-Partially updates the mission record to record status, result and incident notes for the mission. Creates an audit log entry. 
+Partially updates the mission record to record status, result and incident notes for the mission. Creates an audit log entry.
 
-Validation: 
-- Status can only be recorded for completed or aborted mission. 
-- Already recorded outcome cannot be overwritten. 
+Validation:
+- Status can only be recorded for completed or aborted mission.
+- Already recorded outcome cannot be overwritten.
 - If result of a mission is a failure, incident notes must be provided.
 
 Required permission: `IsAssignedOperatorOrAdmin, PERMISSION_MISSIONS_RECORD_OUTCOME`.
@@ -4822,13 +4822,13 @@ Not Found.
 
 Update mission status
 
-Updates the mission status and creates an audit log entry. 
+Updates the mission status and creates an audit log entry.
 
-Validation: 
-- Status validation restrictions: 
-	- status `PLANNED` can be updated to `ACTIVE` or `ABORTED`; 
-	- status `ACTIVE` can be updated to `COMPLETED` or `ABORTED`; 
-	- statuses `COMPLETED` or `ABORTED` cannot be updated. 
+Validation:
+- Status validation restrictions:
+	- status `PLANNED` can be updated to `ACTIVE` or `ABORTED`;
+	- status `ACTIVE` can be updated to `COMPLETED` or `ABORTED`;
+	- statuses `COMPLETED` or `ABORTED` cannot be updated.
 - Mission cannot be updated to status `ACTIVE` if it has assigned inactive drones.
 
 Required permission: `CanUpdateMissionStatus`.
@@ -4952,13 +4952,13 @@ Not Found.
 
 Update mission status
 
-Updates the mission status and creates an audit log entry. 
+Updates the mission status and creates an audit log entry.
 
-Validation: 
-- Status validation restrictions: 
-	- status `PLANNED` can be updated to `ACTIVE` or `ABORTED`; 
-	- status `ACTIVE` can be updated to `COMPLETED` or `ABORTED`; 
-	- statuses `COMPLETED` or `ABORTED` cannot be updated. 
+Validation:
+- Status validation restrictions:
+	- status `PLANNED` can be updated to `ACTIVE` or `ABORTED`;
+	- status `ACTIVE` can be updated to `COMPLETED` or `ABORTED`;
+	- statuses `COMPLETED` or `ABORTED` cannot be updated.
 - Mission cannot be updated to status `ACTIVE` if it has assigned inactive drones.
 
 Required permission: `CanUpdateMissionStatus`.
@@ -5154,9 +5154,9 @@ Forbidden. User does not have permission to perform this action.
 
 Create a new defect report
 
-Creates a new defect report. 
+Creates a new defect report.
 
-Validation: 
+Validation:
 - Description must be at least 10 character long.
 
 Required permission: `PERMISSION_REPAIRS_CREATE`.
@@ -5398,13 +5398,13 @@ Update defect report status
 
 Transitions a defect report to a new status and records a repair event documenting the change. On success, the reporter is notified by email for `IN_PROGRESS` and `FIXED` transitions.
 
-Validation: 
-- An `action_taken` comment is required to explain the change. 
-- The new status must differ from the current status. 
-- A defect can be moved to `VERIFIED` only if its current status is `FIXED`. 
+Validation:
+- An `action_taken` comment is required to explain the change.
+- The new status must differ from the current status.
+- A defect can be moved to `VERIFIED` only if its current status is `FIXED`.
 
-Additional permissions: 
-- Transitions to `IN_PROGRESS` or `FIXED` require `PERMISSION_REPAIRS_MANAGE` or `PERMISSION_REPAIRS_VERIFY`. 
+Additional permissions:
+- Transitions to `IN_PROGRESS` or `FIXED` require `PERMISSION_REPAIRS_MANAGE` or `PERMISSION_REPAIRS_VERIFY`.
 - Transitions to `VERIFIED` require `PERMISSION_REPAIRS_VERIFY`.
 
 Required permission: `PERMISSION_REPAIRS_CREATE`.
@@ -5555,7 +5555,7 @@ Retrieve drone repair history timeline
 
 Retrieves a paginated, chronological timeline that aggregates every repair-related event for a drone (defect reports, status changes, repair orders, and component replacements). Results can be filtered by date range and event type.
 
-Validation: 
+Validation:
 - `date_from` must be before or equal to `date_to`.
 
 Required permission: `PERMISSION_REPAIRS_VIEW`.
@@ -5665,7 +5665,7 @@ Export drone repair history to CSV
 
 Generates and downloads a CSV file with the drone's complete repair history timeline. Supports the same date range and event type filtering as the timeline endpoint.
 
-Validation: 
+Validation:
 - `date_from` must be before or equal to `date_to`.
 
 Required permission: `PERMISSION_REPAIRS_EXPORT`.
@@ -5816,7 +5816,7 @@ Create a repair order
 
 Creates a new repair order for a drone. The order can be standalone (routine maintenance) or linked to an existing defect report.
 
-Validation: 
+Validation:
 - Description must be at least 10 characters long.
 
 Required permission: `PERMISSION_REPAIRS_MANAGE`.
@@ -6008,7 +6008,7 @@ Update repair order status
 
 Transitions a repair order to a new status through its lifecycle state machine. Operational timestamps (`started_at`, `completed_at`) are stamped automatically as the order progresses.
 
-Validation: 
+Validation:
 - The requested transition must be allowed from the order's current status (e.g., `PENDING` cannot jump straight to `COMPLETED`).
 
 Required permission: `PERMISSION_REPAIRS_MANAGE`.
@@ -6148,10 +6148,10 @@ Add a component replacement to a repair order
 
 Records a new component replacement and links it to an existing repair order.
 
-Validation: 
-- A new serial number is required. 
-- A reason is required. 
-- `replaced_at` cannot be in the future. 
+Validation:
+- A new serial number is required.
+- A reason is required.
+- `replaced_at` cannot be in the future.
 - If the component type is `OTHER`, a component name must be provided; for known component types any supplied name is cleared.
 
 Required permission: `PERMISSION_REPAIRS_MANAGE`.
@@ -6376,9 +6376,9 @@ Forbidden. User does not have permission to perform this action.
 
 Record a component replacement
 
-Creates a new component replacement report. 
+Creates a new component replacement report.
 
-Validation: 
+Validation:
 - If component type is `OTHER`, component name must be provided.
 
 Required permission: `PERMISSION_REPAIRS_CREATE`.
@@ -6557,7 +6557,7 @@ Not Found.
 
 Export component replacement data to CSV
 
-Generates and downloads a CSV file with the filtered component replacement history.Supports full filtering identical to the standard list endpoint. 
+Generates and downloads a CSV file with the filtered component replacement history.Supports full filtering identical to the standard list endpoint.
 
 The export is limited to a maximum of 10000 records.
 
