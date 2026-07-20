@@ -3,7 +3,7 @@
 This application uses Docker, Nginx, Gunicorn, Celery, and Redis. Deployment automation is handled via GitHub Actions.
 
 ### 1. Prerequisites & Environment Checks
-Before deploying to any target environment, ensure the `.env` file is present and correctly populated. 
+Before deploying to any target environment, ensure the `.env` file is present and correctly populated.
 Run the validation script to prevent runtime failures:
 ```bash
 bash deploy/scripts/check_env.sh
