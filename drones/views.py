@@ -46,6 +46,11 @@ from .api_details import (
     drone_model_get_schema,
     drone_model_post_schema,
     drone_post_schema,
+    drone_spec_changes_get_schema,
+    drone_status_history_get_schema,
+    writeoff_history_get_schema,
+    writeoff_record_get_schema,
+    writeoff_record_post_schema,
 )
 from .filters import DroneFilter, WriteOffRecordFilter
 from .models import (
@@ -286,6 +291,7 @@ class DroneStatusHistoryPagination(StandardResultsSetPagination):
     max_page_size = 200
 
 
+@extend_schema_view(get=drone_status_history_get_schema)
 class DroneStatusHistoryListView(generics.ListAPIView):
     serializer_class = DroneStatusHistorySerializer
     permission_classes = [DronePermission]
@@ -305,6 +311,7 @@ class DroneSpecChangeLogPagination(StandardResultsSetPagination):
     max_page_size = 100
 
 
+@extend_schema_view(get=drone_spec_changes_get_schema)
 class DroneSpecChangeLogListView(generics.ListAPIView):
     serializer_class = DroneSpecChangeLogSerializer
     permission_classes = [DronePermission]
@@ -333,6 +340,7 @@ class DroneModelListCreateView(generics.ListCreateAPIView):
         return super().list(request, *args, **kwargs)
 
 
+@extend_schema_view(get=writeoff_history_get_schema)
 class WriteOffHistoryListView(generics.ListAPIView):
     """Expose read-only write-off audit records.
 
@@ -501,6 +509,7 @@ class DroneDataImportView(generics.GenericAPIView):
         )
 
 
+@extend_schema_view(get=writeoff_record_get_schema, post=writeoff_record_post_schema)
 class WriteOffRecordListCreateView(generics.ListCreateAPIView):
     """List existing write-offs or create a new immutable write-off record."""
 

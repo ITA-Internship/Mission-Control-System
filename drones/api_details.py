@@ -8,7 +8,12 @@ from drones.serializers import (
     DroneListSerializer,
     DroneModelSerializer,
     DroneSerializer,
+    DroneSpecChangeLogSerializer,
+    DroneStatusHistorySerializer,
     DroneUpdateSerializer,
+    WriteOffAuditSerializer,
+    WriteOffRecordCreateSerializer,
+    WriteOffRecordSerializer,
 )
 
 drone_example_value = {
@@ -484,4 +489,258 @@ drone_data_import_schema = description_schema(
         status.HTTP_200_OK: OpenApiResponse(description="Import processing completed."),
     },
     error_statuses=[status.HTTP_400_BAD_REQUEST, status.HTTP_403_FORBIDDEN],
+)
+
+drone_status_history_example_value = {
+    "id": 12,
+    "from_status": "ACTIVE",
+    "to_status": "IN_MISSION",
+    "changed_by": 24,
+    "changed_by_display": "oleksandr.koval",
+    "reason": "Assigned to reconnaissance sortie.",
+    "event_type": "mission",
+    "related_mission_id": 5,
+    "related_repair_order": None,
+    "related_writeoff": None,
+    "created_at": "2026-07-02T02:21:31.177903Z",
+}
+
+drone_status_history_get_schema = description_schema(
+    summary="List drone status history",
+    description=(
+        "Retrieves a paginated, read-only history of lifecycle status changes for "
+        "a specific drone, ordered from newest to oldest. Each entry exposes an "
+        "`event_type` (`mission`, `repair`, `writeoff`, or `status_change`) that "
+        "explains what caused the transition."
+    ),
+    permission_code="PERMISSION_DRONES_VIEW",
+    parameters=[
+        OpenApiParameter(
+            name="id",
+            type=int,
+            location=OpenApiParameter.PATH,
+            description="ID of the drone whose status history is being retrieved.",
+            required=True,
+        ),
+    ],
+    request=None,
+    responses={
+        status.HTTP_200_OK: OpenApiResponse(
+            response=DroneStatusHistorySerializer(many=True),
+            description="Successfully retrieved the drone status history.",
+        ),
+    },
+    error_statuses=[status.HTTP_403_FORBIDDEN, status.HTTP_404_NOT_FOUND],
+    examples=[
+        OpenApiExample(
+            name="Valid request",
+            response_only=True,
+            value=drone_status_history_example_value,
+        ),
+    ],
+)
+
+drone_spec_changes_example_value = {
+    "id": 2,
+    "changed_by": 24,
+    "changed_fields": ["firmware_version", "max_speed_kmh"],
+    "old_values": {"firmware_version": "INAV 7.0", "max_speed_kmh": "110.00"},
+    "new_values": {"firmware_version": "INAV 7.1", "max_speed_kmh": "118.50"},
+    "created_at": "2026-07-03T00:40:00.800251Z",
+}
+
+drone_spec_changes_get_schema = description_schema(
+    summary="List drone specification change history",
+    description=(
+        "Retrieves a paginated, read-only audit trail of technical specification "
+        "changes for a specific drone, ordered from newest to oldest. Each entry "
+        "records which fields changed together with their previous and new values."
+    ),
+    permission_code="PERMISSION_DRONES_VIEW",
+    parameters=[
+        OpenApiParameter(
+            name="id",
+            type=int,
+            location=OpenApiParameter.PATH,
+            description=(
+                "ID of the drone whose specification change history is retrieved."
+            ),
+            required=True,
+        ),
+    ],
+    request=None,
+    responses={
+        status.HTTP_200_OK: OpenApiResponse(
+            response=DroneSpecChangeLogSerializer(many=True),
+            description="Successfully retrieved the specification change history.",
+        ),
+    },
+    error_statuses=[status.HTTP_403_FORBIDDEN, status.HTTP_404_NOT_FOUND],
+    examples=[
+        OpenApiExample(
+            name="Valid request",
+            response_only=True,
+            value=drone_spec_changes_example_value,
+        ),
+    ],
+)
+
+writeoff_audit_example_value = {
+    "id": 3,
+    "drone_id": 29,
+    "drone_name": "Lancer 1",
+    "drone_serial_number": "FPV-ATK-24009",
+    "drone_inventory_number": "INV-ATK-009",
+    "reason": "LOSS",
+    "reason_description": "Lost during combat sortie behind enemy lines.",
+    "authorized_by": 24,
+    "authorized_by_username": "oleksandr.koval",
+    "related_mission": 5,
+    "related_mission_id": 5,
+    "document_number": "WO-2026-0009",
+    "written_off_at": "2026-07-10",
+    "created_at": "2026-07-10T14:44:49.068836Z",
+}
+
+writeoff_history_get_schema = description_schema(
+    summary="List write-off history",
+    description=(
+        "Retrieves a paginated, read-only list of drone write-off audit records, "
+        "ordered from newest to oldest. Supports filtering, search "
+        "(by drone name, serial/inventory number, reason, and document number), "
+        "and ordering.\n\n"
+        "When the request is made against the drone-scoped route "
+        "(`/api/drones/{drone_pk}/write-offs/history/`), the results are limited "
+        "to write-off records for that single drone."
+    ),
+    permission_code="PERMISSION_WRITEOFF_VIEW",
+    request=None,
+    responses={
+        status.HTTP_200_OK: OpenApiResponse(
+            response=WriteOffAuditSerializer(many=True),
+            description="Successfully retrieved the write-off history.",
+        ),
+    },
+    error_statuses=[status.HTTP_403_FORBIDDEN],
+    examples=[
+        OpenApiExample(
+            name="Valid request",
+            response_only=True,
+            value=writeoff_audit_example_value,
+        ),
+    ],
+)
+
+writeoff_record_get_schema = description_schema(
+    summary="List write-off records",
+    description=(
+        "Retrieves a paginated, read-only list of drone write-off records, "
+        "ordered by write-off date from newest to oldest."
+    ),
+    permission_code="PERMISSION_WRITEOFF_VIEW",
+    request=None,
+    responses={
+        status.HTTP_200_OK: OpenApiResponse(
+            response=WriteOffRecordSerializer(many=True),
+            description="Successfully retrieved the list of write-off records.",
+        ),
+    },
+    error_statuses=[status.HTTP_403_FORBIDDEN],
+    examples=[
+        OpenApiExample(
+            name="Valid request",
+            response_only=True,
+            value={
+                "id": 3,
+                "reason": "LOSS",
+                "reason_label": "Loss",
+                "reason_description": "Lost during combat sortie behind enemy lines.",
+                "authorized_by": 24,
+                "related_mission_id": 5,
+                "document_number": "WO-2026-0009",
+                "written_off_at": "2026-07-10",
+                "created_at": "2026-07-10T14:44:49.068836Z",
+            },
+        ),
+    ],
+)
+
+writeoff_record_post_schema = description_schema(
+    summary="Create a write-off record",
+    description=(
+        "Creates a new immutable write-off record for a drone and records the "
+        "resulting status transition in the drone status history.\n\n"
+        "Validation: \n"
+        "- A drone can be written off only once; a second write-off is rejected. \n"
+        "- A drone that already has an inactive status cannot be written off. \n"
+        "- When a related mission is supplied, it must be the drone's latest "
+        "assigned mission, and the drone must be assigned to that mission."
+    ),
+    permission_code="PERMISSION_WRITEOFF_CREATE",
+    request=WriteOffRecordCreateSerializer,
+    responses={
+        status.HTTP_201_CREATED: OpenApiResponse(
+            response=WriteOffRecordCreateSerializer,
+            description="Write-off record created successfully.",
+        ),
+        status.HTTP_400_BAD_REQUEST: OpenApiResponse(
+            description="Bad Request",
+            response=dict,
+            examples=[
+                OpenApiExample(
+                    name="Drone already written off",
+                    value={
+                        "drone": "A write-off record for this drone already exists."
+                    },
+                ),
+                OpenApiExample(
+                    name="Drone already inactive",
+                    value={
+                        "drone": (
+                            "Cannot write off a drone with inactive status "
+                            "'WRITTEN_OFF'."
+                        )
+                    },
+                ),
+                OpenApiExample(
+                    name="Mission is not the latest",
+                    value={
+                        "related_mission": (
+                            "Mission 4 is not the latest. A drone can only be "
+                            "written off based on its latest mission."
+                        )
+                    },
+                ),
+            ],
+        ),
+    },
+    error_statuses=[status.HTTP_403_FORBIDDEN],
+    examples=[
+        OpenApiExample(
+            name="Valid Request",
+            request_only=True,
+            value={
+                "drone": 29,
+                "reason": "LOSS",
+                "reason_description": "Lost during combat sortie behind enemy lines.",
+                "related_mission": 5,
+                "document_number": "WO-2026-0009",
+                "written_off_at": "2026-07-10",
+            },
+        ),
+        OpenApiExample(
+            name="Valid Request",
+            response_only=True,
+            value={
+                "id": 3,
+                "drone": 29,
+                "reason": "LOSS",
+                "reason_description": "Lost during combat sortie behind enemy lines.",
+                "related_mission": 5,
+                "document_number": "WO-2026-0009",
+                "written_off_at": "2026-07-10",
+                "created_at": "2026-07-10T14:44:49.068836Z",
+            },
+        ),
+    ],
 )

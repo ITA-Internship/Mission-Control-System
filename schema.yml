@@ -1097,6 +1097,13 @@ paths:
   /api/drones/{drone_pk}/write-offs/history/:
     get:
       operationId: drones_write_offs_history_list_2
+      description: |-
+        Retrieves a paginated, read-only list of drone write-off audit records, ordered from newest to oldest. Supports filtering, search (by drone name, serial/inventory number, reason, and document number), and ordering.
+
+        When the request is made against the drone-scoped route (`/api/drones/{drone_pk}/write-offs/history/`), the results are limited to write-off records for that single drone.
+
+        Required permission: `PERMISSION_WRITEOFF_VIEW`.
+      summary: List write-off history
       parameters:
       - in: query
         name: authorized_by
@@ -1176,7 +1183,31 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/PaginatedWriteOffAuditList'
-          description: ''
+              examples:
+                ValidRequest:
+                  value:
+                    count: 123
+                    next: http://api.example.org/accounts/?page=4
+                    previous: http://api.example.org/accounts/?page=2
+                    results:
+                    - id: 3
+                      drone_id: 29
+                      drone_name: Lancer 1
+                      drone_serial_number: FPV-ATK-24009
+                      drone_inventory_number: INV-ATK-009
+                      reason: LOSS
+                      reason_description: Lost during combat sortie behind enemy lines.
+                      authorized_by: 24
+                      authorized_by_username: oleksandr.koval
+                      related_mission: 5
+                      related_mission_id: 5
+                      document_number: WO-2026-0009
+                      written_off_at: '2026-07-10'
+                      created_at: '2026-07-10T14:44:49.068836Z'
+                  summary: Valid request
+          description: Successfully retrieved the write-off history.
+        '403':
+          description: Forbidden. User does not have permission to perform this action.
   /api/drones/{id}/:
     get:
       operationId: drones_retrieve
@@ -1374,11 +1405,17 @@ paths:
   /api/drones/{id}/history/:
     get:
       operationId: drones_history_list
+      description: |-
+        Retrieves a paginated, read-only history of lifecycle status changes for a specific drone, ordered from newest to oldest. Each entry exposes an `event_type` (`mission`, `repair`, `writeoff`, or `status_change`) that explains what caused the transition.
+
+        Required permission: `PERMISSION_DRONES_VIEW`.
+      summary: List drone status history
       parameters:
       - in: path
         name: id
         schema:
           type: integer
+        description: ID of the drone whose status history is being retrieved.
         required: true
       - name: page
         required: false
@@ -1403,15 +1440,44 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/PaginatedDroneStatusHistoryList'
-          description: ''
+              examples:
+                ValidRequest:
+                  value:
+                    count: 123
+                    next: http://api.example.org/accounts/?page=4
+                    previous: http://api.example.org/accounts/?page=2
+                    results:
+                    - id: 12
+                      from_status: ACTIVE
+                      to_status: IN_MISSION
+                      changed_by: 24
+                      changed_by_display: oleksandr.koval
+                      reason: Assigned to reconnaissance sortie.
+                      event_type: mission
+                      related_mission_id: 5
+                      related_repair_order: null
+                      related_writeoff: null
+                      created_at: '2026-07-02T02:21:31.177903Z'
+                  summary: Valid request
+          description: Successfully retrieved the drone status history.
+        '403':
+          description: Forbidden. User does not have permission to perform this action.
+        '404':
+          description: Not Found.
   /api/drones/{id}/spec-changes/:
     get:
       operationId: drones_spec_changes_list
+      description: |-
+        Retrieves a paginated, read-only audit trail of technical specification changes for a specific drone, ordered from newest to oldest. Each entry records which fields changed together with their previous and new values.
+
+        Required permission: `PERMISSION_DRONES_VIEW`.
+      summary: List drone specification change history
       parameters:
       - in: path
         name: id
         schema:
           type: integer
+        description: ID of the drone whose specification change history is retrieved.
         required: true
       - name: page
         required: false
@@ -1436,7 +1502,31 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/PaginatedDroneSpecChangeLogList'
-          description: ''
+              examples:
+                ValidRequest:
+                  value:
+                    count: 123
+                    next: http://api.example.org/accounts/?page=4
+                    previous: http://api.example.org/accounts/?page=2
+                    results:
+                    - id: 2
+                      changed_by: 24
+                      changed_fields:
+                      - firmware_version
+                      - max_speed_kmh
+                      old_values:
+                        firmware_version: INAV 7.0
+                        max_speed_kmh: '110.00'
+                      new_values:
+                        firmware_version: INAV 7.1
+                        max_speed_kmh: '118.50'
+                      created_at: '2026-07-03T00:40:00.800251Z'
+                  summary: Valid request
+          description: Successfully retrieved the specification change history.
+        '403':
+          description: Forbidden. User does not have permission to perform this action.
+        '404':
+          description: Not Found.
   /api/drones/export/:
     get:
       operationId: drones_export_list
@@ -1762,6 +1852,11 @@ paths:
   /api/drones/write-offs/:
     get:
       operationId: drones_write_offs_list
+      description: |-
+        Retrieves a paginated, read-only list of drone write-off records, ordered by write-off date from newest to oldest.
+
+        Required permission: `PERMISSION_WRITEOFF_VIEW`.
+      summary: List write-off records
       tags:
       - drones
       security:
@@ -1775,9 +1870,32 @@ paths:
                 type: array
                 items:
                   $ref: '#/components/schemas/WriteOffRecord'
-          description: ''
+              examples:
+                ValidRequest:
+                  value:
+                  - id: 3
+                    reason: LOSS
+                    reason_label: Loss
+                    reason_description: Lost during combat sortie behind enemy lines.
+                    authorized_by: 24
+                    related_mission_id: 5
+                    document_number: WO-2026-0009
+                    written_off_at: '2026-07-10'
+                    created_at: '2026-07-10T14:44:49.068836Z'
+                  summary: Valid request
+          description: Successfully retrieved the list of write-off records.
+        '403':
+          description: Forbidden. User does not have permission to perform this action.
     post:
       operationId: drones_write_offs_create
+      description: "Creates a new immutable write-off record for a drone and records
+        the resulting status transition in the drone status history.\n\nValidation:
+        \n- A drone can be written off only once; a second write-off is rejected.
+        \n- A drone that already has an inactive status cannot be written off. \n-
+        When a related mission is supplied, it must be the drone's latest assigned
+        mission, and the drone must be assigned to that mission.\n\nRequired permission:
+        `PERMISSION_WRITEOFF_CREATE`."
+      summary: Create a write-off record
       tags:
       - drones
       requestBody:
@@ -1785,6 +1903,16 @@ paths:
           application/json:
             schema:
               $ref: '#/components/schemas/WriteOffRecordCreate'
+            examples:
+              ValidRequest:
+                value:
+                  drone: 29
+                  reason: LOSS
+                  reason_description: Lost during combat sortie behind enemy lines.
+                  related_mission: 5
+                  document_number: WO-2026-0009
+                  written_off_at: '2026-07-10'
+                summary: Valid Request
           application/x-www-form-urlencoded:
             schema:
               $ref: '#/components/schemas/WriteOffRecordCreate'
@@ -1801,10 +1929,52 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/WriteOffRecordCreate'
-          description: ''
+              examples:
+                ValidRequest:
+                  value:
+                    id: 3
+                    drone: 29
+                    reason: LOSS
+                    reason_description: Lost during combat sortie behind enemy lines.
+                    related_mission: 5
+                    document_number: WO-2026-0009
+                    written_off_at: '2026-07-10'
+                    created_at: '2026-07-10T14:44:49.068836Z'
+                  summary: Valid Request
+          description: Write-off record created successfully.
+        '400':
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+              examples:
+                DroneAlreadyWrittenOff:
+                  value:
+                    drone: A write-off record for this drone already exists.
+                  summary: Drone already written off
+                DroneAlreadyInactive:
+                  value:
+                    drone: Cannot write off a drone with inactive status 'WRITTEN_OFF'.
+                  summary: Drone already inactive
+                MissionIsNotTheLatest:
+                  value:
+                    related_mission: Mission 4 is not the latest. A drone can only
+                      be written off based on its latest mission.
+                  summary: Mission is not the latest
+          description: Bad Request
+        '403':
+          description: Forbidden. User does not have permission to perform this action.
   /api/drones/write-offs/history/:
     get:
       operationId: drones_write_offs_history_list
+      description: |-
+        Retrieves a paginated, read-only list of drone write-off audit records, ordered from newest to oldest. Supports filtering, search (by drone name, serial/inventory number, reason, and document number), and ordering.
+
+        When the request is made against the drone-scoped route (`/api/drones/{drone_pk}/write-offs/history/`), the results are limited to write-off records for that single drone.
+
+        Required permission: `PERMISSION_WRITEOFF_VIEW`.
+      summary: List write-off history
       parameters:
       - in: query
         name: authorized_by
@@ -1879,33 +2049,60 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/PaginatedWriteOffAuditList'
-          description: ''
+              examples:
+                ValidRequest:
+                  value:
+                    count: 123
+                    next: http://api.example.org/accounts/?page=4
+                    previous: http://api.example.org/accounts/?page=2
+                    results:
+                    - id: 3
+                      drone_id: 29
+                      drone_name: Lancer 1
+                      drone_serial_number: FPV-ATK-24009
+                      drone_inventory_number: INV-ATK-009
+                      reason: LOSS
+                      reason_description: Lost during combat sortie behind enemy lines.
+                      authorized_by: 24
+                      authorized_by_username: oleksandr.koval
+                      related_mission: 5
+                      related_mission_id: 5
+                      document_number: WO-2026-0009
+                      written_off_at: '2026-07-10'
+                      created_at: '2026-07-10T14:44:49.068836Z'
+                  summary: Valid request
+          description: Successfully retrieved the write-off history.
+        '403':
+          description: Forbidden. User does not have permission to perform this action.
   /api/media/audit-logs/:
     get:
       operationId: media_audit_logs_list
+      description: |-
+        Retrieves a paginated, read-only list of media audit log entries, recording view, upload, update, and delete actions on media records. Supports filtering by action, user, mission, artifact, and creation date range.
+
+        Required permission: `PERMISSION_MEDIA_VIEW_LOGS`.
+      summary: List media audit logs
       parameters:
       - in: query
         name: action
         schema:
           type: string
-          enum:
-          - delete
-          - update
-          - upload
-          - view
+        description: Filter by action type (`view`, `upload`, `update`, `delete`).
       - in: query
         name: artifact
         schema:
           type: integer
+        description: Filter by the related artifact ID.
       - in: query
         name: end_date
         schema:
           type: string
-          format: date-time
+        description: Optional ISO 8601 upper bound for the creation timestamp.
       - in: query
         name: mission
         schema:
           type: integer
+        description: Filter by the related mission ID.
       - name: page
         required: false
         in: query
@@ -1922,11 +2119,12 @@ paths:
         name: start_date
         schema:
           type: string
-          format: date-time
+        description: Optional ISO 8601 lower bound for the creation timestamp.
       - in: query
         name: user
         schema:
           type: integer
+        description: Filter by the ID of the acting user.
       tags:
       - media
       security:
@@ -1938,16 +2136,42 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/PaginatedMediaAuditLogList'
-          description: ''
+              examples:
+                ValidRequest:
+                  value:
+                    count: 123
+                    next: http://api.example.org/accounts/?page=4
+                    previous: http://api.example.org/accounts/?page=2
+                    results:
+                    - id: 5
+                      action: view
+                      artifact: 1
+                      mission: 11
+                      user:
+                        id: 24
+                        username: oleksandr.koval
+                        email: oleksandr.koval@example.com
+                      changes: {}
+                      ip_address: 127.0.0.1
+                      created_at: '2026-07-02T02:28:43.353809Z'
+                  summary: Valid request
+          description: Successfully retrieved the list of media audit logs.
+        '403':
+          description: Forbidden. User does not have permission to perform this action.
   /api/media/audit-logs/{id}/:
     get:
       operationId: media_audit_logs_retrieve
+      description: |-
+        Retrieves detailed information about a specific media audit log entry by its ID.
+
+        Required permission: `PERMISSION_MEDIA_VIEW_LOGS`.
+      summary: Retrieve a media audit log
       parameters:
       - in: path
         name: id
         schema:
           type: integer
-        description: A unique integer value identifying this media audit log.
+        description: ID of the media audit log entry.
         required: true
       tags:
       - media
@@ -1960,11 +2184,55 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/MediaAuditLog'
-          description: ''
+              examples:
+                ValidRequest:
+                  value:
+                    id: 5
+                    action: view
+                    artifact: 1
+                    mission: 11
+                    user:
+                      id: 24
+                      username: oleksandr.koval
+                      email: oleksandr.koval@example.com
+                    changes: {}
+                    ip_address: 127.0.0.1
+                    created_at: '2026-07-02T02:28:43.353809Z'
+                  summary: Valid request
+          description: Media audit log details successfully retrieved.
+        '403':
+          description: Forbidden. User does not have permission to perform this action.
+        '404':
+          description: Not Found.
   /api/media/videos/:
     get:
       operationId: media_videos_list
+      description: |-
+        Retrieves a paginated list of video metadata records. Supports filtering by mission, drone, uploader, status, and creation/recording date ranges.
+
+        Required permission: `PERMISSION_MEDIA_VIEW`.
+      summary: List video metadata records
       parameters:
+      - in: query
+        name: created_after
+        schema:
+          type: string
+        description: Filter by creation date lower bound (format YYYY-MM-DD).
+      - in: query
+        name: created_before
+        schema:
+          type: string
+        description: Filter by creation date upper bound (format YYYY-MM-DD).
+      - in: query
+        name: drone_id
+        schema:
+          type: integer
+        description: 'Filter by drone ID (alias: `drone`).'
+      - in: query
+        name: mission_id
+        schema:
+          type: integer
+        description: 'Filter by mission ID (alias: `mission`).'
       - name: page
         required: false
         in: query
@@ -1977,6 +2245,26 @@ paths:
         description: Number of results to return per page.
         schema:
           type: integer
+      - in: query
+        name: recorded_after
+        schema:
+          type: string
+        description: Filter by recording date lower bound (format YYYY-MM-DD).
+      - in: query
+        name: recorded_before
+        schema:
+          type: string
+        description: Filter by recording date upper bound (format YYYY-MM-DD).
+      - in: query
+        name: status
+        schema:
+          type: string
+        description: Filter by status (`uploading`, `ready`, `failed`).
+      - in: query
+        name: uploader_id
+        schema:
+          type: integer
+        description: 'Filter by uploader user ID (alias: `uploader`).'
       tags:
       - media
       security:
@@ -1988,9 +2276,57 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/PaginatedVideoMetadataList'
-          description: ''
+              examples:
+                ValidRequest:
+                  value:
+                    count: 123
+                    next: http://api.example.org/accounts/?page=4
+                    previous: http://api.example.org/accounts/?page=2
+                    results:
+                    - id: 3
+                      mission: 11
+                      drone: 21
+                      uploader: 24
+                      uploader_username: oleksandr.koval
+                      file: http://localhost:8000/media/videos/mission_11/recon.mp4
+                      file_name: recon.mp4
+                      file_size: 20984320
+                      content_type: video/mp4
+                      status: ready
+                      checksum: 9f2c1a4b8e5d6f70a1b2c3d4e5f60718
+                      duration_seconds: 132
+                      recorded_at: '2026-06-02T02:28:43Z'
+                      created_at: '2026-07-02T02:28:43.353809Z'
+                      updated_at: '2026-07-02T02:28:43.353809Z'
+                      url: http://localhost:8000/media/videos/mission_11/recon.mp4
+                  summary: Valid request
+          description: Successfully retrieved the list of video metadata records.
+        '400':
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+              examples:
+                InvalidFilterValue:
+                  value:
+                    mission_id: Must be an integer.
+                  summary: Invalid filter value
+                InvalidDateFormat:
+                  value:
+                    created_after: Expected format YYYY-MM-DD.
+                  summary: Invalid date format
+          description: Bad Request
+        '403':
+          description: Forbidden. User does not have permission to perform this action.
     post:
       operationId: media_videos_create
+      description: "Uploads a new video file and creates its metadata record. The
+        uploader is set to the authenticated user and the record starts in the `uploading`
+        status while the duration is extracted asynchronously.\n\nValidation: \n-
+        The selected drone must be assigned to the selected mission.\n\nRequired permission:
+        `PERMISSION_MEDIA_UPLOAD`."
+      summary: Upload a video metadata record
       tags:
       - media
       requestBody:
@@ -2004,6 +2340,15 @@ paths:
           application/json:
             schema:
               $ref: '#/components/schemas/VideoUpload'
+            examples:
+              ValidRequest:
+                value:
+                  mission: 11
+                  drone: 21
+                  file: recon.mp4
+                  recorded_at: '2026-06-02T02:28:43Z'
+                  checksum: 9f2c1a4b8e5d6f70a1b2c3d4e5f60718
+                summary: Valid Request
         required: true
       security:
       - cookieAuth: []
@@ -2014,16 +2359,45 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/VideoUpload'
-          description: ''
+              examples:
+                ValidRequest:
+                  value:
+                    id: 3
+                    mission: 11
+                    drone: 21
+                    file: http://localhost:8000/media/videos/mission_11/recon.mp4
+                    recorded_at: '2026-06-02T02:28:43Z'
+                    checksum: 9f2c1a4b8e5d6f70a1b2c3d4e5f60718
+                  summary: Valid Request
+          description: Video metadata record created successfully.
+        '400':
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+              examples:
+                DroneNotAssignedToMission:
+                  value:
+                    drone: Drone must be assigned to the selected mission.
+                  summary: Drone not assigned to mission
+          description: Bad Request
+        '403':
+          description: Forbidden. User does not have permission to perform this action.
   /api/media/videos/{id}/:
     get:
       operationId: media_videos_retrieve
+      description: |-
+        Retrieves detailed information about a specific video metadata record by its ID.
+
+        Required permission: `PERMISSION_MEDIA_VIEW`.
+      summary: Retrieve a video metadata record
       parameters:
       - in: path
         name: id
         schema:
           type: integer
-        description: A unique integer value identifying this video metadata.
+        description: ID of the video metadata record.
         required: true
       tags:
       - media
@@ -2036,15 +2410,44 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/VideoMetadata'
-          description: ''
+              examples:
+                ValidRequest:
+                  value:
+                    id: 3
+                    mission: 11
+                    drone: 21
+                    uploader: 24
+                    uploader_username: oleksandr.koval
+                    file: http://localhost:8000/media/videos/mission_11/recon.mp4
+                    file_name: recon.mp4
+                    file_size: 20984320
+                    content_type: video/mp4
+                    status: ready
+                    checksum: 9f2c1a4b8e5d6f70a1b2c3d4e5f60718
+                    duration_seconds: 132
+                    recorded_at: '2026-06-02T02:28:43Z'
+                    created_at: '2026-07-02T02:28:43.353809Z'
+                    updated_at: '2026-07-02T02:28:43.353809Z'
+                    url: http://localhost:8000/media/videos/mission_11/recon.mp4
+                  summary: Valid request
+          description: Video metadata details successfully retrieved.
+        '403':
+          description: Forbidden. User does not have permission to perform this action.
+        '404':
+          description: Not Found.
     put:
       operationId: media_videos_update
+      description: |-
+        Fully updates the writable fields (mission, drone, recorded date, and checksum) of a video metadata record. File contents and system-managed fields such as status and duration cannot be changed through this endpoint.
+
+        Required permission: `PERMISSION_MEDIA_DELETE`.
+      summary: Update a video metadata record
       parameters:
       - in: path
         name: id
         schema:
           type: integer
-        description: A unique integer value identifying this video metadata.
+        description: ID of the video metadata record to update.
         required: true
       tags:
       - media
@@ -2059,6 +2462,14 @@ paths:
           application/json:
             schema:
               $ref: '#/components/schemas/VideoMetadata'
+            examples:
+              ValidRequest:
+                value:
+                  mission: 11
+                  drone: 21
+                  recorded_at: '2026-06-02T02:28:43Z'
+                  checksum: 9f2c1a4b8e5d6f70a1b2c3d4e5f60718
+                summary: Valid Request
         required: true
       security:
       - cookieAuth: []
@@ -2069,15 +2480,46 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/VideoMetadata'
-          description: ''
+              examples:
+                ValidRequest:
+                  value:
+                    id: 3
+                    mission: 11
+                    drone: 21
+                    uploader: 24
+                    uploader_username: oleksandr.koval
+                    file: http://localhost:8000/media/videos/mission_11/recon.mp4
+                    file_name: recon.mp4
+                    file_size: 20984320
+                    content_type: video/mp4
+                    status: ready
+                    checksum: 9f2c1a4b8e5d6f70a1b2c3d4e5f60718
+                    duration_seconds: 132
+                    recorded_at: '2026-06-02T02:28:43Z'
+                    created_at: '2026-07-02T02:28:43.353809Z'
+                    updated_at: '2026-07-02T02:28:43.353809Z'
+                    url: http://localhost:8000/media/videos/mission_11/recon.mp4
+                  summary: Valid Request
+          description: Video metadata record updated successfully.
+        '400':
+          description: Bad Request. Provided payload contains validation errors.
+        '403':
+          description: Forbidden. User does not have permission to perform this action.
+        '404':
+          description: Not Found.
     patch:
       operationId: media_videos_partial_update
+      description: |-
+        Updates one or more writable fields (mission, drone, recorded date, or checksum) of a video metadata record. File contents and system-managed fields such as status and duration cannot be changed through this endpoint.
+
+        Required permission: `PERMISSION_MEDIA_DELETE`.
+      summary: Partially update a video metadata record
       parameters:
       - in: path
         name: id
         schema:
           type: integer
-        description: A unique integer value identifying this video metadata.
+        description: ID of the video metadata record to update.
         required: true
       tags:
       - media
@@ -2092,6 +2534,11 @@ paths:
           application/json:
             schema:
               $ref: '#/components/schemas/PatchedVideoMetadata'
+            examples:
+              ValidRequest:
+                value:
+                  recorded_at: '2026-06-02T02:28:43Z'
+                summary: Valid Request
       security:
       - cookieAuth: []
       - basicAuth: []
@@ -2101,15 +2548,46 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/VideoMetadata'
-          description: ''
+              examples:
+                ValidRequest:
+                  value:
+                    id: 3
+                    mission: 11
+                    drone: 21
+                    uploader: 24
+                    uploader_username: oleksandr.koval
+                    file: http://localhost:8000/media/videos/mission_11/recon.mp4
+                    file_name: recon.mp4
+                    file_size: 20984320
+                    content_type: video/mp4
+                    status: ready
+                    checksum: 9f2c1a4b8e5d6f70a1b2c3d4e5f60718
+                    duration_seconds: 132
+                    recorded_at: '2026-06-02T02:28:43Z'
+                    created_at: '2026-07-02T02:28:43.353809Z'
+                    updated_at: '2026-07-02T02:28:43.353809Z'
+                    url: http://localhost:8000/media/videos/mission_11/recon.mp4
+                  summary: Valid Request
+          description: Video metadata record updated successfully.
+        '400':
+          description: Bad Request. Provided payload contains validation errors.
+        '403':
+          description: Forbidden. User does not have permission to perform this action.
+        '404':
+          description: Not Found.
     delete:
       operationId: media_videos_destroy
+      description: |-
+        Deletes a specific video metadata record by its ID.
+
+        Required permission: `PERMISSION_MEDIA_DELETE`.
+      summary: Delete a video metadata record
       parameters:
       - in: path
         name: id
         schema:
           type: integer
-        description: A unique integer value identifying this video metadata.
+        description: ID of the video metadata record to delete.
         required: true
       tags:
       - media
@@ -2118,7 +2596,23 @@ paths:
       - basicAuth: []
       responses:
         '204':
-          description: No response body
+          description: Video metadata record successfully deleted. No content.
+        '400':
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+              examples:
+                ProtectedByDependencies:
+                  value:
+                    detail: Cannot delete this record because it is protected by dependencies.
+                  summary: Protected by dependencies
+          description: Bad Request
+        '403':
+          description: Forbidden. User does not have permission to perform this action.
+        '404':
+          description: Not Found.
   /api/missions/:
     get:
       operationId: missions_list
@@ -2514,25 +3008,44 @@ paths:
   /api/missions/{mission_pk}/artifacts/{artifact_pk}/download/:
     get:
       operationId: missions_artifacts_download_retrieve
+      description: |-
+        Returns the binary file for a mission artifact as an attachment. In production the file is delivered through a protected `X-Accel-Redirect` internal redirect; in debug mode the file is streamed directly. Access is restricted to administrators, the uploader, or users belonging to the artifact mission's unit.
+
+        Returns 404 if the artifact does not exist or the stored file is missing from the server.
+
+        Required permission: `PERMISSION_MEDIA_VIEW`.
+      summary: Download a mission artifact file
       parameters:
       - in: path
         name: artifact_pk
         schema:
           type: integer
+        description: ID of the artifact to download.
         required: true
       - in: path
         name: mission_pk
         schema:
           type: integer
+        description: ID of the mission.
         required: true
       tags:
-      - missions
+      - media
       security:
       - cookieAuth: []
       - basicAuth: []
       responses:
         '200':
-          description: No response body
+          content:
+            application/json:
+              schema:
+                type: string
+                format: binary
+          description: The artifact file is returned as an attachment with the appropriate
+            content type.
+        '403':
+          description: Forbidden. User does not have permission to perform this action.
+        '404':
+          description: Not Found.
   /api/missions/{mission_pk}/assignments/:
     get:
       operationId: missions_assignments_list
@@ -3322,11 +3835,17 @@ paths:
   /api/repairs/defects/{id}/history/:
     get:
       operationId: repairs_defects_history_list
+      description: |-
+        Retrieves a paginated, read-only audit trail of status transition events for a specific defect report, showing how the defect moved through the repair workflow over time.
+
+        Required permission: `PERMISSION_REPAIRS_VIEW`.
+      summary: List defect status history
       parameters:
       - in: path
         name: id
         schema:
           type: integer
+        description: ID of the defect report whose history is being retrieved.
         required: true
       - name: page
         required: false
@@ -3351,33 +3870,142 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/PaginatedRepairEventList'
-          description: ''
+              examples:
+                ValidRequest:
+                  value:
+                    count: 123
+                    next: http://api.example.org/accounts/?page=4
+                    previous: http://api.example.org/accounts/?page=2
+                    results:
+                    - id: 7
+                      from_status: REPORTED
+                      to_status: IN_PROGRESS
+                      action_taken: Started diagnostics on the camera gimbal wiring.
+                      technician: 24
+                      created_at: '2026-07-03T05:20:11.884120Z'
+                  summary: Valid request
+          description: Successfully retrieved the defect status history.
+        '403':
+          description: Forbidden. User does not have permission to perform this action.
   /api/repairs/defects/{id}/update-status/:
     post:
       operationId: repairs_defects_update_status_create
+      description: "Transitions a defect report to a new status and records a repair
+        event documenting the change. On success, the reporter is notified by email
+        for `IN_PROGRESS` and `FIXED` transitions.\n\nValidation: \n- An `action_taken`
+        comment is required to explain the change. \n- The new status must differ
+        from the current status. \n- A defect can be moved to `VERIFIED` only if its
+        current status is `FIXED`. \n\nAdditional permissions: \n- Transitions to
+        `IN_PROGRESS` or `FIXED` require `PERMISSION_REPAIRS_MANAGE` or `PERMISSION_REPAIRS_VERIFY`.
+        \n- Transitions to `VERIFIED` require `PERMISSION_REPAIRS_VERIFY`.\n\nRequired
+        permission: `PERMISSION_REPAIRS_CREATE`."
+      summary: Update defect report status
       parameters:
       - in: path
         name: id
         schema:
           type: integer
+        description: ID of the defect report whose status is being updated.
         required: true
       tags:
       - repairs
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DefectStatusUpdate'
+            examples:
+              ValidRequest:
+                value:
+                  status: IN_PROGRESS
+                  action_taken: Started diagnostics on the camera gimbal wiring.
+                summary: Valid Request
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/DefectStatusUpdate'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/DefectStatusUpdate'
+        required: true
       security:
       - cookieAuth: []
       - basicAuth: []
       responses:
         '200':
-          description: No response body
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RepairEvent'
+              examples:
+                ValidRequest:
+                  value:
+                    id: 7
+                    from_status: REPORTED
+                    to_status: IN_PROGRESS
+                    action_taken: Started diagnostics on the camera gimbal wiring.
+                    technician: 24
+                    created_at: '2026-07-03T05:20:11.884120Z'
+                  summary: Valid Request
+          description: Status updated successfully; the repair event is returned.
+        '400':
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+              examples:
+                MissingActionComment:
+                  value:
+                    action_taken: This field may not be blank.
+                  summary: Missing action comment
+                DefectAlreadyInStatus:
+                  value:
+                    status: The defect is already in this status.
+                  summary: Defect already in status
+                InvalidVerifyTransition:
+                  value:
+                    status: A defect can only be verified if its current status is
+                      FIXED.
+                  summary: Invalid verify transition
+                DefectNotFound:
+                  value:
+                    detail: Defect report not found.
+                  summary: Defect not found
+          description: Bad Request
+        '403':
+          description: Forbidden. User does not have permission to perform this action.
   /api/repairs/drones/{drone_id}/history/:
     get:
       operationId: repairs_drones_history_retrieve
+      description: "Retrieves a paginated, chronological timeline that aggregates
+        every repair-related event for a drone (defect reports, status changes, repair
+        orders, and component replacements). Results can be filtered by date range
+        and event type.\n\nValidation: \n- `date_from` must be before or equal to
+        `date_to`.\n\nRequired permission: `PERMISSION_REPAIRS_VIEW`."
+      summary: Retrieve drone repair history timeline
       parameters:
+      - in: query
+        name: date_from
+        schema:
+          type: string
+        description: Optional ISO 8601 lower bound for the event timestamp.
+      - in: query
+        name: date_to
+        schema:
+          type: string
+        description: Optional ISO 8601 upper bound for the event timestamp.
       - in: path
         name: drone_id
         schema:
           type: integer
+        description: ID of the drone whose repair history is being retrieved.
         required: true
+      - in: query
+        name: event_type
+        schema:
+          type: string
+        description: Optional comma-separated list of event types to include (`defect`,
+          `status_change`, `repair`, `replacement`).
       tags:
       - repairs
       security:
@@ -3388,17 +4016,71 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/RepairHistoryTimeline'
-          description: ''
+                $ref: '#/components/schemas/PaginatedRepairHistoryTimelineList'
+              examples:
+                ValidRequest:
+                  value:
+                    count: 123
+                    next: http://api.example.org/accounts/?page=4
+                    previous: http://api.example.org/accounts/?page=2
+                    results:
+                    - event_type: replacement
+                      timestamp: '2026-07-03T05:40:12.114120Z'
+                      summary: Camera replaced on Falcon Eye 1.
+                      details:
+                        component_type: CAMERA
+                        new_serial_number: CAM-GIMBAL-NEW
+                        replaced_by: oleksandr.koval
+                  summary: Valid request
+          description: Successfully retrieved the drone repair history timeline.
+        '400':
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+              examples:
+                InvalidDateRange:
+                  value:
+                    non_field_errors:
+                    - date_from must be before or equal to date_to.
+                  summary: Invalid date range
+          description: Bad Request
+        '403':
+          description: Forbidden. User does not have permission to perform this action.
+        '404':
+          description: Not Found.
   /api/repairs/drones/{drone_id}/history/export/:
     get:
       operationId: repairs_drones_history_export_retrieve
+      description: "Generates and downloads a CSV file with the drone's complete repair
+        history timeline. Supports the same date range and event type filtering as
+        the timeline endpoint.\n\nValidation: \n- `date_from` must be before or equal
+        to `date_to`.\n\nRequired permission: `PERMISSION_REPAIRS_EXPORT`."
+      summary: Export drone repair history to CSV
       parameters:
+      - in: query
+        name: date_from
+        schema:
+          type: string
+        description: Optional ISO 8601 lower bound for the event timestamp.
+      - in: query
+        name: date_to
+        schema:
+          type: string
+        description: Optional ISO 8601 upper bound for the event timestamp.
       - in: path
         name: drone_id
         schema:
           type: integer
+        description: ID of the drone whose repair history is being retrieved.
         required: true
+      - in: query
+        name: event_type
+        schema:
+          type: string
+        description: Optional comma-separated list of event types to include (`defect`,
+          `status_change`, `repair`, `replacement`).
       tags:
       - repairs
       security:
@@ -3406,10 +4088,32 @@ paths:
       - basicAuth: []
       responses:
         '200':
-          description: No response body
+          description: A CSV file containing the drone repair history generated successfully.
+        '400':
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+              examples:
+                InvalidDateRange:
+                  value:
+                    non_field_errors:
+                    - date_from must be before or equal to date_to.
+                  summary: Invalid date range
+          description: Bad Request
+        '403':
+          description: Forbidden. User does not have permission to perform this action.
+        '404':
+          description: Not Found.
   /api/repairs/orders/:
     get:
       operationId: repairs_orders_list
+      description: |-
+        Retrieves a paginated and filtered list of all repair orders, ordered by creation date.
+
+        Required permission: `PERMISSION_REPAIRS_VIEW`.
+      summary: List repair orders
       parameters:
       - in: query
         name: assigned_to
@@ -3471,9 +4175,31 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/PaginatedRepairOrderListList'
-          description: ''
+              examples:
+                ValidRequest:
+                  value:
+                    count: 123
+                    next: http://api.example.org/accounts/?page=4
+                    previous: http://api.example.org/accounts/?page=2
+                    results:
+                    - id: 2
+                      drone: 21
+                      defect_report: 4
+                      status: PENDING
+                      assigned_to: 31
+                      created_by: 24
+                      created_at: '2026-07-03T05:15:02.114120Z'
+                  summary: Valid request
+          description: Successfully retrieved the list of repair orders.
+        '403':
+          description: Forbidden. User does not have permission to perform this action.
     post:
       operationId: repairs_orders_create
+      description: "Creates a new repair order for a drone. The order can be standalone
+        (routine maintenance) or linked to an existing defect report.\n\nValidation:
+        \n- Description must be at least 10 characters long.\n\nRequired permission:
+        `PERMISSION_REPAIRS_MANAGE`."
+      summary: Create a repair order
       tags:
       - repairs
       requestBody:
@@ -3481,6 +4207,14 @@ paths:
           application/json:
             schema:
               $ref: '#/components/schemas/RepairOrderCreate'
+            examples:
+              ValidRequest:
+                value:
+                  drone: 21
+                  defect_report: 4
+                  description: Replace damaged camera gimbal and recalibrate.
+                  assigned_to: 31
+                summary: Valid Request
           application/x-www-form-urlencoded:
             schema:
               $ref: '#/components/schemas/RepairOrderCreate'
@@ -3497,15 +4231,44 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/RepairOrderCreate'
-          description: ''
+              examples:
+                ValidRequest:
+                  value:
+                    id: 2
+                    drone: 21
+                    defect_report: 4
+                    description: Replace damaged camera gimbal and recalibrate.
+                    assigned_to: 31
+                  summary: Valid Request
+          description: Repair order created successfully.
+        '400':
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+              examples:
+                DescriptionTooShort:
+                  value:
+                    description: Description must be at least 10 characters long.
+                  summary: Description too short
+          description: Bad Request
+        '403':
+          description: Forbidden. User does not have permission to perform this action.
   /api/repairs/orders/{id}/:
     get:
       operationId: repairs_orders_retrieve
+      description: |-
+        Retrieves detailed information about a specific repair order by its ID.
+
+        Required permission: `PERMISSION_REPAIRS_VIEW`.
+      summary: Retrieve repair order details
       parameters:
       - in: path
         name: id
         schema:
           type: integer
+        description: ID of the repair order to retrieve.
         required: true
       tags:
       - repairs
@@ -3518,14 +4281,41 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/RepairOrder'
-          description: ''
+              examples:
+                ValidRequest:
+                  value:
+                    id: 2
+                    drone: 21
+                    defect_report: 4
+                    status: IN_PROGRESS
+                    description: Replace damaged camera gimbal and recalibrate.
+                    assigned_to: 31
+                    started_at: '2026-07-03T05:30:00Z'
+                    completed_at: null
+                    notes: Awaiting replacement gimbal from stores.
+                    created_by: 24
+                    created_at: '2026-07-03T05:15:02.114120Z'
+                    updated_at: '2026-07-03T05:30:00.552310Z'
+                  summary: Valid request
+          description: Detailed information about the repair order.
+        '403':
+          description: Forbidden. User does not have permission to perform this action.
+        '404':
+          description: Not Found.
     patch:
       operationId: repairs_orders_partial_update
+      description: "Transitions a repair order to a new status through its lifecycle
+        state machine. Operational timestamps (`started_at`, `completed_at`) are stamped
+        automatically as the order progresses.\n\nValidation: \n- The requested transition
+        must be allowed from the order's current status (e.g., `PENDING` cannot jump
+        straight to `COMPLETED`).\n\nRequired permission: `PERMISSION_REPAIRS_MANAGE`."
+      summary: Update repair order status
       parameters:
       - in: path
         name: id
         schema:
           type: integer
+        description: ID of the repair order whose status is being updated.
         required: true
       tags:
       - repairs
@@ -3534,6 +4324,12 @@ paths:
           application/json:
             schema:
               $ref: '#/components/schemas/PatchedRepairOrderStatusUpdate'
+            examples:
+              ValidRequest:
+                value:
+                  status: IN_PROGRESS
+                  notes: Technician started the repair.
+                summary: Valid Request
           application/x-www-form-urlencoded:
             schema:
               $ref: '#/components/schemas/PatchedRepairOrderStatusUpdate'
@@ -3548,16 +4344,57 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/RepairOrderStatusUpdate'
-          description: ''
+                $ref: '#/components/schemas/RepairOrder'
+              examples:
+                ValidRequest:
+                  value:
+                    id: 2
+                    drone: 21
+                    defect_report: 4
+                    status: IN_PROGRESS
+                    description: Replace damaged camera gimbal and recalibrate.
+                    assigned_to: 31
+                    started_at: '2026-07-03T05:30:00Z'
+                    completed_at: null
+                    notes: Awaiting replacement gimbal from stores.
+                    created_by: 24
+                    created_at: '2026-07-03T05:15:02.114120Z'
+                    updated_at: '2026-07-03T05:30:00.552310Z'
+                  summary: Valid Request
+          description: Repair order status updated successfully.
+        '400':
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+              examples:
+                DisallowedTransition:
+                  value:
+                    status:
+                    - 'Cannot transition from PENDING to COMPLETED. Allowed: [''IN_PROGRESS'',
+                      ''CANCELLED'']'
+                  summary: Disallowed transition
+          description: Bad Request
+        '403':
+          description: Forbidden. User does not have permission to perform this action.
+        '404':
+          description: Not Found.
   /api/repairs/orders/{id}/replacements/:
     post:
       operationId: repairs_orders_replacements_create
+      description: "Records a new component replacement and links it to an existing
+        repair order.\n\nValidation: \n- A new serial number is required. \n- A reason
+        is required. \n- `replaced_at` cannot be in the future. \n- If the component
+        type is `OTHER`, a component name must be provided; for known component types
+        any supplied name is cleared.\n\nRequired permission: `PERMISSION_REPAIRS_MANAGE`."
+      summary: Add a component replacement to a repair order
       parameters:
       - in: path
         name: id
         schema:
           type: integer
+        description: ID of the repair order the replacement is attached to.
         required: true
       tags:
       - repairs
@@ -3566,6 +4403,16 @@ paths:
           application/json:
             schema:
               $ref: '#/components/schemas/RepairOrderReplacement'
+            examples:
+              ValidRequest:
+                value:
+                  component_type: CAMERA
+                  component_name: null
+                  old_serial_number: CAM-GIMBAL-OLD
+                  new_serial_number: CAM-GIMBAL-NEW
+                  reason: Gimbal replaced after confirmed camera feed instability.
+                  replaced_at: '2026-07-03'
+                summary: Valid Request
           application/x-www-form-urlencoded:
             schema:
               $ref: '#/components/schemas/RepairOrderReplacement'
@@ -3582,7 +4429,43 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/RepairOrderReplacement'
-          description: ''
+              examples:
+                ValidRequest:
+                  value:
+                    id: 6
+                    component_type: CAMERA
+                    component_name: null
+                    old_serial_number: CAM-GIMBAL-OLD
+                    new_serial_number: CAM-GIMBAL-NEW
+                    reason: Gimbal replaced after confirmed camera feed instability.
+                    replaced_at: '2026-07-03T00:00:00Z'
+                    replaced_by: 24
+                    created_at: '2026-07-03T05:40:12.114120Z'
+                    updated_at: '2026-07-03T05:40:12.114160Z'
+                  summary: Valid Request
+          description: Component replacement recorded and linked successfully.
+        '400':
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+              examples:
+                NameRequiredForOTHER:
+                  value:
+                    component_name:
+                    - Component name is required for OTHER.
+                  summary: Name required for OTHER
+                MissingNewSerialNumber:
+                  value:
+                    new_serial_number:
+                    - New serial number is required.
+                  summary: Missing new serial number
+          description: Bad Request
+        '403':
+          description: Forbidden. User does not have permission to perform this action.
+        '404':
+          description: Not Found.
   /api/repairs/replacements/:
     get:
       operationId: repairs_replacements_list
@@ -3825,6 +4708,7 @@ components:
       type: string
     AuditLog:
       type: object
+      description: Serialize audit log entries for read-only API responses.
       properties:
         id:
           type: integer
@@ -3875,6 +4759,7 @@ components:
       - ''
     ChangePassword:
       type: object
+      description: Serialize requests to change the user's password.
       properties:
         old_password:
           type: string
@@ -3894,6 +4779,11 @@ components:
       type: string
     ComponentReplacement:
       type: object
+      description: |-
+        Serialize standalone hardware replacements.
+
+        Validates physical consistency (e.g., specific names for the OTHER category)
+        and delegates creation to the service layer.
       properties:
         id:
           type: integer
@@ -3941,6 +4831,7 @@ components:
       - updated_at
     ComponentReplacementList:
       type: object
+      description: Read-only summary of a component replacement for list views.
       properties:
         id:
           type: integer
@@ -3988,6 +4879,12 @@ components:
       type: string
     DefectReport:
       type: object
+      description: |-
+        Serialize a defect report for creation and detailed view.
+
+        The reporter field is strictly read-only because it must be securely
+        bound to the authenticated user making the request via the service
+        layer, rather than accepting it from the payload.
       properties:
         id:
           type: integer
@@ -4027,6 +4924,7 @@ components:
       - updated_at
     DefectReportList:
       type: object
+      description: Read-only summary of a defect report for list views.
       properties:
         id:
           type: integer
@@ -4062,6 +4960,17 @@ components:
       - id
       - reporter
       - severity
+    DefectStatusUpdate:
+      type: object
+      description: Validate payloads for transitioning a DefectReport's status.
+      properties:
+        status:
+          $ref: '#/components/schemas/ToStatusEnum'
+        action_taken:
+          type: string
+      required:
+      - action_taken
+      - status
     DefectType:
       enum:
       - MOTOR
@@ -4077,6 +4986,11 @@ components:
       type: string
     Drone:
       type: object
+      description: |-
+        Serialize drone create/detail data with nested technical specification.
+
+        Creation is delegated to the service layer so the drone, DroneSpec, and
+        initial DroneSpecChangeLog are created consistently in one workflow.
       properties:
         id:
           type: integer
@@ -4175,6 +5089,7 @@ components:
       - status
     DroneImport:
       type: object
+      description: Validate uploaded files for drone CSV import.
       properties:
         file:
           type: string
@@ -4184,6 +5099,7 @@ components:
       - file
     DroneList:
       type: object
+      description: Serialize compact drone fields for list responses.
       properties:
         id:
           type: integer
@@ -4233,6 +5149,7 @@ components:
       - status_label
     DroneModel:
       type: object
+      description: Serialize drone model catalog entries and supported classifications.
       properties:
         id:
           type: integer
@@ -4265,6 +5182,7 @@ components:
       - updated_at
     DroneSpecChangeLog:
       type: object
+      description: Serialize specification audit entries for read-only API responses.
       properties:
         id:
           type: integer
@@ -4292,6 +5210,7 @@ components:
       - old_values
     DroneSpecDetail:
       type: object
+      description: Serialize technical specifications included in drone detail responses.
       properties:
         id:
           type: integer
@@ -4402,6 +5321,7 @@ components:
       - updated_at
     DroneSpecUpdate:
       type: object
+      description: Serialize partial updates to a drone technical specification.
       properties:
         id:
           type: integer
@@ -4514,6 +5434,11 @@ components:
       type: string
     DroneStatusHistory:
       type: object
+      description: |-
+        Serialize drone lifecycle status history with display metadata.
+
+        Adds a readable user label and event type so clients can distinguish status
+        changes caused by missions, repairs, write-offs, or manual updates.
       properties:
         id:
           type: string
@@ -4531,12 +5456,15 @@ components:
           nullable: true
         changed_by_display:
           type: string
+          description: Return a readable name for the user who changed the status.
           readOnly: true
         reason:
           type: string
           readOnly: true
         event_type:
           type: string
+          description: Return the domain event type that caused this status history
+            entry.
           readOnly: true
         related_mission_id:
           type: integer
@@ -4577,13 +5505,6 @@ components:
       - video
       - image
       - data
-      type: string
-    FromStatusEnum:
-      enum:
-      - REPORTED
-      - IN_PROGRESS
-      - FIXED
-      - VERIFIED
       type: string
     MediaAuditLog:
       type: object
@@ -5203,6 +6124,29 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/RepairEvent'
+    PaginatedRepairHistoryTimelineList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/RepairHistoryTimeline'
     PaginatedRepairOrderListList:
       type: object
       required:
@@ -5274,6 +6218,7 @@ components:
             $ref: '#/components/schemas/WriteOffAudit'
     PasswordResetConfirm:
       type: object
+      description: Serialize requests to confirm a password reset with a new password.
       properties:
         new_password:
           type: string
@@ -5282,6 +6227,7 @@ components:
       - new_password
     PasswordResetRequest:
       type: object
+      description: Serialize requests to initiate a password reset.
       properties:
         email:
           type: string
@@ -5290,6 +6236,11 @@ components:
       - email
     PatchedDroneUpdate:
       type: object
+      description: |-
+        Serialize partial drone updates and inactive lifecycle transitions.
+
+        Inactive transitions require write-off metadata so the service layer can
+        create an immutable WriteOffRecord and link it to DroneStatusHistory.
       properties:
         serial_number:
           type: string
@@ -5388,6 +6339,7 @@ components:
           $ref: '#/components/schemas/MissionStatus'
     PatchedRepairOrderStatusUpdate:
       type: object
+      description: Drive a repair order through its state machine.
       properties:
         status:
           $ref: '#/components/schemas/StatusFccEnum'
@@ -5396,6 +6348,8 @@ components:
           default: ''
     PatchedUserMe:
       type: object
+      description: Serialize the authenticated user's data along with their profile
+        information.
       properties:
         id:
           type: integer
@@ -5442,12 +6396,14 @@ components:
           readOnly: true
     PatchedUserRoleUpdate:
       type: object
+      description: Serialize user role update requests.
       properties:
         role_id:
           type: integer
           minimum: 1
     PatchedUserStatusUpdate:
       type: object
+      description: Serialize user status update requests.
       properties:
         is_active:
           type: boolean
@@ -5519,13 +6475,14 @@ components:
           readOnly: true
     RepairEvent:
       type: object
+      description: Read-only view of a repair state transition event.
       properties:
         id:
           type: integer
           readOnly: true
         from_status:
           allOf:
-          - $ref: '#/components/schemas/FromStatusEnum'
+          - $ref: '#/components/schemas/ToStatusEnum'
           readOnly: true
         to_status:
           allOf:
@@ -5551,6 +6508,7 @@ components:
       - to_status
     RepairHistoryTimeline:
       type: object
+      description: Shape heterogeneous repair events into a uniform timeline response.
       properties:
         event_type:
           $ref: '#/components/schemas/EventTypeEnum'
@@ -5569,6 +6527,7 @@ components:
       - timestamp
     RepairOrder:
       type: object
+      description: Serialize a repair order for detailed views.
       properties:
         id:
           type: integer
@@ -5631,6 +6590,7 @@ components:
       - updated_at
     RepairOrderCreate:
       type: object
+      description: Validate payloads for creating a new repair order.
       properties:
         id:
           type: integer
@@ -5651,6 +6611,7 @@ components:
       - id
     RepairOrderList:
       type: object
+      description: Read-only summary of a repair order for list views.
       properties:
         id:
           type: integer
@@ -5688,6 +6649,7 @@ components:
       - status
     RepairOrderReplacement:
       type: object
+      description: Serialize hardware replacements explicitly linked to a repair order.
       properties:
         id:
           type: integer
@@ -5730,16 +6692,6 @@ components:
       - replaced_at
       - replaced_by
       - updated_at
-    RepairOrderStatusUpdate:
-      type: object
-      properties:
-        status:
-          $ref: '#/components/schemas/StatusFccEnum'
-        notes:
-          type: string
-          default: ''
-      required:
-      - status
     SeverityEnum:
       enum:
       - LOW
@@ -5782,6 +6734,8 @@ components:
       - username
     UserMe:
       type: object
+      description: Serialize the authenticated user's data along with their profile
+        information.
       properties:
         id:
           type: integer
@@ -5836,6 +6790,7 @@ components:
       - username
     UserRegistration:
       type: object
+      description: Provide serialization and validation for user registration requests.
       properties:
         id:
           type: integer
@@ -5876,6 +6831,7 @@ components:
       - username
     UserRoleUpdateResponse:
       type: object
+      description: Serialize user role update responses.
       properties:
         id:
           type: integer
@@ -5894,6 +6850,7 @@ components:
           type: object
           additionalProperties: {}
           nullable: true
+          description: Return the role details of the user.
           readOnly: true
       required:
       - email
@@ -6016,6 +6973,7 @@ components:
       - mission
     WriteOffAudit:
       type: object
+      description: Serialize write-off records for audit and history endpoints.
       properties:
         id:
           type: integer
@@ -6092,6 +7050,7 @@ components:
       type: string
     WriteOffRecord:
       type: object
+      description: Serialize immutable write-off data attached to a drone.
       properties:
         id:
           type: integer
@@ -6139,6 +7098,11 @@ components:
       - written_off_at
     WriteOffRecordCreate:
       type: object
+      description: |-
+        Validate and create immutable drone write-off records.
+
+        A drone can be written off only once, cannot already be inactive, and when a
+        mission is supplied it must be the latest mission assigned to that drone.
       properties:
         id:
           type: integer
