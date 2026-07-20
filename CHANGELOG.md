@@ -563,6 +563,22 @@
 - Fix lint issue (by **Maksym Lirko**)
 - Merge pull request #133 from ITA-Internship/task#129-add-docstrings-to-accounts-app (by **Maksym**)
 - Task#129 add docstrings to accounts app (by **Maksym**)
+- Add docstrings to models.py (by **Yevhen Yedynets**)
+- Add docstrings to services.py (by **Yevhen Yedynets**)
+- Add docstrings to serializers.py (by **Yevhen Yedynets**)
+- Update docstrings of models.py (by **Yevhen Yedynets**)
+- Update docstrings of services.py (by **Yevhen Yedynets**)
+- Add docstrings to tests.py (by **Yevhen Yedynets**)
+- Add docstrings to views.py (by **Yevhen Yedynets**)
+- Add docstrings to permissions.py (by **Yevhen Yedynets**)
+- Add docstrings to admin.py (by **Yevhen Yedynets**)
+- Add docstrings to apps.py (by **Yevhen Yedynets**)
+- Add docstrings to factories.py (by **Yevhen Yedynets**)
+- Add docstrings to filters.py (by **Yevhen Yedynets**)
+- Add docstrings to urls.py (by **Yevhen Yedynets**)
+- Finalize all docstrings (by **Yevhen Yedynets**)
+- Merge pull request #136 from ITA-Internship/task#119-comments-repairs-app (by **Yevhen Yedynets**)
+- Task#119 comments repairs app (by **Yevhen Yedynets**)
 
 ### Refactor
 
@@ -592,4 +608,5 @@
 
 ### Miscellaneous Tasks
 
+- *(changelog)* Update CHANGELOG.md [skip ci] (by **github-actions[bot]**)
 - *(changelog)* Update CHANGELOG.md [skip ci] (by **github-actions[bot]**)
