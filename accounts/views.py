@@ -361,17 +361,7 @@ class UserMeView(generics.RetrieveUpdateAPIView):
     """Retrieve and update the currently authenticated user's profile."""
 
     serializer_class = UserMeSerializer
-
-    def get_permissions(self):
-        """Apply self-service RBAC permissions for profile access."""
-        if self.request.method in permissions.SAFE_METHODS:
-            permission_classes = [HasRBACPermission]
-            self.required_permission = PERMISSION_PROFILE_VIEW_OWN
-        else:
-            permission_classes = [HasRBACPermission]
-            self.required_permission = PERMISSION_PROFILE_UPDATE_OWN
-
-        return [permission() for permission in permission_classes]
+    permission_classes = [permissions.IsAuthenticated]
 
     def get_object(self):
         """Return the currently authenticated user."""
@@ -426,8 +416,7 @@ def invalidate_user_sessions(user):
 class ChangePasswordView(APIView):
     """Handle authenticated password changes."""
 
-    permission_classes = [HasRBACPermission]
-    required_permission = PERMISSION_PROFILE_RESET_PASSWORD_OWN
+    permission_classes = [permissions.IsAuthenticated]
 
     def post(self, request):
         """Verify the old password and set a new password for the user."""
@@ -520,8 +509,6 @@ class PasswordResetRequestView(APIView):
 
 @password_reset_confirm_schema
 class PasswordResetConfirmView(APIView):
-    """Handle password reset confirmations using a secure token."""
-
     """Validate password reset token and set a new password."""
 
     permission_classes = [permissions.AllowAny]
@@ -558,7 +545,7 @@ class PasswordResetConfirmView(APIView):
             )
 
             create_audit_log(
-                actor=None,
+                actor=user,
                 action_type=AuditLog.ActionType.PASSWORD_CHANGED,
                 result=AuditLog.ResultStatus.SUCCESS,
                 target_user=user,
