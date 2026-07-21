@@ -13,6 +13,21 @@ Classes:
     ProtectedProfilePictureView: Serves profile pictures securely.
 """
 
+"""Expose user management, authentication, and authorization endpoints.
+
+Classes:
+    UserRegistrationView: Handles user registration.
+    UserRoleUpdateAPIView: Handles updating user roles.
+    ActivateAccountAPIView: Handles user account activation via email tokens.
+    AuditLogViewSet: Provides read-only access and CSV export for audit logs.
+    UserStatusUpdateView: Manages user status (active/inactive) updates.
+    UserMeView: Retrieves and updates the authenticated user's profile.
+    ChangePasswordView: Handles password changes for the authenticated user.
+    PasswordResetRequestView: Initiates the password reset process via email.
+    PasswordResetConfirmView: Confirms and executes a password reset using a token.
+    ProtectedProfilePictureView: Serves profile pictures securely.
+"""
+
 import csv
 import mimetypes
 import os
@@ -30,12 +45,12 @@ from django_filters import rest_framework as filters
 from drf_spectacular.utils import extend_schema_view
 from rest_framework import generics, permissions, status, viewsets
 from rest_framework.decorators import action
-from rest_framework.pagination import PageNumberPagination
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework.throttling import ScopedRateThrottle
 from rest_framework.views import APIView
 
+from common.pagination import AuditLogPagination
 from common.utils import EchoBuffer
 
 from .api_details import (
@@ -138,7 +153,6 @@ class ActivateAccountAPIView(APIView):
 
     def post(self, request, user_id, token):
         """Activate a user account using the provided user ID and token.
-
         Args:
             request (Request): The HTTP request containing the user's initial password.
             user_id (int): The ID of the user to activate.
@@ -146,6 +160,7 @@ class ActivateAccountAPIView(APIView):
 
         Returns:
             Response: A success message or an error if the token is invalid/expired.
+
         """
         user = get_object_or_404(User, pk=user_id)
 
@@ -179,12 +194,6 @@ class ActivateAccountAPIView(APIView):
         )
 
 
-class AuditLogPagination(PageNumberPagination):
-    page_size = 50
-    page_size_query_param = "page_size"
-    max_page_size = 500
-
-
 class AuditLogFilter(filters.FilterSet):
     """Filters audit logs by date and specific relational fields."""
 
@@ -202,7 +211,7 @@ class AuditLogFilter(filters.FilterSet):
     export=audit_log_export_schema,
 )
 class AuditLogViewSet(viewsets.ReadOnlyModelViewSet):
-    """Provide read-only API endpoints for viewing and exporting logs."""
+    """Provide read-only API endpoints for viewing and exporting logs"""
 
     serializer_class = AuditLogSerializer
     permission_classes = [HasAnyRBACPermission]
@@ -218,7 +227,7 @@ class AuditLogViewSet(viewsets.ReadOnlyModelViewSet):
     throttle_scope = "audit_export"
 
     def get_queryset(self):
-        """Return a queryset of audit logs based on RBAC permissions."""
+        """Return a queryset of audit logs base on RBAC permissions."""
         if getattr(self, "swagger_fake_view", False):
             return AuditLog.objects.none()
 
@@ -288,13 +297,23 @@ class AuditLogViewSet(viewsets.ReadOnlyModelViewSet):
 
 @user_status_update_schema
 class UserStatusUpdateView(APIView):
+    """Handle activation and deactivation of user accounts by administrators."""
+
     """Manage user active/inactive status changes."""
 
     permission_classes = [HasRBACPermission]
     required_permission = PERMISSION_USERS_ACTIVATE_DEACTIVATE
 
     def patch(self, request, pk):
-        """Update the active status of a target user account."""
+        """Update the active status of a specific user.
+
+        Args:
+            request (Request): The HTTP request containing 'is_active' and 'reason'.
+            pk (int): The primary key of the target user.
+
+        Returns:
+            Response: The updated status or validation errors.
+        """
         target_user = get_object_or_404(User, pk=pk)
         serializer = UserStatusUpdateSerializer(data=request.data)
 
@@ -371,11 +390,11 @@ class UserMeView(generics.RetrieveUpdateAPIView):
         return [permission() for permission in permission_classes]
 
     def get_object(self):
-        """Return the current authenticated user instance."""
+        """Return the currently authenticated user."""
         return self.request.user
 
     def perform_update(self, serializer):
-        """Persist profile changes and create an audit log entry."""
+        """Save the updated user data and create an audit logs entry."""
         updated_user = serializer.save()
 
         create_audit_log(
@@ -389,6 +408,10 @@ class UserMeView(generics.RetrieveUpdateAPIView):
 
 
 def invalidate_user_sessions(user):
+    """Invalidate and delete all active sessions for a given user.
+    Args:
+        user (User): The user whose sessions should be terminated.
+    """
     from django.contrib.sessions.models import Session
     from django.utils import timezone
 
@@ -423,7 +446,7 @@ class ChangePasswordView(APIView):
     required_permission = PERMISSION_PROFILE_RESET_PASSWORD_OWN
 
     def post(self, request):
-        """Validate and apply a password change for the current user."""
+        """Verify the old password and set a new password for the user."""
         serializer = ChangePasswordSerializer(
             data=request.data, context={"request": request}
         )
@@ -461,13 +484,13 @@ class ChangePasswordView(APIView):
 
 @password_reset_schema
 class PasswordResetRequestView(APIView):
-    """Initiate password reset flow for a user email."""
+    """Handle requests to send password reset link via email."""
 
     permission_classes = [permissions.AllowAny]
     throttle_classes = [PasswordResetRequestThrottle]
 
     def post(self, request):
-        """Accept an email address and send a reset link if the user exists."""
+        """Generate and email a password reset token if the user exists."""
         serializer = PasswordResetRequestSerializer(data=request.data)
         if serializer.is_valid():
             email = serializer.validated_data["email"]
@@ -513,6 +536,8 @@ class PasswordResetRequestView(APIView):
 
 @password_reset_confirm_schema
 class PasswordResetConfirmView(APIView):
+    """Handle password reset confirmations using a secure token."""
+
     """Validate password reset token and set a new password."""
 
     permission_classes = [permissions.AllowAny]
@@ -522,6 +547,15 @@ class PasswordResetConfirmView(APIView):
         """Reset a user's password if the uid/token pair is valid."""
         serializer = PasswordResetConfirmSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
+        """Verify the reset token and set a new password for the user.
+        Args:
+            request (Request): The HTTP request containing the new password.
+            uidb64 (str): Base64 encoded user ID.
+            token (str): The one-time password reset token.
+
+        Returns:
+            Response: A success message or an error for invalid/expired tokens.
+        """
 
         try:
             uid = force_str(urlsafe_base64_decode(uidb64))
@@ -570,12 +604,20 @@ class PasswordResetConfirmView(APIView):
 
 
 class ProtectedProfilePictureView(APIView):
-    """Serve profile pictures securely."""
+    """Serve profile picture securely."""
 
     permission_classes = [permissions.IsAuthenticated]
 
     def get(self, request, user_id):
-        """Return the requested profile picture if the caller is allowed."""
+        """Return the user's profile picture if the requester has permission.
+
+        Args:
+            request (Request): The incoming HTTP request.
+            user_id (str): The ID of the user whose picture is requested.
+
+        Returns:
+            Response: The profile picture or an error message.
+        """
         user = get_object_or_404(User, pk=user_id)
 
         if request.user != user and not request.user.is_staff:

@@ -1,3 +1,14 @@
+"""Provide service-layer operations for drone inventory workflows.
+
+Functions:
+    create_drone_with_spec: Create a drone, specification, and initial audit log.
+    update_drone: Update inventory/spec data and create lifecycle audit records.
+    validate_drone_classification: Enforce model-to-classification compatibility.
+    generate_drones_csv: Stream drone inventory rows as CSV.
+    import_drones_csv: Import drones from CSV with row-level validation errors.
+    create_writeoff_record: Write off a drone and record status history.
+"""
+
 import codecs
 import csv
 import datetime
@@ -22,6 +33,7 @@ from .models import (
 
 
 def _serialize_audit_value(value):
+    """Convert model, decimal, and date values into JSON-safe audit values."""
     if isinstance(value, Decimal):
         return str(value)
 
@@ -36,6 +48,19 @@ def _serialize_audit_value(value):
 
 @transaction.atomic
 def create_drone_with_spec(drone_data, spec_data, user=None):
+    """Create a drone, its specification, and the initial audit entry atomically.
+
+    Args:
+        drone_data: Validated Drone field values.
+        spec_data: Validated DroneSpec field values.
+        user: User responsible for the creation event.
+
+    Returns:
+        The created Drone instance.
+
+    Side effects:
+        Creates DroneSpec and DroneSpecChangeLog records in the same transaction.
+    """
     user = _get_authenticated_user(user)
     drone = Drone.objects.create(**drone_data)
     spec = DroneSpec.objects.create(drone=drone, **spec_data)
@@ -55,12 +80,14 @@ def create_drone_with_spec(drone_data, spec_data, user=None):
 
 
 def _get_authenticated_user(user):
+    """Return the user only when it is authenticated."""
     if user and getattr(user, "is_authenticated", False):
         return user
     return None
 
 
 def _get_prepared_field_value(field, value):
+    """Normalize a field value before comparing it for model changes."""
     if field.is_relation and field.many_to_one:
         value = getattr(value, "pk", value)
 
@@ -68,6 +95,7 @@ def _get_prepared_field_value(field, value):
 
 
 def _field_value_changed(instance, field_name, new_value):
+    """Return whether a submitted value differs from the stored field value."""
     field = instance._meta.get_field(field_name)
 
     if field.is_relation and field.many_to_one:
@@ -82,6 +110,7 @@ def _field_value_changed(instance, field_name, new_value):
 
 
 def _get_changed_fields(instance, data):
+    """Return field names whose submitted values would change the instance."""
     return [
         field_name
         for field_name, new_value in data.items()
@@ -90,11 +119,13 @@ def _get_changed_fields(instance, data):
 
 
 def _set_instance_fields(instance, data, field_names):
+    """Assign submitted values to the selected instance fields."""
     for field_name in field_names:
         setattr(instance, field_name, data[field_name])
 
 
 def _update_instance_fields(instance, data):
+    """Assign changed values to an instance and return changed field names."""
     changed_fields = _get_changed_fields(instance, data)
     _set_instance_fields(instance, data, changed_fields)
 
@@ -102,6 +133,7 @@ def _update_instance_fields(instance, data):
 
 
 def _create_spec_change_log(*, spec, changed_fields, old_values, user):
+    """Create a specification audit entry when at least one field changed."""
     if not changed_fields:
         return
 
@@ -133,10 +165,37 @@ def update_drone(
     related_mission=None,
     status_change_reason="",
 ):
+    """Update a drone and record specification/status audit events atomically.
+
+    Applies changed Drone fields, optionally updates or creates DroneSpec, and
+    writes DroneSpecChangeLog entries for existing specification changes. When
+    the requested status is inactive, the service creates or reuses the drone's
+    immutable WriteOffRecord and links it to DroneStatusHistory.
+
+    Args:
+        drone: Drone instance being updated.
+        drone_data: Validated Drone field values.
+        spec_data: Optional validated DroneSpec field values.
+        user: User responsible for the update.
+        writeoff_reason: Canonical write-off reason for inactive transitions.
+        writeoff_reason_description: Optional human-readable write-off details.
+        document_number: Optional write-off document reference.
+        written_off_at: Date when the drone was written off.
+        related_mission: Optional mission that caused the transition.
+        status_change_reason: Optional explicit status history reason.
+
+    Returns:
+        The updated Drone instance.
+
+    Side effects:
+        May create DroneSpecChangeLog, WriteOffRecord, and DroneStatusHistory.
+    """
     user = _get_authenticated_user(user)
 
     old_status = drone.status
     requested_status = drone_data.get("status")
+    # Any transition into an inactive status is treated as a decommission/write-off
+    # flow and requires the metadata validated by DroneUpdateSerializer.
     is_decommission_flow = requested_status in Drone.INACTIVE_STATUSES
 
     drone_changed_fields = _update_instance_fields(drone, drone_data)
@@ -158,6 +217,8 @@ def update_drone(
         old_spec_values = {}
 
         if spec_changed_fields:
+            # Only existing specs receive update audit entries; a newly attached
+            # spec has no previous values to compare against.
             if not spec_was_created:
                 old_spec_values = {
                     field_name: _serialize_audit_value(getattr(spec, field_name))
@@ -178,6 +239,8 @@ def update_drone(
     writeoff_record = None
 
     if is_decommission_flow:
+        # Write-off records are append-only. Reusing the existing record prevents
+        # repeated inactive-status updates from changing the original audit data.
         writeoff_record, _ = WriteOffRecord.objects.get_or_create(
             drone=drone,
             defaults={
@@ -195,6 +258,8 @@ def update_drone(
             writeoff_record.reason if writeoff_record else writeoff_reason
         )
 
+        # Status history records the business event, not only the field update.
+        # Prefer the explicit user reason, then the canonical write-off label.
         DroneStatusHistory.objects.create(
             drone=drone,
             from_status=old_status,
@@ -213,6 +278,7 @@ def update_drone(
 
 
 def validate_drone_classification(drone_model, classification):
+    """Raise a validation error when a model does not support a classification."""
     allowed_classifications = drone_model.get_allowed_classifications()
 
     if classification not in allowed_classifications:
@@ -226,7 +292,7 @@ def validate_drone_classification(drone_model, classification):
 
 
 def generate_drones_csv(queryset):
-
+    """Yield CSV rows for the supplied drone queryset."""
     buffer = EchoBuffer()
     writer = csv.writer(buffer)
 
@@ -268,6 +334,20 @@ CSV_IMPORT_MAX_SIZE_MB = int(os.getenv("CSV_IMPORT_MAX_SIZE_MB", "10"))
 
 
 def import_drones_csv(drones_csv_file, user=None):
+    """Import drone inventory records from a UTF-8 CSV file in batches.
+
+    The import validates file-level limits and required columns, then checks
+    each row for required values, duplicate identifiers, valid dates, and
+    existing related records. Valid rows are created in batches together with
+    placeholder technical specifications and initial audit-log entries.
+
+    Args:
+        drones_csv_file: Uploaded CSV file object.
+        user: User responsible for the import.
+
+    Returns:
+        A dictionary with the operation status, created row count, and errors.
+    """
     if hasattr(drones_csv_file, "size") and drones_csv_file.size:
         max_bytes = CSV_IMPORT_MAX_SIZE_MB * 1024 * 1024
         if drones_csv_file.size > max_bytes:
@@ -305,6 +385,10 @@ def import_drones_csv(drones_csv_file, user=None):
         errors = []
         auth_user = _get_authenticated_user(user) if user else None
 
+        # TODO: CSV import cannot know the full technical specification yet, but
+        # DroneSpec fields are currently NOT NULL. Make spec fields nullable or
+        # move spec creation to a follow-up enrichment step, then remove these
+        # placeholder values.
         dummy_spec_data = {
             "frame_type": "Unknown",
             "motor_model": "Unknown",
@@ -567,6 +651,22 @@ def create_writeoff_record(
     document_number="",
     related_mission=None,
 ):
+    """Write off a drone and create the matching status history entry atomically.
+
+    Args:
+        drone: Active Drone instance being written off.
+        user: User authorizing the write-off.
+        reason: Canonical write-off reason code.
+        reason_description: Optional human-readable reason details.
+        document_number: Optional source document reference.
+        related_mission: Optional mission associated with the write-off.
+
+    Returns:
+        The created WriteOffRecord.
+
+    Side effects:
+        Changes the drone status to WRITTEN_OFF and creates DroneStatusHistory.
+    """
     user = _get_authenticated_user(user)
 
     old_status = drone.status

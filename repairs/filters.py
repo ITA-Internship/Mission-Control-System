@@ -1,9 +1,17 @@
+"""Filter definitions for the repairs REST API.
+
+Provides Django FilterSet classes for defect reports, repair orders, and
+component replacements to allow clients to query and narrow down lists.
+"""
+
 import django_filters
 
 from .models import ComponentReplacement, DefectReport, RepairOrder
 
 
 class DefectFilter(django_filters.FilterSet):
+    """Filter specifications for the DefectReport list API."""
+
     class Meta:
         model = DefectReport
         fields = {
@@ -15,6 +23,11 @@ class DefectFilter(django_filters.FilterSet):
 
 
 class ComponentReplacementFilter(django_filters.FilterSet):
+    """Filter specifications for the ComponentReplacement APIs.
+
+    Includes custom start_date and end_date fields for temporal querying.
+    """
+
     start_date = django_filters.DateTimeFilter(
         field_name="replaced_at",
         lookup_expr="gte",
@@ -34,6 +47,8 @@ class ComponentReplacementFilter(django_filters.FilterSet):
 
 
 class RepairOrderFilter(django_filters.FilterSet):
+    """Filter specifications for the RepairOrder list API."""
+
     class Meta:
         model = RepairOrder
         fields = {

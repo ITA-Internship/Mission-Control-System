@@ -1,3 +1,5 @@
+"""Route drone inventory, comparison, import/export, and write-off endpoints."""
+
 from django.urls import path
 
 from .views import (
