@@ -46,6 +46,7 @@ from .api_details import (
     change_password_schema,
     password_reset_confirm_schema,
     password_reset_schema,
+    profile_picture_get_schema,
     user_me_get_schema,
     user_me_update_schema,
     user_registration_schema,
@@ -586,6 +587,7 @@ class PasswordResetConfirmView(APIView):
         )
 
 
+@extend_schema_view(get=profile_picture_get_schema)
 class ProtectedProfilePictureView(APIView):
     """Serve profile picture securely."""
 
