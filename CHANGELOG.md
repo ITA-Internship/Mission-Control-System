@@ -62,6 +62,7 @@
 - Fix accounts api details (by **torii044**)
 - Fix merge conflicts (by **torii044**)
 - Fix formatting issues (by **torii044**)
+- Address PR review comments for health checks (by **Maksym**)
 
 ### Other
 
@@ -586,6 +587,24 @@
 - Pre commit (by **yana-donda**)
 - Merge pull request #127 from ITA-Internship/115-add-meaningful-comments-drones-app (by **Yana**)
 - 115 add comments drones app (by **Yana**)
+- Harden infrastructure — health checks, gunicorn config, bug fixes (by **Maksym**)
+- Harden infrastructure — health checks, gunicorn config, bug fixes (by **Maksym**)
+- Harden infrastructure — health checks, gunicorn config, bug fixes (by **Maksym**)
+- Harden infrastructure — health checks, gunicorn config, bug fixes (by **Maksym**)
+- Harden infrastructure — health checks, gunicorn config, bug fixes (by **Maksym**)
+- Harden infrastructure — health checks, gunicorn config, bug fixes (by **Maksym**)
+- Harden infrastructure — health checks, gunicorn config, bug fixes (by **Maksym**)
+- Harden infrastructure — health checks, gunicorn config, bug fixes (by **Maksym**)
+- Harden infrastructure — health checks, gunicorn config, bug fixes (by **Maksym**)
+- Harden infrastructure — health checks, gunicorn config, bug fixes (by **Maksym**)
+- Harden infrastructure — health checks, gunicorn config, bug fixes (by **Maksym**)
+- Harden infrastructure — health checks, gunicorn config, bug fixes (by **Maksym**)
+- Harden infrastructure — health checks, gunicorn config, bug fixes (by **Maksym**)
+- Remove inline section comments from health check view (by **Maksym**)
+- Remove collectstatic and Nginx static file serving (by **Maksym**)
+- Fix CSP header: add worker-src for ReDoc Web Worker (by **Maksym**)
+- Merge pull request #131 from ITA-Internship/task#122-infrastructure-hardening (by **Maksym Korchynskyi**)
+- Add health checks, Gunicorn config, and Docker bug fixes (by **Maksym Korchynskyi**)
 
 ### Refactor
 
@@ -616,6 +635,7 @@
 
 ### Miscellaneous Tasks
 
+- *(changelog)* Update CHANGELOG.md [skip ci] (by **github-actions[bot]**)
 - *(changelog)* Update CHANGELOG.md [skip ci] (by **github-actions[bot]**)
 - *(changelog)* Update CHANGELOG.md [skip ci] (by **github-actions[bot]**)
 - *(changelog)* Update CHANGELOG.md [skip ci] (by **github-actions[bot]**)
