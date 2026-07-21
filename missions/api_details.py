@@ -65,6 +65,20 @@ assignment_example_value = {
     "created_at": "2026-07-06T02:19:18.140785Z",
 }
 
+paginated_mission_example_value = {
+    "count": 1,
+    "next": None,
+    "previous": None,
+    "results": [mission_example_value],
+}
+
+paginated_assignment_example_value = {
+    "count": 1,
+    "next": None,
+    "previous": None,
+    "results": [assignment_example_value],
+}
+
 mission_get_schema = description_schema(
     summary="List missions",
     description=(
@@ -104,7 +118,7 @@ mission_get_schema = description_schema(
     examples=[
         OpenApiExample(
             name="Valid Request",
-            value=mission_example_value,
+            value=paginated_mission_example_value,
         )
     ],
 )
@@ -475,7 +489,7 @@ mission_assignment_get_schema = description_schema(
     examples=[
         OpenApiExample(
             name="Valid Request",
-            value=assignment_example_value,
+            value=paginated_assignment_example_value,
         )
     ],
 )

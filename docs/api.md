@@ -2693,30 +2693,37 @@ Examples
   "previous": "http://api.example.org/accounts/?page=2",
   "results": [
     {
-      "id": 31,
-      "title": "Fallback Route Mapping",
-      "commander": {
-        "id": 27,
-        "username": "commander.south",
-        "email": "commander.south@example.com"
-      },
-      "status": "planned",
-      "result": null,
-      "location_description": "Secondary fallback route south-west of artillery support line.",
-      "latitude": "48.619700",
-      "longitude": "22.287900",
-      "started_at": "2026-07-09T01:17:37.650595Z",
-      "ended_at": "2026-07-09T01:49:37.650595Z",
-      "notes": "Objective: capture updated terrain references and route obstacles.",
-      "incident_notes": "",
-      "created_by": {
-        "id": 24,
-        "username": "oleksander.koval",
-        "email": "oleksander.koval@example.com"
-      },
-      "created_at": "2026-07-02T02:21:31.151234Z",
-      "updated_at": "2026-07-03T01:17:37.651465Z",
-      "drones": []
+      "count": 1,
+      "next": null,
+      "previous": null,
+      "results": [
+        {
+          "id": 31,
+          "title": "Fallback Route Mapping",
+          "commander": {
+            "id": 27,
+            "username": "commander.south",
+            "email": "commander.south@example.com"
+          },
+          "status": "planned",
+          "result": null,
+          "location_description": "Secondary fallback route south-west of artillery support line.",
+          "latitude": "48.619700",
+          "longitude": "22.287900",
+          "started_at": "2026-07-09T01:17:37.650595Z",
+          "ended_at": "2026-07-09T01:49:37.650595Z",
+          "notes": "Objective: capture updated terrain references and route obstacles.",
+          "incident_notes": "",
+          "created_by": {
+            "id": 24,
+            "username": "oleksander.koval",
+            "email": "oleksander.koval@example.com"
+          },
+          "created_at": "2026-07-02T02:21:31.151234Z",
+          "updated_at": "2026-07-03T01:17:37.651465Z",
+          "drones": []
+        }
+      ]
     }
   ]
 }
@@ -3298,27 +3305,34 @@ Examples
   "previous": "http://api.example.org/accounts/?page=2",
   "results": [
     {
-      "id": 1,
-      "mission": 34,
-      "drone": 21,
-      "drone_details": {
-        "id": 21,
-        "name": "Falcon Eye 1",
-        "serial_number": "FPV-AER-24001",
-        "drone_model": 15,
-        "status": "ACTIVE"
-      },
-      "operator": 28,
-      "operator_details": {
-        "id": 28,
-        "username": "operator.alpha",
-        "email": "operator.alpha@example.com"
-      },
-      "condition_after": null,
-      "condition_description": null,
-      "flight_started_at": null,
-      "flight_ended_at": null,
-      "created_at": "2026-07-06T02:19:18.140785Z"
+      "count": 1,
+      "next": null,
+      "previous": null,
+      "results": [
+        {
+          "id": 1,
+          "mission": 34,
+          "drone": 21,
+          "drone_details": {
+            "id": 21,
+            "name": "Falcon Eye 1",
+            "serial_number": "FPV-AER-24001",
+            "drone_model": 15,
+            "status": "ACTIVE"
+          },
+          "operator": 28,
+          "operator_details": {
+            "id": 28,
+            "username": "operator.alpha",
+            "email": "operator.alpha@example.com"
+          },
+          "condition_after": null,
+          "condition_description": null,
+          "flight_started_at": null,
+          "flight_ended_at": null,
+          "created_at": "2026-07-06T02:19:18.140785Z"
+        }
+      ]
     }
   ]
 }
