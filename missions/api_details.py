@@ -71,7 +71,7 @@ mission_get_schema = description_schema(
         "Retrieves a paginated and filtered by status list of missions, "
         "assigned to the currently authenticated user. "
     ),
-    permission_code="IsDispatcherOrAdmin, PERMISSION_MISSIONS_VIEW",
+    permission_code="PERMISSION_MISSIONS_VIEW",
     parameters=[
         OpenApiParameter(
             name="status",
@@ -122,7 +122,7 @@ mission_post_schema = description_schema(
         "- Assigned drones and operators "
         "cannot already be assigned to another mission. "
     ),
-    permission_code="IsDispatcherOrAdmin, PERMISSION_MISSIONS_CREATE",
+    permission_code="PERMISSION_MISSIONS_CREATE",
     request=MissionSerializer,
     responses={
         status.HTTP_200_OK: OpenApiResponse(
@@ -216,7 +216,7 @@ mission_outcome_schema = description_schema(
         "- Already recorded outcome cannot be overwritten. \n"
         "- If result of a mission is a failure, incident notes must be provided."
     ),
-    permission_code="IsAssignedOperatorOrAdmin, PERMISSION_MISSIONS_RECORD_OUTCOME",
+    permission_code="PERMISSION_MISSIONS_RECORD_OUTCOME, IsAssignedOperatorOrAdmin",
     parameters=[
         OpenApiParameter(
             name="id",
@@ -368,7 +368,7 @@ mission_drone_condition_schema = description_schema(
 mission_status_get_schema = description_schema(
     summary="Retrieve mission status",
     description=("Retrieves the current status of a mission."),
-    permission_code="CanUpdateMissionStatus",
+    permission_code="PERMISSION_MISSIONS_UPDATE_STATUS, IsAssignedToMissionOrAdmin",
     parameters=[
         OpenApiParameter(
             name="id",
@@ -404,7 +404,7 @@ mission_status_update_schema = description_schema(
         "- Mission cannot be updated to status `ACTIVE` "
         "if it has assigned inactive drones."
     ),
-    permission_code="CanUpdateMissionStatus",
+    permission_code="PERMISSION_MISSIONS_UPDATE_STATUS, IsAssignedToMissionOrAdmin",
     parameters=[
         OpenApiParameter(
             name="id",
@@ -488,7 +488,7 @@ mission_assignment_post_schema = description_schema(
         "- All assigned drones must be active. \n"
         "- Operators and drones cannot be assigned to overlapping missions."
     ),
-    permission_code="IsDispatcherOrAdmin, PERMISSION_MISSIONS_ASSIGN",
+    permission_code="PERMISSION_MISSIONS_ASSIGN",
     parameters=[
         OpenApiParameter(
             name="mission_pk",
@@ -527,7 +527,7 @@ mission_assignment_delete_schema = description_schema(
         "Validation: \n"
         "- Cannot delete assignment unless mission is planned."
     ),
-    permission_code="IsDispatcherOrAdmin, PERMISSION_MISSIONS_ASSIGN",
+    permission_code="PERMISSION_MISSIONS_ASSIGN",
     parameters=[
         OpenApiParameter(
             name="mission_pk",

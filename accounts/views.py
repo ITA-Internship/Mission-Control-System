@@ -38,10 +38,14 @@ from .api_details import (
     user_status_update_schema,
 )
 from .models import AuditLog, User, UserStatusLog
-from .permissions import HasRBACPermission, IsSystemAdmin, user_has_permission
+from .permissions import HasAnyRBACPermission, HasRBACPermission, user_has_permission
 from .rbac import (
     PERMISSION_AUDIT_LOGS_VIEW_ALL,
     PERMISSION_AUDIT_LOGS_VIEW_OWN,
+    PERMISSION_PROFILE_RESET_PASSWORD_OWN,
+    PERMISSION_PROFILE_UPDATE_OWN,
+    PERMISSION_PROFILE_VIEW_OWN,
+    PERMISSION_USERS_ACTIVATE_DEACTIVATE,
     PERMISSION_USERS_CREATE,
     PERMISSION_USERS_MANAGE_ROLES,
 )
@@ -157,7 +161,11 @@ class AuditLogFilter(filters.FilterSet):
 )
 class AuditLogViewSet(viewsets.ReadOnlyModelViewSet):
     serializer_class = AuditLogSerializer
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [HasAnyRBACPermission]
+    required_permissions = [
+        PERMISSION_AUDIT_LOGS_VIEW_OWN,
+        PERMISSION_AUDIT_LOGS_VIEW_ALL,
+    ]
     pagination_class = AuditLogPagination
     filter_backends = [filters.DjangoFilterBackend]
     filterset_class = AuditLogFilter
@@ -234,7 +242,8 @@ class AuditLogViewSet(viewsets.ReadOnlyModelViewSet):
 
 @user_status_update_schema
 class UserStatusUpdateView(APIView):
-    permission_classes = [IsSystemAdmin]
+    permission_classes = [HasRBACPermission]
+    required_permission = PERMISSION_USERS_ACTIVATE_DEACTIVATE
 
     def patch(self, request, pk):
         target_user = get_object_or_404(User, pk=pk)
@@ -298,7 +307,16 @@ class UserStatusUpdateView(APIView):
 )
 class UserMeView(generics.RetrieveUpdateAPIView):
     serializer_class = UserMeSerializer
-    permission_classes = [permissions.IsAuthenticated]
+
+    def get_permissions(self):
+        if self.request.method in permissions.SAFE_METHODS:
+            permission_classes = [HasRBACPermission]
+            self.required_permission = PERMISSION_PROFILE_VIEW_OWN
+        else:
+            permission_classes = [HasRBACPermission]
+            self.required_permission = PERMISSION_PROFILE_UPDATE_OWN
+
+        return [permission() for permission in permission_classes]
 
     def get_object(self):
         return self.request.user
@@ -345,7 +363,8 @@ def invalidate_user_sessions(user):
 
 @change_password_schema
 class ChangePasswordView(APIView):
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [HasRBACPermission]
+    required_permission = PERMISSION_PROFILE_RESET_PASSWORD_OWN
 
     def post(self, request):
         serializer = ChangePasswordSerializer(

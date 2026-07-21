@@ -19,7 +19,9 @@ from .api_details import (
     mission_assignment_post_schema,
     mission_detail_schema,
     mission_drone_condition_schema,
+    mission_get_schema,
     mission_outcome_schema,
+    mission_post_schema,
     mission_status_get_schema,
     mission_status_update_schema,
 )
@@ -57,12 +59,13 @@ def restrict_missions_for_user(queryset, user):
     return queryset
 
 
+@extend_schema_view(get=mission_get_schema, post=mission_post_schema)
 class MissionListCreateView(generics.ListCreateAPIView):
     """List missions or create one.
 
     GET is open to any authenticated user with the view permission and supports
     ``status`` and ``assigned_to=me`` query filters. POST is restricted to
-    Dispatcher/Admin with the create permission.
+    roles with the create permission.
     """
 
     serializer_class = MissionSerializer
@@ -147,8 +150,8 @@ class MissionDetailView(generics.RetrieveAPIView):
 class MissionOutcomeView(generics.UpdateAPIView):
     """Record the outcome of a completed/aborted mission via PATCH.
 
-    Restricted to the assigned operator or an admin with the record-outcome
-    permission.
+    Restricted to dispatchers, the assigned operator, or an admin with the
+    record-outcome permission.
     """
 
     serializer_class = MissionOutcomeSerializer
@@ -172,8 +175,8 @@ class MissionOutcomeView(generics.UpdateAPIView):
 class MissionDroneConditionView(generics.UpdateAPIView):
     """Record a drone's post-mission condition for one assignment via PATCH.
 
-    Restricted to the assigned operator or an admin with the record-condition
-    permission.
+    Restricted to dispatchers, the assigned operator, or an admin with the
+    record-condition permission.
     """
 
     serializer_class = MissionDroneConditionSerializer
@@ -207,8 +210,10 @@ class MissionDroneConditionView(generics.UpdateAPIView):
 class MissionStatusUpdateView(generics.RetrieveUpdateAPIView):
     """Retrieve or update a mission's status through its lifecycle.
 
-    Gated by ``CanUpdateMissionStatus`` (Admin/Commander any mission, Operator
-    only their own). Updates lock the mission row and run in a transaction.
+    Gated by ``CanUpdateMissionStatus`` plus object-level checks. Admins,
+    commanders, and dispatchers may update any mission; operators may only
+    update missions they are assigned to. Updates lock the mission row and run
+    in a transaction.
     """
 
     serializer_class = MissionStatusUpdateSerializer
@@ -239,7 +244,9 @@ class MissionStatusUpdateView(generics.RetrieveUpdateAPIView):
         queryset = self.filter_queryset(self.get_queryset())
 
         if self.request.method in ["PUT", "PATCH"]:
-            return queryset.select_for_update().get(pk=self.kwargs["pk"])
+            obj = queryset.select_for_update().get(pk=self.kwargs["pk"])
+            self.check_object_permissions(self.request, obj)
+            return obj
 
         return super().get_object()
 
@@ -264,7 +271,7 @@ class MissionAssignmentListCreateView(generics.ListCreateAPIView):
     """List a mission's drone assignments or create one.
 
     GET is open to any authenticated user with the view permission; POST is
-    restricted to Dispatcher/Admin with the assign permission.
+    restricted to roles with the assign permission.
     """
 
     serializer_class = MissionDroneSerializer
@@ -331,7 +338,7 @@ class MissionAssignmentListCreateView(generics.ListCreateAPIView):
 
 @mission_assignment_delete_schema
 class MissionAssignmentDetailView(generics.DestroyAPIView):
-    """Delete a drone assignment from a mission (Dispatcher/Admin only)."""
+    """Delete a drone assignment from a mission for roles with assign permission."""
 
     permission_classes = [
         permissions.IsAuthenticated,

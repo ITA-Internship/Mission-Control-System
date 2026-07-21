@@ -426,7 +426,7 @@ Allows system administrators to activate or deactivate a user's account, creates
 Validation:
 - User cannot deactivate their own account.
 
-Required permission: `IsSystemAdmin`.
+Required permission: `PERMISSION_USERS_ACTIVATE_DEACTIVATE`.
 
 
 ### Parameters
@@ -659,7 +659,7 @@ Retrieve current user profile
 
 Retrieves the profile details of the currently authenticated user.
 
-Required permission: `IsAuthenticated`.
+Required permission: `PERMISSION_PROFILE_VIEW_OWN`.
 
 
 
@@ -721,7 +721,7 @@ Validation:
 - Image file size cannot exceed 5 MB.
 - Supported image file formats: .jpg, .jpeg, .png, .webp.
 
-Required permission: `IsAuthenticated`.
+Required permission: `PERMISSION_PROFILE_UPDATE_OWN`.
 
 
 
@@ -829,7 +829,7 @@ Validation:
 - Image file size cannot exceed 5 MB.
 - Supported image file formats: .jpg, .jpeg, .png, .webp.
 
-Required permission: `IsAuthenticated`.
+Required permission: `PERMISSION_PROFILE_UPDATE_OWN`.
 
 
 
@@ -933,7 +933,7 @@ Change user password
 
 Changes the password for the currently authenticated user and creates an audit log entry. Upon a successful password change, all active sessions for this user are invalidated.
 
-Required permission: `IsAuthenticated`.
+Required permission: `PERMISSION_PROFILE_RESET_PASSWORD_OWN`.
 
 
 
@@ -2531,7 +2531,7 @@ List missions
 
 Retrieves a paginated and filtered by status list of missions, assigned to the currently authenticated user.
 
-Required permission: `IsDispatcherOrAdmin, PERMISSION_MISSIONS_VIEW`.
+Required permission: `PERMISSION_MISSIONS_VIEW`.
 
 
 ### Parameters
@@ -2623,7 +2623,7 @@ Validation:
 - Either location or latitude and longitude must be provided.
 - Assigned drones and operators cannot already be assigned to another mission.
 
-Required permission: `IsDispatcherOrAdmin, PERMISSION_MISSIONS_CREATE`.
+Required permission: `PERMISSION_MISSIONS_CREATE`.
 
 
 
@@ -3183,7 +3183,7 @@ Deploys a specific drone and maps an operator to the given mission. Validation:
 - All assigned drones must be active.
 - Operators and drones cannot be assigned to overlapping missions.
 
-Required permission: `IsDispatcherOrAdmin, PERMISSION_MISSIONS_ASSIGN`.
+Required permission: `PERMISSION_MISSIONS_ASSIGN`.
 
 
 ### Parameters
@@ -3330,7 +3330,7 @@ Deletes a specific drone assignment and creates an audit log entry.
 Validation:
 - Cannot delete assignment unless mission is planned.
 
-Required permission: `IsDispatcherOrAdmin, PERMISSION_MISSIONS_ASSIGN`.
+Required permission: `PERMISSION_MISSIONS_ASSIGN`.
 
 
 ### Parameters
@@ -3620,7 +3620,7 @@ Validation:
 - Already recorded outcome cannot be overwritten.
 - If result of a mission is a failure, incident notes must be provided.
 
-Required permission: `IsAssignedOperatorOrAdmin, PERMISSION_MISSIONS_RECORD_OUTCOME`.
+Required permission: `PERMISSION_MISSIONS_RECORD_OUTCOME, IsAssignedOperatorOrAdmin`.
 
 
 ### Parameters
@@ -3765,7 +3765,7 @@ Retrieve mission status
 
 Retrieves the current status of a mission.
 
-Required permission: `CanUpdateMissionStatus`.
+Required permission: `PERMISSION_MISSIONS_UPDATE_STATUS, IsAssignedToMissionOrAdmin`.
 
 
 ### Parameters
@@ -3833,7 +3833,7 @@ Validation:
 	- statuses `COMPLETED` or `ABORTED` cannot be updated.
 - Mission cannot be updated to status `ACTIVE` if it has assigned inactive drones.
 
-Required permission: `CanUpdateMissionStatus`.
+Required permission: `PERMISSION_MISSIONS_UPDATE_STATUS, IsAssignedToMissionOrAdmin`.
 
 
 ### Parameters
@@ -3963,7 +3963,7 @@ Validation:
 	- statuses `COMPLETED` or `ABORTED` cannot be updated.
 - Mission cannot be updated to status `ACTIVE` if it has assigned inactive drones.
 
-Required permission: `CanUpdateMissionStatus`.
+Required permission: `PERMISSION_MISSIONS_UPDATE_STATUS, IsAssignedToMissionOrAdmin`.
 
 
 ### Parameters

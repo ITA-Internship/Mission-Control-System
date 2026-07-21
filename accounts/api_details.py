@@ -281,7 +281,7 @@ user_status_update_schema = description_schema(
         "Validation: \n"
         "- User cannot deactivate their own account. "
     ),
-    permission_code="IsSystemAdmin",
+    permission_code="PERMISSION_USERS_ACTIVATE_DEACTIVATE",
     parameters=[
         OpenApiParameter(
             name="pk",
@@ -326,7 +326,7 @@ user_status_update_schema = description_schema(
 user_me_get_schema = description_schema(
     summary="Retrieve current user profile",
     description=("Retrieves the profile details of the currently authenticated user. "),
-    permission_code="IsAuthenticated",
+    permission_code="PERMISSION_PROFILE_VIEW_OWN",
     request=None,
     responses={
         status.HTTP_200_OK: OpenApiResponse(
@@ -364,7 +364,7 @@ user_me_update_schema = description_schema(
         "- Image file size cannot exceed 5 MB. \n"
         "- Supported image file formats: .jpg, .jpeg, .png, .webp. "
     ),
-    permission_code="IsAuthenticated",
+    permission_code="PERMISSION_PROFILE_UPDATE_OWN",
     request=UserMeSerializer,
     responses={
         status.HTTP_200_OK: OpenApiResponse(
@@ -412,7 +412,7 @@ change_password_schema = description_schema(
         "Upon a successful password change, "
         "all active sessions for this user are invalidated. "
     ),
-    permission_code="IsAuthenticated",
+    permission_code="PERMISSION_PROFILE_RESET_PASSWORD_OWN",
     request=ChangePasswordSerializer,
     responses={
         status.HTTP_200_OK: OpenApiResponse(

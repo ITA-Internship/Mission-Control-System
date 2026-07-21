@@ -75,7 +75,10 @@ class IsAssignedOperatorOrAdmin(permissions.BasePermission):
     outcomes and drone conditions.
     """
 
-    message = "Only the assigned Operator or an Admin can perform this action."
+    message = (
+        "Only a Dispatcher, the assigned Operator, or an Admin can perform "
+        "this action."
+    )
 
     def has_permission(self, request, view):
         """Allow the request to proceed to object checks for eligible roles."""
@@ -106,6 +109,8 @@ class IsAssignedOperatorOrAdmin(permissions.BasePermission):
 
 class IsAssignedToMissionOrAdmin(permissions.BasePermission):
     """Allow admins, commanders, dispatchers, or assigned operators to update."""
+
+    message = "You are not authorized to update this mission's status."
 
     def has_object_permission(self, request, view, obj):
         """Check whether the user can update this specific mission."""
