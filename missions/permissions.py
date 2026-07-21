@@ -66,7 +66,7 @@ class CanRecordCondition(HasRBACPermission):
 # Check contextual access to specific objects.
 
 
-class IsAssignedOperatorOrAdmin(permissions.BasePermission):
+class IsDispatcherOrAssignedOperatorOrAdmin(permissions.BasePermission):
     """Admins act on any mission; operators only on missions they fly.
 
     Two-stage check: has_permission gates by role (cheap, no DB), then

@@ -33,8 +33,8 @@ from .permissions import (
     CanRecordOutcome,
     CanUpdateMissionStatus,
     CanViewMission,
-    IsAssignedOperatorOrAdmin,
     IsAssignedToMissionOrAdmin,
+    IsDispatcherOrAssignedOperatorOrAdmin,
 )
 from .serializers import (
     MissionDroneConditionSerializer,
@@ -158,7 +158,7 @@ class MissionOutcomeView(generics.UpdateAPIView):
     permission_classes = [
         permissions.IsAuthenticated,
         CanRecordOutcome,
-        IsAssignedOperatorOrAdmin,
+        IsDispatcherOrAssignedOperatorOrAdmin,
     ]
     queryset = Mission.objects.with_related()
     http_method_names = ["patch", "options", "head"]
@@ -183,7 +183,7 @@ class MissionDroneConditionView(generics.UpdateAPIView):
     permission_classes = [
         permissions.IsAuthenticated,
         CanRecordCondition,
-        IsAssignedOperatorOrAdmin,
+        IsDispatcherOrAssignedOperatorOrAdmin,
     ]
     lookup_url_kwarg = "assignment_id"
     http_method_names = ["patch", "options", "head"]

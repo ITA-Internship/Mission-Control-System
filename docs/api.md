@@ -3640,7 +3640,7 @@ Validation:
 - Drone condition can only be recorded for missions with status `completed` or `aborted`.
 - Condition `lost` cannot be overwritten.
 
-Required permission: `PERMISSION_MISSIONS_RECORD_CONDITION, IsAssignedOperatorOrAdmin`.
+Required permission: `PERMISSION_MISSIONS_RECORD_CONDITION, IsDispatcherOrAssignedOperatorOrAdmin`.
 
 
 ### Parameters
@@ -3790,7 +3790,7 @@ Validation:
 - Already recorded outcome cannot be overwritten.
 - If result of a mission is a failure, incident notes must be provided.
 
-Required permission: `PERMISSION_MISSIONS_RECORD_OUTCOME, IsAssignedOperatorOrAdmin`.
+Required permission: `PERMISSION_MISSIONS_RECORD_OUTCOME, IsDispatcherOrAssignedOperatorOrAdmin`.
 
 
 ### Parameters

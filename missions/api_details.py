@@ -216,7 +216,9 @@ mission_outcome_schema = description_schema(
         "- Already recorded outcome cannot be overwritten. \n"
         "- If result of a mission is a failure, incident notes must be provided."
     ),
-    permission_code="PERMISSION_MISSIONS_RECORD_OUTCOME, IsAssignedOperatorOrAdmin",
+    permission_code=(
+        "PERMISSION_MISSIONS_RECORD_OUTCOME, " "IsDispatcherOrAssignedOperatorOrAdmin"
+    ),
     parameters=[
         OpenApiParameter(
             name="id",
@@ -289,7 +291,9 @@ mission_outcome_schema = description_schema(
 mission_drone_condition_schema = description_schema(
     tags=["mission assignments"],
     summary="Update drone post-mission condition",
-    permission_code="PERMISSION_MISSIONS_RECORD_CONDITION, IsAssignedOperatorOrAdmin",
+    permission_code=(
+        "PERMISSION_MISSIONS_RECORD_CONDITION, " "IsDispatcherOrAssignedOperatorOrAdmin"
+    ),
     description=(
         "Updates the condition of a specific drone assigned to "
         "a mission and creates an audit log entry. \n\n"
