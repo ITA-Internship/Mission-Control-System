@@ -13,21 +13,6 @@ Classes:
     ProtectedProfilePictureView: Serves profile pictures securely.
 """
 
-"""Expose user management, authentication, and authorization endpoints.
-
-Classes:
-    UserRegistrationView: Handles user registration.
-    UserRoleUpdateAPIView: Handles updating user roles.
-    ActivateAccountAPIView: Handles user account activation via email tokens.
-    AuditLogViewSet: Provides read-only access and CSV export for audit logs.
-    UserStatusUpdateView: Manages user status (active/inactive) updates.
-    UserMeView: Retrieves and updates the authenticated user's profile.
-    ChangePasswordView: Handles password changes for the authenticated user.
-    PasswordResetRequestView: Initiates the password reset process via email.
-    PasswordResetConfirmView: Confirms and executes a password reset using a token.
-    ProtectedProfilePictureView: Serves profile pictures securely.
-"""
-
 import csv
 import mimetypes
 import os
@@ -297,8 +282,6 @@ class AuditLogViewSet(viewsets.ReadOnlyModelViewSet):
 
 @user_status_update_schema
 class UserStatusUpdateView(APIView):
-    """Handle activation and deactivation of user accounts by administrators."""
-
     """Manage user active/inactive status changes."""
 
     permission_classes = [HasRBACPermission]
