@@ -605,6 +605,12 @@
 - Fix CSP header: add worker-src for ReDoc Web Worker (by **Maksym**)
 - Merge pull request #131 from ITA-Internship/task#122-infrastructure-hardening (by **Maksym Korchynskyi**)
 - Add health checks, Gunicorn config, and Docker bug fixes (by **Maksym Korchynskyi**)
+- Update CI/CD file adding deploy steps (by **Maksym Lirko**)
+- Add bash file for checking enviroment variables (by **Maksym Lirko**)
+- Add deployment workflow and CI/CD guide (by **Maksym Lirko**)
+- Fix lint issues (by **Maksym Lirko**)
+- Merge pull request #155 from ITA-Internship/task123-clean (by **Maksym**)
+- Task#123 automate deployment and release workflow (by **Maksym**)
 
 ### Refactor
 
@@ -635,6 +641,7 @@
 
 ### Miscellaneous Tasks
 
+- *(changelog)* Update CHANGELOG.md [skip ci] (by **github-actions[bot]**)
 - *(changelog)* Update CHANGELOG.md [skip ci] (by **github-actions[bot]**)
 - *(changelog)* Update CHANGELOG.md [skip ci] (by **github-actions[bot]**)
 - *(changelog)* Update CHANGELOG.md [skip ci] (by **github-actions[bot]**)
