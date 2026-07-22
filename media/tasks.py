@@ -1,3 +1,5 @@
+"""Asynchronous Celery tasks for processing media metadata."""
+
 import json
 import subprocess
 
@@ -8,6 +10,13 @@ from .models import VideoMetadata
 
 @shared_task
 def extract_video_duration_task(video_id):
+    """Extract the exact play duration of a video file using ffprobe.
+
+    Invokes the ffprobe binary in a timed subprocess to parse the video's
+    container metadata. Upon successful extraction, it stores the duration
+    and marks the instance status as READY. If any failure occurs, the record
+    is flagged as FAILED.
+    """
     try:
         instance = VideoMetadata.objects.get(id=video_id)
         if not instance.file:

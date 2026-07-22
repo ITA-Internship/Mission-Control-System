@@ -1,3 +1,5 @@
+"""Test suite for media service layer and audit logging."""
+
 from unittest.mock import patch
 
 from django.core.files.uploadedfile import SimpleUploadedFile
@@ -11,12 +13,16 @@ from missions.models import MissionAuditLog
 
 
 class ArtifactServicesTests(TestCase):
+    """Test business logic within the artifact service layer."""
+
     def setUp(self):
+        """Set up an operator user and a mission for testing."""
         self.operator = OperatorUserFactory()
         self.mission = MissionFactory()
 
     @patch("django.core.files.storage.default_storage.delete")
     def test_upload_artifact_exception_cleans_up_storage(self, mock_delete):
+        """Verify file cleanup when database operations fail during upload."""
         with patch(
             "media.services.MissionAuditLog.objects.create",
             side_effect=RuntimeError("DB Error"),
@@ -35,6 +41,7 @@ class ArtifactServicesTests(TestCase):
             mock_delete.assert_called_once()
 
     def test_delete_artifact_service_logic(self):
+        """Verify transactional deletion and deferred storage cleanup execution."""
         artifact = MissionArtifactFactory(mission=self.mission, is_image=True)
 
         with patch("django.core.files.storage.default_storage.delete") as mock_delete:
@@ -47,12 +54,17 @@ class ArtifactServicesTests(TestCase):
 
 
 class MediaAuditLogTransactionTests(TestCase):
+    """Test rollback mechanics for audit logging."""
+
     def setUp(self):
+        """Set up an operator user and a mission for testing."""
         self.operator = OperatorUserFactory()
         self.mission = MissionFactory()
 
     @patch("django.core.files.storage.default_storage.delete")
     def test_media_audit_log_failure_rolls_back_upload(self, mock_delete):
+        """Ensure that audit log persistence failures roll back
+        the entire upload transaction."""
         with patch(
             "media.services.MediaAuditLog.objects.create",
             side_effect=RuntimeError("DB Error"),

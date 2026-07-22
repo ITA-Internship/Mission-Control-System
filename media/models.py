@@ -1,3 +1,11 @@
+"""Data models for managing mission media artifacts and audit logs.
+
+Classes:
+    MissionArtifact: Represents an image or data artifact.
+    MediaAuditLog: Represents a log of actions performed on artifacts.
+    VideoMetadata: Represents a metadata of a video artifact.
+"""
+
 import os
 import uuid
 
@@ -13,18 +21,22 @@ VIDEO_ALLOWED_EXTENSIONS = ["mp4", "avi", "mov", "mkv"]
 
 
 class FileType(models.TextChoices):
+    """Enumeration of recognized artifact file types."""
+
     VIDEO = "video", "Video"
     IMAGE = "image", "Image"
     DATA = "data", "Data"
 
 
 def _get_all_allowed_extensions():
+    """Flatten and return all permitted file extensions from application settings."""
     return [
         ext for exts in settings.ARTIFACT_ALLOWED_EXTENSIONS.values() for ext in exts
     ]
 
 
 def _get_extension_to_file_type():
+    """Map each unique extension back to its corresponding FileType choice."""
     return {
         ext: FileType(file_type)
         for file_type, exts in settings.ARTIFACT_ALLOWED_EXTENSIONS.items()
@@ -36,6 +48,8 @@ EXTENSION_TO_FILE_TYPE = _get_extension_to_file_type()
 
 
 def _validate_file_size(file):
+    """Validate that the uploaded file is neither
+    empty nor exceeds global constraints."""
     if file.size is None:
         raise ValidationError("Cannot determine file size.")
     if file.size == 0:
@@ -49,6 +63,7 @@ def _validate_file_size(file):
 
 
 def video_upload_path(instance, filename):
+    """Generate a destination path for video artifact uploads."""
     return (
         f"missions/{instance.mission_id}/"
         f"drones/{instance.drone_id}/"
@@ -57,6 +72,8 @@ def video_upload_path(instance, filename):
 
 
 def artifact_upload_path(instance, filename):
+    """Generate a destination path for image and data artifacts,
+    verifying file extension."""
     ext = os.path.splitext(filename)[1].lower()
     if ext not in _get_all_allowed_extensions():
         raise ValidationError(f"Unsupported file extension: {ext}")
@@ -65,6 +82,8 @@ def artifact_upload_path(instance, filename):
 
 
 def validate_video_file_size(value):
+    """Validate that the video file is neither
+    empty nor exceeds global constraints."""
     max_mb = getattr(settings, "VIDEO_MAX_FILE_SIZE_MB", 500)
     if value.size == 0:
         raise ValidationError("Uploaded file is empty (0 bytes).")
@@ -73,10 +92,16 @@ def validate_video_file_size(value):
 
 
 def _detect_storage_backend():
+    """Return the storage backend active in system settings."""
     return getattr(settings, "STORAGE_PROVIDER", "local")
 
 
 class MissionArtifact(models.Model):
+    """Represent an image or data artifact collected during target mission.
+
+    Stores media files alongside physical file properties, active storage engine states.
+    """
+
     mission = models.ForeignKey(
         "missions.Mission",
         on_delete=models.CASCADE,
@@ -130,11 +155,18 @@ class MissionArtifact(models.Model):
         ]
 
     def clean(self):
+        """Validate that the artifact title is not blank."""
         super().clean()
         if self.title and not self.title.strip():
             raise ValidationError({"title": "Title must not be blank."})
 
     def save(self, *args, **kwargs):
+        """Create a mission artifact.
+
+        Automatically extracts original filename, computes raw file size,
+        evaluates targeted extension to populate file_type,
+        and logs the active storage backend.
+        """
         if self.file and not self.original_filename:
             self.original_filename = os.path.basename(self.file.name)
 
@@ -152,11 +184,20 @@ class MissionArtifact(models.Model):
         super().save(*args, **kwargs)
 
     def __str__(self):
+        """Return a string representation of the mission artifact."""
         return f"{self.title} ({self.file_type}) — Mission #{self.mission_id}"
 
 
 class MediaAuditLog(models.Model):
+    """Record an audit log entry for actions performed on mission artifacts.
+
+    Saves actions performed on mission artifacts along with the user
+    who performed an action, a target mission, IP address.
+    """
+
     class Action(models.TextChoices):
+        """Enumeration of allowed actions."""
+
         VIEW = "view", "View"
         UPLOAD = "upload", "Upload"
         UPDATE = "update", "Update"
@@ -209,6 +250,7 @@ class MediaAuditLog(models.Model):
         ]
 
     def __str__(self):
+        """Return a string representation of the media audit log entry."""
         return (
             f"[{self.action}] artifact #{self.artifact_id} "
             f"(Mission #{self.mission_id}) by {self.user}"
@@ -216,7 +258,15 @@ class MediaAuditLog(models.Model):
 
 
 class VideoMetadata(models.Model):
+    """Represent video metadata record.
+
+    Stores video metadata, its properties, timestamps.
+    Validates that the provided drone is actively assigned to the target mission.
+    """
+
     class Status(models.TextChoices):
+        """Status of processing video data."""
+
         UPLOADING = "uploading", "Uploading"
         READY = "ready", "Ready"
         FAILED = "failed", "Failed"
@@ -307,6 +357,7 @@ class VideoMetadata(models.Model):
         ]
 
     def clean(self):
+        """Validate that the provided drone belongs to the target mission."""
         super().clean()
         if self.mission_id and self.drone_id:
             if not MissionDrone.objects.filter(
@@ -318,10 +369,12 @@ class VideoMetadata(models.Model):
                 )
 
     def __str__(self):
+        """Return a string representation of the video metadata."""
         return (
             f"Video #{self.pk} " f"({self.file_name}) - " f"Mission {self.mission_id}"
         )
 
     @property
     def url(self):
+        """Return video file URL."""
         return self.file.url

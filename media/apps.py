@@ -1,3 +1,5 @@
+"""Application configuration for the media app."""
+
 import logging
 
 from django.apps import AppConfig
@@ -8,16 +10,21 @@ logger = logging.getLogger(__name__)
 
 
 class MediaConfig(AppConfig):
+    """Default configuration for the media app."""
+
     default_auto_field = "django.db.models.BigAutoField"
     name = "media"
     verbose_name = "Mission Media Artifacts"
 
     def ready(self):
+        """Perform application initialization tasks when Django starts."""
         import media.signals  # noqa: F401
 
         self._verify_storage_configuration()
 
     def _verify_storage_configuration(self):
+        """Validate that the storage provider matches
+        the active file storage backend."""
         configured_provider = getattr(settings, "STORAGE_PROVIDER", "local")
 
         actual_backend = getattr(settings, "DEFAULT_FILE_STORAGE", "")
