@@ -22,10 +22,6 @@ class MediaViewPermission(HasRBACPermission):
         if getattr(obj, "uploaded_by_id", None) == request.user.id:
             return True
 
-        mission = getattr(obj, "mission", None)
-        if mission and getattr(mission, "unit_id", None) == request.user.unit_id:
-            return True
-
         return False
 
 
