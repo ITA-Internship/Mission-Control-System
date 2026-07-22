@@ -189,7 +189,7 @@ class ArtifactDetailView(_MissionArtifactMixin, generics.RetrieveDestroyAPIView)
 class ProtectedMediaView(APIView):
     permission_classes = [IsAuthenticated, MediaViewPermission]
 
-    def get(self, request, artifact_pk):
+    def get(self, request, artifact_pk, mission_pk=None):
         artifact = get_object_or_404(MissionArtifact, pk=artifact_pk)
 
         self.check_object_permissions(request, artifact)

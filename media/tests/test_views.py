@@ -484,9 +484,12 @@ class ArtifactDetailTests(APITestCase):
         self.admin = AdminUserFactory()
         self.dispatcher = DispatcherUserFactory()
         self.operator = OperatorUserFactory()
+        self.assigned_operator = OperatorUserFactory()
+        self.unrelated_operator = OperatorUserFactory()
         self.viewer = ViewerUserFactory()
 
         self.mission = MissionFactory()
+        MissionDroneFactory(mission=self.mission, operator=self.assigned_operator)
         self.artifact = MissionArtifactFactory(
             mission=self.mission, uploaded_by=self.operator, is_image=True
         )
@@ -494,12 +497,51 @@ class ArtifactDetailTests(APITestCase):
             "missions:media:artifact-detail",
             kwargs={"mission_pk": self.mission.pk, "artifact_pk": self.artifact.pk},
         )
+        self.download_url = reverse(
+            "missions:media:artifact-download",
+            kwargs={"mission_pk": self.mission.pk, "artifact_pk": self.artifact.pk},
+        )
 
-    def test_viewer_can_retrieve(self):
+    def test_viewer_cannot_retrieve(self):
         self.client.force_authenticate(self.viewer)
+        response = self.client.get(self.url)
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_uploaded_by_can_retrieve(self):
+        self.client.force_authenticate(self.operator)
         response = self.client.get(self.url)
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.data["id"], self.artifact.id)
+
+    def test_assigned_operator_can_retrieve(self):
+        self.client.force_authenticate(self.assigned_operator)
+        response = self.client.get(self.url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["id"], self.artifact.id)
+
+    def test_commander_can_retrieve(self):
+        self.client.force_authenticate(self.mission.commander)
+        response = self.client.get(self.url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["id"], self.artifact.id)
+
+    def test_created_by_can_retrieve(self):
+        self.client.force_authenticate(self.mission.created_by)
+        response = self.client.get(self.url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["id"], self.artifact.id)
+
+    def test_unrelated_operator_without_unit_cannot_retrieve_artifact(self):
+        self.assertIsNone(self.unrelated_operator.unit_id)
+        self.client.force_authenticate(self.unrelated_operator)
+        response = self.client.get(self.url)
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_unrelated_operator_without_unit_cannot_download_artifact(self):
+        self.assertIsNone(self.unrelated_operator.unit_id)
+        self.client.force_authenticate(self.unrelated_operator)
+        response = self.client.get(self.download_url)
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
 
     def test_unauthenticated_cannot_retrieve(self):
         response = self.client.get(self.url)
@@ -588,19 +630,19 @@ class MediaAuditLoggingTests(APITestCase):
         return {"title": "Mission Clip", "file": upload_file}
 
     def test_retrieve_logs_view_action_with_user_and_ip(self):
-        self.client.force_authenticate(self.viewer)
+        self.client.force_authenticate(self.operator)
         response = self.client.get(self.detail_url)
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
 
         log = MediaAuditLog.objects.get(action=MediaAuditLog.Action.VIEW)
-        self.assertEqual(log.user, self.viewer)
+        self.assertEqual(log.user, self.operator)
         self.assertEqual(log.artifact, self.artifact)
         self.assertEqual(log.mission_id, self.mission.id)
         self.assertEqual(log.ip_address, "127.0.0.1")
 
     def test_each_retrieve_creates_a_separate_view_log(self):
-        self.client.force_authenticate(self.viewer)
+        self.client.force_authenticate(self.operator)
         self.client.get(self.detail_url)
         self.client.get(self.detail_url)
 
@@ -609,7 +651,7 @@ class MediaAuditLoggingTests(APITestCase):
         )
 
     def test_view_logging_failure_does_not_break_retrieve(self):
-        self.client.force_authenticate(self.viewer)
+        self.client.force_authenticate(self.operator)
         with patch(
             "media.services.MediaAuditLog.objects.create",
             side_effect=RuntimeError("logging down"),
