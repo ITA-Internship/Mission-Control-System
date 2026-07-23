@@ -1,3 +1,4 @@
+from drf_spectacular.types import OpenApiTypes
 from drf_spectacular.utils import OpenApiExample, OpenApiParameter, OpenApiResponse
 from rest_framework import status
 
@@ -281,7 +282,7 @@ user_status_update_schema = description_schema(
         "Validation: \n"
         "- User cannot deactivate their own account. "
     ),
-    permission_code="IsSystemAdmin",
+    permission_code="PERMISSION_USERS_ACTIVATE_DEACTIVATE",
     parameters=[
         OpenApiParameter(
             name="pk",
@@ -326,7 +327,7 @@ user_status_update_schema = description_schema(
 user_me_get_schema = description_schema(
     summary="Retrieve current user profile",
     description=("Retrieves the profile details of the currently authenticated user. "),
-    permission_code="IsAuthenticated",
+    permission_code="PERMISSION_PROFILE_VIEW_OWN",
     request=None,
     responses={
         status.HTTP_200_OK: OpenApiResponse(
@@ -364,7 +365,7 @@ user_me_update_schema = description_schema(
         "- Image file size cannot exceed 5 MB. \n"
         "- Supported image file formats: .jpg, .jpeg, .png, .webp. "
     ),
-    permission_code="IsAuthenticated",
+    permission_code="PERMISSION_PROFILE_UPDATE_OWN",
     request=UserMeSerializer,
     responses={
         status.HTTP_200_OK: OpenApiResponse(
@@ -412,7 +413,7 @@ change_password_schema = description_schema(
         "Upon a successful password change, "
         "all active sessions for this user are invalidated. "
     ),
-    permission_code="IsAuthenticated",
+    permission_code="PERMISSION_PROFILE_RESET_PASSWORD_OWN",
     request=ChangePasswordSerializer,
     responses={
         status.HTTP_200_OK: OpenApiResponse(
@@ -488,4 +489,41 @@ password_reset_confirm_schema = description_schema(
         ),
     },
     error_statuses=[status.HTTP_400_BAD_REQUEST],
+)
+
+profile_picture_get_schema = description_schema(
+    summary="Retrieve a user's profile picture",
+    description=(
+        "Returns the profile picture image file of the specified user, served "
+        "inline. In production the file is delivered through a protected "
+        "`X-Accel-Redirect` internal redirect; in debug mode the file is "
+        "streamed directly.\n\n"
+        "Access rules: \n"
+        "- Any authenticated user may retrieve their own profile picture. \n"
+        "- Only staff users may retrieve another user's profile picture. \n"
+        "- Returns 404 if the target user has no profile picture, or if the "
+        "stored file is missing from the server."
+    ),
+    permission_code="IsAuthenticated",
+    parameters=[
+        OpenApiParameter(
+            name="user_id",
+            type=int,
+            location=OpenApiParameter.PATH,
+            description="ID of the user whose profile picture is being retrieved.",
+            required=True,
+        ),
+    ],
+    request=None,
+    responses={
+        status.HTTP_200_OK: OpenApiResponse(
+            response=OpenApiTypes.BINARY,
+            description=(
+                "The profile picture image file is returned inline "
+                "with the appropriate content type."
+            ),
+        ),
+        status.HTTP_403_FORBIDDEN: OpenApiResponse(description="Forbidden"),
+        status.HTTP_404_NOT_FOUND: OpenApiResponse(description="Not Found"),
+    },
 )
