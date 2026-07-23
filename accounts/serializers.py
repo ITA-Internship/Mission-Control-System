@@ -13,6 +13,8 @@ Classes:
         retrieval and updates.
     ChangePasswordSerializer: Serializes requests to change the current
         user's password.
+    AccountActivationSerializer: Serializes and validates the initial
+        password submitted during account activation.
     PasswordResetRequestSerializer: Serializes requests to initiate a
         password reset process.
     PasswordResetConfirmSerializer: Serializes the new password to confirm
@@ -217,6 +219,21 @@ class ChangePasswordSerializer(serializers.Serializer):
     def validate_new_password(self, value):
         """Validate the new password against Django's built-in password validators."""
         user = self.context["request"].user
+        try:
+            validate_password(value, user)
+        except DjangoValidationError as exc:
+            raise serializers.ValidationError(list(exc.messages))
+        return value
+
+
+class AccountActivationSerializer(serializers.Serializer):
+    """Serialize account activation requests that set the initial password."""
+
+    password = serializers.CharField(required=True, write_only=True)
+
+    def validate_password(self, value):
+        """Validate the initial password against Django's built-in validators."""
+        user = self.context.get("user")
         try:
             validate_password(value, user)
         except DjangoValidationError as exc:

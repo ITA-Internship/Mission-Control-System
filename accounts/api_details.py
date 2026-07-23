@@ -5,6 +5,7 @@ from common.api_description_schema import description_schema
 from config.settings import MAX_EXPORT_LIMIT
 
 from .serializers import (
+    AccountActivationSerializer,
     AuditLogSerializer,
     ChangePasswordSerializer,
     PasswordResetConfirmSerializer,
@@ -128,7 +129,9 @@ activate_account_schema = description_schema(
     summary="Activate user account",
     description=(
         "Validates the activation token provided via the URL parameters. "
-        "If the token is valid, it sets the user's new password "
+        "If the token is valid and the account is still pending activation, "
+        "it validates the submitted password against the password-strength "
+        "policy, sets it as the user's password, activates the account, "
         "and creates an audit log entry. "
     ),
     permission_code="AllowAny",
@@ -148,7 +151,7 @@ activate_account_schema = description_schema(
             required=True,
         ),
     ],
-    request=None,
+    request=AccountActivationSerializer,
     responses={
         status.HTTP_200_OK: OpenApiResponse(
             description="Your account has been activated. You can now log in."
@@ -162,8 +165,21 @@ activate_account_schema = description_schema(
                     value={"detail": "Invalid or expired activation link."},
                 ),
                 OpenApiExample(
+                    name="Account already activated",
+                    value={"detail": "This account has already been activated."},
+                ),
+                OpenApiExample(
                     name="Missing required field",
-                    value={"password": "This field is required."},
+                    value={"password": ["This field is required."]},
+                ),
+                OpenApiExample(
+                    name="Password too weak",
+                    value={
+                        "password": [
+                            "This password is too short. It must contain at "
+                            "least 8 characters."
+                        ]
+                    },
                 ),
             ],
         ),

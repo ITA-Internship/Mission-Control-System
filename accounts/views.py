@@ -61,6 +61,7 @@ from .rbac import (
     PERMISSION_USERS_MANAGE_ROLES,
 )
 from .serializers import (
+    AccountActivationSerializer,
     AuditLogSerializer,
     ChangePasswordSerializer,
     PasswordResetConfirmSerializer,
@@ -151,14 +152,26 @@ class ActivateAccountAPIView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        new_password = request.data.get("password")
-        if not new_password:
+        # A fully activated account is both active and already holds a usable
+        # password. Reject those so this endpoint cannot double as a
+        # token-scoped "set password" endpoint for live accounts.
+        if user.is_active and user.has_usable_password():
             return Response(
-                {"password": ["This field is required."]},
+                {"detail": "This account has already been activated."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        set_user_password(user, new_password)
+        serializer = AccountActivationSerializer(
+            data=request.data, context={"user": user}
+        )
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        set_user_password(user, serializer.validated_data["password"])
+
+        if not user.is_active:
+            user.is_active = True
+            user.save(update_fields=["is_active"])
 
         create_audit_log(
             actor=user,
