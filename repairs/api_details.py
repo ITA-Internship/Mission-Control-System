@@ -1,3 +1,4 @@
+from drf_spectacular.types import OpenApiTypes
 from drf_spectacular.utils import OpenApiExample, OpenApiParameter, OpenApiResponse
 from rest_framework import status
 
@@ -9,6 +10,8 @@ from repairs.serializers import (
     ComponentReplacementSerializer,
     DefectReportListSerializer,
     DefectReportSerializer,
+    DefectStatusUpdateSerializer,
+    RepairEventSerializer,
 )
 
 defect_get_schema = description_schema(
@@ -290,4 +293,52 @@ component_replacement_export_schema = description_schema(
         200: OpenApiResponse(description="A CSV file generated successfully."),
     },
     error_statuses=[status.HTTP_403_FORBIDDEN],
+)
+
+defect_status_update_post_schema = description_schema(
+    summary="Update defect report status",
+    description=(
+        "Transitions a defect report to a new status and records a repair event."
+    ),
+    permission_code="PERMISSION_REPAIRS_CREATE",
+    parameters=[
+        OpenApiParameter(
+            name="pk",
+            type=int,
+            location=OpenApiParameter.PATH,
+            description="ID of the defect report to update.",
+        )
+    ],
+    request=DefectStatusUpdateSerializer,
+    responses={
+        status.HTTP_200_OK: OpenApiResponse(
+            response=RepairEventSerializer,
+            description="Defect status updated successfully.",
+        ),
+    },
+    error_statuses=[status.HTTP_400_BAD_REQUEST, status.HTTP_403_FORBIDDEN],
+)
+
+drone_repair_history_export_schema = description_schema(
+    summary="Export drone repair history to CSV",
+    description=(
+        "Exports the aggregated repair timeline for a specific drone as a CSV file."
+    ),
+    permission_code="PERMISSION_REPAIRS_VIEW",
+    parameters=[
+        OpenApiParameter(
+            name="drone_id",
+            type=int,
+            location=OpenApiParameter.PATH,
+            description="ID of the drone whose repair history is exported.",
+        )
+    ],
+    request=None,
+    responses={
+        status.HTTP_200_OK: OpenApiResponse(
+            response=OpenApiTypes.BINARY,
+            description="CSV file generated successfully.",
+        ),
+    },
+    error_statuses=[status.HTTP_403_FORBIDDEN, status.HTTP_404_NOT_FOUND],
 )

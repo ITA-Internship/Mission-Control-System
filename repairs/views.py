@@ -33,6 +33,8 @@ from .api_details import (
     defect_detail_schema,
     defect_get_schema,
     defect_post_schema,
+    defect_status_update_post_schema,
+    drone_repair_history_export_schema,
 )
 from .filters import ComponentReplacementFilter, DefectFilter, RepairOrderFilter
 from .models import ComponentReplacement, DefectReport, RepairEvent, RepairOrder
@@ -119,6 +121,7 @@ class DefectStatusUpdateView(APIView):
 
     permission_classes = [RepairPermission]
 
+    @defect_status_update_post_schema
     def post(self, request, pk):
         """Apply the status transition via the service layer."""
         serializer = DefectStatusUpdateSerializer(data=request.data)
@@ -358,10 +361,12 @@ class DroneRepairHistoryView(generics.GenericAPIView):
         return paginator.get_paginated_response(serializer.data)
 
 
+@drone_repair_history_export_schema
 class DroneRepairHistoryExportView(generics.GenericAPIView):
     """Stream a CSV export of a drone's complete repair timeline."""
 
     permission_classes = [RepairHistoryExportPermission]
+    serializer_class = RepairHistoryTimelineSerializer
 
     def get(self, request, drone_id):
         """Fetch the timeline and assemble the CSV streaming response."""

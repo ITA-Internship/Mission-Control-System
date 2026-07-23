@@ -58,7 +58,7 @@ class VideoMetadataSerializer(serializers.ModelSerializer):
             "file_name",
         ]
 
-    def get_url(self, obj):
+    def get_url(self, obj) -> str:
         return obj.url
 
 
