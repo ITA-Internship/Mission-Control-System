@@ -22,7 +22,7 @@ from rest_framework.views import APIView
 from accounts.permissions import user_has_permission
 from accounts.rbac import PERMISSION_REPAIRS_VIEW
 from common.pagination import StandardResultsSetPagination
-from common.utils import EchoBuffer
+from common.utils import EchoBuffer, sanitize_row
 from drones.models import Drone
 
 from .api_details import (
@@ -213,22 +213,28 @@ class ComponentReplacementExportView(generics.GenericAPIView):
 
             for replacement in queryset.iterator(chunk_size=2000):
                 yield writer.writerow(
-                    [
-                        replacement.id,
-                        replacement.drone_id,
-                        replacement.drone.serial_number,
-                        replacement.component_type,
-                        replacement.component_name or "N/A",
-                        replacement.old_serial_number or "N/A",
-                        replacement.new_serial_number,
-                        replacement.reason,
-                        replacement.replaced_at.strftime("%Y-%m-%d %H:%M:%S"),
-                        (
-                            replacement.replaced_by.username
-                            if replacement.replaced_by
-                            else "N/A"
-                        ),
-                    ]
+                    sanitize_row(
+                        [
+                            replacement.id,
+                            replacement.drone_id,
+                            replacement.drone.serial_number,
+                            replacement.component_type,
+                            replacement.component_name or "N/A",
+                            replacement.old_serial_number or "N/A",
+                            replacement.new_serial_number or "N/A",
+                            replacement.reason or "N/A",
+                            (
+                                replacement.replaced_at.strftime("%Y-%m-%d %H:%M:%S")
+                                if replacement.replaced_at
+                                else "N/A"
+                            ),
+                            (
+                                replacement.replaced_by.username
+                                if replacement.replaced_by
+                                else "N/A"
+                            ),
+                        ]
+                    )
                 )
 
         response = StreamingHttpResponse(generate_csv(), content_type="text/csv")
