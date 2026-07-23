@@ -802,6 +802,7 @@ class ProtectedMediaDownloadTests(APITestCase):
         self.admin = AdminUserFactory()
         self.operator = OperatorUserFactory()
         self.mission = MissionFactory()
+        self.other_mission = MissionFactory()
         self.artifact = MissionArtifactFactory(
             mission=self.mission, uploaded_by=self.operator, is_image=True
         )
@@ -833,6 +834,20 @@ class ProtectedMediaDownloadTests(APITestCase):
             response = self.client.get(self.url)
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+    def test_download_wrong_mission_returns_404(self):
+        wrong_mission_url = reverse(
+            "missions:media:artifact-download",
+            kwargs={
+                "mission_pk": self.other_mission.pk,
+                "artifact_pk": self.artifact.pk,
+            },
+        )
+
+        self.client.force_authenticate(self.admin)
+        response = self.client.get(wrong_mission_url)
+
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
 
 
 class MediaPermissionDeniedLoggingTests(APITestCase):
