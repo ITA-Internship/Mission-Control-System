@@ -48,6 +48,7 @@ from .api_details import (
     drone_post_schema,
     drone_spec_changes_get_schema,
     drone_status_history_get_schema,
+    drone_writeoff_history_get_schema,
     writeoff_history_get_schema,
     writeoff_record_get_schema,
     writeoff_record_post_schema,
@@ -386,6 +387,16 @@ class WriteOffHistoryListView(generics.ListAPIView):
             queryset = queryset.filter(drone_id=drone_pk)
 
         return queryset
+
+
+@extend_schema_view(get=drone_writeoff_history_get_schema)
+class DroneScopedWriteOffHistoryListView(WriteOffHistoryListView):
+    """Expose read-only write-off audit records scoped to a single drone.
+
+    Behaviour is identical to :class:`WriteOffHistoryListView`; the only
+    difference is the drone-scoped URL (which supplies the ``drone_pk`` path
+    parameter) and the documented schema.
+    """
 
 
 class WriteOffHistoryReportView(ListView):

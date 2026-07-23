@@ -561,7 +561,11 @@ video_metadata_update_schema = description_schema(
     description=(
         "Fully updates the writable fields (mission, drone, recorded date, and "
         "checksum) of a video metadata record. File contents and system-managed "
-        "fields such as status and duration cannot be changed through this endpoint."
+        "fields such as status and duration cannot be changed through this "
+        "endpoint.\n\n"
+        "Note: updating a video metadata record requires the same permission as "
+        "deletion (`PERMISSION_MEDIA_DELETE`); the media management model treats "
+        "modifying and removing records as a single privilege level."
     ),
     permission_code="PERMISSION_MEDIA_DELETE",
     parameters=[
@@ -609,7 +613,11 @@ video_metadata_partial_update_schema = description_schema(
     description=(
         "Updates one or more writable fields (mission, drone, recorded date, or "
         "checksum) of a video metadata record. File contents and system-managed "
-        "fields such as status and duration cannot be changed through this endpoint."
+        "fields such as status and duration cannot be changed through this "
+        "endpoint.\n\n"
+        "Note: updating a video metadata record requires the same permission as "
+        "deletion (`PERMISSION_MEDIA_DELETE`); the media management model treats "
+        "modifying and removing records as a single privilege level."
     ),
     permission_code="PERMISSION_MEDIA_DELETE",
     parameters=[

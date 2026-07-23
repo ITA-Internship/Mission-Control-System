@@ -1530,11 +1530,9 @@ Forbidden. User does not have permission to perform this action.
 
 ## GET /api/drones/{drone_pk}/write-offs/history/
 
-List write-off history
+List write-off history for a drone
 
-Retrieves a paginated, read-only list of drone write-off audit records, ordered from newest to oldest. Supports filtering, search (by drone name, serial/inventory number, reason, and document number), and ordering.
-
-When the request is made against the drone-scoped route (`/api/drones/{drone_pk}/write-offs/history/`), the results are limited to write-off records for that single drone.
+Retrieves a paginated, read-only list of write-off audit records for a single drone, ordered from newest to oldest. Supports filtering, search (by drone name, serial/inventory number, reason, and document number), and ordering.
 
 Required permission: `PERMISSION_WRITEOFF_VIEW`.
 
@@ -1547,7 +1545,7 @@ Required permission: `PERMISSION_WRITEOFF_VIEW`.
 | document_number | string |  |  |
 | drone | number |  |  |
 | drone_inventory_number | string |  |  |
-| drone_pk | integer | True |  |
+| drone_pk | integer | True | ID of the drone whose write-off history is retrieved. |
 | drone_serial_number | string |  |  |
 | ordering | string | False | Which field to use when ordering the results. |
 | page | integer | False | A page number within the paginated result set. |
@@ -2611,9 +2609,9 @@ Forbidden. User does not have permission to perform this action.
 
 List write-off history
 
-Retrieves a paginated, read-only list of drone write-off audit records, ordered from newest to oldest. Supports filtering, search (by drone name, serial/inventory number, reason, and document number), and ordering.
+Retrieves a paginated, read-only list of drone write-off audit records across all drones, ordered from newest to oldest. Supports filtering, search (by drone name, serial/inventory number, reason, and document number), and ordering.
 
-When the request is made against the drone-scoped route (`/api/drones/{drone_pk}/write-offs/history/`), the results are limited to write-off records for that single drone.
+To list write-offs for a single drone, use the drone-scoped route (`/api/drones/{drone_pk}/write-offs/history/`).
 
 Required permission: `PERMISSION_WRITEOFF_VIEW`.
 
@@ -3168,6 +3166,8 @@ Update a video metadata record
 
 Fully updates the writable fields (mission, drone, recorded date, and checksum) of a video metadata record. File contents and system-managed fields such as status and duration cannot be changed through this endpoint.
 
+Note: updating a video metadata record requires the same permission as deletion (`PERMISSION_MEDIA_DELETE`); the media management model treats modifying and removing records as a single privilege level.
+
 Required permission: `PERMISSION_MEDIA_DELETE`.
 
 
@@ -3289,6 +3289,8 @@ Not Found.
 Partially update a video metadata record
 
 Updates one or more writable fields (mission, drone, recorded date, or checksum) of a video metadata record. File contents and system-managed fields such as status and duration cannot be changed through this endpoint.
+
+Note: updating a video metadata record requires the same permission as deletion (`PERMISSION_MEDIA_DELETE`); the media management model treats modifying and removing records as a single privilege level.
 
 Required permission: `PERMISSION_MEDIA_DELETE`.
 

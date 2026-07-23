@@ -605,15 +605,50 @@ writeoff_audit_example_value = {
 writeoff_history_get_schema = description_schema(
     summary="List write-off history",
     description=(
-        "Retrieves a paginated, read-only list of drone write-off audit records, "
-        "ordered from newest to oldest. Supports filtering, search "
-        "(by drone name, serial/inventory number, reason, and document number), "
-        "and ordering.\n\n"
-        "When the request is made against the drone-scoped route "
-        "(`/api/drones/{drone_pk}/write-offs/history/`), the results are limited "
-        "to write-off records for that single drone."
+        "Retrieves a paginated, read-only list of drone write-off audit records "
+        "across all drones, ordered from newest to oldest. Supports filtering, "
+        "search (by drone name, serial/inventory number, reason, and document "
+        "number), and ordering.\n\n"
+        "To list write-offs for a single drone, use the drone-scoped route "
+        "(`/api/drones/{drone_pk}/write-offs/history/`)."
     ),
     permission_code="PERMISSION_WRITEOFF_VIEW",
+    request=None,
+    responses={
+        status.HTTP_200_OK: OpenApiResponse(
+            response=WriteOffAuditSerializer(many=True),
+            description="Successfully retrieved the write-off history.",
+        ),
+    },
+    error_statuses=[status.HTTP_403_FORBIDDEN],
+    examples=[
+        OpenApiExample(
+            name="Valid request",
+            response_only=True,
+            value=writeoff_audit_example_value,
+        ),
+    ],
+)
+
+drone_writeoff_history_get_schema = description_schema(
+    summary="List write-off history for a drone",
+    description=(
+        "Retrieves a paginated, read-only list of write-off audit records for a "
+        "single drone, ordered from newest to oldest. Supports filtering, search "
+        "(by drone name, serial/inventory number, reason, and document number), "
+        "and ordering."
+    ),
+    permission_code="PERMISSION_WRITEOFF_VIEW",
+    operation_id="drones_drone_write_offs_history_list",
+    parameters=[
+        OpenApiParameter(
+            name="drone_pk",
+            type=int,
+            location=OpenApiParameter.PATH,
+            description="ID of the drone whose write-off history is retrieved.",
+            required=True,
+        ),
+    ],
     request=None,
     responses={
         status.HTTP_200_OK: OpenApiResponse(
