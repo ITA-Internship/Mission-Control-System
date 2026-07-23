@@ -15,6 +15,7 @@ from media.models import MediaAuditLog, MissionArtifact, VideoMetadata
 from media.tasks import extract_video_duration_task
 from missions.factories import (
     AdminUserFactory,
+    CommanderUserFactory,
     DispatcherUserFactory,
     MissionDroneFactory,
     MissionFactory,
