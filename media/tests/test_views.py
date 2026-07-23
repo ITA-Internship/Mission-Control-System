@@ -360,6 +360,7 @@ class ArtifactListCreateTests(APITestCase):
         self.viewer = ViewerUserFactory()
 
         self.mission = MissionFactory()
+        MissionDroneFactory(mission=self.mission, operator=self.operator)
         self.url = reverse(
             "missions:media:artifact-list-create",
             kwargs={"mission_pk": self.mission.pk},
@@ -570,6 +571,7 @@ class MediaAuditLoggingTests(APITestCase):
         self.operator = OperatorUserFactory()
         self.viewer = ViewerUserFactory()
         self.mission = MissionFactory()
+        MissionDroneFactory(mission=self.mission, operator=self.operator)
         self.artifact = MissionArtifactFactory(
             mission=self.mission, uploaded_by=self.operator, is_image=True
         )
@@ -761,6 +763,7 @@ class ProtectedMediaDownloadTests(APITestCase):
         self.admin = AdminUserFactory()
         self.operator = OperatorUserFactory()
         self.mission = MissionFactory()
+        MissionDroneFactory(mission=self.mission, operator=self.operator)
         self.artifact = MissionArtifactFactory(
             mission=self.mission, uploaded_by=self.operator, is_image=True
         )
@@ -853,3 +856,107 @@ class MediaPermissionDeniedLoggingTests(APITestCase):
             )
 
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+@override_settings(
+    ARTIFACT_ALLOWED_EXTENSIONS={
+        "image": [".jpg", ".jpeg", ".png"],
+        "video": [".mp4", ".avi", ".mov"],
+        "data": [".json", ".csv", ".xml"],
+    },
+    ARTIFACT_MAX_FILE_SIZE_MB=10,
+)
+class CrossMissionIDORTests(APITestCase):
+    """Verify that mission-scoped artifact endpoints enforce authorization
+    via ``restrict_missions_for_user``, preventing cross-mission IDOR."""
+
+    def setUp(self):
+        self.admin = AdminUserFactory()
+        self.commander = CommanderUserFactory()
+        self.operator = OperatorUserFactory()
+
+        self.mission_a = MissionFactory()
+        self.mission_b = MissionFactory()
+
+        MissionDroneFactory(mission=self.mission_a, operator=self.operator)
+
+        self.artifact_b = MissionArtifactFactory(mission=self.mission_b, is_image=True)
+
+        self.list_url_b = reverse(
+            "missions:media:artifact-list-create",
+            kwargs={"mission_pk": self.mission_b.pk},
+        )
+        self.detail_url_b = reverse(
+            "missions:media:artifact-detail",
+            kwargs={
+                "mission_pk": self.mission_b.pk,
+                "artifact_pk": self.artifact_b.pk,
+            },
+        )
+        self.download_url_b = reverse(
+            "missions:media:artifact-download",
+            kwargs={
+                "mission_pk": self.mission_b.pk,
+                "artifact_pk": self.artifact_b.pk,
+            },
+        )
+
+    def test_operator_cannot_list_artifacts_of_unassigned_mission(self):
+        self.client.force_authenticate(self.operator)
+        response = self.client.get(self.list_url_b)
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+
+    def test_admin_can_list_artifacts_of_any_mission(self):
+        self.client.force_authenticate(self.admin)
+        response = self.client.get(self.list_url_b)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+    def test_commander_can_list_artifacts_of_any_mission(self):
+        self.client.force_authenticate(self.commander)
+        response = self.client.get(self.list_url_b)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+    def test_operator_cannot_upload_to_unassigned_mission(self):
+        self.client.force_authenticate(self.operator)
+        payload = {
+            "title": "IDOR upload",
+            "file": SimpleUploadedFile(
+                "exploit.jpg", b"img bytes", content_type="image/jpeg"
+            ),
+        }
+        response = self.client.post(self.list_url_b, payload, format="multipart")
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+        self.assertFalse(MissionArtifact.objects.filter(title="IDOR upload").exists())
+
+    def test_operator_can_upload_to_assigned_mission(self):
+        self.client.force_authenticate(self.operator)
+        url_a = reverse(
+            "missions:media:artifact-list-create",
+            kwargs={"mission_pk": self.mission_a.pk},
+        )
+        payload = {
+            "title": "Legit upload",
+            "file": SimpleUploadedFile(
+                "legit.jpg", b"img bytes", content_type="image/jpeg"
+            ),
+        }
+        response = self.client.post(url_a, payload, format="multipart")
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+
+    def test_operator_cannot_retrieve_artifact_of_unassigned_mission(self):
+        self.client.force_authenticate(self.operator)
+        response = self.client.get(self.detail_url_b)
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+
+    def test_operator_cannot_delete_artifact_of_unassigned_mission(self):
+        """Operator lacks media.delete RBAC — denied at the permission layer
+        before the mission-scoping queryset is even evaluated."""
+        self.client.force_authenticate(self.operator)
+        response = self.client.delete(self.detail_url_b)
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertTrue(MissionArtifact.objects.filter(pk=self.artifact_b.pk).exists())
+
+    @override_settings(DEBUG=True)
+    def test_operator_cannot_download_from_unassigned_mission(self):
+        self.client.force_authenticate(self.operator)
+        response = self.client.get(self.download_url_b)
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
