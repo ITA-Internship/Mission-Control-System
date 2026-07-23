@@ -15,6 +15,7 @@ from media.models import MediaAuditLog, MissionArtifact, VideoMetadata
 from media.tasks import extract_video_duration_task
 from missions.factories import (
     AdminUserFactory,
+    CommanderUserFactory,
     DispatcherUserFactory,
     MissionDroneFactory,
     MissionFactory,
@@ -753,3 +754,102 @@ class MediaAuditLogEndpointTests(APITestCase):
         self.client.force_authenticate(self.admin)
         response = self.client.post(self.url, {"action": "view"}, format="json")
         self.assertEqual(response.status_code, status.HTTP_405_METHOD_NOT_ALLOWED)
+
+
+class ProtectedMediaDownloadTests(APITestCase):
+    def setUp(self):
+        self.admin = AdminUserFactory()
+        self.operator = OperatorUserFactory()
+        self.mission = MissionFactory()
+        self.artifact = MissionArtifactFactory(
+            mission=self.mission, uploaded_by=self.operator, is_image=True
+        )
+        self.url = reverse(
+            "missions:media:artifact-download",
+            kwargs={"mission_pk": self.mission.pk, "artifact_pk": self.artifact.pk},
+        )
+
+    @override_settings(DEBUG=True)
+    def test_download_logs_download_action_with_user_and_ip(self):
+        self.client.force_authenticate(self.operator)
+        response = self.client.get(self.url)
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        log = MediaAuditLog.objects.get(action=MediaAuditLog.Action.DOWNLOAD)
+        self.assertEqual(log.user, self.operator)
+        self.assertEqual(log.artifact, self.artifact)
+        self.assertEqual(log.mission_id, self.mission.id)
+        self.assertEqual(log.ip_address, "127.0.0.1")
+
+    @override_settings(DEBUG=True)
+    def test_download_logging_failure_does_not_break_download(self):
+        self.client.force_authenticate(self.admin)
+        with patch(
+            "media.services.MediaAuditLog.objects.create",
+            side_effect=RuntimeError("logging down"),
+        ):
+            response = self.client.get(self.url)
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+
+class MediaPermissionDeniedLoggingTests(APITestCase):
+    def setUp(self):
+        self.commander = CommanderUserFactory()
+        self.operator = OperatorUserFactory()
+        self.viewer = ViewerUserFactory()
+        self.mission = MissionFactory()
+        self.artifact = MissionArtifactFactory(
+            mission=self.mission, uploaded_by=self.operator, is_image=True
+        )
+        self.list_url = reverse(
+            "missions:media:artifact-list-create",
+            kwargs={"mission_pk": self.mission.pk},
+        )
+        self.detail_url = reverse(
+            "missions:media:artifact-detail",
+            kwargs={"mission_pk": self.mission.pk, "artifact_pk": self.artifact.pk},
+        )
+
+    def test_denied_upload_logs_permission_denied(self):
+        self.client.force_authenticate(self.viewer)
+        upload_file = SimpleUploadedFile(
+            "x.jpg", b"image bytes", content_type="image/jpeg"
+        )
+        response = self.client.post(
+            self.list_url, {"title": "x", "file": upload_file}, format="multipart"
+        )
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+        log = MediaAuditLog.objects.get(action=MediaAuditLog.Action.PERMISSION_DENIED)
+        self.assertEqual(log.user, self.viewer)
+        self.assertEqual(log.changes["reason"], "missing_required_permission")
+        self.assertEqual(log.changes["method"], "POST")
+
+    def test_denied_object_delete_logs_permission_denied(self):
+        # Commander has media.delete but is not the uploader, so the object-level
+        # check fails after the RBAC check passes.
+        self.client.force_authenticate(self.commander)
+        response = self.client.delete(self.detail_url)
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+        log = MediaAuditLog.objects.get(action=MediaAuditLog.Action.PERMISSION_DENIED)
+        self.assertEqual(log.user, self.commander)
+        self.assertEqual(log.artifact, self.artifact)
+        self.assertEqual(log.changes["reason"], "object_permission_denied")
+
+    def test_permission_denied_logging_failure_does_not_break_response(self):
+        self.client.force_authenticate(self.viewer)
+        upload_file = SimpleUploadedFile(
+            "x.jpg", b"image bytes", content_type="image/jpeg"
+        )
+        with patch(
+            "media.services.MediaAuditLog.objects.create",
+            side_effect=RuntimeError("logging down"),
+        ):
+            response = self.client.post(
+                self.list_url, {"title": "x", "file": upload_file}, format="multipart"
+            )
+
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)

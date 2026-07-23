@@ -1,7 +1,10 @@
+from datetime import timedelta
 from unittest.mock import patch
 
 from django.core.files.uploadedfile import SimpleUploadedFile
-from django.test import TestCase
+from django.core.management import call_command
+from django.test import TestCase, override_settings
+from django.utils import timezone
 
 from media.factories import MissionArtifactFactory
 from media.models import MediaAuditLog, MissionArtifact
@@ -72,3 +75,60 @@ class MediaAuditLogTransactionTests(TestCase):
         self.assertEqual(MissionArtifact.objects.count(), 0)
         self.assertEqual(MissionAuditLog.objects.count(), 0)
         self.assertEqual(MediaAuditLog.objects.count(), 0)
+
+
+class MediaAuditLogRetentionTests(TestCase):
+    def setUp(self):
+        self.operator = OperatorUserFactory()
+        self.mission = MissionFactory()
+        self.artifact = MissionArtifactFactory(mission=self.mission, is_image=True)
+
+    def _log(self, age_days):
+        log = MediaAuditLog.objects.create(
+            user=self.operator,
+            artifact=self.artifact,
+            mission_id=self.mission.id,
+            action=MediaAuditLog.Action.VIEW,
+        )
+        # created_at is auto_now_add, so backdate it explicitly.
+        MediaAuditLog.objects.filter(id=log.id).update(
+            created_at=timezone.now() - timedelta(days=age_days)
+        )
+        return log
+
+    def test_purge_older_than_removes_only_expired(self):
+        old = self._log(age_days=400)
+        recent = self._log(age_days=10)
+
+        removed = MediaAuditLog.objects.purge_older_than(
+            timezone.now() - timedelta(days=365)
+        )
+
+        self.assertEqual(removed, 1)
+        self.assertFalse(MediaAuditLog.objects.filter(id=old.id).exists())
+        self.assertTrue(MediaAuditLog.objects.filter(id=recent.id).exists())
+
+    @override_settings(MEDIA_AUDIT_LOG_RETENTION_DAYS=365)
+    def test_purge_command_deletes_expired_entries(self):
+        self._log(age_days=400)
+        self._log(age_days=10)
+
+        call_command("purge_audit_logs")
+
+        self.assertEqual(MediaAuditLog.objects.count(), 1)
+
+    @override_settings(MEDIA_AUDIT_LOG_RETENTION_DAYS=365)
+    def test_purge_command_dry_run_keeps_entries(self):
+        self._log(age_days=400)
+
+        call_command("purge_audit_logs", "--dry-run")
+
+        self.assertEqual(MediaAuditLog.objects.count(), 1)
+
+    @override_settings(MEDIA_AUDIT_LOG_RETENTION_DAYS=0)
+    def test_purge_command_disabled_keeps_all(self):
+        self._log(age_days=400)
+
+        call_command("purge_audit_logs")
+
+        self.assertEqual(MediaAuditLog.objects.count(), 1)

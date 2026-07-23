@@ -43,7 +43,12 @@ from .serializers import (
     VideoMetadataSerializer,
     VideoUploadSerializer,
 )
-from .services import delete_artifact, record_artifact_view, upload_artifact
+from .services import (
+    delete_artifact,
+    record_artifact_download,
+    record_artifact_view,
+    upload_artifact,
+)
 from .tasks import extract_video_duration_task
 
 logger = logging.getLogger(__name__)
@@ -189,8 +194,10 @@ class ArtifactDetailView(_MissionArtifactMixin, generics.RetrieveDestroyAPIView)
 class ProtectedMediaView(APIView):
     permission_classes = [IsAuthenticated, MediaViewPermission]
 
-    def get(self, request, artifact_pk):
-        artifact = get_object_or_404(MissionArtifact, pk=artifact_pk)
+    def get(self, request, mission_pk, artifact_pk):
+        artifact = get_object_or_404(
+            MissionArtifact, pk=artifact_pk, mission_id=mission_pk
+        )
 
         self.check_object_permissions(request, artifact)
 
@@ -203,6 +210,16 @@ class ProtectedMediaView(APIView):
         content_type = content_type or "application/octet-stream"
         filename = artifact.original_filename or os.path.basename(file_field.name)
 
+        safe_name = posixpath.normpath(file_field.name)
+        if safe_name.startswith("..") or safe_name.startswith("/"):
+            raise Http404("Invalid file path.")
+
+        record_artifact_download(
+            user=request.user,
+            artifact=artifact,
+            request=request,
+        )
+
         if settings.DEBUG:
             return FileResponse(
                 file_field,
@@ -212,10 +229,6 @@ class ProtectedMediaView(APIView):
             )
         else:
             response = HttpResponse(content_type=content_type)
-
-            safe_name = posixpath.normpath(file_field.name)
-            if safe_name.startswith("..") or safe_name.startswith("/"):
-                raise Http404("Invalid file path.")
 
             internal_path = f"/internal-media/{safe_name}"
             response["X-Accel-Redirect"] = internal_path
