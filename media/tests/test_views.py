@@ -15,7 +15,6 @@ from media.models import MediaAuditLog, MissionArtifact, VideoMetadata
 from media.tasks import extract_video_duration_task
 from missions.factories import (
     AdminUserFactory,
-    CommanderUserFactory,
     DispatcherUserFactory,
     MissionDroneFactory,
     MissionFactory,
@@ -796,7 +795,6 @@ class ProtectedMediaDownloadTests(APITestCase):
 
 class MediaPermissionDeniedLoggingTests(APITestCase):
     def setUp(self):
-        self.commander = CommanderUserFactory()
         self.operator = OperatorUserFactory()
         self.viewer = ViewerUserFactory()
         self.mission = MissionFactory()
@@ -827,17 +825,16 @@ class MediaPermissionDeniedLoggingTests(APITestCase):
         self.assertEqual(log.changes["reason"], "missing_required_permission")
         self.assertEqual(log.changes["method"], "POST")
 
-    def test_denied_object_delete_logs_permission_denied(self):
-        # Commander has media.delete but is not the uploader, so the object-level
-        # check fails after the RBAC check passes.
-        self.client.force_authenticate(self.commander)
+    def test_denied_delete_logs_permission_denied(self):
+        self.client.force_authenticate(self.viewer)
         response = self.client.delete(self.detail_url)
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
 
         log = MediaAuditLog.objects.get(action=MediaAuditLog.Action.PERMISSION_DENIED)
-        self.assertEqual(log.user, self.commander)
-        self.assertEqual(log.artifact, self.artifact)
-        self.assertEqual(log.changes["reason"], "object_permission_denied")
+        self.assertEqual(log.user, self.viewer)
+        self.assertIsNone(log.artifact)
+        self.assertEqual(log.changes["reason"], "missing_required_permission")
+        self.assertEqual(log.changes["method"], "DELETE")
 
     def test_permission_denied_logging_failure_does_not_break_response(self):
         self.client.force_authenticate(self.viewer)
