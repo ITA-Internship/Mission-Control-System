@@ -20,6 +20,8 @@ from roles.models import ADMIN_CODE, OPERATOR_CODE, Role
 from seed_data.users import seed_users
 
 from .models import AuditLog, User, UserRoleAuditLog, UserStatusLog
+from .permissions import user_has_permission
+from .rbac import PERMISSION_PROFILE_VIEW_ANY
 from .services import update_user_role
 from .throttles import AccountActivationThrottle, PasswordResetRequestThrottle
 
@@ -565,3 +567,109 @@ class PasswordChangeSecurityTests(APITestCase):
 
         self.assertEqual(first_response.status_code, status.HTTP_200_OK)
         self.assertEqual(second_response.status_code, status.HTTP_429_TOO_MANY_REQUESTS)
+
+
+class ProtectedProfilePictureRBACTests(APITestCase):
+    """Test centralized RBAC access to protected profile pictures."""
+
+    def setUp(self):
+        """Create Admin, Operator, and target users."""
+        self.admin_role, _ = Role.objects.get_or_create(
+            code=ADMIN_CODE,
+            defaults={"name": "Administrator"},
+        )
+        self.operator_role, _ = Role.objects.get_or_create(
+            code=OPERATOR_CODE,
+            defaults={"name": "Operator"},
+        )
+
+        self.admin_user = User.objects.create_user(
+            username="profile.admin",
+            email="profile.admin@example.com",
+            password="StrongPassword123!",
+            role=self.admin_role,
+            is_active=True,
+        )
+
+        self.staff_operator = User.objects.create_user(
+            username="profile.staff.operator",
+            email="profile.staff.operator@example.com",
+            password="StrongPassword123!",
+            role=self.operator_role,
+            is_active=True,
+            is_staff=True,
+        )
+
+        self.target_user = User.objects.create_user(
+            username="profile.target",
+            email="profile.target@example.com",
+            password="StrongPassword123!",
+            role=self.operator_role,
+            is_active=True,
+        )
+
+        self.url = reverse(
+            "accounts:user-profile-picture",
+            kwargs={"user_id": self.target_user.pk},
+        )
+
+    def test_admin_has_view_any_profile_permission(self):
+        """Ensure the Admin role receives profile.view_any."""
+        self.assertTrue(
+            user_has_permission(
+                self.admin_user,
+                PERMISSION_PROFILE_VIEW_ANY,
+            )
+        )
+
+    def test_non_admin_staff_has_no_view_any_profile_permission(self):
+        """Ensure Django staff status does not bypass application RBAC."""
+        self.assertFalse(
+            user_has_permission(
+                self.staff_operator,
+                PERMISSION_PROFILE_VIEW_ANY,
+            )
+        )
+
+    def test_admin_can_access_another_users_profile_picture_endpoint(self):
+        """Ensure Admin passes authorization for another user's picture."""
+        self.client.force_authenticate(user=self.admin_user)
+
+        response = self.client.get(self.url)
+
+        # A missing picture may return 404, but authorization must not return 403.
+        self.assertNotEqual(
+            response.status_code,
+            status.HTTP_403_FORBIDDEN,
+        )
+
+    def test_staff_non_admin_cannot_access_another_users_picture(self):
+        """Ensure is_staff does not grant access outside RBAC."""
+        self.client.force_authenticate(user=self.staff_operator)
+
+        response = self.client.get(self.url)
+
+        self.assertEqual(
+            response.status_code,
+            status.HTTP_403_FORBIDDEN,
+        )
+
+    def test_user_can_access_own_profile_picture_endpoint(self):
+        """Ensure users retain access to their own profile picture."""
+        self.client.force_authenticate(user=self.target_user)
+
+        response = self.client.get(self.url)
+
+        self.assertNotEqual(
+            response.status_code,
+            status.HTTP_403_FORBIDDEN,
+        )
+
+    def test_anonymous_user_cannot_access_profile_picture(self):
+        """Ensure profile pictures require authentication."""
+        response = self.client.get(self.url)
+
+        self.assertEqual(
+            response.status_code,
+            status.HTTP_403_FORBIDDEN,
+        )
