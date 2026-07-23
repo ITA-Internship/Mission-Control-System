@@ -1,6 +1,7 @@
 """Tests for shared application security behavior."""
 
 from django.test import SimpleTestCase
+from django.conf import settings
 from rest_framework import status
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
@@ -55,4 +56,26 @@ class DefaultPermissionPolicyTests(SimpleTestCase):
         self.assertEqual(
             response.data,
             {"detail": "ok"},
+        )
+        
+        
+class SecurityCookieSettingsTests(SimpleTestCase):
+    """Verify secure defaults for session and CSRF cookies."""
+
+    def test_session_cookie_is_http_only(self):
+        """Ensure JavaScript cannot read the session cookie."""
+        self.assertTrue(settings.SESSION_COOKIE_HTTPONLY)
+
+    def test_session_cookie_uses_lax_same_site_policy(self):
+        """Ensure session cookies have cross-site request protection."""
+        self.assertEqual(
+            settings.SESSION_COOKIE_SAMESITE,
+            "Lax",
+        )
+
+    def test_csrf_cookie_uses_lax_same_site_policy(self):
+        """Ensure CSRF cookies have a SameSite policy."""
+        self.assertEqual(
+            settings.CSRF_COOKIE_SAMESITE,
+            "Lax",
         )
