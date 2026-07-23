@@ -1,3 +1,4 @@
+from drf_spectacular.types import OpenApiTypes
 from drf_spectacular.utils import OpenApiExample, OpenApiParameter, OpenApiResponse
 from rest_framework import status
 
@@ -179,6 +180,32 @@ artifact_detail_delete_schema = description_schema(
     responses={
         status.HTTP_204_NO_CONTENT: OpenApiResponse(
             description="Artifact successfully deleted. No content returned."
+        ),
+    },
+    error_statuses=[status.HTTP_403_FORBIDDEN, status.HTTP_404_NOT_FOUND],
+)
+
+protected_media_get_schema = description_schema(
+    tags=["media"],
+    summary="Download a protected artifact file",
+    description=(
+        "Streams or internally redirects to the stored artifact file after "
+        "object-level media access checks pass."
+    ),
+    permission_code="PERMISSION_MEDIA_VIEW",
+    parameters=[
+        OpenApiParameter(
+            name="artifact_pk",
+            type=int,
+            location=OpenApiParameter.PATH,
+            description="ID of the artifact to download.",
+        )
+    ],
+    request=None,
+    responses={
+        status.HTTP_200_OK: OpenApiResponse(
+            response=OpenApiTypes.BINARY,
+            description="Artifact file returned successfully.",
         ),
     },
     error_statuses=[status.HTTP_403_FORBIDDEN, status.HTTP_404_NOT_FOUND],

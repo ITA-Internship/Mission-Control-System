@@ -3,27 +3,20 @@
 from rest_framework import permissions
 
 from accounts.permissions import HasRBACPermission, get_user_role_code
-from accounts.rbac import PERMISSION_MISSIONS_VIEW
+from accounts.rbac import (
+    PERMISSION_MISSIONS_ASSIGN,
+    PERMISSION_MISSIONS_CREATE,
+    PERMISSION_MISSIONS_RECORD_CONDITION,
+    PERMISSION_MISSIONS_RECORD_OUTCOME,
+    PERMISSION_MISSIONS_UPDATE_STATUS,
+    PERMISSION_MISSIONS_VIEW,
+)
 from roles.models import ADMIN_CODE, COMMANDER_CODE, DISPATCHER_CODE, OPERATOR_CODE
 
 from .models import Mission, MissionDrone
 
-
-class IsDispatcherOrAdmin(permissions.BasePermission):
-    """Allow reads to any authenticated user; writes to Dispatcher or Admin."""
-
-    message = "Only Dispatcher or Admin users can perform this action."
-
-    def has_permission(self, request, view):
-        """Allow safe methods for all; restrict writes to Dispatcher/Admin."""
-        if not request.user or not request.user.is_authenticated:
-            return False
-        # Reads are open to any authenticated user; only writes (creating
-        # missions / managing assignments) are gated to Dispatcher and Admin.
-        if request.method in permissions.SAFE_METHODS:
-            return True
-
-        return get_user_role_code(request.user) in (DISPATCHER_CODE, ADMIN_CODE)
+# ============ RBAC-based Permissions ============
+# Use centralized RBAC matrix for role checks.
 
 
 class CanViewMission(HasRBACPermission):
@@ -39,7 +32,41 @@ def _has_operator_in_mission(obj, user_id):
     return obj.mission_drones.filter(operator_id=user_id).exists()
 
 
-class IsAssignedOperatorOrAdmin(permissions.BasePermission):
+class CanCreateMission(HasRBACPermission):
+    """Check if the user's role can create missions."""
+
+    required_permission = PERMISSION_MISSIONS_CREATE
+
+
+class CanAssignMission(HasRBACPermission):
+    """Check if the user's role can assign resources to missions."""
+
+    required_permission = PERMISSION_MISSIONS_ASSIGN
+
+
+class CanUpdateMissionStatus(HasRBACPermission):
+    """Check if the user's role can update mission status."""
+
+    required_permission = PERMISSION_MISSIONS_UPDATE_STATUS
+
+
+class CanRecordOutcome(HasRBACPermission):
+    """Check if the user's role can record mission outcomes."""
+
+    required_permission = PERMISSION_MISSIONS_RECORD_OUTCOME
+
+
+class CanRecordCondition(HasRBACPermission):
+    """Check if the user's role can record drone condition results."""
+
+    required_permission = PERMISSION_MISSIONS_RECORD_CONDITION
+
+
+# ============ Object-Level Permissions ============
+# Check contextual access to specific objects.
+
+
+class IsDispatcherOrAssignedOperatorOrAdmin(permissions.BasePermission):
     """Admins act on any mission; operators only on missions they fly.
 
     Two-stage check: has_permission gates by role (cheap, no DB), then
@@ -48,19 +75,25 @@ class IsAssignedOperatorOrAdmin(permissions.BasePermission):
     outcomes and drone conditions.
     """
 
-    message = "Only the assigned Operator or an Admin can perform this action."
+    message = (
+        "Only a Dispatcher, the assigned Operator, or an Admin can perform "
+        "this action."
+    )
 
     def has_permission(self, request, view):
-        return (
-            request.user
-            and request.user.is_authenticated
-            and get_user_role_code(request.user) in [OPERATOR_CODE, ADMIN_CODE]
+        """Allow the request to proceed to object checks for eligible roles."""
+        if not request.user or not request.user.is_authenticated:
+            return False
+        return get_user_role_code(request.user) in (
+            ADMIN_CODE,
+            DISPATCHER_CODE,
+            OPERATOR_CODE,
         )
 
     def has_object_permission(self, request, view, obj):
         """Grant Admins access; restrict Operators to their own assignments."""
         role_code = get_user_role_code(request.user)
-        if role_code == ADMIN_CODE:
+        if role_code in (ADMIN_CODE, DISPATCHER_CODE):
             return True
         if role_code != OPERATOR_CODE:
             return False
@@ -74,28 +107,18 @@ class IsAssignedOperatorOrAdmin(permissions.BasePermission):
         return False
 
 
-class CanUpdateMissionStatus(permissions.BasePermission):
-    """Who may drive a mission through its lifecycle.
+class IsAssignedToMissionOrAdmin(permissions.BasePermission):
+    """Allow admins, commanders, dispatchers, or assigned operators to update."""
 
-    Admins and Commanders can change any mission's status; an Operator can only
-    change status on a mission they are assigned to.
-    """
+    message = "You are not authorized to update this mission's status."
 
     def has_object_permission(self, request, view, obj):
-        """Allow Admins/Commanders any mission; Operators only their own."""
-        if (
-            not request.user
-            or not request.user.is_authenticated
-            or not request.user.role
-        ):
-            return False
-
-        user_role = get_user_role_code(request.user)
-
-        if user_role in [ADMIN_CODE, COMMANDER_CODE]:
+        """Check whether the user can update this specific mission."""
+        role_code = get_user_role_code(request.user)
+        if role_code in (ADMIN_CODE, COMMANDER_CODE, DISPATCHER_CODE):
             return True
 
-        if user_role == OPERATOR_CODE:
+        if role_code == OPERATOR_CODE:
             return _has_operator_in_mission(obj, request.user.id)
 
         return False
