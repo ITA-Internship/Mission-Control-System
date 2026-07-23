@@ -36,6 +36,7 @@ from rest_framework.throttling import ScopedRateThrottle
 from accounts.permissions import HasRBACPermission
 from accounts.rbac import PERMISSION_SPECIFICATIONS_COMPARE
 from common.pagination import StandardResultsSetPagination
+from common.utils import sanitize_row
 
 from .api_details import (
     drone_data_export_schema,
@@ -216,17 +217,19 @@ class DroneComparisonView(TemplateView):
             payload = getattr(spec, "payload_capacity_g", None) if spec else None
 
             writer.writerow(
-                [
-                    drone.id,
-                    drone.name,
-                    drone.drone_model,
-                    drone.classification,
-                    drone.status,
-                    fw if fw is not None else "N/A",
-                    speed if speed is not None else "N/A",
-                    time if time is not None else "N/A",
-                    payload if payload is not None else "N/A",
-                ]
+                sanitize_row(
+                    [
+                        drone.id,
+                        drone.name,
+                        drone.drone_model,
+                        drone.classification,
+                        drone.status,
+                        fw if fw is not None else "N/A",
+                        speed if speed is not None else "N/A",
+                        time if time is not None else "N/A",
+                        payload if payload is not None else "N/A",
+                    ]
+                )
             )
 
         return response
