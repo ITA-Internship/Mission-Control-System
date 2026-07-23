@@ -418,6 +418,7 @@ class ChangePasswordView(APIView):
             user = request.user
             set_user_password(user, serializer.validated_data["new_password"])
 
+            invalidate_user_sessions(user)
             update_session_auth_hash(request, user)
 
             create_audit_log(
@@ -525,6 +526,8 @@ class PasswordResetConfirmView(APIView):
 
             new_password = serializer.validated_data["new_password"]
             set_user_password(user, new_password)
+
+            invalidate_user_sessions(user)
 
             create_audit_log(
                 actor=user,
