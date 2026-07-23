@@ -619,11 +619,32 @@
 - Added tests (by **Olena Kshyk**)
 - Merge pull request #134 from ITA-Internship/task#120-file-access-and-audit-log (by **Olena Kshyk**)
 - Task#120 file access and audit log (by **Olena Kshyk**)
+- Update RBAC matrix to match approved role permissions (by **Anastasiia**)
+- Enhance RBAC documentation with detailed permission descriptions for roles (by **Anastasiia**)
+- Refactor RBAC permissions for missions: add new permission classes and update existing ones for better role management (by **Anastasiia**)
+- Merge remote-tracking branch 'origin/develop' into task#124-optimize-rbac-permission-structure (by **Anastasiia**)
+- Fix permission check for operator role and optimize mission queryset retrieval (by **Anastasiia**)
+- Remove unnecessary blank line in permissions.py for cleaner code (by **Anastasiia**)
+- Merge remote-tracking branch 'origin/develop' into task#124-optimize-rbac-permission-structure (by **Anastasiia**)
+- Refactor mission status update permission: replace CanUpdateMissionStatus with IsAssignedToMissionOrAdmin for clearer role access control (by **Anastasiia**)
+- Merge remote-tracking branch 'origin/develop' into task#124-optimize-rbac-permission-structure (by **Anastasiia**)
+- Align RBAC permissions and mission documentation (by **Anastasiia**)
+- Resolve accounts RBAC merge conflicts (by **Anastasiia**)
+- Merge remote-tracking branch 'origin/develop' into task#124-optimize-rbac-permission-structure (by **Anastasiia**)
+- Fix schema generation for API docs (by **Anastasiia**)
+- Fix API schema generation and align mission permission naming (by **Anastasiia**)
+- Merge pull request #132 from ITA-Internship/task#124-optimize-rbac-permission-structure (by **Anastasiia Humeniuk**)
+- Task#124 optimize rbac permission structure (by **Anastasiia Humeniuk**)
 
 ### Refactor
 
 - *(missions)* Replace drone status mutation with DB overlap validation (by **Maksym**)
 - Update API URL paths for accounts and roles (by **Anastasiia**)
+- Remove unused mission schemas from imports (by **Anastasiia**)
+- Remove redundant class documentation and streamline user status update view (by **Anastasiia**)
+- Simplify RBAC permissions for user profile and password change views (by **Anastasiia**)
+- Remove unused RBAC permissions from views (by **Anastasiia**)
+- Update API documentation for pagination and examples (by **Anastasiia**)
 
 ### Documentation
 
@@ -649,6 +670,7 @@
 
 ### Miscellaneous Tasks
 
+- *(changelog)* Update CHANGELOG.md [skip ci] (by **github-actions[bot]**)
 - *(changelog)* Update CHANGELOG.md [skip ci] (by **github-actions[bot]**)
 - *(changelog)* Update CHANGELOG.md [skip ci] (by **github-actions[bot]**)
 - *(changelog)* Update CHANGELOG.md [skip ci] (by **github-actions[bot]**)
