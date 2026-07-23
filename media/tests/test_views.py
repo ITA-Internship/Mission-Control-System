@@ -857,6 +857,7 @@ class MediaPermissionDeniedLoggingTests(APITestCase):
 
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
 
+
 @override_settings(
     ARTIFACT_ALLOWED_EXTENSIONS={
         "image": [".jpg", ".jpeg", ".png"],
