@@ -5,11 +5,11 @@ The system supports role-based access control with the following roles:
 | Role           | Permissions                                  |
 |----------------|----------------------------------------------|
 | **Admin**      | Full system access, user and role management |
-| **Commander**  | System oversight, reporting, decision-making |
-| **Dispatcher** | Mission planning and drone allocation        |
+| **Commander**  | Mission oversight, approvals, and operational control |
+| **Dispatcher** | Mission coordination, creation, and assignment |
 | **Operator**   | Mission execution and drone usage tracking   |
 | **Technician** | Maintenance and repair management            |
-| **Viewer**     | Read-only access to system data              |
+| **Viewer**     | Read-only access to permitted system data    |
 
 ## Permission Matrix
 
@@ -19,37 +19,38 @@ The system supports role-based access control with the following roles:
 |                | Create              |   Y   |     N     |     N      |    N     |     N      |   N    |
 |                | Activate Deactivate |   Y   |     N     |     N      |    N     |     N      |   N    |
 | Drones         | View                |   Y   |     Y     |     Y      |    Y     |     Y      |   Y    |
-|                | Create              |   Y   |     N     |     N      |    N     |     N      |   N    |
-|                | Update              |   Y   |     N     |     N      |    N     |     N      |   N    |
-|                | Decommission        |   Y   |     N     |     N      |    N     |     N      |   N    |
-|                | Import Export       |   Y   |     N     |     N      |    N     |     N      |   N    |
+|                | Create              |   Y   |     Y     |     N      |    N     |     N      |   N    |
+|                | Update              |   Y   |     Y     |     N      |    N     |     N      |   N    |
+|                | Decommission        |   Y   |     Y     |     N      |    N     |     N      |   N    |
+|                | Import Export       |   Y   |     Y     |     N      |    N     |     N      |   N    |
 | Missions       | View                |   Y   |     Y     |     Y      |    Y     |     N      |   Y    |
-|                | Create              |   Y   |     N     |     Y      |    N     |     N      |   N    |
+|                | Create              |   Y   |     Y     |     Y      |    N     |     N      |   N    |
 |                | Assign              |   Y   |     Y     |     Y      |    N     |     N      |   N    |
-|                | Update Status       |   Y   |     Y     |     N      |    Y     |     N      |   N    |
-|                | Record Outcome      |   Y   |     N     |     N      |    Y     |     N      |   N    |
-|                | Record Condition    |   Y   |     N     |     N      |    Y     |     N      |   N    |
+|                | Update Status       |   Y   |     Y     |     Y      |    Y     |     N      |   N    |
+|                | Record Outcome      |   Y   |     N     |     Y      |    Y     |     N      |   N    |
+|                | Record Condition    |   Y   |     N     |     Y      |    Y     |     N      |   N    |
 | Maintenance    | View                |   Y   |     Y     |     N      |    N     |     Y      |   Y    |
 |                | Manage              |   Y   |     N     |     N      |    N     |     Y      |   N    |
 | Specifications | View                |   Y   |     Y     |     Y      |    Y     |     Y      |   Y    |
 |                | Manage              |   Y   |     N     |     N      |    N     |     Y      |   N    |
-| Write-offs     | View                |   Y   |     Y     |     N      |    N     |     Y      |   Y    |
+| Write-offs     | View                |   Y   |     Y     |     Y      |    N     |     Y      |   Y    |
 |                | Create              |   Y   |     N     |     N      |    N     |     Y      |   N    |
 |                | Authorize           |   Y   |     Y     |     N      |    N     |     N      |   N    |
 | Repairs        | View                |   Y   |     Y     |     Y      |    Y     |     Y      |   Y    |
-|                | Create              |   Y   |     N     |     N      |    Y     |     Y      |   N    |
-|                | Manage              |   Y   |     N     |     N      |    Y     |     Y      |   N    |
+|                | Create              |   Y   |     N     |     N      |    N     |     Y      |   N    |
+|                | Manage              |   Y   |     N     |     N      |    N     |     Y      |   N    |
 |                | Export              |   Y   |     Y     |     N      |    N     |     Y      |   N    |
 |                | Verify              |   Y   |     Y     |     N      |    N     |     N      |   N    |
-| Media          | View                |   Y   |     Y     |     Y      |    Y     |     N      |   Y    |
+| Media          | View                |   Y   |     Y     |     Y      |    Y     |     Y      |   Y    |
 |                | Upload              |   Y   |     N     |     Y      |    Y     |     N      |   N    |
-|                | Delete              |   Y   |     Y     |     N      |    N     |     N      |   N    |
+|                | Delete              |   Y   |     N     |     N      |    N     |     N      |   N    |
 |                | View Logs           |   Y   |     N     |     N      |    N     |     N      |   N    |
-| Audit Logs     | View                |   Y   |     Y     |     Y      |    Y     |     Y      |   Y    |
-| Profile        | View                |   Y   |     Y     |     Y      |    Y     |     Y      |   Y    |
-|                | Update              |   Y   |     Y     |     Y      |    Y     |     Y      |   Y    |
-|                | Reset Password      |   Y   |     Y     |     Y      |    Y     |     Y      |   Y    |
-| Drone Compare  | Specifications      |   Y   |     N     |     Y      |    Y     |     Y      |   N    |
+| Audit Logs     | View All            |   Y   |     N     |     N      |    N     |     N      |   N    |
+|                | View Own            |   Y   |     Y     |     Y      |    Y     |     Y      |   Y    |
+| Profile        | View Own            |   Y   |     Y     |     Y      |    Y     |     Y      |   Y    |
+|                | Update Own          |   Y   |     Y     |     Y      |    Y     |     Y      |   Y    |
+|                | Reset Password Own  |   Y   |     Y     |     Y      |    Y     |     Y      |   Y    |
+| Drone Compare  | Specifications      |   Y   |     Y     |     Y      |    Y     |     Y      |   N    |
 
 Users can perform Profile operations (view, update, reset password) only on their own profiles.
 

@@ -6,20 +6,10 @@ permission mixins gate each action.
 """
 
 from django.db import transaction
-from django.db.models import Prefetch
 from drf_spectacular.utils import extend_schema_view
 from rest_framework import generics, permissions
 from rest_framework.exceptions import ValidationError
 
-from accounts.permissions import HasRBACPermission
-from accounts.rbac import (
-    PERMISSION_MISSIONS_ASSIGN,
-    PERMISSION_MISSIONS_CREATE,
-    PERMISSION_MISSIONS_RECORD_CONDITION,
-    PERMISSION_MISSIONS_RECORD_OUTCOME,
-    PERMISSION_MISSIONS_UPDATE_STATUS,
-    PERMISSION_MISSIONS_VIEW,
-)
 from common.pagination import StandardResultsSetPagination
 from roles.models import OPERATOR_CODE
 
@@ -37,10 +27,14 @@ from .api_details import (
 )
 from .models import Mission, MissionAuditLog, MissionDrone, Status
 from .permissions import (
+    CanAssignMission,
+    CanCreateMission,
+    CanRecordCondition,
+    CanRecordOutcome,
     CanUpdateMissionStatus,
     CanViewMission,
-    IsAssignedOperatorOrAdmin,
-    IsDispatcherOrAdmin,
+    IsAssignedToMissionOrAdmin,
+    IsDispatcherOrAssignedOperatorOrAdmin,
 )
 from .serializers import (
     MissionDroneConditionSerializer,
@@ -65,49 +59,13 @@ def restrict_missions_for_user(queryset, user):
     return queryset
 
 
-class MissionsUpdateStatusRBAC(HasRBACPermission):
-    """Require the mission status-update RBAC permission."""
-
-    required_permission = PERMISSION_MISSIONS_UPDATE_STATUS
-
-
-class MissionsRecordOutcomeRBAC(HasRBACPermission):
-    """Require the mission record-outcome RBAC permission."""
-
-    required_permission = PERMISSION_MISSIONS_RECORD_OUTCOME
-
-
-class MissionsRecordConditionRBAC(HasRBACPermission):
-    """Require the mission record-condition RBAC permission."""
-
-    required_permission = PERMISSION_MISSIONS_RECORD_CONDITION
-
-
-class MissionsViewRBAC(HasRBACPermission):
-    """Require the mission view RBAC permission."""
-
-    required_permission = PERMISSION_MISSIONS_VIEW
-
-
-class MissionsCreateRBAC(HasRBACPermission):
-    """Require the mission create RBAC permission."""
-
-    required_permission = PERMISSION_MISSIONS_CREATE
-
-
-class MissionsAssignRBAC(HasRBACPermission):
-    """Require the mission assign RBAC permission."""
-
-    required_permission = PERMISSION_MISSIONS_ASSIGN
-
-
 @extend_schema_view(get=mission_get_schema, post=mission_post_schema)
 class MissionListCreateView(generics.ListCreateAPIView):
     """List missions or create one.
 
     GET is open to any authenticated user with the view permission and supports
     ``status`` and ``assigned_to=me`` query filters. POST is restricted to
-    Dispatcher/Admin with the create permission.
+    roles with the create permission.
     """
 
     serializer_class = MissionSerializer
@@ -120,8 +78,7 @@ class MissionListCreateView(generics.ListCreateAPIView):
         else:
             permission_classes = [
                 permissions.IsAuthenticated,
-                IsDispatcherOrAdmin,
-                MissionsCreateRBAC,
+                CanCreateMission,
             ]
         return [permission() for permission in permission_classes]
 
@@ -193,15 +150,15 @@ class MissionDetailView(generics.RetrieveAPIView):
 class MissionOutcomeView(generics.UpdateAPIView):
     """Record the outcome of a completed/aborted mission via PATCH.
 
-    Restricted to the assigned operator or an admin with the record-outcome
-    permission.
+    Restricted to dispatchers, the assigned operator, or an admin with the
+    record-outcome permission.
     """
 
     serializer_class = MissionOutcomeSerializer
     permission_classes = [
         permissions.IsAuthenticated,
-        MissionsRecordOutcomeRBAC,
-        IsAssignedOperatorOrAdmin,
+        CanRecordOutcome,
+        IsDispatcherOrAssignedOperatorOrAdmin,
     ]
     queryset = Mission.objects.with_related()
     http_method_names = ["patch", "options", "head"]
@@ -218,15 +175,15 @@ class MissionOutcomeView(generics.UpdateAPIView):
 class MissionDroneConditionView(generics.UpdateAPIView):
     """Record a drone's post-mission condition for one assignment via PATCH.
 
-    Restricted to the assigned operator or an admin with the record-condition
-    permission.
+    Restricted to dispatchers, the assigned operator, or an admin with the
+    record-condition permission.
     """
 
     serializer_class = MissionDroneConditionSerializer
     permission_classes = [
         permissions.IsAuthenticated,
-        MissionsRecordConditionRBAC,
-        IsAssignedOperatorOrAdmin,
+        CanRecordCondition,
+        IsDispatcherOrAssignedOperatorOrAdmin,
     ]
     lookup_url_kwarg = "assignment_id"
     http_method_names = ["patch", "options", "head"]
@@ -253,18 +210,19 @@ class MissionDroneConditionView(generics.UpdateAPIView):
 class MissionStatusUpdateView(generics.RetrieveUpdateAPIView):
     """Retrieve or update a mission's status through its lifecycle.
 
-    Gated by ``CanUpdateMissionStatus`` (Admin/Commander any mission, Operator
-    only their own). Updates lock the mission row and run in a transaction.
+    Gated by ``CanUpdateMissionStatus`` plus object-level checks. Admins,
+    commanders, and dispatchers may update any mission; operators may only
+    update missions they are assigned to. Updates lock the mission row and run
+    in a transaction.
     """
 
     serializer_class = MissionStatusUpdateSerializer
-    permission_classes = [permissions.IsAuthenticated, CanUpdateMissionStatus]
-    queryset = Mission.objects.prefetch_related(
-        Prefetch(
-            "mission_drones",
-            queryset=MissionDrone.objects.select_related("drone", "operator"),
-        )
-    )
+    permission_classes = [
+        permissions.IsAuthenticated,
+        CanUpdateMissionStatus,
+        IsAssignedToMissionOrAdmin,
+    ]
+    queryset = Mission.objects.prefetch_related("mission_drones")
 
     def get_queryset(self):
         """Return only missions the requesting user is allowed to act on."""
@@ -286,7 +244,9 @@ class MissionStatusUpdateView(generics.RetrieveUpdateAPIView):
         queryset = self.filter_queryset(self.get_queryset())
 
         if self.request.method in ["PUT", "PATCH"]:
-            return queryset.select_for_update().get(pk=self.kwargs["pk"])
+            obj = queryset.select_for_update().get(pk=self.kwargs["pk"])
+            self.check_object_permissions(self.request, obj)
+            return obj
 
         return super().get_object()
 
@@ -311,7 +271,7 @@ class MissionAssignmentListCreateView(generics.ListCreateAPIView):
     """List a mission's drone assignments or create one.
 
     GET is open to any authenticated user with the view permission; POST is
-    restricted to Dispatcher/Admin with the assign permission.
+    restricted to roles with the assign permission.
     """
 
     serializer_class = MissionDroneSerializer
@@ -323,13 +283,12 @@ class MissionAssignmentListCreateView(generics.ListCreateAPIView):
         if self.request.method == "POST":
             permission_classes = [
                 permissions.IsAuthenticated,
-                IsDispatcherOrAdmin,
-                MissionsAssignRBAC,
+                CanAssignMission,
             ]
         else:
             permission_classes = [
                 permissions.IsAuthenticated,
-                MissionsViewRBAC,
+                CanViewMission,
             ]
 
         return [permission() for permission in permission_classes]
@@ -379,12 +338,11 @@ class MissionAssignmentListCreateView(generics.ListCreateAPIView):
 
 @mission_assignment_delete_schema
 class MissionAssignmentDetailView(generics.DestroyAPIView):
-    """Delete a drone assignment from a mission (Dispatcher/Admin only)."""
+    """Delete a drone assignment from a mission for roles with assign permission."""
 
     permission_classes = [
         permissions.IsAuthenticated,
-        IsDispatcherOrAdmin,
-        MissionsAssignRBAC,
+        CanAssignMission,
     ]
     lookup_url_kwarg = "pk"
 
