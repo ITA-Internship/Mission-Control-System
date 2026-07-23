@@ -29,6 +29,7 @@ from .api_details import (
     artifact_detail_get_schema,
     artifact_get_schema,
     artifact_post_schema,
+    protected_media_get_schema,
 )
 from .models import MediaAuditLog, MissionArtifact, VideoMetadata
 from .permissions import (
@@ -195,6 +196,7 @@ class ArtifactDetailView(_MissionArtifactMixin, generics.RetrieveDestroyAPIView)
         )
 
 
+@extend_schema_view(get=protected_media_get_schema)
 class ProtectedMediaView(APIView):
     permission_classes = [IsAuthenticated, MediaViewPermission]
 

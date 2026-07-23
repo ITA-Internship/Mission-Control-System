@@ -426,7 +426,7 @@ Allows system administrators to activate or deactivate a user's account, creates
 Validation:
 - User cannot deactivate their own account.
 
-Required permission: `IsSystemAdmin`.
+Required permission: `PERMISSION_USERS_ACTIVATE_DEACTIVATE`.
 
 
 ### Parameters
@@ -502,6 +502,59 @@ Forbidden. User does not have permission to perform this action.
 
 
 Not Found.
+
+
+
+
+## GET /api/accounts/users/{user_id}/profile-picture/
+
+Retrieve a user's profile picture
+
+Returns the profile picture image file of the specified user, served inline. In production the file is delivered through a protected `X-Accel-Redirect` internal redirect; in debug mode the file is streamed directly.
+
+Access rules:
+- Any authenticated user may retrieve their own profile picture.
+- Only staff users may retrieve another user's profile picture.
+- Returns 404 if the target user has no profile picture, or if the stored file is missing from the server.
+
+Required permission: `IsAuthenticated`.
+
+
+### Parameters
+
+| Name | Type | Required | Description |
+|------|------|----------|-------------|
+| user_id | integer | True | ID of the user whose profile picture is being retrieved. |
+
+
+### Responses
+
+#### 200
+
+
+The profile picture image file is returned inline with the appropriate content type.
+
+
+string
+
+
+
+
+
+
+
+#### 403
+
+
+Forbidden
+
+
+
+
+#### 404
+
+
+Not Found
 
 
 
@@ -659,7 +712,7 @@ Retrieve current user profile
 
 Retrieves the profile details of the currently authenticated user.
 
-Required permission: `IsAuthenticated`.
+Required permission: `PERMISSION_PROFILE_VIEW_OWN`.
 
 
 
@@ -721,7 +774,7 @@ Validation:
 - Image file size cannot exceed 5 MB.
 - Supported image file formats: .jpg, .jpeg, .png, .webp.
 
-Required permission: `IsAuthenticated`.
+Required permission: `PERMISSION_PROFILE_UPDATE_OWN`.
 
 
 
@@ -829,7 +882,7 @@ Validation:
 - Image file size cannot exceed 5 MB.
 - Supported image file formats: .jpg, .jpeg, .png, .webp.
 
-Required permission: `IsAuthenticated`.
+Required permission: `PERMISSION_PROFILE_UPDATE_OWN`.
 
 
 
@@ -933,7 +986,7 @@ Change user password
 
 Changes the password for the currently authenticated user and creates an audit log entry. Upon a successful password change, all active sessions for this user are invalidated.
 
-Required permission: `IsAuthenticated`.
+Required permission: `PERMISSION_PROFILE_RESET_PASSWORD_OWN`.
 
 
 
@@ -1479,6 +1532,10 @@ Forbidden. User does not have permission to perform this action.
 
 
 
+Expose read-only write-off audit records.
+
+The endpoint can return all write-off records or records scoped to a selected
+drone when the URL contains a drone primary key.
 
 
 ### Parameters
@@ -1798,6 +1855,64 @@ Forbidden. User does not have permission to perform this action.
 
 
 Not Found.
+
+
+
+
+## GET /api/drones/{id}/history/
+
+
+
+
+
+### Parameters
+
+| Name | Type | Required | Description |
+|------|------|----------|-------------|
+| id | integer | True |  |
+| page | integer | False | A page number within the paginated result set. |
+| page_size | integer | False | Number of results to return per page. |
+
+
+### Responses
+
+#### 200
+
+
+
+[PaginatedDroneStatusHistoryList](#paginateddronestatushistorylist)
+
+
+
+
+
+
+
+## GET /api/drones/{id}/spec-changes/
+
+
+
+
+
+### Parameters
+
+| Name | Type | Required | Description |
+|------|------|----------|-------------|
+| id | integer | True |  |
+| page | integer | False | A page number within the paginated result set. |
+| page_size | integer | False | Number of results to return per page. |
+
+
+### Responses
+
+#### 200
+
+
+
+[PaginatedDroneSpecChangeLogList](#paginateddronespecchangeloglist)
+
+
+
 
 
 
@@ -2143,6 +2258,7 @@ Forbidden. User does not have permission to perform this action.
 
 
 
+List existing write-offs or create a new immutable write-off record.
 
 
 
@@ -2165,6 +2281,7 @@ array
 
 
 
+List existing write-offs or create a new immutable write-off record.
 
 
 
@@ -2209,6 +2326,10 @@ array
 
 
 
+Expose read-only write-off audit records.
+
+The endpoint can return all write-off records or records scoped to a selected
+drone when the URL contains a drone primary key.
 
 
 ### Parameters
@@ -2531,7 +2652,7 @@ List missions
 
 Retrieves a paginated and filtered by status list of missions, assigned to the currently authenticated user.
 
-Required permission: `IsDispatcherOrAdmin, PERMISSION_MISSIONS_VIEW`.
+Required permission: `PERMISSION_MISSIONS_VIEW`.
 
 
 ### Parameters
@@ -2572,30 +2693,37 @@ Examples
   "previous": "http://api.example.org/accounts/?page=2",
   "results": [
     {
-      "id": 31,
-      "title": "Fallback Route Mapping",
-      "commander": {
-        "id": 27,
-        "username": "commander.south",
-        "email": "commander.south@example.com"
-      },
-      "status": "planned",
-      "result": null,
-      "location_description": "Secondary fallback route south-west of artillery support line.",
-      "latitude": "48.619700",
-      "longitude": "22.287900",
-      "started_at": "2026-07-09T01:17:37.650595Z",
-      "ended_at": "2026-07-09T01:49:37.650595Z",
-      "notes": "Objective: capture updated terrain references and route obstacles.",
-      "incident_notes": "",
-      "created_by": {
-        "id": 24,
-        "username": "oleksander.koval",
-        "email": "oleksander.koval@example.com"
-      },
-      "created_at": "2026-07-02T02:21:31.151234Z",
-      "updated_at": "2026-07-03T01:17:37.651465Z",
-      "drones": []
+      "count": 1,
+      "next": null,
+      "previous": null,
+      "results": [
+        {
+          "id": 31,
+          "title": "Fallback Route Mapping",
+          "commander": {
+            "id": 27,
+            "username": "commander.south",
+            "email": "commander.south@example.com"
+          },
+          "status": "planned",
+          "result": null,
+          "location_description": "Secondary fallback route south-west of artillery support line.",
+          "latitude": "48.619700",
+          "longitude": "22.287900",
+          "started_at": "2026-07-09T01:17:37.650595Z",
+          "ended_at": "2026-07-09T01:49:37.650595Z",
+          "notes": "Objective: capture updated terrain references and route obstacles.",
+          "incident_notes": "",
+          "created_by": {
+            "id": 24,
+            "username": "oleksander.koval",
+            "email": "oleksander.koval@example.com"
+          },
+          "created_at": "2026-07-02T02:21:31.151234Z",
+          "updated_at": "2026-07-03T01:17:37.651465Z",
+          "drones": []
+        }
+      ]
     }
   ]
 }
@@ -2623,7 +2751,7 @@ Validation:
 - Either location or latitude and longitude must be provided.
 - Assigned drones and operators cannot already be assigned to another mission.
 
-Required permission: `IsDispatcherOrAdmin, PERMISSION_MISSIONS_CREATE`.
+Required permission: `PERMISSION_MISSIONS_CREATE`.
 
 
 
@@ -3082,6 +3210,55 @@ Not Found.
 
 
 
+## GET /api/missions/{mission_pk}/artifacts/{artifact_pk}/download/
+
+Download a protected artifact file
+
+Streams or internally redirects to the stored artifact file after object-level media access checks pass.
+
+Required permission: `PERMISSION_MEDIA_VIEW`.
+
+
+### Parameters
+
+| Name | Type | Required | Description |
+|------|------|----------|-------------|
+| artifact_pk | integer | True | ID of the artifact to download. |
+| mission_pk | integer | True |  |
+
+
+### Responses
+
+#### 200
+
+
+Artifact file returned successfully.
+
+
+string
+
+
+
+
+
+
+
+#### 403
+
+
+Forbidden. User does not have permission to perform this action.
+
+
+
+
+#### 404
+
+
+Not Found.
+
+
+
+
 ## GET /api/missions/{mission_pk}/assignments/
 
 List drone assignments for a mission
@@ -3128,27 +3305,34 @@ Examples
   "previous": "http://api.example.org/accounts/?page=2",
   "results": [
     {
-      "id": 1,
-      "mission": 34,
-      "drone": 21,
-      "drone_details": {
-        "id": 21,
-        "name": "Falcon Eye 1",
-        "serial_number": "FPV-AER-24001",
-        "drone_model": 15,
-        "status": "ACTIVE"
-      },
-      "operator": 28,
-      "operator_details": {
-        "id": 28,
-        "username": "operator.alpha",
-        "email": "operator.alpha@example.com"
-      },
-      "condition_after": null,
-      "condition_description": null,
-      "flight_started_at": null,
-      "flight_ended_at": null,
-      "created_at": "2026-07-06T02:19:18.140785Z"
+      "count": 1,
+      "next": null,
+      "previous": null,
+      "results": [
+        {
+          "id": 1,
+          "mission": 34,
+          "drone": 21,
+          "drone_details": {
+            "id": 21,
+            "name": "Falcon Eye 1",
+            "serial_number": "FPV-AER-24001",
+            "drone_model": 15,
+            "status": "ACTIVE"
+          },
+          "operator": 28,
+          "operator_details": {
+            "id": 28,
+            "username": "operator.alpha",
+            "email": "operator.alpha@example.com"
+          },
+          "condition_after": null,
+          "condition_description": null,
+          "flight_started_at": null,
+          "flight_ended_at": null,
+          "created_at": "2026-07-06T02:19:18.140785Z"
+        }
+      ]
     }
   ]
 }
@@ -3183,7 +3367,7 @@ Deploys a specific drone and maps an operator to the given mission. Validation:
 - All assigned drones must be active.
 - Operators and drones cannot be assigned to overlapping missions.
 
-Required permission: `IsDispatcherOrAdmin, PERMISSION_MISSIONS_ASSIGN`.
+Required permission: `PERMISSION_MISSIONS_ASSIGN`.
 
 
 ### Parameters
@@ -3330,7 +3514,7 @@ Deletes a specific drone assignment and creates an audit log entry.
 Validation:
 - Cannot delete assignment unless mission is planned.
 
-Required permission: `IsDispatcherOrAdmin, PERMISSION_MISSIONS_ASSIGN`.
+Required permission: `PERMISSION_MISSIONS_ASSIGN`.
 
 
 ### Parameters
@@ -3470,7 +3654,7 @@ Validation:
 - Drone condition can only be recorded for missions with status `completed` or `aborted`.
 - Condition `lost` cannot be overwritten.
 
-Required permission: `PERMISSION_MISSIONS_RECORD_CONDITION, IsAssignedOperatorOrAdmin`.
+Required permission: `PERMISSION_MISSIONS_RECORD_CONDITION, IsDispatcherOrAssignedOperatorOrAdmin`.
 
 
 ### Parameters
@@ -3620,7 +3804,7 @@ Validation:
 - Already recorded outcome cannot be overwritten.
 - If result of a mission is a failure, incident notes must be provided.
 
-Required permission: `IsAssignedOperatorOrAdmin, PERMISSION_MISSIONS_RECORD_OUTCOME`.
+Required permission: `PERMISSION_MISSIONS_RECORD_OUTCOME, IsDispatcherOrAssignedOperatorOrAdmin`.
 
 
 ### Parameters
@@ -3765,7 +3949,7 @@ Retrieve mission status
 
 Retrieves the current status of a mission.
 
-Required permission: `CanUpdateMissionStatus`.
+Required permission: `PERMISSION_MISSIONS_UPDATE_STATUS, IsAssignedToMissionOrAdmin`.
 
 
 ### Parameters
@@ -3833,7 +4017,7 @@ Validation:
 	- statuses `COMPLETED` or `ABORTED` cannot be updated.
 - Mission cannot be updated to status `ACTIVE` if it has assigned inactive drones.
 
-Required permission: `CanUpdateMissionStatus`.
+Required permission: `PERMISSION_MISSIONS_UPDATE_STATUS, IsAssignedToMissionOrAdmin`.
 
 
 ### Parameters
@@ -3963,7 +4147,7 @@ Validation:
 	- statuses `COMPLETED` or `ABORTED` cannot be updated.
 - Mission cannot be updated to status `ACTIVE` if it has assigned inactive drones.
 
-Required permission: `CanUpdateMissionStatus`.
+Required permission: `PERMISSION_MISSIONS_UPDATE_STATUS, IsAssignedToMissionOrAdmin`.
 
 
 ### Parameters
@@ -4331,6 +4515,7 @@ Not Found.
 
 
 
+List the audit history of state changes for a specific defect report.
 
 
 ### Parameters
@@ -4358,8 +4543,11 @@ Not Found.
 
 ## POST /api/repairs/defects/{id}/update-status/
 
+Update defect report status
 
+Transitions a defect report to a new status and records a repair event.
 
+Required permission: `PERMISSION_REPAIRS_CREATE`.
 
 
 ### Parameters
@@ -4367,6 +4555,29 @@ Not Found.
 | Name | Type | Required | Description |
 |------|------|----------|-------------|
 | id | integer | True |  |
+| pk | integer | True | ID of the defect report to update. |
+
+
+### Request Body
+
+[DefectStatusUpdate](#defectstatusupdate)
+
+
+
+
+
+[DefectStatusUpdate](#defectstatusupdate)
+
+
+
+
+
+[DefectStatusUpdate](#defectstatusupdate)
+
+
+
+
+
 
 
 ### Responses
@@ -4374,7 +4585,29 @@ Not Found.
 #### 200
 
 
-No response body
+Defect status updated successfully.
+
+
+[RepairEvent](#repairevent)
+
+
+
+
+
+
+
+#### 400
+
+
+Bad Request. Provided payload contains validation errors.
+
+
+
+
+#### 403
+
+
+Forbidden. User does not have permission to perform this action.
 
 
 
@@ -4383,6 +4616,7 @@ No response body
 
 
 
+Fetch, validate, and paginate the unified drone history timeline.
 
 
 ### Parameters
@@ -4408,15 +4642,18 @@ No response body
 
 ## GET /api/repairs/drones/{drone_id}/history/export/
 
+Export drone repair history to CSV
 
+Exports the aggregated repair timeline for a specific drone as a CSV file.
 
+Required permission: `PERMISSION_REPAIRS_VIEW`.
 
 
 ### Parameters
 
 | Name | Type | Required | Description |
 |------|------|----------|-------------|
-| drone_id | integer | True |  |
+| drone_id | integer | True | ID of the drone whose repair history is exported. |
 
 
 ### Responses
@@ -4424,7 +4661,29 @@ No response body
 #### 200
 
 
-No response body
+CSV file generated successfully.
+
+
+string
+
+
+
+
+
+
+
+#### 403
+
+
+Forbidden. User does not have permission to perform this action.
+
+
+
+
+#### 404
+
+
+Not Found.
 
 
 
@@ -4433,6 +4692,7 @@ No response body
 
 
 
+List existing repair orders or create a new one.
 
 
 ### Parameters
@@ -4468,6 +4728,7 @@ No response body
 
 
 
+List existing repair orders or create a new one.
 
 
 
@@ -4512,6 +4773,7 @@ No response body
 
 
 
+Retrieve or transition a specific repair order.
 
 
 ### Parameters
@@ -4539,6 +4801,7 @@ No response body
 
 
 
+Delegate state transitions to the dedicated service method.
 
 
 ### Parameters
@@ -4588,6 +4851,7 @@ No response body
 
 
 
+Attach a new component replacement to an existing repair order.
 
 
 ### Parameters
@@ -4938,6 +5202,8 @@ Forbidden. User does not have permission to perform this action.
 ## AuditLog
 
 
+Serialize audit log entries for read-only API responses.
+
 
 | Field | Type | Description |
 |-------|------|-------------|
@@ -4969,6 +5235,8 @@ Forbidden. User does not have permission to perform this action.
 ## ChangePassword
 
 
+Serialize requests to change the user's password.
+
 
 | Field | Type | Description |
 |-------|------|-------------|
@@ -4984,6 +5252,11 @@ Forbidden. User does not have permission to perform this action.
 
 ## ComponentReplacement
 
+
+Serialize standalone hardware replacements.
+
+Validates physical consistency (e.g., specific names for the OTHER category)
+and delegates creation to the service layer.
 
 
 | Field | Type | Description |
@@ -5003,6 +5276,8 @@ Forbidden. User does not have permission to perform this action.
 
 ## ComponentReplacementList
 
+
+Read-only summary of a component replacement for list views.
 
 
 | Field | Type | Description |
@@ -5026,6 +5301,12 @@ Forbidden. User does not have permission to perform this action.
 ## DefectReport
 
 
+Serialize a defect report for creation and detailed view.
+
+The reporter field is strictly read-only because it must be securely
+bound to the authenticated user making the request via the service
+layer, rather than accepting it from the payload.
+
 
 | Field | Type | Description |
 |-------|------|-------------|
@@ -5043,6 +5324,8 @@ Forbidden. User does not have permission to perform this action.
 ## DefectReportList
 
 
+Read-only summary of a defect report for list views.
+
 
 | Field | Type | Description |
 |-------|------|-------------|
@@ -5055,6 +5338,18 @@ Forbidden. User does not have permission to perform this action.
 | created_at | string |  |
 
 
+## DefectStatusUpdate
+
+
+Validate payloads for transitioning a DefectReport's status.
+
+
+| Field | Type | Description |
+|-------|------|-------------|
+| status |  |  |
+| action_taken | string |  |
+
+
 ## DefectType
 
 
@@ -5064,13 +5359,17 @@ Forbidden. User does not have permission to perform this action.
 ## Drone
 
 
+Serialize drone create/detail data with nested technical specification.
+
+Creation is delegated to the service layer so the drone, DroneSpec, and
+initial DroneSpecChangeLog are created consistently in one workflow.
+
 
 | Field | Type | Description |
 |-------|------|-------------|
 | id | integer |  |
 | spec |  |  |
 | writeoff_record |  |  |
-| status_history | array |  |
 | status_label | string |  |
 | status_indicator | string |  |
 | status_category | string |  |
@@ -5090,6 +5389,10 @@ Forbidden. User does not have permission to perform this action.
 ## DroneBrief
 
 
+Read-only summary of a drone, embedded in mission/assignment responses.
+
+Output-only: all fields are read-only, so it never creates or updates.
+
 
 | Field | Type | Description |
 |-------|------|-------------|
@@ -5103,6 +5406,8 @@ Forbidden. User does not have permission to perform this action.
 ## DroneImport
 
 
+Validate uploaded files for drone CSV import.
+
 
 | Field | Type | Description |
 |-------|------|-------------|
@@ -5111,6 +5416,8 @@ Forbidden. User does not have permission to perform this action.
 
 ## DroneList
 
+
+Serialize compact drone fields for list responses.
 
 
 | Field | Type | Description |
@@ -5132,6 +5439,8 @@ Forbidden. User does not have permission to perform this action.
 ## DroneModel
 
 
+Serialize drone model catalog entries and supported classifications.
+
 
 | Field | Type | Description |
 |-------|------|-------------|
@@ -5145,43 +5454,10 @@ Forbidden. User does not have permission to perform this action.
 | updated_at | string |  |
 
 
-## DroneSpec
-
-
-
-| Field | Type | Description |
-|-------|------|-------------|
-| id | integer |  |
-| frame_type | string |  |
-| motor_model | string |  |
-| battery_type | string |  |
-| battery_capacity_mah | integer |  |
-| battery_model | string |  |
-| camera_model | string |  |
-| camera_specs |  |  |
-| vtx_model | string |  |
-| flight_controller | string |  |
-| firmware_version | string |  |
-| is_firmware_outdated | boolean | Indicates if the firmware or communication parameters are unsupported. |
-| communication_protocol | string |  |
-| control_channel | string |  |
-| telemetry_channel | string |  |
-| max_speed_kmh | string |  |
-| typical_range_km | string |  |
-| max_range_km | string |  |
-| typical_flight_time_min | string |  |
-| max_flight_time_min | string |  |
-| frequency_mhz | integer |  |
-| payload_capacity_g | integer |  |
-| additional_modules |  |  |
-| technical_documentation_url | string |  |
-| firmware_file_url | string |  |
-| updated_at | string |  |
-| change_history | array |  |
-
-
 ## DroneSpecChangeLog
 
+
+Serialize specification audit entries for read-only API responses.
 
 
 | Field | Type | Description |
@@ -5194,8 +5470,10 @@ Forbidden. User does not have permission to perform this action.
 | created_at | string |  |
 
 
-## DroneSpecUpdate
+## DroneSpecDetail
 
+
+Serialize technical specifications included in drone detail responses.
 
 
 | Field | Type | Description |
@@ -5223,8 +5501,44 @@ Forbidden. User does not have permission to perform this action.
 | frequency_mhz | integer |  |
 | payload_capacity_g | integer |  |
 | additional_modules |  |  |
-| technical_documentation_url | string |  |
-| firmware_file_url | string |  |
+| technical_documentation_url |  |  |
+| firmware_file_url |  |  |
+| updated_at | string |  |
+
+
+## DroneSpecUpdate
+
+
+Serialize partial updates to a drone technical specification.
+
+
+| Field | Type | Description |
+|-------|------|-------------|
+| id | integer |  |
+| frame_type | string |  |
+| motor_model | string |  |
+| battery_type | string |  |
+| battery_capacity_mah | integer |  |
+| battery_model | string |  |
+| camera_model | string |  |
+| camera_specs |  |  |
+| vtx_model | string |  |
+| flight_controller | string |  |
+| firmware_version | string |  |
+| is_firmware_outdated | boolean | Indicates if the firmware or communication parameters are unsupported. |
+| communication_protocol | string |  |
+| control_channel | string |  |
+| telemetry_channel | string |  |
+| max_speed_kmh | string |  |
+| typical_range_km | string |  |
+| max_range_km | string |  |
+| typical_flight_time_min | string |  |
+| max_flight_time_min | string |  |
+| frequency_mhz | integer |  |
+| payload_capacity_g | integer |  |
+| additional_modules |  |  |
+| technical_documentation_url |  |  |
+| firmware_file_url |  |  |
 | updated_at | string |  |
 
 
@@ -5237,6 +5551,11 @@ Forbidden. User does not have permission to perform this action.
 ## DroneStatusHistory
 
 
+Serialize drone lifecycle status history with display metadata.
+
+Adds a readable user label and event type so clients can distinguish status
+changes caused by missions, repairs, write-offs, or manual updates.
+
 
 | Field | Type | Description |
 |-------|------|-------------|
@@ -5244,9 +5563,9 @@ Forbidden. User does not have permission to perform this action.
 | from_status | string |  |
 | to_status | string |  |
 | changed_by | integer |  |
-| changed_by_display | string |  |
+| changed_by_display | string | Return a readable name for the user who changed the status. |
 | reason | string |  |
-| event_type | string |  |
+| event_type | string | Return the domain event type that caused this status history entry. |
 | related_mission_id | integer |  |
 | related_repair_order | integer |  |
 | related_writeoff | integer |  |
@@ -5260,12 +5579,6 @@ Forbidden. User does not have permission to perform this action.
 
 
 ## FileTypeEnum
-
-
-
-
-
-## FromStatusEnum
 
 
 
@@ -5289,6 +5602,13 @@ Forbidden. User does not have permission to perform this action.
 
 ## Mission
 
+
+Serialize a mission, including its nested drone assignments.
+
+Handles both create and update. Assignments may only be set at creation
+time; on update the nested ``drones`` field is forced read-only (see
+``__init__``) so they are managed through the dedicated assignment endpoints
+instead.
 
 
 | Field | Type | Description |
@@ -5347,6 +5667,11 @@ Forbidden. User does not have permission to perform this action.
 ## MissionDrone
 
 
+Serialize a mission-drone assignment with drone and operator details.
+
+Used to list assignments and to create new ones; ``create`` delegates to
+the service layer so locking and auditing stay consistent.
+
 
 | Field | Type | Description |
 |-------|------|-------------|
@@ -5366,6 +5691,11 @@ Forbidden. User does not have permission to perform this action.
 ## MissionDroneCondition
 
 
+Record a drone's condition after a mission for a single assignment.
+
+Update-only; ``update`` delegates persistence and drone-status propagation
+to the service layer.
+
 
 | Field | Type | Description |
 |-------|------|-------------|
@@ -5377,6 +5707,11 @@ Forbidden. User does not have permission to perform this action.
 ## MissionDroneInput
 
 
+Nested write serializer for assigning a drone/operator on mission create.
+
+Exposes ``drone_id`` (required) and ``operator_id`` (optional, nullable),
+mapped to the ``drone`` and ``operator`` relations of :class:`MissionDrone`.
+
 
 | Field | Type | Description |
 |-------|------|-------------|
@@ -5386,6 +5721,10 @@ Forbidden. User does not have permission to perform this action.
 
 ## MissionOutcome
 
+
+Record the result and notes of a completed/aborted mission.
+
+Update-only; ``update`` delegates persistence to the service layer.
 
 
 | Field | Type | Description |
@@ -5411,6 +5750,11 @@ Forbidden. User does not have permission to perform this action.
 
 ## MissionStatusUpdate
 
+
+Drive a mission through its lifecycle and propagate drone statuses.
+
+Exposes only ``status``; ``update`` applies the change transactionally and
+cascades the assigned drones' statuses.
 
 
 | Field | Type | Description |
@@ -5473,6 +5817,30 @@ Forbidden. User does not have permission to perform this action.
 
 
 ## PaginatedDroneModelList
+
+
+
+| Field | Type | Description |
+|-------|------|-------------|
+| count | integer |  |
+| next | string |  |
+| previous | string |  |
+| results | array |  |
+
+
+## PaginatedDroneSpecChangeLogList
+
+
+
+| Field | Type | Description |
+|-------|------|-------------|
+| count | integer |  |
+| next | string |  |
+| previous | string |  |
+| results | array |  |
+
+
+## PaginatedDroneStatusHistoryList
 
 
 
@@ -5583,6 +5951,8 @@ Forbidden. User does not have permission to perform this action.
 ## PasswordResetConfirm
 
 
+Serialize requests to confirm a password reset with a new password.
+
 
 | Field | Type | Description |
 |-------|------|-------------|
@@ -5592,6 +5962,8 @@ Forbidden. User does not have permission to perform this action.
 ## PasswordResetRequest
 
 
+Serialize requests to initiate a password reset.
+
 
 | Field | Type | Description |
 |-------|------|-------------|
@@ -5600,6 +5972,11 @@ Forbidden. User does not have permission to perform this action.
 
 ## PatchedDroneUpdate
 
+
+Serialize partial drone updates and inactive lifecycle transitions.
+
+Inactive transitions require write-off metadata so the service layer can
+create an immutable WriteOffRecord and link it to DroneStatusHistory.
 
 
 | Field | Type | Description |
@@ -5625,6 +6002,11 @@ Forbidden. User does not have permission to perform this action.
 ## PatchedMissionDroneCondition
 
 
+Record a drone's condition after a mission for a single assignment.
+
+Update-only; ``update`` delegates persistence and drone-status propagation
+to the service layer.
+
 
 | Field | Type | Description |
 |-------|------|-------------|
@@ -5635,6 +6017,10 @@ Forbidden. User does not have permission to perform this action.
 
 ## PatchedMissionOutcome
 
+
+Record the result and notes of a completed/aborted mission.
+
+Update-only; ``update`` delegates persistence to the service layer.
 
 
 | Field | Type | Description |
@@ -5649,6 +6035,11 @@ Forbidden. User does not have permission to perform this action.
 ## PatchedMissionStatusUpdate
 
 
+Drive a mission through its lifecycle and propagate drone statuses.
+
+Exposes only ``status``; ``update`` applies the change transactionally and
+cascades the assigned drones' statuses.
+
 
 | Field | Type | Description |
 |-------|------|-------------|
@@ -5657,6 +6048,8 @@ Forbidden. User does not have permission to perform this action.
 
 ## PatchedRepairOrderStatusUpdate
 
+
+Drive a repair order through its state machine.
 
 
 | Field | Type | Description |
@@ -5667,6 +6060,8 @@ Forbidden. User does not have permission to perform this action.
 
 ## PatchedUserMe
 
+
+Serialize the authenticated user's data along with their profile information.
 
 
 | Field | Type | Description |
@@ -5688,6 +6083,8 @@ Forbidden. User does not have permission to perform this action.
 ## PatchedUserRoleUpdate
 
 
+Serialize user role update requests.
+
 
 | Field | Type | Description |
 |-------|------|-------------|
@@ -5696,6 +6093,8 @@ Forbidden. User does not have permission to perform this action.
 
 ## PatchedUserStatusUpdate
 
+
+Serialize user status update requests.
 
 
 | Field | Type | Description |
@@ -5731,6 +6130,8 @@ Forbidden. User does not have permission to perform this action.
 ## RepairEvent
 
 
+Read-only view of a repair state transition event.
+
 
 | Field | Type | Description |
 |-------|------|-------------|
@@ -5745,6 +6146,8 @@ Forbidden. User does not have permission to perform this action.
 ## RepairHistoryTimeline
 
 
+Shape heterogeneous repair events into a uniform timeline response.
+
 
 | Field | Type | Description |
 |-------|------|-------------|
@@ -5756,6 +6159,8 @@ Forbidden. User does not have permission to perform this action.
 
 ## RepairOrder
 
+
+Serialize a repair order for detailed views.
 
 
 | Field | Type | Description |
@@ -5777,6 +6182,8 @@ Forbidden. User does not have permission to perform this action.
 ## RepairOrderCreate
 
 
+Validate payloads for creating a new repair order.
+
 
 | Field | Type | Description |
 |-------|------|-------------|
@@ -5789,6 +6196,8 @@ Forbidden. User does not have permission to perform this action.
 
 ## RepairOrderList
 
+
+Read-only summary of a repair order for list views.
 
 
 | Field | Type | Description |
@@ -5804,6 +6213,8 @@ Forbidden. User does not have permission to perform this action.
 
 ## RepairOrderReplacement
 
+
+Serialize hardware replacements explicitly linked to a repair order.
 
 
 | Field | Type | Description |
@@ -5822,6 +6233,8 @@ Forbidden. User does not have permission to perform this action.
 
 ## RepairOrderStatusUpdate
 
+
+Drive a repair order through its state machine.
 
 
 | Field | Type | Description |
@@ -5862,6 +6275,8 @@ Forbidden. User does not have permission to perform this action.
 ## UserMe
 
 
+Serialize the authenticated user's data along with their profile information.
+
 
 | Field | Type | Description |
 |-------|------|-------------|
@@ -5882,6 +6297,8 @@ Forbidden. User does not have permission to perform this action.
 ## UserRegistration
 
 
+Provide serialization and validation for user registration requests.
+
 
 | Field | Type | Description |
 |-------|------|-------------|
@@ -5900,13 +6317,15 @@ Forbidden. User does not have permission to perform this action.
 ## UserRoleUpdateResponse
 
 
+Serialize user role update responses.
+
 
 | Field | Type | Description |
 |-------|------|-------------|
 | id | integer |  |
 | username | string | Required. 150 characters or fewer. Letters, digits and @/./+/-/_ only. |
 | email | string |  |
-| role | object |  |
+| role | object | Return the role details of the user. |
 
 
 ## VideoMetadata
@@ -5956,6 +6375,8 @@ Forbidden. User does not have permission to perform this action.
 ## WriteOffAudit
 
 
+Serialize write-off records for audit and history endpoints.
+
 
 | Field | Type | Description |
 |-------|------|-------------|
@@ -5984,6 +6405,8 @@ Forbidden. User does not have permission to perform this action.
 ## WriteOffRecord
 
 
+Serialize immutable write-off data attached to a drone.
+
 
 | Field | Type | Description |
 |-------|------|-------------|
@@ -6000,6 +6423,11 @@ Forbidden. User does not have permission to perform this action.
 
 ## WriteOffRecordCreate
 
+
+Validate and create immutable drone write-off records.
+
+A drone can be written off only once, cannot already be inactive, and when a
+mission is supplied it must be the latest mission assigned to that drone.
 
 
 | Field | Type | Description |
