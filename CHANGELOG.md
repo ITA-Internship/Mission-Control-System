@@ -63,6 +63,8 @@
 - Fix merge conflicts (by **torii044**)
 - Fix formatting issues (by **torii044**)
 - Address PR review comments for health checks (by **Maksym**)
+- Fixed linting (by **Olena Kshyk**)
+- Fixed review comments (by **Olena Kshyk**)
 
 ### Other
 
@@ -611,6 +613,12 @@
 - Fix lint issues (by **Maksym Lirko**)
 - Merge pull request #155 from ITA-Internship/task123-clean (by **Maksym**)
 - Task#123 automate deployment and release workflow (by **Maksym**)
+- Added new actions in audit log and retention (by **Olena Kshyk**)
+- Merge branch 'develop' of https://github.com/ITA-Internship/Mission-Control-System into task#120-file-access-and-audit-log (by **Olena Kshyk**)
+- Updated docs for the task (by **Olena Kshyk**)
+- Added tests (by **Olena Kshyk**)
+- Merge pull request #134 from ITA-Internship/task#120-file-access-and-audit-log (by **Olena Kshyk**)
+- Task#120 file access and audit log (by **Olena Kshyk**)
 
 ### Refactor
 
@@ -641,6 +649,7 @@
 
 ### Miscellaneous Tasks
 
+- *(changelog)* Update CHANGELOG.md [skip ci] (by **github-actions[bot]**)
 - *(changelog)* Update CHANGELOG.md [skip ci] (by **github-actions[bot]**)
 - *(changelog)* Update CHANGELOG.md [skip ci] (by **github-actions[bot]**)
 - *(changelog)* Update CHANGELOG.md [skip ci] (by **github-actions[bot]**)
