@@ -65,6 +65,8 @@
 - Address PR review comments for health checks (by **Maksym**)
 - Fixed linting (by **Olena Kshyk**)
 - Fixed review comments (by **Olena Kshyk**)
+- *(tests)* Update MediaPermissionDeniedLoggingTests to use ViewerUserFactory and improve logging assertions (by **Anastasiia**)
+- *(tests)* Update MediaPermissionDeniedLoggingTests (by **Anastasiia Humeniuk**)
 
 ### Other
 
@@ -635,6 +637,7 @@
 - Fix API schema generation and align mission permission naming (by **Anastasiia**)
 - Merge pull request #132 from ITA-Internship/task#124-optimize-rbac-permission-structure (by **Anastasiia Humeniuk**)
 - Task#124 optimize rbac permission structure (by **Anastasiia Humeniuk**)
+- Merge pull request #179 from ITA-Internship/fix/media-permission-denied-test (by **Anastasiia Humeniuk**)
 
 ### Refactor
 
@@ -670,6 +673,7 @@
 
 ### Miscellaneous Tasks
 
+- *(changelog)* Update CHANGELOG.md [skip ci] (by **github-actions[bot]**)
 - *(changelog)* Update CHANGELOG.md [skip ci] (by **github-actions[bot]**)
 - *(changelog)* Update CHANGELOG.md [skip ci] (by **github-actions[bot]**)
 - *(changelog)* Update CHANGELOG.md [skip ci] (by **github-actions[bot]**)

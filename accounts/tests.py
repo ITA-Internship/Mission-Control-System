@@ -673,7 +673,7 @@ class ProtectedProfilePictureRBACTests(APITestCase):
             response.status_code,
             status.HTTP_403_FORBIDDEN,
         )
-        
+
     def test_user_without_audit_permissions_gets_forbidden(self):
         user = User.objects.create_user(
             username="no.audit.role",
