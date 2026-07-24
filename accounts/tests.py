@@ -22,6 +22,7 @@ from seed_data.users import seed_users
 from .models import AuditLog, User, UserRoleAuditLog, UserStatusLog
 from .services import update_user_role
 from .throttles import AccountActivationThrottle, PasswordResetRequestThrottle
+from .tokens import account_activation_token_generator
 
 THROTTLE_TEST_SETTINGS = {
     "DEFAULT_AUTHENTICATION_CLASSES": [
@@ -419,16 +420,17 @@ class PublicAuthThrottleTests(APITestCase):
         """Clear cache to reset limits and initialize a test user."""
         cache.clear()
         self.request_factory = APIRequestFactory()
+        # Pending activation: no usable password yet (mirrors real account
+        # creation), so the activation endpoint accepts the first request.
         self.user = User.objects.create_user(
             username="throttle.user",
             email="throttle.user@example.com",
-            password="StrongTest@1234",
-            is_active=False,
+            password=None,
         )
 
     def test_activation_endpoint_is_throttled(self):
         """Verify that repeated account activation requests return a 429."""
-        token = default_token_generator.make_token(self.user)
+        token = account_activation_token_generator.make_token(self.user)
         url = reverse(
             "accounts:account-activate",
             kwargs={"user_id": self.user.pk, "token": token},
@@ -506,6 +508,168 @@ class PublicAuthThrottleTests(APITestCase):
 
         self.assertEqual(first_response.status_code, status.HTTP_200_OK)
         self.assertEqual(second_response.status_code, status.HTTP_429_TOO_MANY_REQUESTS)
+
+
+@override_settings(
+    EMAIL_BACKEND="django.core.mail.backends.locmem.EmailBackend",
+)
+class AccountActivationSecurityTests(APITestCase):
+    """Test that account activation enforces token scope and account state.
+
+    Activation and password-reset both build on Django's token machinery, so
+    these tests guard against the two flows' tokens being interchangeable and
+    against the endpoint being used to bypass administrative deactivation.
+    """
+
+    def setUp(self):
+        """Reset throttle state and create a user pending activation."""
+        cache.clear()
+        self.user = User.objects.create(
+            username="pending.user",
+            email="pending.user@example.com",
+        )
+        self.user.set_unusable_password()
+        self.user.save()
+
+    def _activation_url(self, token):
+        """Build the activation URL for the test user and given token."""
+        return reverse(
+            "accounts:account-activate",
+            kwargs={"user_id": self.user.pk, "token": token},
+        )
+
+    def test_valid_activation_token_activates_account(self):
+        """Verify a genuine activation token sets a usable password and activates."""
+        # Precondition: the account is pending (no usable password yet).
+        self.assertFalse(self.user.has_usable_password())
+
+        token = account_activation_token_generator.make_token(self.user)
+
+        response = self.client.post(
+            self._activation_url(token),
+            {"password": "NewStrongPassword@1234"},
+            format="json",
+        )
+
+        self.user.refresh_from_db()
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertTrue(self.user.is_active)
+        self.assertTrue(self.user.has_usable_password())
+        self.assertTrue(self.user.check_password("NewStrongPassword@1234"))
+        self.assertFalse(self.user.must_change_password)
+
+    def test_missing_password_field_is_rejected(self):
+        """Verify activation without a password returns a field error."""
+        token = account_activation_token_generator.make_token(self.user)
+
+        response = self.client.post(
+            self._activation_url(token),
+            {},
+            format="json",
+        )
+
+        self.user.refresh_from_db()
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("password", response.data)
+        self.assertIsInstance(response.data["password"], list)
+        self.assertFalse(self.user.has_usable_password())
+
+    def test_password_reset_token_cannot_activate_account(self):
+        """Verify a password-reset token is rejected by the activation endpoint."""
+        reset_token = default_token_generator.make_token(self.user)
+
+        response = self.client.post(
+            self._activation_url(reset_token),
+            {"password": "NewStrongPassword@1234"},
+            format="json",
+        )
+
+        self.user.refresh_from_db()
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertFalse(self.user.has_usable_password())
+
+    def test_deactivated_user_cannot_reactivate_via_reset_token(self):
+        """Verify a deactivated user cannot reactivate through the activation endpoint.
+
+        An administratively deactivated account already holds a usable password,
+        so it can only obtain a password-reset token. That token must not pass
+        activation and must not flip ``is_active`` back to True.
+        """
+        deactivated = User.objects.create_user(
+            username="deactivated.user",
+            email="deactivated.user@example.com",
+            password="ExistingStrongPassword@1234",
+            is_active=False,
+        )
+
+        reset_token = default_token_generator.make_token(deactivated)
+        url = reverse(
+            "accounts:account-activate",
+            kwargs={"user_id": deactivated.pk, "token": reset_token},
+        )
+
+        response = self.client.post(
+            url,
+            {"password": "AttackerStrongPassword@1234"},
+            format="json",
+        )
+
+        deactivated.refresh_from_db()
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertFalse(deactivated.is_active)
+        self.assertTrue(deactivated.check_password("ExistingStrongPassword@1234"))
+
+    def test_weak_password_is_rejected(self):
+        """Verify activation enforces the password-strength policy."""
+        token = account_activation_token_generator.make_token(self.user)
+
+        response = self.client.post(
+            self._activation_url(token),
+            {"password": "1"},
+            format="json",
+        )
+
+        self.user.refresh_from_db()
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("password", response.data)
+        self.assertIsInstance(response.data["password"], list)
+        self.assertTrue(response.data["password"])
+        self.assertFalse(self.user.has_usable_password())
+
+    def test_already_activated_account_cannot_be_reactivated(self):
+        """Verify an active account with a usable password cannot re-activate."""
+        active_user = User.objects.create_user(
+            username="active.user",
+            email="active.user@example.com",
+            password="ExistingStrongPassword@1234",
+            is_active=True,
+        )
+
+        token = account_activation_token_generator.make_token(active_user)
+        url = reverse(
+            "accounts:account-activate",
+            kwargs={"user_id": active_user.pk, "token": token},
+        )
+
+        response = self.client.post(
+            url,
+            {"password": "NewStrongPassword@1234"},
+            format="json",
+        )
+
+        active_user.refresh_from_db()
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(
+            response.data["detail"], "This account has already been activated."
+        )
+        self.assertTrue(active_user.is_active)
+        self.assertTrue(active_user.check_password("ExistingStrongPassword@1234"))
 
 
 @override_settings(REST_FRAMEWORK=THROTTLE_TEST_SETTINGS)

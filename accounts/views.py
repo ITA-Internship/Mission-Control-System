@@ -79,6 +79,7 @@ from .throttles import (
     PasswordResetConfirmThrottle,
     PasswordResetRequestThrottle,
 )
+from .tokens import account_activation_token_generator
 
 
 @user_registration_schema
@@ -146,16 +147,16 @@ class ActivateAccountAPIView(APIView):
         """
         user = get_object_or_404(User, pk=user_id)
 
-        if not default_token_generator.check_token(user, token):
+        if not account_activation_token_generator.check_token(user, token):
             return Response(
                 {"detail": "Invalid or expired activation link."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        # A fully activated account is both active and already holds a usable
-        # password. Reject those so this endpoint cannot double as a
+        # An account is pending activation only while it has no usable
+        # password. Once one is set, this endpoint must not double as a
         # token-scoped "set password" endpoint for live accounts.
-        if user.is_active and user.has_usable_password():
+        if user.has_usable_password():
             return Response(
                 {"detail": "This account has already been activated."},
                 status=status.HTTP_400_BAD_REQUEST,
@@ -168,10 +169,6 @@ class ActivateAccountAPIView(APIView):
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
         set_user_password(user, serializer.validated_data["password"])
-
-        if not user.is_active:
-            user.is_active = True
-            user.save(update_fields=["is_active"])
 
         create_audit_log(
             actor=user,
