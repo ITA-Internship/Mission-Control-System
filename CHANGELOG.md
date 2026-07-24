@@ -609,6 +609,7 @@
 - Fix CSP header: add worker-src for ReDoc Web Worker (by **Maksym**)
 - Merge pull request #131 from ITA-Internship/task#122-infrastructure-hardening (by **Maksym Korchynskyi**)
 - Add health checks, Gunicorn config, and Docker bug fixes (by **Maksym Korchynskyi**)
+- Restored django pages in docker env (by **travis**)
 - Update CI/CD file adding deploy steps (by **Maksym Lirko**)
 - Add bash file for checking enviroment variables (by **Maksym Lirko**)
 - Add deployment workflow and CI/CD guide (by **Maksym Lirko**)
@@ -638,6 +639,9 @@
 - Merge pull request #132 from ITA-Internship/task#124-optimize-rbac-permission-structure (by **Anastasiia Humeniuk**)
 - Task#124 optimize rbac permission structure (by **Anastasiia Humeniuk**)
 - Merge pull request #179 from ITA-Internship/fix/media-permission-denied-test (by **Anastasiia Humeniuk**)
+- Merge branch 'develop' into task#126-restore-django-pages (by **travis**)
+- Merge pull request #158 from ITA-Internship/task#126-restore-django-pages (by **danylo**)
+- Restored django pages in docker env (by **danylo**)
 
 ### Refactor
 
@@ -673,6 +677,7 @@
 
 ### Miscellaneous Tasks
 
+- *(changelog)* Update CHANGELOG.md [skip ci] (by **github-actions[bot]**)
 - *(changelog)* Update CHANGELOG.md [skip ci] (by **github-actions[bot]**)
 - *(changelog)* Update CHANGELOG.md [skip ci] (by **github-actions[bot]**)
 - *(changelog)* Update CHANGELOG.md [skip ci] (by **github-actions[bot]**)
