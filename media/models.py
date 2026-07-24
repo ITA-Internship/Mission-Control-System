@@ -155,12 +155,27 @@ class MissionArtifact(models.Model):
         return f"{self.title} ({self.file_type}) — Mission #{self.mission_id}"
 
 
+class MediaAuditLogManager(models.Manager):
+    def purge_older_than(self, cutoff):
+        """Delete media audit entries created strictly before ``cutoff``.
+
+        Used by the retention policy (see the ``purge_audit_logs`` command and
+        ``purge_media_audit_logs_task``). Returns the number of rows removed.
+        """
+        deleted, _ = self.filter(created_at__lt=cutoff).delete()
+        return deleted
+
+
 class MediaAuditLog(models.Model):
     class Action(models.TextChoices):
         VIEW = "view", "View"
+        DOWNLOAD = "download", "Download"
         UPLOAD = "upload", "Upload"
         UPDATE = "update", "Update"
         DELETE = "delete", "Delete"
+        PERMISSION_DENIED = "denied", "Permission Denied"
+
+    objects = MediaAuditLogManager()
 
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL,

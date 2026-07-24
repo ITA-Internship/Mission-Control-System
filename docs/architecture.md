@@ -90,6 +90,8 @@ This modular structure enables future evolution into microservices architecture 
 - Store and manage artifact metadata
 - Link artifacts to missions and drones
 - Secure, role-based access control
+- Audit file actions in `MediaAuditLog` (upload, view, download, delete, denied)
+- Purge audit entries past `MEDIA_AUDIT_LOG_RETENTION_DAYS` via the `purge_audit_logs` command / daily Celery task
 
 ### 5. Administration & User Management
 - User registration and management
