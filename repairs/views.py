@@ -32,9 +32,16 @@ from .api_details import (
     component_replacement_post_schema,
     defect_detail_schema,
     defect_get_schema,
+    defect_history_get_schema,
     defect_post_schema,
     defect_status_update_post_schema,
     drone_repair_history_export_schema,
+    drone_repair_history_get_schema,
+    repair_order_detail_get_schema,
+    repair_order_detail_patch_schema,
+    repair_order_get_schema,
+    repair_order_post_schema,
+    repair_order_replacement_post_schema,
 )
 from .filters import ComponentReplacementFilter, DefectFilter, RepairOrderFilter
 from .models import ComponentReplacement, DefectReport, RepairEvent, RepairOrder
@@ -101,6 +108,7 @@ class DefectDetailView(generics.RetrieveAPIView):
     http_method_names = ["get", "head", "options"]
 
 
+@extend_schema_view(get=defect_history_get_schema)
 class DefectHistoryView(generics.ListAPIView):
     """List the audit history of state changes for a specific defect report."""
 
@@ -116,6 +124,7 @@ class DefectHistoryView(generics.ListAPIView):
         )
 
 
+@extend_schema_view(post=defect_status_update_post_schema)
 class DefectStatusUpdateView(APIView):
     """Transition a defect report to a new status."""
 
@@ -255,6 +264,7 @@ class DefectUIDetailView(LoginRequiredMixin, UserPassesTestMixin, DetailView):
         return user_has_permission(self.request.user, PERMISSION_REPAIRS_VIEW)
 
 
+@extend_schema_view(get=repair_order_get_schema, post=repair_order_post_schema)
 class RepairOrderListCreateView(generics.ListCreateAPIView):
     """List existing repair orders or create a new one."""
 
@@ -277,6 +287,9 @@ class RepairOrderListCreateView(generics.ListCreateAPIView):
         return RepairOrderCreateSerializer
 
 
+@extend_schema_view(
+    get=repair_order_detail_get_schema, patch=repair_order_detail_patch_schema
+)
 class RepairOrderDetailView(generics.RetrieveAPIView):
     """Retrieve or transition a specific repair order."""
 
@@ -310,6 +323,7 @@ class RepairOrderDetailView(generics.RetrieveAPIView):
         )
 
 
+@extend_schema_view(post=repair_order_replacement_post_schema)
 class RepairOrderReplacementView(generics.CreateAPIView):
     """Attach a new component replacement to an existing repair order."""
 
@@ -325,6 +339,7 @@ class RepairOrderReplacementView(generics.CreateAPIView):
         serializer.save(repair_order=self.get_repair_order())
 
 
+@extend_schema_view(get=drone_repair_history_get_schema)
 class DroneRepairHistoryView(generics.GenericAPIView):
     """Retrieve a chronological, aggregated timeline of repair events for a drone."""
 
@@ -361,7 +376,7 @@ class DroneRepairHistoryView(generics.GenericAPIView):
         return paginator.get_paginated_response(serializer.data)
 
 
-@drone_repair_history_export_schema
+@extend_schema_view(get=drone_repair_history_export_schema)
 class DroneRepairHistoryExportView(generics.GenericAPIView):
     """Stream a CSV export of a drone's complete repair timeline."""
 

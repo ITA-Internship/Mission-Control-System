@@ -28,7 +28,15 @@ from .api_details import (
     artifact_detail_get_schema,
     artifact_get_schema,
     artifact_post_schema,
+    media_audit_log_list_schema,
+    media_audit_log_retrieve_schema,
     protected_media_get_schema,
+    video_metadata_create_schema,
+    video_metadata_destroy_schema,
+    video_metadata_list_schema,
+    video_metadata_partial_update_schema,
+    video_metadata_retrieve_schema,
+    video_metadata_update_schema,
 )
 from .models import MediaAuditLog, MissionArtifact, VideoMetadata
 from .permissions import (
@@ -252,6 +260,10 @@ class MediaAuditLogFilter(filters.FilterSet):
         fields = ["action", "user", "mission", "artifact"]
 
 
+@extend_schema_view(
+    list=media_audit_log_list_schema,
+    retrieve=media_audit_log_retrieve_schema,
+)
 class MediaAuditLogViewSet(viewsets.ReadOnlyModelViewSet):
     serializer_class = MediaAuditLogSerializer
     permission_classes = [permissions.IsAuthenticated, MediaViewLogsPermission]
@@ -261,6 +273,14 @@ class MediaAuditLogViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = MediaAuditLog.objects.select_related("artifact", "mission", "user").all()
 
 
+@extend_schema_view(
+    list=video_metadata_list_schema,
+    create=video_metadata_create_schema,
+    retrieve=video_metadata_retrieve_schema,
+    update=video_metadata_update_schema,
+    partial_update=video_metadata_partial_update_schema,
+    destroy=video_metadata_destroy_schema,
+)
 class VideoMetadataViewSet(viewsets.ModelViewSet):
     queryset = VideoMetadata.objects.select_related(
         "mission", "drone", "uploader"

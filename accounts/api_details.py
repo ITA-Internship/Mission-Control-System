@@ -457,6 +457,67 @@ password_reset_schema = description_schema(
     error_statuses=[status.HTTP_400_BAD_REQUEST],
 )
 
+profile_picture_get_schema = description_schema(
+    summary="Retrieve a user's profile picture",
+    description=(
+        "Returns the profile picture image file of the specified user, served "
+        "inline. In production the file is delivered through a protected "
+        "`X-Accel-Redirect` internal redirect; in debug mode the file is "
+        "streamed directly.\n\n"
+        "Access rules: \n"
+        "- Any authenticated user may retrieve their own profile picture. \n"
+        "- Only staff users may retrieve another user's profile picture. \n"
+        "- Returns 404 if the target user has no profile picture, or if the "
+        "stored file is missing from the server."
+    ),
+    permission_code="IsAuthenticated",
+    parameters=[
+        OpenApiParameter(
+            name="user_id",
+            type=int,
+            location=OpenApiParameter.PATH,
+            description="ID of the user whose profile picture is being retrieved.",
+            required=True,
+        ),
+    ],
+    request=None,
+    responses={
+        status.HTTP_200_OK: OpenApiResponse(
+            response=OpenApiTypes.BINARY,
+            description=(
+                "The profile picture image file is returned inline "
+                "with the appropriate content type."
+            ),
+        ),
+        status.HTTP_403_FORBIDDEN: OpenApiResponse(
+            description="Forbidden",
+            examples=[
+                OpenApiExample(
+                    name="Not owner and not staff",
+                    value={
+                        "detail": (
+                            "You do not have permission to view this profile picture."
+                        )
+                    },
+                ),
+            ],
+        ),
+        status.HTTP_404_NOT_FOUND: OpenApiResponse(
+            description="Not Found",
+            examples=[
+                OpenApiExample(
+                    name="User does not exist",
+                    value={"detail": "Not found."},
+                ),
+                OpenApiExample(
+                    name="User has no profile picture",
+                    value={"detail": "User does not have a profile picture."},
+                ),
+            ],
+        ),
+    },
+)
+
 password_reset_confirm_schema = description_schema(
     summary="Confirm password reset",
     description=(

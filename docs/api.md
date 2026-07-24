@@ -1530,12 +1530,11 @@ Forbidden. User does not have permission to perform this action.
 
 ## GET /api/drones/{drone_pk}/write-offs/history/
 
+List write-off history for a drone
 
+Retrieves a paginated, read-only list of write-off audit records for a single drone, ordered from newest to oldest. Supports filtering, search (by drone name, serial/inventory number, reason, and document number), and ordering.
 
-Expose read-only write-off audit records.
-
-The endpoint can return all write-off records or records scoped to a selected
-drone when the URL contains a drone primary key.
+Required permission: `PERMISSION_WRITEOFF_VIEW`.
 
 
 ### Parameters
@@ -1546,7 +1545,7 @@ drone when the URL contains a drone primary key.
 | document_number | string |  |  |
 | drone | number |  |  |
 | drone_inventory_number | string |  |  |
-| drone_pk | integer | True |  |
+| drone_pk | integer | True | ID of the drone whose write-off history is retrieved. |
 | drone_serial_number | string |  |  |
 | ordering | string | False | Which field to use when ordering the results. |
 | page | integer | False | A page number within the paginated result set. |
@@ -1563,11 +1562,54 @@ drone when the URL contains a drone primary key.
 #### 200
 
 
+Successfully retrieved the write-off history.
+
 
 [PaginatedWriteOffAuditList](#paginatedwriteoffauditlist)
 
 
 
+
+
+
+Examples
+
+
+
+
+
+```json
+{
+  "count": 123,
+  "next": "http://api.example.org/accounts/?page=4",
+  "previous": "http://api.example.org/accounts/?page=2",
+  "results": [
+    {
+      "id": 3,
+      "drone_id": 29,
+      "drone_name": "Lancer 1",
+      "drone_serial_number": "FPV-ATK-24009",
+      "drone_inventory_number": "INV-ATK-009",
+      "reason": "LOSS",
+      "reason_description": "Lost during combat sortie behind enemy lines.",
+      "authorized_by": 24,
+      "authorized_by_username": "oleksandr.koval",
+      "related_mission": 5,
+      "related_mission_id": 5,
+      "document_number": "WO-2026-0009",
+      "written_off_at": "2026-07-10",
+      "created_at": "2026-07-10T14:44:49.068836Z"
+    }
+  ]
+}
+```
+
+
+
+#### 403
+
+
+Forbidden. User does not have permission to perform this action.
 
 
 
@@ -1861,15 +1903,18 @@ Not Found.
 
 ## GET /api/drones/{id}/history/
 
+List drone status history
 
+Retrieves a paginated, read-only history of lifecycle status changes for a specific drone, ordered from newest to oldest. Each entry exposes an `event_type` (`mission`, `repair`, `writeoff`, or `status_change`) that explains what caused the transition.
 
+Required permission: `PERMISSION_DRONES_VIEW`.
 
 
 ### Parameters
 
 | Name | Type | Required | Description |
 |------|------|----------|-------------|
-| id | integer | True |  |
+| id | integer | True | ID of the drone whose status history is being retrieved. |
 | page | integer | False | A page number within the paginated result set. |
 | page_size | integer | False | Number of results to return per page. |
 
@@ -1878,6 +1923,8 @@ Not Found.
 
 #### 200
 
+
+Successfully retrieved the drone status history.
 
 
 [PaginatedDroneStatusHistoryList](#paginateddronestatushistorylist)
@@ -1887,18 +1934,67 @@ Not Found.
 
 
 
+Examples
+
+
+
+
+
+```json
+{
+  "count": 123,
+  "next": "http://api.example.org/accounts/?page=4",
+  "previous": "http://api.example.org/accounts/?page=2",
+  "results": [
+    {
+      "id": 12,
+      "from_status": "ACTIVE",
+      "to_status": "IN_MISSION",
+      "changed_by": 24,
+      "changed_by_display": "oleksandr.koval",
+      "reason": "Assigned to reconnaissance sortie.",
+      "event_type": "mission",
+      "related_mission_id": 5,
+      "related_repair_order": null,
+      "related_writeoff": null,
+      "created_at": "2026-07-02T02:21:31.177903Z"
+    }
+  ]
+}
+```
+
+
+
+#### 403
+
+
+Forbidden. User does not have permission to perform this action.
+
+
+
+
+#### 404
+
+
+Not Found.
+
+
+
 
 ## GET /api/drones/{id}/spec-changes/
 
+List drone specification change history
 
+Retrieves a paginated, read-only audit trail of technical specification changes for a specific drone, ordered from newest to oldest. Each entry records which fields changed together with their previous and new values.
 
+Required permission: `PERMISSION_DRONES_VIEW`.
 
 
 ### Parameters
 
 | Name | Type | Required | Description |
 |------|------|----------|-------------|
-| id | integer | True |  |
+| id | integer | True | ID of the drone whose specification change history is retrieved. |
 | page | integer | False | A page number within the paginated result set. |
 | page_size | integer | False | Number of results to return per page. |
 
@@ -1908,11 +2004,63 @@ Not Found.
 #### 200
 
 
+Successfully retrieved the specification change history.
+
 
 [PaginatedDroneSpecChangeLogList](#paginateddronespecchangeloglist)
 
 
 
+
+
+
+Examples
+
+
+
+
+
+```json
+{
+  "count": 123,
+  "next": "http://api.example.org/accounts/?page=4",
+  "previous": "http://api.example.org/accounts/?page=2",
+  "results": [
+    {
+      "id": 2,
+      "changed_by": 24,
+      "changed_fields": [
+        "firmware_version",
+        "max_speed_kmh"
+      ],
+      "old_values": {
+        "firmware_version": "INAV 7.0",
+        "max_speed_kmh": "110.00"
+      },
+      "new_values": {
+        "firmware_version": "INAV 7.1",
+        "max_speed_kmh": "118.50"
+      },
+      "created_at": "2026-07-03T00:40:00.800251Z"
+    }
+  ]
+}
+```
+
+
+
+#### 403
+
+
+Forbidden. User does not have permission to perform this action.
+
+
+
+
+#### 404
+
+
+Not Found.
 
 
 
@@ -2256,9 +2404,11 @@ Forbidden. User does not have permission to perform this action.
 
 ## GET /api/drones/write-offs/
 
+List write-off records
 
+Retrieves a paginated, read-only list of drone write-off records, ordered by write-off date from newest to oldest.
 
-List existing write-offs or create a new immutable write-off record.
+Required permission: `PERMISSION_WRITEOFF_VIEW`.
 
 
 
@@ -2268,6 +2418,8 @@ List existing write-offs or create a new immutable write-off record.
 #### 200
 
 
+Successfully retrieved the list of write-off records.
+
 
 array
 
@@ -2276,12 +2428,50 @@ array
 
 
 
+Examples
+
+
+
+
+
+```json
+[
+  {
+    "id": 3,
+    "reason": "LOSS",
+    "reason_label": "Loss",
+    "reason_description": "Lost during combat sortie behind enemy lines.",
+    "authorized_by": 24,
+    "related_mission_id": 5,
+    "document_number": "WO-2026-0009",
+    "written_off_at": "2026-07-10",
+    "created_at": "2026-07-10T14:44:49.068836Z"
+  }
+]
+```
+
+
+
+#### 403
+
+
+Forbidden. User does not have permission to perform this action.
+
+
+
 
 ## POST /api/drones/write-offs/
 
+Create a write-off record
 
+Creates a new immutable write-off record for a drone and records the resulting status transition in the drone status history.
 
-List existing write-offs or create a new immutable write-off record.
+Validation:
+- A drone can be written off only once; a second write-off is rejected.
+- A drone that already has an inactive status cannot be written off.
+- When a related mission is supplied, it must be the drone's latest assigned mission, and the drone must be assigned to that mission.
+
+Required permission: `PERMISSION_WRITEOFF_CREATE`.
 
 
 
@@ -2293,6 +2483,24 @@ List existing write-offs or create a new immutable write-off record.
 
 
 
+
+
+Examples
+
+
+
+
+
+```json
+{
+  "drone": 29,
+  "reason": "LOSS",
+  "reason_description": "Lost during combat sortie behind enemy lines.",
+  "related_mission": 5,
+  "document_number": "WO-2026-0009",
+  "written_off_at": "2026-07-10"
+}
+```
 
 [WriteOffRecordCreate](#writeoffrecordcreate)
 
@@ -2313,6 +2521,8 @@ List existing write-offs or create a new immutable write-off record.
 #### 201
 
 
+Write-off record created successfully.
+
 
 [WriteOffRecordCreate](#writeoffrecordcreate)
 
@@ -2321,15 +2531,89 @@ List existing write-offs or create a new immutable write-off record.
 
 
 
+Examples
+
+
+
+
+
+```json
+{
+  "id": 3,
+  "drone": 29,
+  "reason": "LOSS",
+  "reason_description": "Lost during combat sortie behind enemy lines.",
+  "related_mission": 5,
+  "document_number": "WO-2026-0009",
+  "written_off_at": "2026-07-10",
+  "created_at": "2026-07-10T14:44:49.068836Z"
+}
+```
+
+
+
+#### 400
+
+
+Bad Request
+
+
+object
+
+
+
+
+
+
+Examples
+
+
+
+
+
+```json
+{
+  "drone": "A write-off record for this drone already exists."
+}
+```
+
+
+
+
+```json
+{
+  "drone": "Cannot write off a drone with inactive status 'WRITTEN_OFF'."
+}
+```
+
+
+
+
+```json
+{
+  "related_mission": "Mission 4 is not the latest. A drone can only be written off based on its latest mission."
+}
+```
+
+
+
+#### 403
+
+
+Forbidden. User does not have permission to perform this action.
+
+
+
 
 ## GET /api/drones/write-offs/history/
 
+List write-off history
 
+Retrieves a paginated, read-only list of drone write-off audit records across all drones, ordered from newest to oldest. Supports filtering, search (by drone name, serial/inventory number, reason, and document number), and ordering.
 
-Expose read-only write-off audit records.
+To list write-offs for a single drone, use the drone-scoped route (`/api/drones/{drone_pk}/write-offs/history/`).
 
-The endpoint can return all write-off records or records scoped to a selected
-drone when the URL contains a drone primary key.
+Required permission: `PERMISSION_WRITEOFF_VIEW`.
 
 
 ### Parameters
@@ -2356,6 +2640,8 @@ drone when the URL contains a drone primary key.
 #### 200
 
 
+Successfully retrieved the write-off history.
+
 
 [PaginatedWriteOffAuditList](#paginatedwriteoffauditlist)
 
@@ -2364,31 +2650,77 @@ drone when the URL contains a drone primary key.
 
 
 
+Examples
+
+
+
+
+
+```json
+{
+  "count": 123,
+  "next": "http://api.example.org/accounts/?page=4",
+  "previous": "http://api.example.org/accounts/?page=2",
+  "results": [
+    {
+      "id": 3,
+      "drone_id": 29,
+      "drone_name": "Lancer 1",
+      "drone_serial_number": "FPV-ATK-24009",
+      "drone_inventory_number": "INV-ATK-009",
+      "reason": "LOSS",
+      "reason_description": "Lost during combat sortie behind enemy lines.",
+      "authorized_by": 24,
+      "authorized_by_username": "oleksandr.koval",
+      "related_mission": 5,
+      "related_mission_id": 5,
+      "document_number": "WO-2026-0009",
+      "written_off_at": "2026-07-10",
+      "created_at": "2026-07-10T14:44:49.068836Z"
+    }
+  ]
+}
+```
+
+
+
+#### 403
+
+
+Forbidden. User does not have permission to perform this action.
+
+
+
 
 ## GET /api/media/audit-logs/
 
+List media audit logs
 
+Retrieves a paginated, read-only list of media audit log entries, recording view, upload, update, and delete actions on media records. Supports filtering by action, user, mission, artifact, and creation date range.
 
+Required permission: `PERMISSION_MEDIA_VIEW_LOGS`.
 
 
 ### Parameters
 
 | Name | Type | Required | Description |
 |------|------|----------|-------------|
-| action | string |  |  |
-| artifact | integer |  |  |
-| end_date | string |  |  |
-| mission | integer |  |  |
+| action | string |  | Filter by action type (`view`, `upload`, `update`, `delete`). |
+| artifact | integer |  | Filter by the related artifact ID. |
+| end_date | string |  | Optional ISO 8601 upper bound for the creation timestamp. |
+| mission | integer |  | Filter by the related mission ID. |
 | page | integer | False | A page number within the paginated result set. |
 | page_size | integer | False | Number of results to return per page. |
-| start_date | string |  |  |
-| user | integer |  |  |
+| start_date | string |  | Optional ISO 8601 lower bound for the creation timestamp. |
+| user | integer |  | Filter by the ID of the acting user. |
 
 
 ### Responses
 
 #### 200
 
+
+Successfully retrieved the list of media audit logs.
 
 
 [PaginatedMediaAuditLogList](#paginatedmediaauditloglist)
@@ -2398,24 +2730,68 @@ drone when the URL contains a drone primary key.
 
 
 
+Examples
+
+
+
+
+
+```json
+{
+  "count": 123,
+  "next": "http://api.example.org/accounts/?page=4",
+  "previous": "http://api.example.org/accounts/?page=2",
+  "results": [
+    {
+      "id": 5,
+      "action": "view",
+      "artifact": 1,
+      "mission": 11,
+      "user": {
+        "id": 24,
+        "username": "oleksandr.koval",
+        "email": "oleksandr.koval@example.com"
+      },
+      "changes": {},
+      "ip_address": "127.0.0.1",
+      "created_at": "2026-07-02T02:28:43.353809Z"
+    }
+  ]
+}
+```
+
+
+
+#### 403
+
+
+Forbidden. User does not have permission to perform this action.
+
+
+
 
 ## GET /api/media/audit-logs/{id}/
 
+Retrieve a media audit log
 
+Retrieves detailed information about a specific media audit log entry by its ID.
 
+Required permission: `PERMISSION_MEDIA_VIEW_LOGS`.
 
 
 ### Parameters
 
 | Name | Type | Required | Description |
 |------|------|----------|-------------|
-| id | integer | True | A unique integer value identifying this media audit log. |
+| id | integer | True | ID of the media audit log entry. |
 
 
 ### Responses
 
 #### 200
 
+
+Media audit log details successfully retrieved.
 
 
 [MediaAuditLog](#mediaauditlog)
@@ -2425,25 +2801,78 @@ drone when the URL contains a drone primary key.
 
 
 
+Examples
+
+
+
+
+
+```json
+{
+  "id": 5,
+  "action": "view",
+  "artifact": 1,
+  "mission": 11,
+  "user": {
+    "id": 24,
+    "username": "oleksandr.koval",
+    "email": "oleksandr.koval@example.com"
+  },
+  "changes": {},
+  "ip_address": "127.0.0.1",
+  "created_at": "2026-07-02T02:28:43.353809Z"
+}
+```
+
+
+
+#### 403
+
+
+Forbidden. User does not have permission to perform this action.
+
+
+
+
+#### 404
+
+
+Not Found.
+
+
+
 
 ## GET /api/media/videos/
 
+List video metadata records
 
+Retrieves a paginated list of video metadata records. Supports filtering by mission, drone, uploader, status, and creation/recording date ranges.
 
+Required permission: `PERMISSION_MEDIA_VIEW`.
 
 
 ### Parameters
 
 | Name | Type | Required | Description |
 |------|------|----------|-------------|
+| created_after | string |  | Filter by creation date lower bound (format YYYY-MM-DD). |
+| created_before | string |  | Filter by creation date upper bound (format YYYY-MM-DD). |
+| drone_id | integer |  | Filter by drone ID (alias: `drone`). |
+| mission_id | integer |  | Filter by mission ID (alias: `mission`). |
 | page | integer | False | A page number within the paginated result set. |
 | page_size | integer | False | Number of results to return per page. |
+| recorded_after | string |  | Filter by recording date lower bound (format YYYY-MM-DD). |
+| recorded_before | string |  | Filter by recording date upper bound (format YYYY-MM-DD). |
+| status | string |  | Filter by status (`uploading`, `ready`, `failed`). |
+| uploader_id | integer |  | Filter by uploader user ID (alias: `uploader`). |
 
 
 ### Responses
 
 #### 200
 
+
+Successfully retrieved the list of video metadata records.
 
 
 [PaginatedVideoMetadataList](#paginatedvideometadatalist)
@@ -2453,11 +2882,96 @@ drone when the URL contains a drone primary key.
 
 
 
+Examples
+
+
+
+
+
+```json
+{
+  "count": 123,
+  "next": "http://api.example.org/accounts/?page=4",
+  "previous": "http://api.example.org/accounts/?page=2",
+  "results": [
+    {
+      "id": 3,
+      "mission": 11,
+      "drone": 21,
+      "uploader": 24,
+      "uploader_username": "oleksandr.koval",
+      "file": "http://localhost:8000/media/videos/mission_11/recon.mp4",
+      "file_name": "recon.mp4",
+      "file_size": 20984320,
+      "content_type": "video/mp4",
+      "status": "ready",
+      "checksum": "9f2c1a4b8e5d6f70a1b2c3d4e5f60718",
+      "duration_seconds": 132,
+      "recorded_at": "2026-06-02T02:28:43Z",
+      "created_at": "2026-07-02T02:28:43.353809Z",
+      "updated_at": "2026-07-02T02:28:43.353809Z",
+      "url": "http://localhost:8000/media/videos/mission_11/recon.mp4"
+    }
+  ]
+}
+```
+
+
+
+#### 400
+
+
+Bad Request
+
+
+object
+
+
+
+
+
+
+Examples
+
+
+
+
+
+```json
+{
+  "mission_id": "Must be an integer."
+}
+```
+
+
+
+
+```json
+{
+  "created_after": "Expected format YYYY-MM-DD."
+}
+```
+
+
+
+#### 403
+
+
+Forbidden. User does not have permission to perform this action.
+
+
+
 
 ## POST /api/media/videos/
 
+Upload a video metadata record
 
+Uploads a new video file and creates its metadata record. The uploader is set to the authenticated user and the record starts in the `uploading` status while the duration is extracted asynchronously.
 
+Validation:
+- The selected drone must be assigned to the selected mission.
+
+Required permission: `PERMISSION_MEDIA_UPLOAD`.
 
 
 
@@ -2481,6 +2995,23 @@ drone when the URL contains a drone primary key.
 
 
 
+
+
+Examples
+
+
+
+
+
+```json
+{
+  "mission": 11,
+  "drone": 21,
+  "file": "recon.mp4",
+  "recorded_at": "2026-06-02T02:28:43Z",
+  "checksum": "9f2c1a4b8e5d6f70a1b2c3d4e5f60718"
+}
+```
 
 
 
@@ -2489,6 +3020,8 @@ drone when the URL contains a drone primary key.
 #### 201
 
 
+Video metadata record created successfully.
+
 
 [VideoUpload](#videoupload)
 
@@ -2497,18 +3030,74 @@ drone when the URL contains a drone primary key.
 
 
 
+Examples
+
+
+
+
+
+```json
+{
+  "id": 3,
+  "mission": 11,
+  "drone": 21,
+  "file": "http://localhost:8000/media/videos/mission_11/recon.mp4",
+  "recorded_at": "2026-06-02T02:28:43Z",
+  "checksum": "9f2c1a4b8e5d6f70a1b2c3d4e5f60718"
+}
+```
+
+
+
+#### 400
+
+
+Bad Request
+
+
+object
+
+
+
+
+
+
+Examples
+
+
+
+
+
+```json
+{
+  "drone": "Drone must be assigned to the selected mission."
+}
+```
+
+
+
+#### 403
+
+
+Forbidden. User does not have permission to perform this action.
+
+
+
 
 ## GET /api/media/videos/{id}/
 
+Retrieve a video metadata record
 
+Retrieves detailed information about a specific video metadata record by its ID.
 
+Required permission: `PERMISSION_MEDIA_VIEW`.
 
 
 ### Parameters
 
 | Name | Type | Required | Description |
 |------|------|----------|-------------|
-| id | integer | True | A unique integer value identifying this video metadata. |
+| id | integer | True | ID of the video metadata record. |
 
 
 ### Responses
@@ -2516,26 +3105,77 @@ drone when the URL contains a drone primary key.
 #### 200
 
 
+Video metadata details successfully retrieved.
+
 
 [VideoMetadata](#videometadata)
 
 
 
+
+
+
+Examples
+
+
+
+
+
+```json
+{
+  "id": 3,
+  "mission": 11,
+  "drone": 21,
+  "uploader": 24,
+  "uploader_username": "oleksandr.koval",
+  "file": "http://localhost:8000/media/videos/mission_11/recon.mp4",
+  "file_name": "recon.mp4",
+  "file_size": 20984320,
+  "content_type": "video/mp4",
+  "status": "ready",
+  "checksum": "9f2c1a4b8e5d6f70a1b2c3d4e5f60718",
+  "duration_seconds": 132,
+  "recorded_at": "2026-06-02T02:28:43Z",
+  "created_at": "2026-07-02T02:28:43.353809Z",
+  "updated_at": "2026-07-02T02:28:43.353809Z",
+  "url": "http://localhost:8000/media/videos/mission_11/recon.mp4"
+}
+```
+
+
+
+#### 403
+
+
+Forbidden. User does not have permission to perform this action.
+
+
+
+
+#### 404
+
+
+Not Found.
 
 
 
 
 ## PUT /api/media/videos/{id}/
 
+Update a video metadata record
 
+Fully updates the writable fields (mission, drone, recorded date, and checksum) of a video metadata record. File contents and system-managed fields such as status and duration cannot be changed through this endpoint.
 
+Note: updating a video metadata record requires the same permission as deletion (`PERMISSION_MEDIA_DELETE`); the media management model treats modifying and removing records as a single privilege level.
+
+Required permission: `PERMISSION_MEDIA_DELETE`.
 
 
 ### Parameters
 
 | Name | Type | Required | Description |
 |------|------|----------|-------------|
-| id | integer | True | A unique integer value identifying this video metadata. |
+| id | integer | True | ID of the video metadata record to update. |
 
 
 ### Request Body
@@ -2559,32 +3199,107 @@ drone when the URL contains a drone primary key.
 
 
 
+Examples
+
+
+
+
+
+```json
+{
+  "mission": 11,
+  "drone": 21,
+  "recorded_at": "2026-06-02T02:28:43Z",
+  "checksum": "9f2c1a4b8e5d6f70a1b2c3d4e5f60718"
+}
+```
+
+
 
 ### Responses
 
 #### 200
 
 
+Video metadata record updated successfully.
+
 
 [VideoMetadata](#videometadata)
 
 
 
+
+
+
+Examples
+
+
+
+
+
+```json
+{
+  "id": 3,
+  "mission": 11,
+  "drone": 21,
+  "uploader": 24,
+  "uploader_username": "oleksandr.koval",
+  "file": "http://localhost:8000/media/videos/mission_11/recon.mp4",
+  "file_name": "recon.mp4",
+  "file_size": 20984320,
+  "content_type": "video/mp4",
+  "status": "ready",
+  "checksum": "9f2c1a4b8e5d6f70a1b2c3d4e5f60718",
+  "duration_seconds": 132,
+  "recorded_at": "2026-06-02T02:28:43Z",
+  "created_at": "2026-07-02T02:28:43.353809Z",
+  "updated_at": "2026-07-02T02:28:43.353809Z",
+  "url": "http://localhost:8000/media/videos/mission_11/recon.mp4"
+}
+```
+
+
+
+#### 400
+
+
+Bad Request. Provided payload contains validation errors.
+
+
+
+
+#### 403
+
+
+Forbidden. User does not have permission to perform this action.
+
+
+
+
+#### 404
+
+
+Not Found.
 
 
 
 
 ## PATCH /api/media/videos/{id}/
 
+Partially update a video metadata record
 
+Updates one or more writable fields (mission, drone, recorded date, or checksum) of a video metadata record. File contents and system-managed fields such as status and duration cannot be changed through this endpoint.
 
+Note: updating a video metadata record requires the same permission as deletion (`PERMISSION_MEDIA_DELETE`); the media management model treats modifying and removing records as a single privilege level.
+
+Required permission: `PERMISSION_MEDIA_DELETE`.
 
 
 ### Parameters
 
 | Name | Type | Required | Description |
 |------|------|----------|-------------|
-| id | integer | True | A unique integer value identifying this video metadata. |
+| id | integer | True | ID of the video metadata record to update. |
 
 
 ### Request Body
@@ -2608,11 +3323,26 @@ drone when the URL contains a drone primary key.
 
 
 
+Examples
+
+
+
+
+
+```json
+{
+  "recorded_at": "2026-06-02T02:28:43Z"
+}
+```
+
+
 
 ### Responses
 
 #### 200
 
+
+Video metadata record updated successfully.
 
 
 [VideoMetadata](#videometadata)
@@ -2622,18 +3352,73 @@ drone when the URL contains a drone primary key.
 
 
 
+Examples
+
+
+
+
+
+```json
+{
+  "id": 3,
+  "mission": 11,
+  "drone": 21,
+  "uploader": 24,
+  "uploader_username": "oleksandr.koval",
+  "file": "http://localhost:8000/media/videos/mission_11/recon.mp4",
+  "file_name": "recon.mp4",
+  "file_size": 20984320,
+  "content_type": "video/mp4",
+  "status": "ready",
+  "checksum": "9f2c1a4b8e5d6f70a1b2c3d4e5f60718",
+  "duration_seconds": 132,
+  "recorded_at": "2026-06-02T02:28:43Z",
+  "created_at": "2026-07-02T02:28:43.353809Z",
+  "updated_at": "2026-07-02T02:28:43.353809Z",
+  "url": "http://localhost:8000/media/videos/mission_11/recon.mp4"
+}
+```
+
+
+
+#### 400
+
+
+Bad Request. Provided payload contains validation errors.
+
+
+
+
+#### 403
+
+
+Forbidden. User does not have permission to perform this action.
+
+
+
+
+#### 404
+
+
+Not Found.
+
+
+
 
 ## DELETE /api/media/videos/{id}/
 
+Delete a video metadata record
 
+Deletes a specific video metadata record by its ID.
 
+Required permission: `PERMISSION_MEDIA_DELETE`.
 
 
 ### Parameters
 
 | Name | Type | Required | Description |
 |------|------|----------|-------------|
-| id | integer | True | A unique integer value identifying this video metadata. |
+| id | integer | True | ID of the video metadata record to delete. |
 
 
 ### Responses
@@ -2641,7 +3426,50 @@ drone when the URL contains a drone primary key.
 #### 204
 
 
-No response body
+Video metadata record successfully deleted. No content.
+
+
+
+
+#### 400
+
+
+Bad Request
+
+
+object
+
+
+
+
+
+
+Examples
+
+
+
+
+
+```json
+{
+  "detail": "Cannot delete this record because it is protected by dependencies."
+}
+```
+
+
+
+#### 403
+
+
+Forbidden. User does not have permission to perform this action.
+
+
+
+
+#### 404
+
+
+Not Found.
 
 
 
@@ -3212,9 +4040,11 @@ Not Found.
 
 ## GET /api/missions/{mission_pk}/artifacts/{artifact_pk}/download/
 
-Download a protected artifact file
+Download a mission artifact file
 
-Streams or internally redirects to the stored artifact file after object-level media access checks pass.
+Returns the binary file for a mission artifact as an attachment. In production the file is delivered through a protected `X-Accel-Redirect` internal redirect; in debug mode the file is streamed directly. Access is restricted to administrators, the uploader, or users belonging to the artifact mission's unit.
+
+Returns 404 if the artifact does not exist or the stored file is missing from the server.
 
 Required permission: `PERMISSION_MEDIA_VIEW`.
 
@@ -3224,7 +4054,7 @@ Required permission: `PERMISSION_MEDIA_VIEW`.
 | Name | Type | Required | Description |
 |------|------|----------|-------------|
 | artifact_pk | integer | True | ID of the artifact to download. |
-| mission_pk | integer | True |  |
+| mission_pk | integer | True | ID of the mission. |
 
 
 ### Responses
@@ -3232,7 +4062,7 @@ Required permission: `PERMISSION_MEDIA_VIEW`.
 #### 200
 
 
-Artifact file returned successfully.
+The artifact file is returned as an attachment with the appropriate content type.
 
 
 string
@@ -4513,16 +5343,18 @@ Not Found.
 
 ## GET /api/repairs/defects/{id}/history/
 
+List defect status history
 
+Retrieves a paginated, read-only audit trail of status transition events for a specific defect report, showing how the defect moved through the repair workflow over time.
 
-List the audit history of state changes for a specific defect report.
+Required permission: `PERMISSION_REPAIRS_VIEW`.
 
 
 ### Parameters
 
 | Name | Type | Required | Description |
 |------|------|----------|-------------|
-| id | integer | True |  |
+| id | integer | True | ID of the defect report whose history is being retrieved. |
 | page | integer | False | A page number within the paginated result set. |
 | page_size | integer | False | Number of results to return per page. |
 
@@ -4532,6 +5364,8 @@ List the audit history of state changes for a specific defect report.
 #### 200
 
 
+Successfully retrieved the defect status history.
+
 
 [PaginatedRepairEventList](#paginatedrepaireventlist)
 
@@ -4540,12 +5374,54 @@ List the audit history of state changes for a specific defect report.
 
 
 
+Examples
+
+
+
+
+
+```json
+{
+  "count": 123,
+  "next": "http://api.example.org/accounts/?page=4",
+  "previous": "http://api.example.org/accounts/?page=2",
+  "results": [
+    {
+      "id": 7,
+      "from_status": "REPORTED",
+      "to_status": "IN_PROGRESS",
+      "action_taken": "Started diagnostics on the camera gimbal wiring.",
+      "technician": 24,
+      "created_at": "2026-07-03T05:20:11.884120Z"
+    }
+  ]
+}
+```
+
+
+
+#### 403
+
+
+Forbidden. User does not have permission to perform this action.
+
+
+
 
 ## POST /api/repairs/defects/{id}/update-status/
 
 Update defect report status
 
-Transitions a defect report to a new status and records a repair event.
+Transitions a defect report to a new status and records a repair event documenting the change. On success, the reporter is notified by email for `IN_PROGRESS` and `FIXED` transitions.
+
+Validation:
+- An `action_taken` comment is required to explain the change.
+- The new status must differ from the current status.
+- A defect can be moved to `VERIFIED` only if its current status is `FIXED`.
+
+Additional permissions:
+- Transitions to `IN_PROGRESS` or `FIXED` require `PERMISSION_REPAIRS_MANAGE` or `PERMISSION_REPAIRS_VERIFY`.
+- Transitions to `VERIFIED` require `PERMISSION_REPAIRS_VERIFY`.
 
 Required permission: `PERMISSION_REPAIRS_CREATE`.
 
@@ -4554,8 +5430,7 @@ Required permission: `PERMISSION_REPAIRS_CREATE`.
 
 | Name | Type | Required | Description |
 |------|------|----------|-------------|
-| id | integer | True |  |
-| pk | integer | True | ID of the defect report to update. |
+| id | integer | True | ID of the defect report whose status is being updated. |
 
 
 ### Request Body
@@ -4566,6 +5441,20 @@ Required permission: `PERMISSION_REPAIRS_CREATE`.
 
 
 
+
+Examples
+
+
+
+
+
+```json
+{
+  "status": "IN_PROGRESS",
+  "action_taken": "Started diagnostics on the camera gimbal wiring."
+}
+```
+
 [DefectStatusUpdate](#defectstatusupdate)
 
 
@@ -4585,7 +5474,7 @@ Required permission: `PERMISSION_REPAIRS_CREATE`.
 #### 200
 
 
-Defect status updated successfully.
+Status updated successfully; the repair event is returned.
 
 
 [RepairEvent](#repairevent)
@@ -4595,12 +5484,76 @@ Defect status updated successfully.
 
 
 
+Examples
+
+
+
+
+
+```json
+{
+  "id": 7,
+  "from_status": "REPORTED",
+  "to_status": "IN_PROGRESS",
+  "action_taken": "Started diagnostics on the camera gimbal wiring.",
+  "technician": 24,
+  "created_at": "2026-07-03T05:20:11.884120Z"
+}
+```
+
+
 
 #### 400
 
 
-Bad Request. Provided payload contains validation errors.
+Bad Request
 
+
+object
+
+
+
+
+
+
+Examples
+
+
+
+
+
+```json
+{
+  "action_taken": "This field may not be blank."
+}
+```
+
+
+
+
+```json
+{
+  "status": "The defect is already in this status."
+}
+```
+
+
+
+
+```json
+{
+  "status": "A defect can only be verified if its current status is FIXED."
+}
+```
+
+
+
+
+```json
+{
+  "detail": "Defect report not found."
+}
+```
 
 
 
@@ -4614,37 +5567,12 @@ Forbidden. User does not have permission to perform this action.
 
 ## GET /api/repairs/drones/{drone_id}/history/
 
+Retrieve drone repair history timeline
 
+Retrieves a paginated, chronological timeline that aggregates every repair-related event for a drone (defect reports, status changes, repair orders, and component replacements). Results can be filtered by date range and event type.
 
-Fetch, validate, and paginate the unified drone history timeline.
-
-
-### Parameters
-
-| Name | Type | Required | Description |
-|------|------|----------|-------------|
-| drone_id | integer | True |  |
-
-
-### Responses
-
-#### 200
-
-
-
-[RepairHistoryTimeline](#repairhistorytimeline)
-
-
-
-
-
-
-
-## GET /api/repairs/drones/{drone_id}/history/export/
-
-Export drone repair history to CSV
-
-Exports the aggregated repair timeline for a specific drone as a CSV file.
+Validation:
+- `date_from` must be before or equal to `date_to`.
 
 Required permission: `PERMISSION_REPAIRS_VIEW`.
 
@@ -4653,7 +5581,10 @@ Required permission: `PERMISSION_REPAIRS_VIEW`.
 
 | Name | Type | Required | Description |
 |------|------|----------|-------------|
-| drone_id | integer | True | ID of the drone whose repair history is exported. |
+| date_from | string |  | Optional ISO 8601 lower bound for the event timestamp. |
+| date_to | string |  | Optional ISO 8601 upper bound for the event timestamp. |
+| drone_id | integer | True | ID of the drone whose repair history is being retrieved. |
+| event_type | string |  | Optional comma-separated list of event types to include (`defect`, `status_change`, `repair`, `replacement`). |
 
 
 ### Responses
@@ -4661,14 +5592,147 @@ Required permission: `PERMISSION_REPAIRS_VIEW`.
 #### 200
 
 
-CSV file generated successfully.
+Successfully retrieved the drone repair history timeline.
 
 
-string
+[PaginatedRepairHistoryTimelineList](#paginatedrepairhistorytimelinelist)
 
 
 
 
+
+
+Examples
+
+
+
+
+
+```json
+{
+  "count": 123,
+  "next": "http://api.example.org/accounts/?page=4",
+  "previous": "http://api.example.org/accounts/?page=2",
+  "results": [
+    {
+      "event_type": "replacement",
+      "timestamp": "2026-07-03T05:40:12.114120Z",
+      "summary": "Camera replaced on Falcon Eye 1.",
+      "details": {
+        "component_type": "CAMERA",
+        "new_serial_number": "CAM-GIMBAL-NEW",
+        "replaced_by": "oleksandr.koval"
+      }
+    }
+  ]
+}
+```
+
+
+
+#### 400
+
+
+Bad Request
+
+
+object
+
+
+
+
+
+
+Examples
+
+
+
+
+
+```json
+{
+  "non_field_errors": [
+    "date_from must be before or equal to date_to."
+  ]
+}
+```
+
+
+
+#### 403
+
+
+Forbidden. User does not have permission to perform this action.
+
+
+
+
+#### 404
+
+
+Not Found.
+
+
+
+
+## GET /api/repairs/drones/{drone_id}/history/export/
+
+Export drone repair history to CSV
+
+Generates and downloads a CSV file with the drone's complete repair history timeline. Supports the same date range and event type filtering as the timeline endpoint.
+
+Validation:
+- `date_from` must be before or equal to `date_to`.
+
+Required permission: `PERMISSION_REPAIRS_EXPORT`.
+
+
+### Parameters
+
+| Name | Type | Required | Description |
+|------|------|----------|-------------|
+| date_from | string |  | Optional ISO 8601 lower bound for the event timestamp. |
+| date_to | string |  | Optional ISO 8601 upper bound for the event timestamp. |
+| drone_id | integer | True | ID of the drone whose repair history is being retrieved. |
+| event_type | string |  | Optional comma-separated list of event types to include (`defect`, `status_change`, `repair`, `replacement`). |
+
+
+### Responses
+
+#### 200
+
+
+A CSV file containing the drone repair history generated successfully.
+
+
+
+
+#### 400
+
+
+Bad Request
+
+
+object
+
+
+
+
+
+
+Examples
+
+
+
+
+
+```json
+{
+  "non_field_errors": [
+    "date_from must be before or equal to date_to."
+  ]
+}
+```
 
 
 
@@ -4690,9 +5754,11 @@ Not Found.
 
 ## GET /api/repairs/orders/
 
+List repair orders
 
+Retrieves a paginated and filtered list of all repair orders, ordered by creation date.
 
-List existing repair orders or create a new one.
+Required permission: `PERMISSION_REPAIRS_VIEW`.
 
 
 ### Parameters
@@ -4715,6 +5781,8 @@ List existing repair orders or create a new one.
 #### 200
 
 
+Successfully retrieved the list of repair orders.
+
 
 [PaginatedRepairOrderListList](#paginatedrepairorderlistlist)
 
@@ -4723,12 +5791,51 @@ List existing repair orders or create a new one.
 
 
 
+Examples
+
+
+
+
+
+```json
+{
+  "count": 123,
+  "next": "http://api.example.org/accounts/?page=4",
+  "previous": "http://api.example.org/accounts/?page=2",
+  "results": [
+    {
+      "id": 2,
+      "drone": 21,
+      "defect_report": 4,
+      "status": "PENDING",
+      "assigned_to": 31,
+      "created_by": 24,
+      "created_at": "2026-07-03T05:15:02.114120Z"
+    }
+  ]
+}
+```
+
+
+
+#### 403
+
+
+Forbidden. User does not have permission to perform this action.
+
+
+
 
 ## POST /api/repairs/orders/
 
+Create a repair order
 
+Creates a new repair order for a drone. The order can be standalone (routine maintenance) or linked to an existing defect report.
 
-List existing repair orders or create a new one.
+Validation:
+- Description must be at least 10 characters long.
+
+Required permission: `PERMISSION_REPAIRS_MANAGE`.
 
 
 
@@ -4740,6 +5847,22 @@ List existing repair orders or create a new one.
 
 
 
+
+
+Examples
+
+
+
+
+
+```json
+{
+  "drone": 21,
+  "defect_report": 4,
+  "description": "Replace damaged camera gimbal and recalibrate.",
+  "assigned_to": 31
+}
+```
 
 [RepairOrderCreate](#repairordercreate)
 
@@ -4760,6 +5883,8 @@ List existing repair orders or create a new one.
 #### 201
 
 
+Repair order created successfully.
+
 
 [RepairOrderCreate](#repairordercreate)
 
@@ -4768,25 +5893,81 @@ List existing repair orders or create a new one.
 
 
 
+Examples
+
+
+
+
+
+```json
+{
+  "id": 2,
+  "drone": 21,
+  "defect_report": 4,
+  "description": "Replace damaged camera gimbal and recalibrate.",
+  "assigned_to": 31
+}
+```
+
+
+
+#### 400
+
+
+Bad Request
+
+
+object
+
+
+
+
+
+
+Examples
+
+
+
+
+
+```json
+{
+  "description": "Description must be at least 10 characters long."
+}
+```
+
+
+
+#### 403
+
+
+Forbidden. User does not have permission to perform this action.
+
+
+
 
 ## GET /api/repairs/orders/{id}/
 
+Retrieve repair order details
 
+Retrieves detailed information about a specific repair order by its ID.
 
-Retrieve or transition a specific repair order.
+Required permission: `PERMISSION_REPAIRS_VIEW`.
 
 
 ### Parameters
 
 | Name | Type | Required | Description |
 |------|------|----------|-------------|
-| id | integer | True |  |
+| id | integer | True | ID of the repair order to retrieve. |
 
 
 ### Responses
 
 #### 200
 
+
+Detailed information about the repair order.
 
 
 [RepairOrder](#repairorder)
@@ -4796,19 +5977,64 @@ Retrieve or transition a specific repair order.
 
 
 
+Examples
+
+
+
+
+
+```json
+{
+  "id": 2,
+  "drone": 21,
+  "defect_report": 4,
+  "status": "IN_PROGRESS",
+  "description": "Replace damaged camera gimbal and recalibrate.",
+  "assigned_to": 31,
+  "started_at": "2026-07-03T05:30:00Z",
+  "completed_at": null,
+  "notes": "Awaiting replacement gimbal from stores.",
+  "created_by": 24,
+  "created_at": "2026-07-03T05:15:02.114120Z",
+  "updated_at": "2026-07-03T05:30:00.552310Z"
+}
+```
+
+
+
+#### 403
+
+
+Forbidden. User does not have permission to perform this action.
+
+
+
+
+#### 404
+
+
+Not Found.
+
+
+
 
 ## PATCH /api/repairs/orders/{id}/
 
+Update repair order status
 
+Transitions a repair order to a new status through its lifecycle state machine. Operational timestamps (`started_at`, `completed_at`) are stamped automatically as the order progresses.
 
-Delegate state transitions to the dedicated service method.
+Validation:
+- The requested transition must be allowed from the order's current status (e.g., `PENDING` cannot jump straight to `COMPLETED`).
+
+Required permission: `PERMISSION_REPAIRS_MANAGE`.
 
 
 ### Parameters
 
 | Name | Type | Required | Description |
 |------|------|----------|-------------|
-| id | integer | True |  |
+| id | integer | True | ID of the repair order whose status is being updated. |
 
 
 ### Request Body
@@ -4818,6 +6044,20 @@ Delegate state transitions to the dedicated service method.
 
 
 
+
+
+Examples
+
+
+
+
+
+```json
+{
+  "status": "IN_PROGRESS",
+  "notes": "Technician started the repair."
+}
+```
 
 [PatchedRepairOrderStatusUpdate](#patchedrepairorderstatusupdate)
 
@@ -4838,27 +6078,106 @@ Delegate state transitions to the dedicated service method.
 #### 200
 
 
-
-[RepairOrderStatusUpdate](#repairorderstatusupdate)
-
+Repair order status updated successfully.
 
 
+[RepairOrder](#repairorder)
+
+
+
+
+
+
+Examples
+
+
+
+
+
+```json
+{
+  "id": 2,
+  "drone": 21,
+  "defect_report": 4,
+  "status": "IN_PROGRESS",
+  "description": "Replace damaged camera gimbal and recalibrate.",
+  "assigned_to": 31,
+  "started_at": "2026-07-03T05:30:00Z",
+  "completed_at": null,
+  "notes": "Awaiting replacement gimbal from stores.",
+  "created_by": 24,
+  "created_at": "2026-07-03T05:15:02.114120Z",
+  "updated_at": "2026-07-03T05:30:00.552310Z"
+}
+```
+
+
+
+#### 400
+
+
+Bad Request
+
+
+object
+
+
+
+
+
+
+Examples
+
+
+
+
+
+```json
+{
+  "status": [
+    "Cannot transition from PENDING to COMPLETED. Allowed: ['IN_PROGRESS', 'CANCELLED']"
+  ]
+}
+```
+
+
+
+#### 403
+
+
+Forbidden. User does not have permission to perform this action.
+
+
+
+
+#### 404
+
+
+Not Found.
 
 
 
 
 ## POST /api/repairs/orders/{id}/replacements/
 
+Add a component replacement to a repair order
 
+Records a new component replacement and links it to an existing repair order.
 
-Attach a new component replacement to an existing repair order.
+Validation:
+- A new serial number is required.
+- A reason is required.
+- `replaced_at` cannot be in the future.
+- If the component type is `OTHER`, a component name must be provided; for known component types any supplied name is cleared.
+
+Required permission: `PERMISSION_REPAIRS_MANAGE`.
 
 
 ### Parameters
 
 | Name | Type | Required | Description |
 |------|------|----------|-------------|
-| id | integer | True |  |
+| id | integer | True | ID of the repair order the replacement is attached to. |
 
 
 ### Request Body
@@ -4868,6 +6187,24 @@ Attach a new component replacement to an existing repair order.
 
 
 
+
+
+Examples
+
+
+
+
+
+```json
+{
+  "component_type": "CAMERA",
+  "component_name": null,
+  "old_serial_number": "CAM-GIMBAL-OLD",
+  "new_serial_number": "CAM-GIMBAL-NEW",
+  "reason": "Gimbal replaced after confirmed camera feed instability.",
+  "replaced_at": "2026-07-03"
+}
+```
 
 [RepairOrderReplacement](#repairorderreplacement)
 
@@ -4888,11 +6225,91 @@ Attach a new component replacement to an existing repair order.
 #### 201
 
 
+Component replacement recorded and linked successfully.
+
 
 [RepairOrderReplacement](#repairorderreplacement)
 
 
 
+
+
+
+Examples
+
+
+
+
+
+```json
+{
+  "id": 6,
+  "component_type": "CAMERA",
+  "component_name": null,
+  "old_serial_number": "CAM-GIMBAL-OLD",
+  "new_serial_number": "CAM-GIMBAL-NEW",
+  "reason": "Gimbal replaced after confirmed camera feed instability.",
+  "replaced_at": "2026-07-03T00:00:00Z",
+  "replaced_by": 24,
+  "created_at": "2026-07-03T05:40:12.114120Z",
+  "updated_at": "2026-07-03T05:40:12.114160Z"
+}
+```
+
+
+
+#### 400
+
+
+Bad Request
+
+
+object
+
+
+
+
+
+
+Examples
+
+
+
+
+
+```json
+{
+  "component_name": [
+    "Component name is required for OTHER."
+  ]
+}
+```
+
+
+
+
+```json
+{
+  "new_serial_number": [
+    "New serial number is required."
+  ]
+}
+```
+
+
+
+#### 403
+
+
+Forbidden. User does not have permission to perform this action.
+
+
+
+
+#### 404
+
+
+Not Found.
 
 
 
@@ -5912,6 +7329,18 @@ cascades the assigned drones' statuses.
 | results | array |  |
 
 
+## PaginatedRepairHistoryTimelineList
+
+
+
+| Field | Type | Description |
+|-------|------|-------------|
+| count | integer |  |
+| next | string |  |
+| previous | string |  |
+| results | array |  |
+
+
 ## PaginatedRepairOrderListList
 
 
@@ -6229,18 +7658,6 @@ Serialize hardware replacements explicitly linked to a repair order.
 | replaced_by | integer |  |
 | created_at | string |  |
 | updated_at | string |  |
-
-
-## RepairOrderStatusUpdate
-
-
-Drive a repair order through its state machine.
-
-
-| Field | Type | Description |
-|-------|------|-------------|
-| status |  |  |
-| notes | string |  |
 
 
 ## SeverityEnum
