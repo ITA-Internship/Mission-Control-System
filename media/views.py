@@ -59,11 +59,14 @@ logger = logging.getLogger(__name__)
 def scope_video_metadata_for_user(queryset, user):
     """Restrict a ``VideoMetadata`` queryset to what ``user`` may view.
 
-    Mirrors ``MediaViewPermission._check_object``: admins see everything;
-    everyone else sees videos they uploaded plus videos whose mission belongs
-    to their own unit. Users without a unit only see their own uploads. Applied
-    before any request-supplied filters so listing can never expose videos the
-    caller is not authorized to retrieve.
+    Mirrors ``MediaViewPermission._check_object`` for videos: admins see
+    everything; everyone else sees videos they uploaded plus videos captured by
+    a drone belonging to their own unit. Users without a unit only see their own
+    uploads. Applied before any request-supplied filters so listing can never
+    expose videos the caller is not authorized to retrieve.
+
+    A video's unit is reached through its drone (``drone__military_unit``);
+    ``Mission`` itself carries no unit, so it cannot be used for scoping.
     """
     if get_user_role_code(user) == ADMIN_CODE:
         return queryset
@@ -71,7 +74,7 @@ def scope_video_metadata_for_user(queryset, user):
     scope = Q(uploader_id=user.id)
     unit_id = getattr(user, "unit_id", None)
     if unit_id is not None:
-        scope |= Q(mission__unit_id=unit_id)
+        scope |= Q(drone__military_unit_id=unit_id)
     return queryset.filter(scope)
 
 

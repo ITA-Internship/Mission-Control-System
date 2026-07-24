@@ -343,6 +343,54 @@ class VideoMetadataAPITests(APITestCase):
         self.assertContains(response, "video_1.mp4")
         self.assertNotContains(response, "video_2.mp4")
 
+    @patch("media.permissions.MediaViewPermission.has_permission", return_value=True)
+    def test_list_scopes_videos_to_callers_unit(self, mock_perm):
+        # Regression for C3: a non-admin caller with a unit must see only their
+        # own uploads plus videos captured by a drone in their own unit — never
+        # every video system-wide — and the unit-scoped query must resolve (the
+        # video's unit is reached via drone__military_unit, not the mission).
+        self.user.unit = self.military_unit  # Unit 101; owns self.drone
+        self.user.save(update_fields=["unit"])
+
+        other_unit = MilitaryUnit.objects.create(id=2, name="Unit 202", code="U202")
+        foreign_drone = Drone.objects.create(
+            id=3,
+            name="Mavic Gamma",
+            serial_number="SN-MAVIC-003",
+            inventory_number="INV-DRONE-003",
+            drone_model=self.drone_model,
+            classification="RECONNAISSANCE",
+            status="ACTIVE",
+            military_unit=other_unit,
+            acquired_at=timezone.localdate(),
+        )
+        someone_else = OperatorUserFactory()
+
+        # Captured by a drone in the caller's unit, uploaded by someone else:
+        # visible via the unit branch, not the uploader branch.
+        VideoMetadata.objects.create(
+            mission=self.mission,
+            drone=self.drone,
+            uploader=someone_else,
+            file=SimpleUploadedFile("in_unit.mp4", b"a", content_type="video/mp4"),
+            file_name="in_unit.mp4",
+            file_size=10,
+        )
+        # Captured by a drone in a foreign unit: must be excluded.
+        VideoMetadata.objects.create(
+            mission=self.other_mission,
+            drone=foreign_drone,
+            uploader=someone_else,
+            file=SimpleUploadedFile("foreign.mp4", b"b", content_type="video/mp4"),
+            file_name="foreign.mp4",
+            file_size=20,
+        )
+
+        response = self.client.get(self.list_url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        names = {video["file_name"] for video in response.data["results"]}
+        self.assertEqual(names, {"in_unit.mp4"})
+
 
 @override_settings(
     ARTIFACT_ALLOWED_EXTENSIONS={
