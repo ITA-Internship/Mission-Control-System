@@ -259,6 +259,19 @@ class DroneCreateTests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertIn("additional_modules", response.data["spec"])
 
+    def test_create_drone_ignores_status_mass_assignment(self):
+        """Ensure that status passed during creation is ignored
+        and defaults to ACTIVE."""
+        payload = copy.deepcopy(self.base_payload)
+        payload["status"] = Drone.STATUS_WRITTEN_OFF
+
+        response = self.client.post(self.create_url, payload, format="json")
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+
+        drone = Drone.objects.first()
+        self.assertEqual(drone.status, Drone.STATUS_ACTIVE)
+
 
 class DroneUpdateAndDecommissionTests(APITestCase):
     """Verify drone updates, RBAC restrictions, status history, and write-off flows."""
