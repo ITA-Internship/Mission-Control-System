@@ -1,3 +1,28 @@
+"""Permission classes for the media app.
+
+Authorization model
+
+Artifact endpoints are protected by **two complementary layers**:
+
+1. **Queryset scoping** (authoritative for mission access):
+   ``restrict_missions_for_user`` in ``_MissionArtifactMixin.get_mission`` is
+   the single source of truth that decides whether a user can reach a given
+   mission at all.  Operators are limited to missions they are assigned to;
+   all other roles see every mission.
+
+2. **Object-level RBAC** (authoritative for artifact-level actions):
+   ``MediaViewPermission`` / ``MediaDeletePermission`` decide what a user can
+   do with an artifact *inside* an already-authorized mission.
+   ``_check_object`` checks ownership (``uploaded_by``), admin role, or
+   matching ``unit_id`` for view access.
+
+Layer 1 runs first (via ``get_mission`` → 404 if denied).  Layer 2 runs
+second (via ``check_object_permissions`` → 403 if denied).  Any change to
+``restrict_missions_for_user`` automatically propagates to all media
+endpoints; object-level rules can be tightened independently without
+affecting mission scoping.
+"""
+
 from accounts.permissions import HasRBACPermission, get_user_role_code
 from accounts.rbac import (
     PERMISSION_MEDIA_DELETE,

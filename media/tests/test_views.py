@@ -27,6 +27,22 @@ from missions.models import Mission, MissionAuditLog
 User = get_user_model()
 
 
+class MissionOperatorSetupMixin:
+    """Shared setUp for tests that need an admin, an operator assigned to a
+    mission via MissionDroneFactory, and a mission instance.
+
+    Subclasses should call ``super().setUp()`` and will receive:
+    ``self.admin``, ``self.operator``, ``self.mission``.
+    """
+
+    def setUp(self):
+        super().setUp()
+        self.admin = AdminUserFactory()
+        self.operator = OperatorUserFactory()
+        self.mission = MissionFactory()
+        MissionDroneFactory(mission=self.mission, operator=self.operator)
+
+
 class VideoMetadataAPITests(APITestCase):
     def setUp(self):
         self.user = User.objects.create_user(
@@ -352,15 +368,12 @@ class VideoMetadataAPITests(APITestCase):
     },
     ARTIFACT_MAX_FILE_SIZE_MB=10,
 )
-class ArtifactListCreateTests(APITestCase):
+class ArtifactListCreateTests(MissionOperatorSetupMixin, APITestCase):
     def setUp(self):
-        self.admin = AdminUserFactory()
+        super().setUp()
         self.dispatcher = DispatcherUserFactory()
-        self.operator = OperatorUserFactory()
         self.viewer = ViewerUserFactory()
 
-        self.mission = MissionFactory()
-        MissionDroneFactory(mission=self.mission, operator=self.operator)
         self.url = reverse(
             "missions:media:artifact-list-create",
             kwargs={"mission_pk": self.mission.pk},
@@ -565,13 +578,10 @@ class ArtifactDetailTests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
 
 
-class MediaAuditLoggingTests(APITestCase):
+class MediaAuditLoggingTests(MissionOperatorSetupMixin, APITestCase):
     def setUp(self):
-        self.admin = AdminUserFactory()
-        self.operator = OperatorUserFactory()
+        super().setUp()
         self.viewer = ViewerUserFactory()
-        self.mission = MissionFactory()
-        MissionDroneFactory(mission=self.mission, operator=self.operator)
         self.artifact = MissionArtifactFactory(
             mission=self.mission, uploaded_by=self.operator, is_image=True
         )
@@ -758,12 +768,9 @@ class MediaAuditLogEndpointTests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_405_METHOD_NOT_ALLOWED)
 
 
-class ProtectedMediaDownloadTests(APITestCase):
+class ProtectedMediaDownloadTests(MissionOperatorSetupMixin, APITestCase):
     def setUp(self):
-        self.admin = AdminUserFactory()
-        self.operator = OperatorUserFactory()
-        self.mission = MissionFactory()
-        MissionDroneFactory(mission=self.mission, operator=self.operator)
+        super().setUp()
         self.artifact = MissionArtifactFactory(
             mission=self.mission, uploaded_by=self.operator, is_image=True
         )

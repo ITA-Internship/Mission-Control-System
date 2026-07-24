@@ -515,15 +515,6 @@ class PasswordResetConfirmView(APIView):
         """Reset a user's password if the uid/token pair is valid."""
         serializer = PasswordResetConfirmSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        """Verify the reset token and set a new password for the user.
-        Args:
-            request (Request): The HTTP request containing the new password.
-            uidb64 (str): Base64 encoded user ID.
-            token (str): The one-time password reset token.
-
-        Returns:
-            Response: A success message or an error for invalid/expired tokens.
-        """
 
         try:
             uid = force_str(urlsafe_base64_decode(uidb64))
