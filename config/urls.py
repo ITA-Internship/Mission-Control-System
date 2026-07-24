@@ -27,6 +27,7 @@ from media.urls import audit_urlpatterns as media_audit_urlpatterns
 
 urlpatterns = [
     path("admin/", admin.site.urls),
+    path("api/", include("common.urls")),
     path("api/accounts/", include("accounts.urls")),
     path("api/drones/", include("drones.urls")),
     path("api/roles/", include("roles.urls")),

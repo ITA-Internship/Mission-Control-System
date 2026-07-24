@@ -292,7 +292,7 @@ paths:
       operationId: accounts_users_status_partial_update
       description: "Allows system administrators to activate or deactivate a user's
         account, creates an audit log entry. \n\nValidation: \n- User cannot deactivate
-        their own account.\n\nRequired permission: `IsSystemAdmin`."
+        their own account.\n\nRequired permission: `PERMISSION_USERS_ACTIVATE_DEACTIVATE`."
       summary: Update user status
       parameters:
       - in: path
@@ -450,7 +450,7 @@ paths:
       description: |-
         Retrieves the profile details of the currently authenticated user.
 
-        Required permission: `IsAuthenticated`.
+        Required permission: `PERMISSION_PROFILE_VIEW_OWN`.
       summary: Retrieve current user profile
       tags:
       - accounts
@@ -486,7 +486,7 @@ paths:
       description: "Updates the currently authenticated user's profile information
         and creates an audit log entry.\n\nValidation: \n- Image file size cannot
         exceed 5 MB. \n- Supported image file formats: .jpg, .jpeg, .png, .webp.\n\nRequired
-        permission: `IsAuthenticated`."
+        permission: `PERMISSION_PROFILE_UPDATE_OWN`."
       summary: Update current user profile
       tags:
       - accounts
@@ -543,7 +543,7 @@ paths:
       description: "Updates the currently authenticated user's profile information
         and creates an audit log entry.\n\nValidation: \n- Image file size cannot
         exceed 5 MB. \n- Supported image file formats: .jpg, .jpeg, .png, .webp.\n\nRequired
-        permission: `IsAuthenticated`."
+        permission: `PERMISSION_PROFILE_UPDATE_OWN`."
       summary: Update current user profile
       tags:
       - accounts
@@ -601,7 +601,7 @@ paths:
       description: |-
         Changes the password for the currently authenticated user and creates an audit log entry. Upon a successful password change, all active sessions for this user are invalidated.
 
-        Required permission: `IsAuthenticated`.
+        Required permission: `PERMISSION_PROFILE_RESET_PASSWORD_OWN`.
       summary: Change user password
       tags:
       - accounts
@@ -2622,7 +2622,7 @@ paths:
       description: |-
         Retrieves a paginated and filtered by status list of missions, assigned to the currently authenticated user.
 
-        Required permission: `IsDispatcherOrAdmin, PERMISSION_MISSIONS_VIEW`.
+        Required permission: `PERMISSION_MISSIONS_VIEW`.
       summary: List missions
       parameters:
       - in: query
@@ -2673,30 +2673,34 @@ paths:
                     next: http://api.example.org/accounts/?page=4
                     previous: http://api.example.org/accounts/?page=2
                     results:
-                    - id: 31
-                      title: Fallback Route Mapping
-                      commander:
-                        id: 27
-                        username: commander.south
-                        email: commander.south@example.com
-                      status: planned
-                      result: null
-                      location_description: Secondary fallback route south-west of
-                        artillery support line.
-                      latitude: '48.619700'
-                      longitude: '22.287900'
-                      started_at: '2026-07-09T01:17:37.650595Z'
-                      ended_at: '2026-07-09T01:49:37.650595Z'
-                      notes: 'Objective: capture updated terrain references and route
-                        obstacles.'
-                      incident_notes: ''
-                      created_by:
-                        id: 24
-                        username: oleksander.koval
-                        email: oleksander.koval@example.com
-                      created_at: '2026-07-02T02:21:31.151234Z'
-                      updated_at: '2026-07-03T01:17:37.651465Z'
-                      drones: []
+                    - count: 1
+                      next: null
+                      previous: null
+                      results:
+                      - id: 31
+                        title: Fallback Route Mapping
+                        commander:
+                          id: 27
+                          username: commander.south
+                          email: commander.south@example.com
+                        status: planned
+                        result: null
+                        location_description: Secondary fallback route south-west
+                          of artillery support line.
+                        latitude: '48.619700'
+                        longitude: '22.287900'
+                        started_at: '2026-07-09T01:17:37.650595Z'
+                        ended_at: '2026-07-09T01:49:37.650595Z'
+                        notes: 'Objective: capture updated terrain references and
+                          route obstacles.'
+                        incident_notes: ''
+                        created_by:
+                          id: 24
+                          username: oleksander.koval
+                          email: oleksander.koval@example.com
+                        created_at: '2026-07-02T02:21:31.151234Z'
+                        updated_at: '2026-07-03T01:17:37.651465Z'
+                        drones: []
                   summary: Valid Request
           description: Successfully retrieved the filtered list of missions.
         '403':
@@ -2708,7 +2712,7 @@ paths:
         be at least 3 character long. \n- User assigned as a commander must have a
         Commander role. \n- Either location or latitude and longitude must be provided.
         \n- Assigned drones and operators cannot already be assigned to another mission.\n\nRequired
-        permission: `IsDispatcherOrAdmin, PERMISSION_MISSIONS_CREATE`."
+        permission: `PERMISSION_MISSIONS_CREATE`."
       summary: Create a new mission
       tags:
       - missions
@@ -3094,25 +3098,29 @@ paths:
                     next: http://api.example.org/accounts/?page=4
                     previous: http://api.example.org/accounts/?page=2
                     results:
-                    - id: 1
-                      mission: 34
-                      drone: 21
-                      drone_details:
-                        id: 21
-                        name: Falcon Eye 1
-                        serial_number: FPV-AER-24001
-                        drone_model: 15
-                        status: ACTIVE
-                      operator: 28
-                      operator_details:
-                        id: 28
-                        username: operator.alpha
-                        email: operator.alpha@example.com
-                      condition_after: null
-                      condition_description: null
-                      flight_started_at: null
-                      flight_ended_at: null
-                      created_at: '2026-07-06T02:19:18.140785Z'
+                    - count: 1
+                      next: null
+                      previous: null
+                      results:
+                      - id: 1
+                        mission: 34
+                        drone: 21
+                        drone_details:
+                          id: 21
+                          name: Falcon Eye 1
+                          serial_number: FPV-AER-24001
+                          drone_model: 15
+                          status: ACTIVE
+                        operator: 28
+                        operator_details:
+                          id: 28
+                          username: operator.alpha
+                          email: operator.alpha@example.com
+                        condition_after: null
+                        condition_description: null
+                        flight_started_at: null
+                        flight_ended_at: null
+                        created_at: '2026-07-06T02:19:18.140785Z'
                   summary: Valid Request
           description: Successfully retrieved the list of mission drone and operator
             assignments.
@@ -3127,7 +3135,7 @@ paths:
         Assignments can only be added to planned missions. \n- Mission must have a
         start time before assigning drones or operators. \n- All assigned drones must
         be active. \n- Operators and drones cannot be assigned to overlapping missions.\n\nRequired
-        permission: `IsDispatcherOrAdmin, PERMISSION_MISSIONS_ASSIGN`."
+        permission: `PERMISSION_MISSIONS_ASSIGN`."
       summary: Assign a drone and operator to a mission
       parameters:
       - in: path
@@ -3217,7 +3225,7 @@ paths:
       operationId: missions_assignments_destroy
       description: "Deletes a specific drone assignment and creates an audit log entry.
         \n\nValidation: \n- Cannot delete assignment unless mission is planned.\n\nRequired
-        permission: `IsDispatcherOrAdmin, PERMISSION_MISSIONS_ASSIGN`."
+        permission: `PERMISSION_MISSIONS_ASSIGN`."
       summary: Remove a drone assignment from a mission
       parameters:
       - in: path
@@ -3317,7 +3325,7 @@ paths:
         and creates an audit log entry. \n\nValidation: \n- Drone condition can only
         be recorded for missions with status `completed` or `aborted`. \n- Condition
         `lost` cannot be overwritten.\n\nRequired permission: `PERMISSION_MISSIONS_RECORD_CONDITION,
-        IsAssignedOperatorOrAdmin`."
+        IsDispatcherOrAssignedOperatorOrAdmin`."
       summary: Update drone post-mission condition
       parameters:
       - in: path
@@ -3406,8 +3414,8 @@ paths:
         and incident notes for the mission. Creates an audit log entry. \n\nValidation:
         \n- Status can only be recorded for completed or aborted mission. \n- Already
         recorded outcome cannot be overwritten. \n- If result of a mission is a failure,
-        incident notes must be provided.\n\nRequired permission: `IsAssignedOperatorOrAdmin,
-        PERMISSION_MISSIONS_RECORD_OUTCOME`."
+        incident notes must be provided.\n\nRequired permission: `PERMISSION_MISSIONS_RECORD_OUTCOME,
+        IsDispatcherOrAssignedOperatorOrAdmin`."
       summary: Record mission outcome
       parameters:
       - in: path
@@ -3485,7 +3493,7 @@ paths:
       description: |-
         Retrieves the current status of a mission.
 
-        Required permission: `CanUpdateMissionStatus`.
+        Required permission: `PERMISSION_MISSIONS_UPDATE_STATUS, IsAssignedToMissionOrAdmin`.
       summary: Retrieve mission status
       parameters:
       - in: path
@@ -3522,7 +3530,7 @@ paths:
         to `ACTIVE` or `ABORTED`; \n\t- status `ACTIVE` can be updated to `COMPLETED`
         or `ABORTED`; \n\t- statuses `COMPLETED` or `ABORTED` cannot be updated. \n-
         Mission cannot be updated to status `ACTIVE` if it has assigned inactive drones.\n\nRequired
-        permission: `CanUpdateMissionStatus`."
+        permission: `PERMISSION_MISSIONS_UPDATE_STATUS, IsAssignedToMissionOrAdmin`."
       summary: Update mission status
       parameters:
       - in: path
@@ -3587,7 +3595,7 @@ paths:
         to `ACTIVE` or `ABORTED`; \n\t- status `ACTIVE` can be updated to `COMPLETED`
         or `ABORTED`; \n\t- statuses `COMPLETED` or `ABORTED` cannot be updated. \n-
         Mission cannot be updated to status `ACTIVE` if it has assigned inactive drones.\n\nRequired
-        permission: `CanUpdateMissionStatus`."
+        permission: `PERMISSION_MISSIONS_UPDATE_STATUS, IsAssignedToMissionOrAdmin`."
       summary: Update mission status
       parameters:
       - in: path
@@ -4691,9 +4699,11 @@ components:
     ActionEnum:
       enum:
       - view
+      - download
       - upload
       - update
       - delete
+      - denied
       type: string
     ActionTypeEnum:
       enum:
