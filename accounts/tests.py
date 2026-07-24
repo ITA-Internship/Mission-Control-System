@@ -17,6 +17,7 @@ from django.utils.http import urlsafe_base64_encode
 from rest_framework import status
 from rest_framework.test import APIClient, APIRequestFactory, APITestCase
 
+from drones.factories import AdminUserFactory
 from roles.models import ADMIN_CODE, OPERATOR_CODE, Role
 from seed_data.users import seed_users
 
@@ -571,25 +572,15 @@ class PasswordChangeSecurityTests(APITestCase):
 class AuditLogExportTests(TestCase):
     def setUp(self):
         self.client = APIClient()
-        self.user = User.objects.create_superuser(
-            username="admin",
-            email="admin@example.com",
-            password="password",
-        )
+        self.admin_user = AdminUserFactory()
+        self.client.force_authenticate(self.admin_user)
 
-        self.client.force_authenticate(self.user)
-
-    @patch("accounts.views.user_has_permission", return_value=True)
-    def test_audit_log_csv_export_is_sanitized(self, mock_has_permission):
+    def test_audit_log_csv_export_is_sanitized(self):
         """Integration test asserting exported CSV are protected against injection."""
-
-        from accounts.views import AuditLogViewSet
-
-        AuditLogViewSet.permission_classes = []
 
         malicious_description = "=cmd|'/C calc'!A0"
         AuditLog.objects.create(
-            actor=self.user,
+            actor=self.admin_user,
             action_type=AuditLog.ActionType.USER_CREATED,
             result=AuditLog.ResultStatus.SUCCESS,
             description=malicious_description,
