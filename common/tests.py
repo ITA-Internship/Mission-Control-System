@@ -1,5 +1,7 @@
 """Tests for shared application security behavior."""
 
+import os
+
 from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.middleware.csrf import get_token
@@ -81,6 +83,24 @@ class SecurityCookieSettingsTests(SimpleTestCase):
         self.assertEqual(
             settings.CSRF_COOKIE_SAMESITE,
             "Lax",
+        )
+
+    def test_session_cookie_secure_matches_environment(self):
+        """Ensure the session cookie policy matches the startup environment."""
+        debug_from_environment = os.getenv("DEBUG", "False") == "True"
+
+        self.assertEqual(
+            settings.SESSION_COOKIE_SECURE,
+            not debug_from_environment,
+        )
+
+    def test_csrf_cookie_secure_matches_environment(self):
+        """Ensure the CSRF cookie policy matches the startup environment."""
+        debug_from_environment = os.getenv("DEBUG", "False") == "True"
+
+        self.assertEqual(
+            settings.CSRF_COOKIE_SECURE,
+            not debug_from_environment,
         )
 
 

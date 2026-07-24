@@ -14,7 +14,7 @@ from django.urls import reverse
 from django.utils.encoding import force_bytes
 from django.utils.http import urlsafe_base64_encode
 from rest_framework import status
-from rest_framework.test import APIRequestFactory, APITestCase
+from rest_framework.test import APIClient, APIRequestFactory, APITestCase
 
 from roles.models import ADMIN_CODE, OPERATOR_CODE, Role
 from seed_data.users import seed_users
@@ -312,6 +312,65 @@ class PasswordResetConfirmViewTests(APITestCase):
         mock_send_mail.assert_called_once()
         args, kwargs = mock_send_mail.call_args
         self.assertEqual(kwargs["recipient_list"], [self.user.email])
+
+    @patch("accounts.tasks.send_mail")
+    def test_password_reset_invalidates_existing_session(self, mock_send_mail):
+        """Ensure password reset terminates the user's existing sessions."""
+        session_client = APIClient()
+
+        logged_in = session_client.login(
+            username=self.user.username,
+            password="OldPassword123!",
+        )
+        self.assertTrue(logged_in)
+
+        protected_url = reverse("accounts:user-me")
+
+        response_before_reset = session_client.get(protected_url)
+        self.assertEqual(
+            response_before_reset.status_code,
+            status.HTTP_200_OK,
+            response_before_reset.data,
+        )
+
+        # Login updates last_login, which invalidates the token created in setUp().
+        # Refresh the user and generate a new valid token after login.
+        self.user.refresh_from_db()
+
+        uidb64 = urlsafe_base64_encode(force_bytes(self.user.pk))
+        token = default_token_generator.make_token(self.user)
+
+        reset_url = reverse(
+            "accounts:password-reset-confirm",
+            kwargs={
+                "uidb64": uidb64,
+                "token": token,
+            },
+        )
+
+        reset_response = self.client.post(
+            reset_url,
+            {
+                "new_password": "BrandNewPassword123!",
+            },
+            format="json",
+        )
+
+        self.assertEqual(
+            reset_response.status_code,
+            status.HTTP_200_OK,
+            reset_response.data,
+        )
+
+        response_after_reset = session_client.get(protected_url)
+
+        self.assertEqual(
+            response_after_reset.status_code,
+            status.HTTP_403_FORBIDDEN,
+            response_after_reset.data,
+        )
+
+        mock_send_mail.assert_called_once()
 
     def test_password_reset_invalid_token(self):
         """Ensure that an invalid or expired token rejects the password reset."""
@@ -637,10 +696,13 @@ class ProtectedProfilePictureRBACTests(APITestCase):
 
         response = self.client.get(self.url)
 
-        # A missing picture may return 404, but authorization must not return 403.
-        self.assertNotEqual(
+        self.assertEqual(
             response.status_code,
-            status.HTTP_403_FORBIDDEN,
+            status.HTTP_404_NOT_FOUND,
+        )
+        self.assertEqual(
+            response.data["detail"],
+            "User does not have a profile picture.",
         )
 
     def test_staff_non_admin_cannot_access_another_users_picture(self):
@@ -660,9 +722,13 @@ class ProtectedProfilePictureRBACTests(APITestCase):
 
         response = self.client.get(self.url)
 
-        self.assertNotEqual(
+        self.assertEqual(
             response.status_code,
-            status.HTTP_403_FORBIDDEN,
+            status.HTTP_404_NOT_FOUND,
+        )
+        self.assertEqual(
+            response.data["detail"],
+            "User does not have a profile picture.",
         )
 
     def test_anonymous_user_cannot_access_profile_picture(self):
@@ -674,7 +740,12 @@ class ProtectedProfilePictureRBACTests(APITestCase):
             status.HTTP_403_FORBIDDEN,
         )
 
+
+class AuditLogRBACTests(APITestCase):
+    """Test RBAC restrictions for audit log endpoints."""
+
     def test_user_without_audit_permissions_gets_forbidden(self):
+        """Ensure users without an RBAC role cannot view audit logs."""
         user = User.objects.create_user(
             username="no.audit.role",
             email="no.audit.role@example.com",
@@ -683,7 +754,9 @@ class ProtectedProfilePictureRBACTests(APITestCase):
         )
         self.client.force_authenticate(user=user)
 
-        response = self.client.get(reverse("accounts:audit-log-list"))
+        response = self.client.get(
+            reverse("accounts:audit-log-list"),
+        )
 
         self.assertEqual(
             response.status_code,
