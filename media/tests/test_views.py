@@ -536,9 +536,12 @@ class ArtifactDetailTests(APITestCase):
         self.admin = AdminUserFactory()
         self.dispatcher = DispatcherUserFactory()
         self.operator = OperatorUserFactory()
+        self.assigned_operator = OperatorUserFactory()
+        self.unrelated_operator = OperatorUserFactory()
         self.viewer = ViewerUserFactory()
 
         self.mission = MissionFactory()
+        MissionDroneFactory(mission=self.mission, operator=self.assigned_operator)
         self.artifact = MissionArtifactFactory(
             mission=self.mission, uploaded_by=self.operator, is_image=True
         )
@@ -546,13 +549,52 @@ class ArtifactDetailTests(APITestCase):
             "missions:media:artifact-detail",
             kwargs={"mission_pk": self.mission.pk, "artifact_pk": self.artifact.pk},
         )
+        self.download_url = reverse(
+            "missions:media:artifact-download",
+            kwargs={"mission_pk": self.mission.pk, "artifact_pk": self.artifact.pk},
+        )
 
-    def test_viewer_can_retrieve(self):
-        """Verify that Viewers can retrieve detail records for an artifact."""
+    def test_viewer_cannot_retrieve(self):
+        """Verify that Viewers cannot retrieve detail records for an artifact."""
         self.client.force_authenticate(self.viewer)
+        response = self.client.get(self.url)
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_uploaded_by_can_retrieve(self):
+        self.client.force_authenticate(self.operator)
         response = self.client.get(self.url)
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.data["id"], self.artifact.id)
+
+    def test_assigned_operator_can_retrieve(self):
+        self.client.force_authenticate(self.assigned_operator)
+        response = self.client.get(self.url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["id"], self.artifact.id)
+
+    def test_commander_can_retrieve(self):
+        self.client.force_authenticate(self.mission.commander)
+        response = self.client.get(self.url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["id"], self.artifact.id)
+
+    def test_created_by_can_retrieve(self):
+        self.client.force_authenticate(self.mission.created_by)
+        response = self.client.get(self.url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["id"], self.artifact.id)
+
+    def test_unrelated_operator_without_unit_cannot_retrieve_artifact(self):
+        self.assertIsNone(self.unrelated_operator.unit_id)
+        self.client.force_authenticate(self.unrelated_operator)
+        response = self.client.get(self.url)
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_unrelated_operator_without_unit_cannot_download_artifact(self):
+        self.assertIsNone(self.unrelated_operator.unit_id)
+        self.client.force_authenticate(self.unrelated_operator)
+        response = self.client.get(self.download_url)
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
 
     def test_unauthenticated_cannot_retrieve(self):
         """Verify that unauthenticated user cannot retrieve
@@ -659,20 +701,20 @@ class MediaAuditLoggingTests(APITestCase):
     def test_retrieve_logs_view_action_with_user_and_ip(self):
         """Verify retrieving artifact details creates
         a media audit log entry with IP address."""
-        self.client.force_authenticate(self.viewer)
+        self.client.force_authenticate(self.operator)
         response = self.client.get(self.detail_url)
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
 
         log = MediaAuditLog.objects.get(action=MediaAuditLog.Action.VIEW)
-        self.assertEqual(log.user, self.viewer)
+        self.assertEqual(log.user, self.operator)
         self.assertEqual(log.artifact, self.artifact)
         self.assertEqual(log.mission_id, self.mission.id)
         self.assertEqual(log.ip_address, "127.0.0.1")
 
     def test_each_retrieve_creates_a_separate_view_log(self):
         """Verify that multiple read accesses log distinct view records."""
-        self.client.force_authenticate(self.viewer)
+        self.client.force_authenticate(self.operator)
         self.client.get(self.detail_url)
         self.client.get(self.detail_url)
 
@@ -683,7 +725,7 @@ class MediaAuditLoggingTests(APITestCase):
     def test_view_logging_failure_does_not_break_retrieve(self):
         """Verify that failures in audit log creation
         do not fail the API read response."""
-        self.client.force_authenticate(self.viewer)
+        self.client.force_authenticate(self.operator)
         with patch(
             "media.services.MediaAuditLog.objects.create",
             side_effect=RuntimeError("logging down"),
@@ -847,3 +889,115 @@ class MediaAuditLogEndpointTests(APITestCase):
         self.client.force_authenticate(self.admin)
         response = self.client.post(self.url, {"action": "view"}, format="json")
         self.assertEqual(response.status_code, status.HTTP_405_METHOD_NOT_ALLOWED)
+
+
+class ProtectedMediaDownloadTests(APITestCase):
+    def setUp(self):
+        self.admin = AdminUserFactory()
+        self.operator = OperatorUserFactory()
+        self.mission = MissionFactory()
+        self.other_mission = MissionFactory()
+        self.artifact = MissionArtifactFactory(
+            mission=self.mission, uploaded_by=self.operator, is_image=True
+        )
+        self.url = reverse(
+            "missions:media:artifact-download",
+            kwargs={"mission_pk": self.mission.pk, "artifact_pk": self.artifact.pk},
+        )
+
+    @override_settings(DEBUG=True)
+    def test_download_logs_download_action_with_user_and_ip(self):
+        self.client.force_authenticate(self.operator)
+        response = self.client.get(self.url)
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        log = MediaAuditLog.objects.get(action=MediaAuditLog.Action.DOWNLOAD)
+        self.assertEqual(log.user, self.operator)
+        self.assertEqual(log.artifact, self.artifact)
+        self.assertEqual(log.mission_id, self.mission.id)
+        self.assertEqual(log.ip_address, "127.0.0.1")
+
+    @override_settings(DEBUG=True)
+    def test_download_logging_failure_does_not_break_download(self):
+        self.client.force_authenticate(self.admin)
+        with patch(
+            "media.services.MediaAuditLog.objects.create",
+            side_effect=RuntimeError("logging down"),
+        ):
+            response = self.client.get(self.url)
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+    def test_download_wrong_mission_returns_404(self):
+        wrong_mission_url = reverse(
+            "missions:media:artifact-download",
+            kwargs={
+                "mission_pk": self.other_mission.pk,
+                "artifact_pk": self.artifact.pk,
+            },
+        )
+
+        self.client.force_authenticate(self.admin)
+        response = self.client.get(wrong_mission_url)
+
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+
+
+class MediaPermissionDeniedLoggingTests(APITestCase):
+    def setUp(self):
+        self.operator = OperatorUserFactory()
+        self.viewer = ViewerUserFactory()
+        self.mission = MissionFactory()
+        self.artifact = MissionArtifactFactory(
+            mission=self.mission, uploaded_by=self.operator, is_image=True
+        )
+        self.list_url = reverse(
+            "missions:media:artifact-list-create",
+            kwargs={"mission_pk": self.mission.pk},
+        )
+        self.detail_url = reverse(
+            "missions:media:artifact-detail",
+            kwargs={"mission_pk": self.mission.pk, "artifact_pk": self.artifact.pk},
+        )
+
+    def test_denied_upload_logs_permission_denied(self):
+        self.client.force_authenticate(self.viewer)
+        upload_file = SimpleUploadedFile(
+            "x.jpg", b"image bytes", content_type="image/jpeg"
+        )
+        response = self.client.post(
+            self.list_url, {"title": "x", "file": upload_file}, format="multipart"
+        )
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+        log = MediaAuditLog.objects.get(action=MediaAuditLog.Action.PERMISSION_DENIED)
+        self.assertEqual(log.user, self.viewer)
+        self.assertEqual(log.changes["reason"], "missing_required_permission")
+        self.assertEqual(log.changes["method"], "POST")
+
+    def test_denied_delete_logs_permission_denied(self):
+        self.client.force_authenticate(self.viewer)
+        response = self.client.delete(self.detail_url)
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+        log = MediaAuditLog.objects.get(action=MediaAuditLog.Action.PERMISSION_DENIED)
+        self.assertEqual(log.user, self.viewer)
+        self.assertIsNone(log.artifact)
+        self.assertEqual(log.changes["reason"], "missing_required_permission")
+        self.assertEqual(log.changes["method"], "DELETE")
+
+    def test_permission_denied_logging_failure_does_not_break_response(self):
+        self.client.force_authenticate(self.viewer)
+        upload_file = SimpleUploadedFile(
+            "x.jpg", b"image bytes", content_type="image/jpeg"
+        )
+        with patch(
+            "media.services.MediaAuditLog.objects.create",
+            side_effect=RuntimeError("logging down"),
+        ):
+            response = self.client.post(
+                self.list_url, {"title": "x", "file": upload_file}, format="multipart"
+            )
+
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)

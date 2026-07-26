@@ -33,6 +33,15 @@ from .api_details import (
     artifact_detail_get_schema,
     artifact_get_schema,
     artifact_post_schema,
+    media_audit_log_list_schema,
+    media_audit_log_retrieve_schema,
+    protected_media_get_schema,
+    video_metadata_create_schema,
+    video_metadata_destroy_schema,
+    video_metadata_list_schema,
+    video_metadata_partial_update_schema,
+    video_metadata_retrieve_schema,
+    video_metadata_update_schema,
 )
 from .models import MediaAuditLog, MissionArtifact, VideoMetadata
 from .permissions import (
@@ -48,7 +57,12 @@ from .serializers import (
     VideoMetadataSerializer,
     VideoUploadSerializer,
 )
-from .services import delete_artifact, record_artifact_view, upload_artifact
+from .services import (
+    delete_artifact,
+    record_artifact_download,
+    record_artifact_view,
+    upload_artifact,
+)
 from .tasks import extract_video_duration_task
 
 logger = logging.getLogger(__name__)
@@ -211,6 +225,7 @@ class ArtifactDetailView(_MissionArtifactMixin, generics.RetrieveDestroyAPIView)
         )
 
 
+@extend_schema_view(get=protected_media_get_schema)
 class ProtectedMediaView(APIView):
     """Secure download mission artifact.
 
@@ -220,10 +235,12 @@ class ProtectedMediaView(APIView):
 
     permission_classes = [IsAuthenticated, MediaViewPermission]
 
-    def get(self, request, artifact_pk):
+    def get(self, request, mission_pk, artifact_pk):
         """Authorize the download request and return the file
         or Nginx redirect response."""
-        artifact = get_object_or_404(MissionArtifact, pk=artifact_pk)
+        artifact = get_object_or_404(
+            MissionArtifact, pk=artifact_pk, mission_id=mission_pk
+        )
 
         self.check_object_permissions(request, artifact)
 
@@ -236,6 +253,16 @@ class ProtectedMediaView(APIView):
         content_type = content_type or "application/octet-stream"
         filename = artifact.original_filename or os.path.basename(file_field.name)
 
+        safe_name = posixpath.normpath(file_field.name)
+        if safe_name.startswith("..") or safe_name.startswith("/"):
+            raise Http404("Invalid file path.")
+
+        record_artifact_download(
+            user=request.user,
+            artifact=artifact,
+            request=request,
+        )
+
         if settings.DEBUG:
             return FileResponse(
                 file_field,
@@ -245,10 +272,6 @@ class ProtectedMediaView(APIView):
             )
         else:
             response = HttpResponse(content_type=content_type)
-
-            safe_name = posixpath.normpath(file_field.name)
-            if safe_name.startswith("..") or safe_name.startswith("/"):
-                raise Http404("Invalid file path.")
 
             internal_path = f"/internal-media/{safe_name}"
             response["X-Accel-Redirect"] = internal_path
@@ -272,6 +295,10 @@ class MediaAuditLogFilter(filters.FilterSet):
         fields = ["action", "user", "mission", "artifact"]
 
 
+@extend_schema_view(
+    list=media_audit_log_list_schema,
+    retrieve=media_audit_log_retrieve_schema,
+)
 class MediaAuditLogViewSet(viewsets.ReadOnlyModelViewSet):
     """List read-only media audit log entries."""
 
@@ -283,6 +310,14 @@ class MediaAuditLogViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = MediaAuditLog.objects.select_related("artifact", "mission", "user").all()
 
 
+@extend_schema_view(
+    list=video_metadata_list_schema,
+    create=video_metadata_create_schema,
+    retrieve=video_metadata_retrieve_schema,
+    update=video_metadata_update_schema,
+    partial_update=video_metadata_partial_update_schema,
+    destroy=video_metadata_destroy_schema,
+)
 class VideoMetadataViewSet(viewsets.ModelViewSet):
     """List, create, update and delete video metadata."""
 

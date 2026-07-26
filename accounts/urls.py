@@ -1,3 +1,6 @@
+"""URL routing for user accounts, profile management,
+password recovery, and audit logs."""
+
 from django.urls import include, path
 from rest_framework.routers import DefaultRouter
 

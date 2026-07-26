@@ -1,3 +1,5 @@
+"""Route drone inventory, comparison, import/export, and write-off endpoints."""
+
 from django.urls import path
 
 from .views import (
@@ -7,6 +9,7 @@ from .views import (
     DroneDetailView,
     DroneListCreateView,
     DroneModelListCreateView,
+    DroneScopedWriteOffHistoryListView,
     DroneSpecChangeLogListView,
     DroneStatusHistoryListView,
     WriteOffHistoryListView,
@@ -35,7 +38,7 @@ urlpatterns = [
     ),
     path(
         "<int:drone_pk>/write-offs/history/",
-        WriteOffHistoryListView.as_view(),
+        DroneScopedWriteOffHistoryListView.as_view(),
         name="drone-writeoff-history",
     ),
     path(

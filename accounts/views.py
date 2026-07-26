@@ -1,3 +1,18 @@
+"""Expose user management, authentication, and authorization endpoints.
+
+Classes:
+    UserRegistrationView: Handles user registration.
+    UserRoleUpdateAPIView: Handles updating user roles.
+    ActivateAccountAPIView: Handles user account activation via email tokens.
+    AuditLogViewSet: Provides read-only access and CSV export for audit logs.
+    UserStatusUpdateView: Manages user status (active/inactive) updates.
+    UserMeView: Retrieves and updates the authenticated user's profile.
+    ChangePasswordView: Handles password changes for the authenticated user.
+    PasswordResetRequestView: Initiates the password reset process via email.
+    PasswordResetConfirmView: Confirms and executes a password reset using a token.
+    ProtectedProfilePictureView: Serves profile pictures securely.
+"""
+
 import csv
 import mimetypes
 import os
@@ -15,12 +30,12 @@ from django_filters import rest_framework as filters
 from drf_spectacular.utils import extend_schema_view
 from rest_framework import generics, permissions, status, viewsets
 from rest_framework.decorators import action
-from rest_framework.pagination import PageNumberPagination
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework.throttling import ScopedRateThrottle
 from rest_framework.views import APIView
 
+from common.pagination import AuditLogPagination
 from common.utils import EchoBuffer
 
 from .api_details import (
@@ -31,6 +46,7 @@ from .api_details import (
     change_password_schema,
     password_reset_confirm_schema,
     password_reset_schema,
+    profile_picture_get_schema,
     user_me_get_schema,
     user_me_update_schema,
     user_registration_schema,
@@ -38,10 +54,11 @@ from .api_details import (
     user_status_update_schema,
 )
 from .models import AuditLog, User, UserStatusLog
-from .permissions import HasRBACPermission, IsSystemAdmin, user_has_permission
+from .permissions import HasAnyRBACPermission, HasRBACPermission, user_has_permission
 from .rbac import (
     PERMISSION_AUDIT_LOGS_VIEW_ALL,
     PERMISSION_AUDIT_LOGS_VIEW_OWN,
+    PERMISSION_USERS_ACTIVATE_DEACTIVATE,
     PERMISSION_USERS_CREATE,
     PERMISSION_USERS_MANAGE_ROLES,
 )
@@ -67,6 +84,8 @@ from .throttles import (
 
 @user_registration_schema
 class UserRegistrationView(generics.CreateAPIView):
+    """Register a new user account."""
+
     queryset = User.objects.all()
     serializer_class = UserRegistrationSerializer
     permission_classes = [HasRBACPermission]
@@ -75,10 +94,21 @@ class UserRegistrationView(generics.CreateAPIView):
 
 @user_role_update_schema
 class UserRoleUpdateAPIView(APIView):
+    """Handle role updates for user accounts."""
+
     permission_classes = [HasRBACPermission]
     required_permission = PERMISSION_USERS_MANAGE_ROLES
 
     def patch(self, request, user_id):
+        """Validate and update a specific user's role.
+
+        Args:
+            request (Request): The HTTP request containing the new role_id.
+            user_id (int): The primary key of the target user.
+
+        Returns:
+            Response: The updated user role data or validation errors.
+        """
         target_user = get_object_or_404(User.objects.select_related("role"), pk=user_id)
 
         serializer = UserRoleUpdateSerializer(data=request.data)
@@ -99,10 +129,22 @@ class UserRoleUpdateAPIView(APIView):
 
 @activate_account_schema
 class ActivateAccountAPIView(APIView):
+    """Handle account activation requests."""
+
     permission_classes = [AllowAny]
     throttle_classes = [AccountActivationThrottle]
 
     def post(self, request, user_id, token):
+        """Activate a user account using the provided user ID and token.
+        Args:
+            request (Request): The HTTP request containing the user's initial password.
+            user_id (int): The ID of the user to activate.
+            token (str): The one-time activation token sent via email.
+
+        Returns:
+            Response: A success message or an error if the token is invalid/expired.
+
+        """
         user = get_object_or_404(User, pk=user_id)
 
         if not default_token_generator.check_token(user, token):
@@ -135,13 +177,9 @@ class ActivateAccountAPIView(APIView):
         )
 
 
-class AuditLogPagination(PageNumberPagination):
-    page_size = 50
-    page_size_query_param = "page_size"
-    max_page_size = 500
-
-
 class AuditLogFilter(filters.FilterSet):
+    """Filters audit logs by date and specific relational fields."""
+
     start_date = filters.DateFilter(field_name="created_at", lookup_expr="gte")
     end_date = filters.DateFilter(field_name="created_at", lookup_expr="lte")
 
@@ -156,8 +194,14 @@ class AuditLogFilter(filters.FilterSet):
     export=audit_log_export_schema,
 )
 class AuditLogViewSet(viewsets.ReadOnlyModelViewSet):
+    """Provide read-only API endpoints for viewing and exporting logs"""
+
     serializer_class = AuditLogSerializer
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [HasAnyRBACPermission]
+    required_permissions = [
+        PERMISSION_AUDIT_LOGS_VIEW_OWN,
+        PERMISSION_AUDIT_LOGS_VIEW_ALL,
+    ]
     pagination_class = AuditLogPagination
     filter_backends = [filters.DjangoFilterBackend]
     filterset_class = AuditLogFilter
@@ -166,6 +210,7 @@ class AuditLogViewSet(viewsets.ReadOnlyModelViewSet):
     throttle_scope = "audit_export"
 
     def get_queryset(self):
+        """Return a queryset of audit logs base on RBAC permissions."""
         if getattr(self, "swagger_fake_view", False):
             return AuditLog.objects.none()
 
@@ -192,6 +237,7 @@ class AuditLogViewSet(viewsets.ReadOnlyModelViewSet):
         throttle_classes=[ScopedRateThrottle],
     )
     def export(self, request):
+        """Export the filtered audit logs as a downloadable CSV file."""
         max_export_limit = getattr(settings, "MAX_EXPORT_LIMIT", 10000)
 
         queryset = self.filter_queryset(self.get_queryset())[:max_export_limit]
@@ -234,9 +280,21 @@ class AuditLogViewSet(viewsets.ReadOnlyModelViewSet):
 
 @user_status_update_schema
 class UserStatusUpdateView(APIView):
-    permission_classes = [IsSystemAdmin]
+    """Manage user active/inactive status changes."""
+
+    permission_classes = [HasRBACPermission]
+    required_permission = PERMISSION_USERS_ACTIVATE_DEACTIVATE
 
     def patch(self, request, pk):
+        """Update the active status of a specific user.
+
+        Args:
+            request (Request): The HTTP request containing 'is_active' and 'reason'.
+            pk (int): The primary key of the target user.
+
+        Returns:
+            Response: The updated status or validation errors.
+        """
         target_user = get_object_or_404(User, pk=pk)
         serializer = UserStatusUpdateSerializer(data=request.data)
 
@@ -297,13 +355,17 @@ class UserStatusUpdateView(APIView):
     get=user_me_get_schema, put=user_me_update_schema, patch=user_me_update_schema
 )
 class UserMeView(generics.RetrieveUpdateAPIView):
+    """Retrieve and update the currently authenticated user's profile."""
+
     serializer_class = UserMeSerializer
     permission_classes = [permissions.IsAuthenticated]
 
     def get_object(self):
+        """Return the currently authenticated user."""
         return self.request.user
 
     def perform_update(self, serializer):
+        """Save the updated user data and create an audit logs entry."""
         updated_user = serializer.save()
 
         create_audit_log(
@@ -317,6 +379,10 @@ class UserMeView(generics.RetrieveUpdateAPIView):
 
 
 def invalidate_user_sessions(user):
+    """Invalidate and delete all active sessions for a given user.
+    Args:
+        user (User): The user whose sessions should be terminated.
+    """
     from django.contrib.sessions.models import Session
     from django.utils import timezone
 
@@ -345,9 +411,12 @@ def invalidate_user_sessions(user):
 
 @change_password_schema
 class ChangePasswordView(APIView):
+    """Handle authenticated password changes."""
+
     permission_classes = [permissions.IsAuthenticated]
 
     def post(self, request):
+        """Verify the old password and set a new password for the user."""
         serializer = ChangePasswordSerializer(
             data=request.data, context={"request": request}
         )
@@ -385,10 +454,13 @@ class ChangePasswordView(APIView):
 
 @password_reset_schema
 class PasswordResetRequestView(APIView):
+    """Handle requests to send password reset link via email."""
+
     permission_classes = [permissions.AllowAny]
     throttle_classes = [PasswordResetRequestThrottle]
 
     def post(self, request):
+        """Generate and email a password reset token if the user exists."""
         serializer = PasswordResetRequestSerializer(data=request.data)
         if serializer.is_valid():
             email = serializer.validated_data["email"]
@@ -421,20 +493,37 @@ class PasswordResetRequestView(APIView):
 
             return Response(
                 {
-                    "detail": "If an account with this email exists, "
-                    "a password reset link has been sent."
+                    "detail": (
+                        "If an account with this email exists, "
+                        "a password reset link has been sent."
+                    )
                 },
                 status=status.HTTP_200_OK,
             )
+
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
 @password_reset_confirm_schema
 class PasswordResetConfirmView(APIView):
+    """Validate password reset token and set a new password."""
+
     permission_classes = [permissions.AllowAny]
     throttle_classes = [PasswordResetConfirmThrottle]
 
     def post(self, request, uidb64, token):
+        """Reset a user's password if the uid/token pair is valid."""
+        serializer = PasswordResetConfirmSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        """Verify the reset token and set a new password for the user.
+        Args:
+            request (Request): The HTTP request containing the new password.
+            uidb64 (str): Base64 encoded user ID.
+            token (str): The one-time password reset token.
+
+        Returns:
+            Response: A success message or an error for invalid/expired tokens.
+        """
 
         try:
             uid = force_str(urlsafe_base64_decode(uidb64))
@@ -442,28 +531,23 @@ class PasswordResetConfirmView(APIView):
         except (TypeError, ValueError, OverflowError, User.DoesNotExist):
             user = None
 
-        if user is not None and default_token_generator.check_token(user, token):
-            serializer = PasswordResetConfirmSerializer(data=request.data)
-            if not serializer.is_valid():
-                return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        if user and default_token_generator.check_token(user, token):
+            set_user_password(user, serializer.validated_data["new_password"])
+            invalidate_user_sessions(user)
 
-            new_password = serializer.validated_data["new_password"]
-            set_user_password(user, new_password)
+            send_email_task.delay(
+                subject="Password Successfully Reset",
+                message="Your password has been reset successfully.",
+                recipient_list=[user.email],
+            )
 
             create_audit_log(
                 actor=user,
                 action_type=AuditLog.ActionType.PASSWORD_CHANGED,
                 result=AuditLog.ResultStatus.SUCCESS,
                 target_user=user,
-                description="Password successfully reset via email link.",
+                description="Password reset completed via emailed link.",
                 request=request,
-            )
-
-            send_email_task.delay(
-                subject="Password Changed Successfully",
-                message="Your password has been successfully updated. "
-                "If you did not make this change, contact support immediately.",
-                recipient_list=[user.email],
             )
 
             return Response(
@@ -487,10 +571,22 @@ class PasswordResetConfirmView(APIView):
         )
 
 
+@extend_schema_view(get=profile_picture_get_schema)
 class ProtectedProfilePictureView(APIView):
+    """Serve profile picture securely."""
+
     permission_classes = [permissions.IsAuthenticated]
 
     def get(self, request, user_id):
+        """Return the user's profile picture if the requester has permission.
+
+        Args:
+            request (Request): The incoming HTTP request.
+            user_id (str): The ID of the user whose picture is requested.
+
+        Returns:
+            Response: The profile picture or an error message.
+        """
         user = get_object_or_404(User, pk=user_id)
 
         if request.user != user and not request.user.is_staff:
@@ -512,28 +608,21 @@ class ProtectedProfilePictureView(APIView):
 
         content_type, _ = mimetypes.guess_type(file_field.name)
         content_type = content_type or "application/octet-stream"
+
         filename = os.path.basename(file_field.name)
 
         if settings.DEBUG:
-            return FileResponse(
-                file_field,
-                content_type=content_type,
-                as_attachment=False,
-                filename=filename,
-            )
-        else:
-            response = HttpResponse(content_type=content_type)
-
-            safe_name = posixpath.normpath(file_field.name)
-            if safe_name.startswith("..") or safe_name.startswith("/"):
-                raise Http404("Invalid file path.")
-
-            internal_path = f"/internal-media/{safe_name}"
-            response["X-Accel-Redirect"] = internal_path
-
-            escaped_filename = escape_uri_path(filename)
-            response["Content-Disposition"] = (
-                f"inline; filename*=UTF-8''{escaped_filename}"
-            )
-
+            response = FileResponse(file_field.open("rb"), content_type=content_type)
+            response["Content-Disposition"] = f'inline; filename="{filename}"'
             return response
+
+        response = HttpResponse(content_type=content_type)
+        safe_name = posixpath.normpath(file_field.name)
+        if safe_name.startswith("..") or safe_name.startswith("/"):
+            raise Http404("Invalid file path.")
+
+        response["X-Accel-Redirect"] = f"/internal-media/{safe_name}"
+        response["Content-Disposition"] = (
+            f"inline; filename*=UTF-8''{escape_uri_path(filename)}"
+        )
+        return response

@@ -86,6 +86,47 @@ def record_artifact_view(*, user, artifact, request=None):
     )
 
 
+def record_artifact_download(*, user, artifact, request=None):
+    _record_access(
+        user=user,
+        artifact=artifact,
+        action=MediaAuditLog.Action.DOWNLOAD,
+        request=request,
+    )
+
+
+def record_permission_denied(
+    *, user, request=None, permission_code=None, reason=None, obj=None
+):
+    """Best-effort audit entry for a denied media authorization check.
+
+    Never raises: an audit-write failure must not turn a permission check into
+    a 500. Links the artifact FK only when ``obj`` is a MissionArtifact; other
+    objects (e.g. VideoMetadata) are recorded by type/id in ``changes``.
+    """
+    artifact = obj if isinstance(obj, MissionArtifact) else None
+    changes = {
+        "permission": permission_code,
+        "reason": reason,
+        "path": getattr(request, "path", None),
+        "method": getattr(request, "method", None),
+    }
+    if obj is not None and artifact is None:
+        changes["object_type"] = type(obj).__name__
+        changes["object_id"] = getattr(obj, "id", None)
+
+    try:
+        _write_media_audit_log(
+            user=user,
+            artifact=artifact,
+            action=MediaAuditLog.Action.PERMISSION_DENIED,
+            request=request,
+            changes=changes,
+        )
+    except Exception:
+        logger.exception("Failed to write media permission-denied audit log")
+
+
 def upload_artifact(
     *,
     mission,

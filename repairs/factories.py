@@ -1,3 +1,9 @@
+"""Factory Boy definitions for generating repairs app test data.
+
+Provides default mock data for defects, repair orders, and component
+replacements to streamline unit testing.
+"""
+
 import datetime
 
 import factory
@@ -8,6 +14,8 @@ from .models import ComponentType, DefectType, RepairOrderStatus, Severity
 
 
 class DefectReportFactory(factory.django.DjangoModelFactory):
+    """Factory for generating DefectReport instances for testing."""
+
     class Meta:
         model = "repairs.DefectReport"
 
@@ -20,6 +28,8 @@ class DefectReportFactory(factory.django.DjangoModelFactory):
 
 
 class RepairOrderFactory(factory.django.DjangoModelFactory):
+    """Factory for generating RepairOrder instances for testing."""
+
     class Meta:
         model = "repairs.RepairOrder"
 
@@ -30,6 +40,8 @@ class RepairOrderFactory(factory.django.DjangoModelFactory):
 
 
 class ComponentReplacementFactory(factory.django.DjangoModelFactory):
+    """Factory for generating ComponentReplacement instances for testing."""
+
     class Meta:
         model = "repairs.ComponentReplacement"
 

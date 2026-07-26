@@ -1,3 +1,9 @@
+"""Role-based access control (RBAC) permissions and utilities.
+
+Provides custom DRF permission classes and helper functions to enforce
+security policies based on user roles and a defined permission matrix.
+"""
+
 import logging
 
 from django.core.exceptions import ImproperlyConfigured
@@ -11,11 +17,13 @@ logger = logging.getLogger(__name__)
 
 
 def get_user_role_code(user):
+    """Returns the role code for the given user"""
     role = getattr(user, "role", None)
     return getattr(role, "code", None)
 
 
 def user_has_permission(user, permission_code):
+    """Checks if the given user has the given permission"""
     if not user or not user.is_authenticated:
         return False
 
@@ -28,6 +36,7 @@ def user_has_permission(user, permission_code):
 
 
 def log_permission_denied(request, permission_code, reason=None):
+    """Log a warning when a user is denied access to a resource."""
     user = getattr(request, "user", None)
 
     logger.warning(
@@ -46,6 +55,8 @@ def log_permission_denied(request, permission_code, reason=None):
 
 
 class IsSystemAdmin(BasePermission):
+    """Grant access only to users with the system admin role."""
+
     message = "You do not have permission to perform this action."
 
     def has_permission(self, request, view):
@@ -69,6 +80,8 @@ class IsSystemAdmin(BasePermission):
 
 
 class HasRBACPermission(BasePermission):
+    """Verify that the user possesses a specific RBAC permission."""
+
     message = "You do not have permission to perform this action."
     required_permission = None
 
@@ -95,6 +108,8 @@ class HasRBACPermission(BasePermission):
 
 
 class HasAnyRBACPermission(BasePermission):
+    """Verify that the user possesses at least one of the required RBAC permissions."""
+
     message = "You do not have permission to perform this action."
     required_permissions = None
 

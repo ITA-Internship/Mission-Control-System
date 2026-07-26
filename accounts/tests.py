@@ -1,3 +1,5 @@
+"""Test suite for user accounts, role management, authentication. """
+
 from io import StringIO
 from types import SimpleNamespace
 from unittest.mock import patch
@@ -39,7 +41,10 @@ THROTTLE_TEST_SETTINGS = {
 
 
 class UpdateUserRoleTests(TestCase):
+    """Test the service-level logic for updating user roles."""
+
     def setUp(self):
+        """Set up standard roles, a root admin, and a target operator for testing."""
         self.admin_role = Role.objects.get(code=ADMIN_CODE)
         self.operator_role = Role.objects.get(code=OPERATOR_CODE)
 
@@ -61,6 +66,7 @@ class UpdateUserRoleTests(TestCase):
         )
 
     def test_admin_can_update_another_users_role(self):
+        """Verify that an admin can change user's role and generate logs."""
         updated_user = update_user_role(
             target_user=self.target_user,
             new_role_id=self.admin_role.id,
@@ -89,7 +95,10 @@ class UpdateUserRoleTests(TestCase):
 
 
 class UserStatusUpdateViewTests(APITestCase):
+    """Test the API endpoints for activating and deactivating user accounts."""
+
     def setUp(self):
+        """Initialize an admin user and a target user for status modification."""
         self.admin_user = User.objects.create_user(
             username="admin",
             email="admin@example.com",
@@ -116,6 +125,7 @@ class UserStatusUpdateViewTests(APITestCase):
         )
 
     def test_admin_can_deactivate_user(self):
+        """Verify that an admin can deactivate a user and a status log is created."""
         self.client.force_authenticate(user=self.admin_user)
         payload = {"is_active": False, "reason": "Violation of terms"}
 
@@ -147,6 +157,7 @@ class UserStatusUpdateViewTests(APITestCase):
         )
 
     def test_admin_cannot_deactivate_self(self):
+        """Ensure that users are restricted from deactivating their own accounts."""
         self.client.force_authenticate(user=self.admin_user)
 
         url = reverse("accounts:user-status-update", kwargs={"pk": self.admin_user.pk})
@@ -161,6 +172,7 @@ class UserStatusUpdateViewTests(APITestCase):
         self.assertTrue(self.admin_user.is_active)
 
     def test_unchanged_status_returns_200_with_message(self):
+        """Verify submitting the same status returns a message without logging."""
         self.client.force_authenticate(user=self.admin_user)
         payload = {"is_active": True}
 
@@ -172,6 +184,7 @@ class UserStatusUpdateViewTests(APITestCase):
         self.assertFalse(UserStatusLog.objects.exists())
 
     def test_invalid_payload_returns_400(self):
+        """Ensure that the endpoint rejects non-boolean values for the status field."""
         self.client.force_authenticate(user=self.admin_user)
         payload = {"is_active": "not-a-boolean"}
 
@@ -181,7 +194,10 @@ class UserStatusUpdateViewTests(APITestCase):
 
 
 class ChangePasswordViewTests(APITestCase):
+    """Test the authenticated password change API endpoint."""
+
     def setUp(self):
+        """Initialize a standard user for password change operations."""
         self.user = User.objects.create_user(
             username="testuser",
             email="testuser@example.com",
@@ -190,6 +206,7 @@ class ChangePasswordViewTests(APITestCase):
         self.url = reverse("accounts:change-password")
 
     def test_change_password_success(self):
+        """Verify that a user can change their password given correct old password."""
         self.client.force_authenticate(user=self.user)
         payload = {
             "old_password": "OldPassword123!",
@@ -217,6 +234,7 @@ class ChangePasswordViewTests(APITestCase):
         )
 
     def test_change_password_failure_invalid_data(self):
+        """Ensure password change fails and logs failed audit for a wrong password."""
         self.client.force_authenticate(user=self.user)
         payload = {
             "old_password": "WrongPassword!",
@@ -241,12 +259,16 @@ class ChangePasswordViewTests(APITestCase):
         )
 
     def test_unauthenticated_user_cannot_access(self):
+        """Verify that anonymous users are blocked from accessing password change."""
         response = self.client.post(self.url, {}, format="json")
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
 
 
 class PasswordResetConfirmViewTests(APITestCase):
+    """Test the password reset confirmation API endpoint via token."""
+
     def setUp(self):
+        """Set up a user and generate valid base64 and token parameters."""
         self.user = User.objects.create_user(
             username="resetuser", email="test@example.com", password="OldPassword123!"
         )
@@ -260,6 +282,7 @@ class PasswordResetConfirmViewTests(APITestCase):
 
     @patch("accounts.tasks.send_mail")
     def test_password_reset_success(self, mock_send_mail):
+        """Verify successful password reset with valid token and email notification."""
         payload = {
             "new_password": "BrandNewPassword123!",
             "confirm_password": "BrandNewPassword123!",
@@ -289,6 +312,7 @@ class PasswordResetConfirmViewTests(APITestCase):
         self.assertEqual(kwargs["recipient_list"], [self.user.email])
 
     def test_password_reset_invalid_token(self):
+        """Ensure that an invalid or expired token rejects the password reset."""
         invalid_url = reverse(
             "accounts:password-reset-confirm",
             kwargs={"uidb64": self.uidb64, "token": "invalid-token"},
@@ -309,6 +333,7 @@ class PasswordResetConfirmViewTests(APITestCase):
         )
 
     def test_password_reset_invalid_uidb64(self):
+        """Ensure that an invalid base64 encoded user ID rejects the request."""
         invalid_url = reverse(
             "accounts:password-reset-confirm",
             kwargs={"uidb64": "invalid-uid", "token": self.token},
@@ -322,8 +347,11 @@ class PasswordResetConfirmViewTests(APITestCase):
 
 
 class SeedDbSecurityTests(TestCase):
+    """Test security constraints and operational behaviors of the database seeding."""
+
     @override_settings(DEBUG=False)
     def test_seed_db_is_blocked_outside_debug_mode(self):
+        """Ensure that seeding scripts are prohibited from running in production."""
         with self.assertRaisesMessage(
             CommandError,
             "seed_db is allowed only in local development when DEBUG=True.",
@@ -331,6 +359,7 @@ class SeedDbSecurityTests(TestCase):
             call_command("seed_db", module="users")
 
     def test_seed_users_use_provided_password_and_require_password_change(self):
+        """Verify that seeded users receive the exact password."""
         seed_password = "TemporarySeedPassword@123"
 
         stats = seed_users(seed_password=seed_password)
@@ -341,6 +370,7 @@ class SeedDbSecurityTests(TestCase):
         self.assertTrue(seeded_user.must_change_password)
 
     def test_seed_users_do_not_force_password_change_when_password_is_unchanged(self):
+        """Ensure force-change flag is not reapplied if password was already updated."""
         seed_password = "TemporarySeedPassword@123"
         seed_users(seed_password=seed_password)
         seeded_user = User.objects.get(username="root.admin")
@@ -354,6 +384,7 @@ class SeedDbSecurityTests(TestCase):
 
     @override_settings(DEBUG=True)
     def test_seed_db_requires_password_when_seeding_users(self):
+        """Verify halting and raising an error if no default password is provided."""
         with self.assertRaisesMessage(
             CommandError,
             "Seeding users requires --password or SEED_DEFAULT_PASSWORD.",
@@ -361,6 +392,7 @@ class SeedDbSecurityTests(TestCase):
             call_command("seed_db", module="users")
 
     def test_disable_seeded_users_deactivates_existing_seeded_accounts(self):
+        """Ensure that the disable command revokes access for all seeded users."""
         seed_users(seed_password="TemporarySeedPassword@123")
         out = StringIO()
 
@@ -381,7 +413,10 @@ class SeedDbSecurityTests(TestCase):
     EMAIL_BACKEND="django.core.mail.backends.locmem.EmailBackend",
 )
 class PublicAuthThrottleTests(APITestCase):
+    """Test rate-limiting (throttling) behavior on public authentication endpoints."""
+
     def setUp(self):
+        """Clear cache to reset limits and initialize a test user."""
         cache.clear()
         self.request_factory = APIRequestFactory()
         self.user = User.objects.create_user(
@@ -392,6 +427,7 @@ class PublicAuthThrottleTests(APITestCase):
         )
 
     def test_activation_endpoint_is_throttled(self):
+        """Verify that repeated account activation requests return a 429."""
         token = default_token_generator.make_token(self.user)
         url = reverse(
             "accounts:account-activate",
@@ -421,6 +457,7 @@ class PublicAuthThrottleTests(APITestCase):
         }
     )
     def test_missing_throttle_scope_raises_configuration_error(self):
+        """Ensure an error is raised if a throttle rate is undefined in settings."""
         with self.assertRaisesMessage(
             ImproperlyConfigured,
             "Missing throttle rate for scope 'account_activation'.",
@@ -428,6 +465,7 @@ class PublicAuthThrottleTests(APITestCase):
             AccountActivationThrottle()
 
     def test_throttle_cache_key_uses_authenticated_user_when_available(self):
+        """Verify that the throttle scopes by user ID for authenticated requests."""
         request = self.request_factory.post("/password-reset/")
         request.user = self.user
         request.data = {"email": "shared@example.com"}
@@ -438,6 +476,7 @@ class PublicAuthThrottleTests(APITestCase):
         self.assertIn(f"user:{self.user.pk}", cache_key)
 
     def test_password_reset_throttle_cache_key_is_scoped_by_email(self):
+        """Verify anonymous password reset requests are throttled per email address."""
         view = SimpleNamespace(kwargs={})
         first_request = self.request_factory.post("/password-reset/")
         first_request.data = {"email": "first@example.com"}
@@ -451,6 +490,7 @@ class PublicAuthThrottleTests(APITestCase):
         self.assertNotIn("first@example.com", first_key)
 
     def test_password_reset_request_endpoint_is_throttled(self):
+        """Verify that repeated password reset generation requests are rate-limited."""
         url = reverse("accounts:password-reset-request")
 
         first_response = self.client.post(
@@ -470,7 +510,10 @@ class PublicAuthThrottleTests(APITestCase):
 
 @override_settings(REST_FRAMEWORK=THROTTLE_TEST_SETTINGS)
 class PasswordChangeSecurityTests(APITestCase):
+    """Test application behavior regarding forced password changes."""
+
     def setUp(self):
+        """Initialize a user specifically flagged for a mandatory password change."""
         self.user = User.objects.create_user(
             username="must.change.user",
             email="must.change.user@example.com",
@@ -480,6 +523,7 @@ class PasswordChangeSecurityTests(APITestCase):
         )
 
     def test_change_password_clears_must_change_password_flag(self):
+        """Verify changing a password removes the 'must_change_password' requirement."""
         self.client.force_authenticate(self.user)
 
         response = self.client.post(
@@ -497,6 +541,7 @@ class PasswordChangeSecurityTests(APITestCase):
         self.assertFalse(self.user.must_change_password)
 
     def test_password_reset_confirm_endpoint_is_throttled(self):
+        """Verify final password reset stage is rate-limited to prevent bruteforcing."""
         self.user.is_active = True
         self.user.save(update_fields=["is_active"])
 

@@ -1,3 +1,9 @@
+"""URL routing configurations for the repairs app.
+
+Maps URL paths to their corresponding views for defects, component
+replacements, repair orders, and aggregated drone repair histories.
+"""
+
 from django.urls import path
 
 from .views import (

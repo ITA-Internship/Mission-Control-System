@@ -7,52 +7,98 @@ from accounts.rbac import (
     PERMISSION_MEDIA_VIEW,
     PERMISSION_MEDIA_VIEW_LOGS,
 )
+from missions.models import MissionDrone
 from roles.models import ADMIN_CODE
 
+from .services import record_permission_denied
 
-class MediaUploadPermission(HasRBACPermission):
+
+class MediaAuditedDenialMixin:
+    """Record a MediaAuditLog entry whenever an RBAC check denies access.
+
+    Wraps the RBAC ``has_permission`` result; object-level checks call
+    ``_record_denied`` directly since their logic lives in each subclass.
+    """
+
+    def _record_denied(self, request, reason, obj=None):
+        record_permission_denied(
+            user=getattr(request, "user", None),
+            request=request,
+            permission_code=self.required_permission,
+            reason=reason,
+            obj=obj,
+        )
+
+    def has_permission(self, request, view):
+        allowed = super().has_permission(request, view)
+        if not allowed:
+            self._record_denied(request, reason="missing_required_permission")
+        return allowed
+
+
+class MediaUploadPermission(MediaAuditedDenialMixin, HasRBACPermission):
     """Require the media upload RBAC permission."""
 
     required_permission = PERMISSION_MEDIA_UPLOAD
 
 
-class MediaViewPermission(HasRBACPermission):
-    """Require the media view RBAC permission."""
-
-    required_permission = PERMISSION_MEDIA_VIEW
+class MediaObjectPermission(MediaAuditedDenialMixin, HasRBACPermission):
+    """Base for object-level media checks: records the denial and delegates the
+    authorization rule to ``_check_object`` (implemented per subclass)."""
 
     def has_object_permission(self, request, view, obj):
         """Verify if the user has permission to view the specific media artifact."""
+        if self._check_object(request, obj):
+            return True
+
+        self._record_denied(request, reason="object_permission_denied", obj=obj)
+        return False
+
+    def _is_owner_or_admin(self, request, obj):
         if get_user_role_code(request.user) == ADMIN_CODE:
             return True
 
-        if getattr(obj, "uploaded_by_id", None) == request.user.id:
+        return getattr(obj, "uploaded_by_id", None) == request.user.id
+
+    def _check_object(self, request, obj):
+        raise NotImplementedError
+
+
+class MediaViewPermission(MediaObjectPermission):
+    """Require the media view RBAC permission."""
+    required_permission = PERMISSION_MEDIA_VIEW
+
+    def _check_object(self, request, obj):
+        if self._is_owner_or_admin(request, obj):
             return True
 
         mission = getattr(obj, "mission", None)
-        if mission and getattr(mission, "unit_id", None) == request.user.unit_id:
+        if not mission:
+            return False
+
+        if mission.commander_id == request.user.id:
+            return True
+
+        if mission.created_by_id == request.user.id:
+            return True
+
+        if MissionDrone.objects.filter(
+            mission_id=mission.id,
+            operator_id=request.user.id,
+        ).exists():
             return True
 
         return False
 
 
-class MediaDeletePermission(HasRBACPermission):
+class MediaDeletePermission(MediaObjectPermission):
     """Require the media delete RBAC permission."""
-
     required_permission = PERMISSION_MEDIA_DELETE
 
-    def has_object_permission(self, request, view, obj):
-        """Verify if the user has permission to delete the specific media artifact."""
-        if get_user_role_code(request.user) == ADMIN_CODE:
-            return True
-
-        if getattr(obj, "uploaded_by_id", None) == request.user.id:
-            return True
-
-        return False
+    def _check_object(self, request, obj):
+        return self._is_owner_or_admin(request, obj)
 
 
-class MediaViewLogsPermission(HasRBACPermission):
+class MediaViewLogsPermission(MediaAuditedDenialMixin, HasRBACPermission):
     """Require the media audit log view RBAC permission."""
-
     required_permission = PERMISSION_MEDIA_VIEW_LOGS
