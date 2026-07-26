@@ -16,6 +16,7 @@ from media.tasks import extract_video_duration_task
 from missions.factories import (
     AdminUserFactory,
     DispatcherUserFactory,
+    MilitaryUnitFactory,
     MissionDroneFactory,
     MissionFactory,
     OperatorUserFactory,
@@ -356,9 +357,13 @@ class ArtifactListCreateTests(APITestCase):
         self.admin = AdminUserFactory()
         self.dispatcher = DispatcherUserFactory()
         self.operator = OperatorUserFactory()
-        self.viewer = ViewerUserFactory()
+        self.unit = MilitaryUnitFactory()
+        self.other_unit = MilitaryUnitFactory()
+        self.viewer = ViewerUserFactory(unit=self.unit)
+        self.other_viewer = ViewerUserFactory(unit=self.other_unit)
+        self.viewer_without_unit = ViewerUserFactory()
 
-        self.mission = MissionFactory()
+        self.mission = MissionFactory(unit=self.unit)
         self.url = reverse(
             "missions:media:artifact-list-create",
             kwargs={"mission_pk": self.mission.pk},
@@ -474,6 +479,21 @@ class ArtifactListCreateTests(APITestCase):
         file_types = {item["file_type"] for item in response.data["results"]}
         self.assertEqual(file_types, {"image", "video", "data"})
 
+    def test_viewer_from_other_unit_cannot_list_artifacts(self):
+        self.client.force_authenticate(self.other_viewer)
+
+        response = self.client.get(self.url)
+
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+
+    def test_viewer_without_unit_cannot_list_artifacts(self):
+        self.assertIsNone(self.viewer_without_unit.unit_id)
+        self.client.force_authenticate(self.viewer_without_unit)
+
+        response = self.client.get(self.url)
+
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+
     def test_unauthenticated_cannot_list(self):
         response = self.client.get(self.url)
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
@@ -486,9 +506,13 @@ class ArtifactDetailTests(APITestCase):
         self.operator = OperatorUserFactory()
         self.assigned_operator = OperatorUserFactory()
         self.unrelated_operator = OperatorUserFactory()
-        self.viewer = ViewerUserFactory()
+        self.viewer_unit = MilitaryUnitFactory()
+        self.other_unit = MilitaryUnitFactory()
+        self.viewer = ViewerUserFactory(unit=self.viewer_unit)
+        self.other_viewer = ViewerUserFactory(unit=self.other_unit)
+        self.viewer_without_unit = ViewerUserFactory()
 
-        self.mission = MissionFactory()
+        self.mission = MissionFactory(unit=self.viewer_unit)
         MissionDroneFactory(mission=self.mission, operator=self.assigned_operator)
         self.artifact = MissionArtifactFactory(
             mission=self.mission, uploaded_by=self.operator, is_image=True
@@ -502,8 +526,19 @@ class ArtifactDetailTests(APITestCase):
             kwargs={"mission_pk": self.mission.pk, "artifact_pk": self.artifact.pk},
         )
 
-    def test_viewer_cannot_retrieve(self):
+    def test_viewer_from_same_unit_can_retrieve(self):
         self.client.force_authenticate(self.viewer)
+        response = self.client.get(self.url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+    def test_viewer_from_other_unit_cannot_retrieve(self):
+        self.client.force_authenticate(self.other_viewer)
+        response = self.client.get(self.url)
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_viewer_without_unit_cannot_retrieve(self):
+        self.assertIsNone(self.viewer_without_unit.unit_id)
+        self.client.force_authenticate(self.viewer_without_unit)
         response = self.client.get(self.url)
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
 
@@ -801,7 +836,12 @@ class ProtectedMediaDownloadTests(APITestCase):
     def setUp(self):
         self.admin = AdminUserFactory()
         self.operator = OperatorUserFactory()
-        self.mission = MissionFactory()
+        self.viewer_unit = MilitaryUnitFactory()
+        self.other_unit = MilitaryUnitFactory()
+        self.viewer = ViewerUserFactory(unit=self.viewer_unit)
+        self.other_viewer = ViewerUserFactory(unit=self.other_unit)
+        self.viewer_without_unit = ViewerUserFactory()
+        self.mission = MissionFactory(unit=self.viewer_unit)
         self.other_mission = MissionFactory()
         self.artifact = MissionArtifactFactory(
             mission=self.mission, uploaded_by=self.operator, is_image=True
@@ -810,6 +850,29 @@ class ProtectedMediaDownloadTests(APITestCase):
             "missions:media:artifact-download",
             kwargs={"mission_pk": self.mission.pk, "artifact_pk": self.artifact.pk},
         )
+
+    @override_settings(DEBUG=True)
+    def test_same_unit_viewer_can_download(self):
+        self.client.force_authenticate(self.viewer)
+
+        response = self.client.get(self.url)
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+    def test_other_unit_viewer_cannot_download(self):
+        self.client.force_authenticate(self.other_viewer)
+
+        response = self.client.get(self.url)
+
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_viewer_without_unit_cannot_download(self):
+        self.assertIsNone(self.viewer_without_unit.unit_id)
+        self.client.force_authenticate(self.viewer_without_unit)
+
+        response = self.client.get(self.url)
+
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
 
     @override_settings(DEBUG=True)
     def test_download_logs_download_action_with_user_and_ip(self):

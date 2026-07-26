@@ -22,6 +22,7 @@ from rest_framework.views import APIView
 
 from common.pagination import StandardResultsSetPagination
 from missions.models import Mission
+from missions.permissions import restrict_missions_for_user
 
 from .api_details import (
     artifact_detail_delete_schema,
@@ -135,7 +136,16 @@ class ArtifactListCreateView(_MissionArtifactMixin, generics.ListCreateAPIView):
         return MissionArtifactUploadSerializer
 
     def get_queryset(self):
-        mission = self.get_mission()
+        mission_queryset = Mission.objects.all()
+        if self.request.method in permissions.SAFE_METHODS:
+            mission_queryset = restrict_missions_for_user(
+                mission_queryset,
+                self.request.user,
+            )
+        mission = generics.get_object_or_404(
+            mission_queryset,
+            id=self.kwargs["mission_pk"],
+        )
         return MissionArtifact.objects.filter(mission=mission).select_related(
             "uploaded_by"
         )
@@ -295,9 +305,16 @@ class VideoMetadataViewSet(viewsets.ModelViewSet):
         return VideoMetadataSerializer
 
     def get_queryset(self):
+        queryset = super().get_queryset()
+        if self.action == "list":
+            visible_missions = restrict_missions_for_user(
+                Mission.objects.all(),
+                self.request.user,
+            ).values("id")
+            queryset = queryset.filter(mission_id__in=visible_missions)
         return filter_video_metadata_queryset(
             self.request.query_params,
-            queryset=super().get_queryset(),
+            queryset=queryset,
         )
 
     def get_permissions(self):
@@ -364,8 +381,17 @@ class VideoMetadataBrowserView(TemplateView):
             return context
 
         try:
+            visible_missions = restrict_missions_for_user(
+                Mission.objects.all(),
+                self.request.user,
+            ).values("id")
             context["videos"] = filter_video_metadata_queryset(
-                self.request.GET
+                self.request.GET,
+                queryset=VideoMetadata.objects.select_related(
+                    "mission",
+                    "drone",
+                    "uploader",
+                ).filter(mission_id__in=visible_missions),
             ).order_by("-created_at")
         except ValidationError as exc:
             if isinstance(exc.detail, dict):

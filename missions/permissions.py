@@ -11,7 +11,13 @@ from accounts.rbac import (
     PERMISSION_MISSIONS_UPDATE_STATUS,
     PERMISSION_MISSIONS_VIEW,
 )
-from roles.models import ADMIN_CODE, COMMANDER_CODE, DISPATCHER_CODE, OPERATOR_CODE
+from roles.models import (
+    ADMIN_CODE,
+    COMMANDER_CODE,
+    DISPATCHER_CODE,
+    OPERATOR_CODE,
+    VIEWER_CODE,
+)
 
 from .models import Mission, MissionDrone
 
@@ -30,6 +36,44 @@ def _has_operator_in_mission(obj, user_id):
     if "mission_drones" in cache:
         return any(md.operator_id == user_id for md in obj.mission_drones.all())
     return obj.mission_drones.filter(operator_id=user_id).exists()
+
+
+def can_user_view_mission(user, mission):
+    """Return whether ``user`` may view ``mission`` under object-level rules.
+
+    This complements RBAC ``missions.view`` with domain scoping:
+    - admins/commanders/dispatchers may view any mission
+    - operators may only view assigned missions
+    - viewers may only view missions belonging to their own unit
+    """
+
+    if not user or not getattr(user, "is_authenticated", False):
+        return False
+
+    role_code = get_user_role_code(user)
+    if role_code in (ADMIN_CODE, COMMANDER_CODE, DISPATCHER_CODE):
+        return True
+
+    if role_code == OPERATOR_CODE:
+        return _has_operator_in_mission(mission, user.id)
+
+    if role_code == VIEWER_CODE:
+        return user.unit_id is not None and user.unit_id == mission.unit_id
+
+    return False
+
+
+def restrict_missions_for_user(queryset, user):
+    """Scope a mission queryset to what ``user`` is allowed to view."""
+
+    role_code = get_user_role_code(user)
+    if role_code == OPERATOR_CODE:
+        return queryset.filter(mission_drones__operator_id=user.id).distinct()
+    if role_code == VIEWER_CODE:
+        if user.unit_id is None:
+            return queryset.none()
+        return queryset.filter(unit_id=user.unit_id)
+    return queryset
 
 
 class CanCreateMission(HasRBACPermission):
