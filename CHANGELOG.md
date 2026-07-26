@@ -70,6 +70,8 @@
 - *(tests)* Update MediaPermissionDeniedLoggingTests to use ViewerUserFactory and improve logging assertions (by **Anastasiia**)
 - *(tests)* Update MediaPermissionDeniedLoggingTests (by **Anastasiia Humeniuk**)
 - Fix linting (by **Olena Kshyk**)
+- *(permissions)* Remove redundant mission unit check from MediaViewPermission (by **Anastasiia**)
+- *(permissions)* Enhance MediaViewPermission to include mission commander and created_by checks (by **Anastasiia**)
 
 ### Other
 
@@ -651,6 +653,9 @@
 - Merge branch 'develop' of https://github.com/ITA-Internship/Mission-Control-System into task#135-api-description-for-endpoints (by **Olena Kshyk**)
 - Merge pull request #156 from ITA-Internship/task#135-api-description-for-endpoints (by **Olena Kshyk**)
 - Task#135 api description for endpoints (by **Olena Kshyk**)
+- Merge remote-tracking branch 'origin/develop' into task#137-fix-media-object-permission-access (by **Anastasiia**)
+- Merge pull request #161 from ITA-Internship/task#137-fix-media-object-permission-access (by **Anastasiia Humeniuk**)
+- Task#137 fix media object permission access (by **Anastasiia Humeniuk**)
 
 ### Refactor
 
@@ -683,9 +688,11 @@
 - Test role update flow and make allowed hosts configurable (by **Anastasiia**)
 - Update viewer assignment permissions and improve test clarity (by **Anastasiia**)
 - Test (by **Maksym**)
+- Add test for downloading artifact from wrong mission (by **Anastasiia**)
 
 ### Miscellaneous Tasks
 
+- *(changelog)* Update CHANGELOG.md [skip ci] (by **github-actions[bot]**)
 - *(changelog)* Update CHANGELOG.md [skip ci] (by **github-actions[bot]**)
 - *(changelog)* Update CHANGELOG.md [skip ci] (by **github-actions[bot]**)
 - *(changelog)* Update CHANGELOG.md [skip ci] (by **github-actions[bot]**)
