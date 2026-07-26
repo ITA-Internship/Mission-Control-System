@@ -19,6 +19,7 @@ from .factories import (
     CommanderUserFactory,
     DispatcherUserFactory,
     DroneFactory,
+    MilitaryUnitFactory,
     MissionDroneFactory,
     MissionFactory,
     OperatorUserFactory,
@@ -620,6 +621,7 @@ class MissionCreateTests(APITestCase):
         self.operator = OperatorUserFactory()
         self.viewer = ViewerUserFactory()
         self.commander = CommanderUserFactory()
+        self.unit = MilitaryUnitFactory()
 
         self.url = reverse("missions:mission-list-create")
 
@@ -627,6 +629,7 @@ class MissionCreateTests(APITestCase):
             "title": "Recon Sweep",
             "started_at": _future_datetime(2).isoformat(),
             "location_description": "Sector 7",
+            "unit_id": self.unit.id,
         }
 
     def test_dispatcher_can_create_mission(self):
@@ -642,6 +645,7 @@ class MissionCreateTests(APITestCase):
         self.assertEqual(mission.location_description, "Sector 7")
         self.assertEqual(mission.created_by, self.dispatcher)
         self.assertEqual(mission.status, "planned")
+        self.assertEqual(mission.unit, self.unit)
 
     def test_admin_can_create_mission(self):
         self.client.force_authenticate(self.admin)
@@ -659,6 +663,7 @@ class MissionCreateTests(APITestCase):
             "started_at": _future_datetime(2).isoformat(),
             "latitude": "50.450001",
             "longitude": "30.523333",
+            "unit_id": self.unit.id,
         }
 
         response = self.client.post(self.url, payload, format="json")
@@ -667,6 +672,21 @@ class MissionCreateTests(APITestCase):
         mission = Mission.objects.get()
         self.assertEqual(str(mission.latitude), "50.450001")
         self.assertEqual(str(mission.longitude), "30.523333")
+
+    def test_create_response_includes_unit_brief(self):
+        self.client.force_authenticate(self.dispatcher)
+
+        response = self.client.post(self.url, self.valid_payload, format="json")
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(
+            response.data["unit"],
+            {
+                "id": self.unit.id,
+                "name": self.unit.name,
+                "code": self.unit.code,
+            },
+        )
 
     def test_create_with_commander_id(self):
         self.client.force_authenticate(self.dispatcher)
@@ -727,6 +747,18 @@ class MissionCreateTests(APITestCase):
 
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertIn("title", response.data)
+
+    def test_missing_unit_id_rejected(self):
+        self.client.force_authenticate(self.dispatcher)
+
+        payload = {
+            key: val for key, val in self.valid_payload.items() if key != "unit_id"
+        }
+
+        response = self.client.post(self.url, payload, format="json")
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("unit_id", response.data)
 
     def test_blank_title_rejected(self):
         self.client.force_authenticate(self.dispatcher)

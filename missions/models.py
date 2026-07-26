@@ -90,7 +90,7 @@ class MissionQuerySet(models.QuerySet):
         when listing or serialising missions.
         """
 
-        return self.select_related("commander", "created_by").prefetch_related(
+        return self.select_related("commander", "created_by", "unit").prefetch_related(
             Prefetch(
                 "mission_drones",
                 queryset=MissionDrone.objects.select_related("drone", "operator"),
@@ -158,6 +158,14 @@ class Mission(models.Model):
         on_delete=models.SET_NULL,
         null=True,
         related_name="created_missions",
+    )
+
+    unit = models.ForeignKey(
+        "accounts.MilitaryUnit",
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="missions",
     )
 
     created_at = models.DateTimeField(auto_now_add=True)
