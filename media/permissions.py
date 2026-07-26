@@ -5,6 +5,7 @@ from accounts.rbac import (
     PERMISSION_MEDIA_VIEW,
     PERMISSION_MEDIA_VIEW_LOGS,
 )
+from missions.models import MissionDrone
 from roles.models import ADMIN_CODE
 
 from .services import record_permission_denied
@@ -66,9 +67,22 @@ class MediaViewPermission(MediaObjectPermission):
             return True
 
         mission = getattr(obj, "mission", None)
-        return bool(
-            mission and getattr(mission, "unit_id", None) == request.user.unit_id
-        )
+        if not mission:
+            return False
+
+        if mission.commander_id == request.user.id:
+            return True
+
+        if mission.created_by_id == request.user.id:
+            return True
+
+        if MissionDrone.objects.filter(
+            mission_id=mission.id,
+            operator_id=request.user.id,
+        ).exists():
+            return True
+
+        return False
 
 
 class MediaDeletePermission(MediaObjectPermission):
