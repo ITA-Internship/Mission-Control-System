@@ -3,7 +3,9 @@ Test repair operations including defect reporting, component replacements,
 repair orders, role-based access control, timelines, and CSV exports.
 """
 
+import csv
 import datetime
+import io
 from unittest.mock import patch
 
 from django.contrib.auth.models import AnonymousUser
@@ -1077,6 +1079,32 @@ class ComponentReplacementProtectTests(APITestCase):
 
         with self.assertRaises(ProtectedError):
             replacement.drone.delete()
+
+
+class ComponentReplacementExportTests(APITestCase):
+    """Verify CSV streaming functionality for component replacements."""
+
+    def setUp(self):
+        self.export_url = reverse("repairs:replacement-export")
+        self.admin_user = AdminUserFactory()
+        self.replacement = ComponentReplacementFactory(reason="@cmd|'/C calc'!A0")
+
+        self.client.force_authenticate(self.admin_user)
+
+    def test_replacement_export_sanitized(self):
+        response = self.client.get(self.export_url)
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        content = b"".join(response.streaming_content).decode("utf-8")
+        csv_reader = csv.reader(io.StringIO(content))
+        rows = list(csv_reader)
+
+        self.assertGreater(len(rows), 1)
+
+        injected_value = next(val for val in rows[1] if "@cmd" in val)
+
+        self.assertEqual(injected_value, "'@cmd|'/C calc'!A0")
 
 
 class ComponentReplacementFactoryIntegrityTests(APITestCase):

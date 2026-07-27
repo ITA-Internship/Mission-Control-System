@@ -1,6 +1,7 @@
 """Test suite for user accounts, role management, authentication. """
 
-from io import StringIO
+import csv
+import io
 from types import SimpleNamespace
 from unittest.mock import patch
 
@@ -16,6 +17,7 @@ from django.utils.http import urlsafe_base64_encode
 from rest_framework import status
 from rest_framework.test import APIClient, APIRequestFactory, APITestCase
 
+from drones.factories import AdminUserFactory
 from roles.models import ADMIN_CODE, OPERATOR_CODE, Role
 from seed_data.users import seed_users
 
@@ -456,7 +458,7 @@ class SeedDbSecurityTests(TestCase):
     def test_disable_seeded_users_deactivates_existing_seeded_accounts(self):
         """Ensure that the disable command revokes access for all seeded users."""
         seed_users(seed_password="TemporarySeedPassword@123")
-        out = StringIO()
+        out = io.StringIO()
 
         call_command("disable_seeded_users", stdout=out)
 
@@ -790,6 +792,35 @@ class PasswordChangeSecurityTests(APITestCase):
 
         self.assertEqual(first_response.status_code, status.HTTP_200_OK)
         self.assertEqual(second_response.status_code, status.HTTP_429_TOO_MANY_REQUESTS)
+
+
+class AuditLogExportTests(TestCase):
+    def setUp(self):
+        self.client = APIClient()
+        self.admin_user = AdminUserFactory()
+        self.client.force_authenticate(self.admin_user)
+
+    def test_audit_log_csv_export_is_sanitized(self):
+        """Integration test asserting exported CSV are protected against injection."""
+
+        malicious_description = "=cmd|'/C calc'!A0"
+        AuditLog.objects.create(
+            actor=self.admin_user,
+            action_type=AuditLog.ActionType.USER_CREATED,
+            result=AuditLog.ResultStatus.SUCCESS,
+            description=malicious_description,
+            ip_address="127.0.0.1",
+        )
+        url = reverse("accounts:audit-log-export")
+        response = self.client.get(url)
+
+        self.assertEqual(response.status_code, 200)
+        content = b"".join(response.streaming_content).decode("utf-8")
+        reader = csv.reader(io.StringIO(content))
+        rows = list(reader)
+        data_row = rows[1]
+
+        self.assertEqual(data_row[-1], f"'{malicious_description}")
 
 
 class ProtectedProfilePictureRBACTests(APITestCase):
