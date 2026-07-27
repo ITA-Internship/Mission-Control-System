@@ -72,6 +72,9 @@
 - Fix linting (by **Olena Kshyk**)
 - *(permissions)* Remove redundant mission unit check from MediaViewPermission (by **Anastasiia**)
 - *(permissions)* Enhance MediaViewPermission to include mission commander and created_by checks (by **Anastasiia**)
+- Fixed comments and added tests (by **Olena Kshyk**)
+- Fix video data filtering (by **Olena Kshyk**)
+- Fixed unit_id and added tests (by **Olena Kshyk**)
 
 ### Other
 
@@ -656,6 +659,20 @@
 - Merge remote-tracking branch 'origin/develop' into task#137-fix-media-object-permission-access (by **Anastasiia**)
 - Merge pull request #161 from ITA-Internship/task#137-fix-media-object-permission-access (by **Anastasiia Humeniuk**)
 - Task#137 fix media object permission access (by **Anastasiia Humeniuk**)
+- Enforce authenticated API access by default (by **yana-donda**)
+- Harden session and CSRF cookie settings (by **yana-donda**)
+- Merge develop into 121-authentication-rbac-hardening (by **yana-donda**)
+- Complete profile RBAC and access-control documentation (by **yana-donda**)
+- Added one more test (by **yana-donda**)
+- Merge develop into 121-authentication-rbac-hardening (by **yana-donda**)
+- Corrected tests (by **yana-donda**)
+- Merge pull request #189 from ITA-Internship/121-authentication-rbac-hardening (by **Yana**)
+- Implement secure authentication and RBAC hardening (by **Yana**)
+- Added check for password in activation (by **Olena Kshyk**)
+- Merge pull request #176 from ITA-Internship/fix/task#141-password-check-for-acc-activation (by **Olena Kshyk**)
+- Task #141 — Account activation bypasses password-strength policy (by **Olena Kshyk**)
+- Merge pull request #175 from ITA-Internship/fix/task#139-video-exposure (by **Olena Kshyk**)
+- Fix C3 — Video metadata listing exposes all videos system-wide (by **Olena Kshyk**)
 
 ### Refactor
 
@@ -689,9 +706,13 @@
 - Update viewer assignment permissions and improve test clarity (by **Anastasiia**)
 - Test (by **Maksym**)
 - Add test for downloading artifact from wrong mission (by **Anastasiia**)
+- Validate session authentication and CSRF behavior (by **yana-donda**)
 
 ### Miscellaneous Tasks
 
+- *(changelog)* Update CHANGELOG.md [skip ci] (by **github-actions[bot]**)
+- *(changelog)* Update CHANGELOG.md [skip ci] (by **github-actions[bot]**)
+- *(changelog)* Update CHANGELOG.md [skip ci] (by **github-actions[bot]**)
 - *(changelog)* Update CHANGELOG.md [skip ci] (by **github-actions[bot]**)
 - *(changelog)* Update CHANGELOG.md [skip ci] (by **github-actions[bot]**)
 - *(changelog)* Update CHANGELOG.md [skip ci] (by **github-actions[bot]**)
