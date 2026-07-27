@@ -28,6 +28,7 @@ from rest_framework.views import APIView
 from accounts.permissions import get_user_role_code
 from common.pagination import StandardResultsSetPagination
 from missions.models import Mission
+from missions.views import restrict_missions_for_user
 from roles.models import ADMIN_CODE
 
 from .api_details import (
@@ -152,8 +153,11 @@ class _MissionArtifactMixin:
         """Extract the target mission matching the primary key
         specified in the URL path."""
         if not hasattr(self, "_mission"):
+            queryset = restrict_missions_for_user(
+                Mission.objects.all(), self.request.user
+            )
             self._mission = generics.get_object_or_404(
-                Mission, id=self.kwargs["mission_pk"]
+                queryset, id=self.kwargs["mission_pk"]
             )
         return self._mission
 
@@ -265,6 +269,11 @@ class ProtectedMediaView(APIView):
     def get(self, request, mission_pk, artifact_pk):
         """Authorize the download request and return the file
         or Nginx redirect response."""
+        allowed_missions = restrict_missions_for_user(
+            Mission.objects.all(), request.user
+        )
+        get_object_or_404(allowed_missions, pk=mission_pk)
+
         artifact = get_object_or_404(
             MissionArtifact, pk=artifact_pk, mission_id=mission_pk
         )

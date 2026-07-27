@@ -1,4 +1,4 @@
-"""Test suite for user accounts, role management, authentication. """
+"""Test suite for user accounts, role management, authentication."""
 
 import csv
 import io
