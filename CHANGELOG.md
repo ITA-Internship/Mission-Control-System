@@ -5,6 +5,7 @@
 - *(missions)* Drone & operator assignment management (by **Maksym**)
 - *(missions)* Implements nested serializer for mission drones creation (by **travis**)
 - Implement mission media artifacts upload and management (by **Maksym**)
+- *(client)* Add client-side web pages proposal documentation (by **mehalyna**)
 
 ### Bug Fixes
 
@@ -738,6 +739,7 @@
 
 ### Miscellaneous Tasks
 
+- *(changelog)* Update CHANGELOG.md [skip ci] (by **github-actions[bot]**)
 - *(changelog)* Update CHANGELOG.md [skip ci] (by **github-actions[bot]**)
 - *(changelog)* Update CHANGELOG.md [skip ci] (by **github-actions[bot]**)
 - *(changelog)* Update CHANGELOG.md [skip ci] (by **github-actions[bot]**)
