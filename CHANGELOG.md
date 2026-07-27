@@ -72,6 +72,7 @@
 - Fix linting (by **Olena Kshyk**)
 - *(permissions)* Remove redundant mission unit check from MediaViewPermission (by **Anastasiia**)
 - *(permissions)* Enhance MediaViewPermission to include mission commander and created_by checks (by **Anastasiia**)
+- Fixed comments and added tests (by **Olena Kshyk**)
 
 ### Other
 
@@ -665,6 +666,9 @@
 - Corrected tests (by **yana-donda**)
 - Merge pull request #189 from ITA-Internship/121-authentication-rbac-hardening (by **Yana**)
 - Implement secure authentication and RBAC hardening (by **Yana**)
+- Added check for password in activation (by **Olena Kshyk**)
+- Merge pull request #176 from ITA-Internship/fix/task#141-password-check-for-acc-activation (by **Olena Kshyk**)
+- Task #141 — Account activation bypasses password-strength policy (by **Olena Kshyk**)
 
 ### Refactor
 
@@ -702,6 +706,7 @@
 
 ### Miscellaneous Tasks
 
+- *(changelog)* Update CHANGELOG.md [skip ci] (by **github-actions[bot]**)
 - *(changelog)* Update CHANGELOG.md [skip ci] (by **github-actions[bot]**)
 - *(changelog)* Update CHANGELOG.md [skip ci] (by **github-actions[bot]**)
 - *(changelog)* Update CHANGELOG.md [skip ci] (by **github-actions[bot]**)
