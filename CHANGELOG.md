@@ -65,10 +65,12 @@
 - Address PR review comments for health checks (by **Maksym**)
 - Fixed linting (by **Olena Kshyk**)
 - Fixed review comments (by **Olena Kshyk**)
-- Fixed linting (by **Olena Kshyk**)
-- Fixes from comments (by **Olena Kshyk**)
+- Scope artifact endpoints to requester's authorized missions (IDOR #138) (by **Maksym**)
+- Restore missing operator assignment and fix formatting (by **Maksym**)
 - *(tests)* Update MediaPermissionDeniedLoggingTests to use ViewerUserFactory and improve logging assertions (by **Anastasiia**)
 - *(tests)* Update MediaPermissionDeniedLoggingTests (by **Anastasiia Humeniuk**)
+- Fixed linting (by **Olena Kshyk**)
+- Fixes from comments (by **Olena Kshyk**)
 - Fix linting (by **Olena Kshyk**)
 - *(permissions)* Remove redundant mission unit check from MediaViewPermission (by **Anastasiia**)
 - *(permissions)* Enhance MediaViewPermission to include mission commander and created_by checks (by **Anastasiia**)
@@ -78,6 +80,7 @@
 - Fixed unit_id and added tests (by **Olena Kshyk**)
 - Fix mass assignment of drone status on create (by **torii044**)
 - Fix mass assignment of drone status on create (by **Viktoriia Kovalchuk**)
+- Scope artifact endpoints to requester's authorized missions (IDOR #138) (by **Maksym Korchynskyi**)
 
 ### Other
 
@@ -620,9 +623,6 @@
 - Fix CSP header: add worker-src for ReDoc Web Worker (by **Maksym**)
 - Merge pull request #131 from ITA-Internship/task#122-infrastructure-hardening (by **Maksym Korchynskyi**)
 - Add health checks, Gunicorn config, and Docker bug fixes (by **Maksym Korchynskyi**)
-- Add function to protect from csv injections (by **Maksym Lirko**)
-- Update export of csv files in drones app (by **Maksym Lirko**)
-- Update export of csv files in repairs app (by **Maksym Lirko**)
 - Update CI/CD file adding deploy steps (by **Maksym Lirko**)
 - Add bash file for checking enviroment variables (by **Maksym Lirko**)
 - Add deployment workflow and CI/CD guide (by **Maksym Lirko**)
@@ -651,6 +651,12 @@
 - Fix API schema generation and align mission permission naming (by **Anastasiia**)
 - Merge pull request #132 from ITA-Internship/task#124-optimize-rbac-permission-structure (by **Anastasiia Humeniuk**)
 - Task#124 optimize rbac permission structure (by **Anastasiia Humeniuk**)
+- Merge pull request #179 from ITA-Internship/fix/media-permission-denied-test (by **Anastasiia Humeniuk**)
+- Merge remote-tracking branch 'origin/develop' into fix/cross-mission-idor-artifact-list-upload (by **Maksym**)
+- Address PR review comments: auth model docs, dead docstring, 500 to 404, extract test mixin (by **Maksym**)
+- Add function to protect from csv injections (by **Maksym Lirko**)
+- Update export of csv files in drones app (by **Maksym Lirko**)
+- Update export of csv files in repairs app (by **Maksym Lirko**)
 - Merge branch 'develop' into bugfix#145-csv-injection-in-exports (by **Maksym Lirko**)
 - Add tests and sanitizing func to audit log export (by **Maksym Lirko**)
 - Add tests for check csv injections (by **Maksym Lirko**)
@@ -659,7 +665,6 @@
 - Merge branch 'develop' of https://github.com/ITA-Internship/Mission-Control-System into task#135-api-description-for-endpoints (by **Olena Kshyk**)
 - Added descriptions to drones + repairs + media (by **Olena Kshyk**)
 - Restored django pages in docker env (by **travis**)
-- Merge pull request #179 from ITA-Internship/fix/media-permission-denied-test (by **Anastasiia Humeniuk**)
 - Merge branch 'develop' into task#126-restore-django-pages (by **travis**)
 - Merge pull request #158 from ITA-Internship/task#126-restore-django-pages (by **danylo**)
 - Restored django pages in docker env (by **danylo**)
@@ -693,6 +698,8 @@
 - Fix lint issues (by **Maksym Lirko**)
 - Merge pull request #180 from ITA-Internship/bugfix#145-csv-injection-in-exports (by **Maksym**)
 - Bugfix#145 csv injection in exports (by **Maksym**)
+- Merge branch 'develop' into fix/cross-mission-idor-artifact-list-upload (by **Maksym**)
+- Merge pull request #178 from ITA-Internship/fix/cross-mission-idor-artifact-list-upload (by **Maksym Korchynskyi**)
 
 ### Refactor
 
@@ -725,11 +732,13 @@
 - Test role update flow and make allowed hosts configurable (by **Anastasiia**)
 - Update viewer assignment permissions and improve test clarity (by **Anastasiia**)
 - Test (by **Maksym**)
+- Fix missing CommanderUserFactory import (by **Maksym**)
 - Add test for downloading artifact from wrong mission (by **Anastasiia**)
 - Validate session authentication and CSRF behavior (by **yana-donda**)
 
 ### Miscellaneous Tasks
 
+- *(changelog)* Update CHANGELOG.md [skip ci] (by **github-actions[bot]**)
 - *(changelog)* Update CHANGELOG.md [skip ci] (by **github-actions[bot]**)
 - *(changelog)* Update CHANGELOG.md [skip ci] (by **github-actions[bot]**)
 - *(changelog)* Update CHANGELOG.md [skip ci] (by **github-actions[bot]**)
