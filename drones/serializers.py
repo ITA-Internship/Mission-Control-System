@@ -310,7 +310,7 @@ class DroneSerializer(serializers.ModelSerializer):
             "status_indicator",
             "status_category",
         )
-        read_only_fields = ("id", "status", "created_at", "updated_at")
+        read_only_fields = ("status",)
 
     def create(self, validated_data):
         """Create a drone through the service layer so initial audit logging is kept."""

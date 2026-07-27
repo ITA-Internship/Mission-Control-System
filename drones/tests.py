@@ -268,8 +268,9 @@ class DroneCreateTests(APITestCase):
         response = self.client.post(self.create_url, payload, format="json")
 
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(response.data["status"], Drone.STATUS_ACTIVE)
 
-        drone = Drone.objects.first()
+        drone = Drone.objects.get(pk=response.data["id"])
         self.assertEqual(drone.status, Drone.STATUS_ACTIVE)
 
 
