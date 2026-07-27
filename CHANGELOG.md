@@ -72,6 +72,7 @@
 - Fix linting (by **Olena Kshyk**)
 - *(permissions)* Remove redundant mission unit check from MediaViewPermission (by **Anastasiia**)
 - *(permissions)* Enhance MediaViewPermission to include mission commander and created_by checks (by **Anastasiia**)
+- Fix merge conflicts and add missing docstrings to new tests (by **torii044**)
 - Fixed comments and added tests (by **Olena Kshyk**)
 - Fix video data filtering (by **Olena Kshyk**)
 - Fixed unit_id and added tests (by **Olena Kshyk**)
@@ -560,6 +561,7 @@
 - Merged migrations (by **torii044**)
 - Merge pull request #125 from ITA-Internship/task#96-fix-readme (by **Viktoriia Kovalchuk**)
 - Task#96 fix readme (by **Viktoriia Kovalchuk**)
+- Add docstrings to media app (by **torii044**)
 - Added descriptions for accounts/ (by **Olena Kshyk**)
 - Add docstrings for admin.py (by **Maksym Lirko**)
 - Add docstrings for apps.py (by **Maksym Lirko**)
@@ -659,6 +661,7 @@
 - Merge remote-tracking branch 'origin/develop' into task#137-fix-media-object-permission-access (by **Anastasiia**)
 - Merge pull request #161 from ITA-Internship/task#137-fix-media-object-permission-access (by **Anastasiia Humeniuk**)
 - Task#137 fix media object permission access (by **Anastasiia Humeniuk**)
+- Merge remote-tracking branch 'origin/develop' into task#130-add-comments-to-media-app (by **torii044**)
 - Enforce authenticated API access by default (by **yana-donda**)
 - Harden session and CSRF cookie settings (by **yana-donda**)
 - Merge develop into 121-authentication-rbac-hardening (by **yana-donda**)
@@ -673,6 +676,9 @@
 - Task #141 — Account activation bypasses password-strength policy (by **Olena Kshyk**)
 - Merge pull request #175 from ITA-Internship/fix/task#139-video-exposure (by **Olena Kshyk**)
 - Fix C3 — Video metadata listing exposes all videos system-wide (by **Olena Kshyk**)
+- Merge remote-tracking branch 'origin/develop' into task#130-add-comments-to-media-app (by **torii044**)
+- Merge pull request #159 from ITA-Internship/task#130-add-comments-to-media-app (by **Viktoriia Kovalchuk**)
+- Task#130 add docstrings to media app (by **Viktoriia Kovalchuk**)
 
 ### Refactor
 
@@ -710,6 +716,7 @@
 
 ### Miscellaneous Tasks
 
+- *(changelog)* Update CHANGELOG.md [skip ci] (by **github-actions[bot]**)
 - *(changelog)* Update CHANGELOG.md [skip ci] (by **github-actions[bot]**)
 - *(changelog)* Update CHANGELOG.md [skip ci] (by **github-actions[bot]**)
 - *(changelog)* Update CHANGELOG.md [skip ci] (by **github-actions[bot]**)
