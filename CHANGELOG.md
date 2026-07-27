@@ -72,6 +72,12 @@
 - Fix linting (by **Olena Kshyk**)
 - *(permissions)* Remove redundant mission unit check from MediaViewPermission (by **Anastasiia**)
 - *(permissions)* Enhance MediaViewPermission to include mission commander and created_by checks (by **Anastasiia**)
+- Fix merge conflicts and add missing docstrings to new tests (by **torii044**)
+- Fixed comments and added tests (by **Olena Kshyk**)
+- Fix video data filtering (by **Olena Kshyk**)
+- Fixed unit_id and added tests (by **Olena Kshyk**)
+- Fix mass assignment of drone status on create (by **torii044**)
+- Fix mass assignment of drone status on create (by **Viktoriia Kovalchuk**)
 
 ### Other
 
@@ -557,6 +563,7 @@
 - Merged migrations (by **torii044**)
 - Merge pull request #125 from ITA-Internship/task#96-fix-readme (by **Viktoriia Kovalchuk**)
 - Task#96 fix readme (by **Viktoriia Kovalchuk**)
+- Add docstrings to media app (by **torii044**)
 - Added descriptions for accounts/ (by **Olena Kshyk**)
 - Add docstrings for admin.py (by **Maksym Lirko**)
 - Add docstrings for apps.py (by **Maksym Lirko**)
@@ -656,6 +663,26 @@
 - Merge remote-tracking branch 'origin/develop' into task#137-fix-media-object-permission-access (by **Anastasiia**)
 - Merge pull request #161 from ITA-Internship/task#137-fix-media-object-permission-access (by **Anastasiia Humeniuk**)
 - Task#137 fix media object permission access (by **Anastasiia Humeniuk**)
+- Merge remote-tracking branch 'origin/develop' into task#130-add-comments-to-media-app (by **torii044**)
+- Enforce authenticated API access by default (by **yana-donda**)
+- Harden session and CSRF cookie settings (by **yana-donda**)
+- Merge develop into 121-authentication-rbac-hardening (by **yana-donda**)
+- Complete profile RBAC and access-control documentation (by **yana-donda**)
+- Added one more test (by **yana-donda**)
+- Merge develop into 121-authentication-rbac-hardening (by **yana-donda**)
+- Corrected tests (by **yana-donda**)
+- Merge pull request #189 from ITA-Internship/121-authentication-rbac-hardening (by **Yana**)
+- Implement secure authentication and RBAC hardening (by **Yana**)
+- Added check for password in activation (by **Olena Kshyk**)
+- Merge pull request #176 from ITA-Internship/fix/task#141-password-check-for-acc-activation (by **Olena Kshyk**)
+- Task #141 — Account activation bypasses password-strength policy (by **Olena Kshyk**)
+- Merge pull request #175 from ITA-Internship/fix/task#139-video-exposure (by **Olena Kshyk**)
+- Fix C3 — Video metadata listing exposes all videos system-wide (by **Olena Kshyk**)
+- Merge remote-tracking branch 'origin/develop' into task#130-add-comments-to-media-app (by **torii044**)
+- Merge pull request #159 from ITA-Internship/task#130-add-comments-to-media-app (by **Viktoriia Kovalchuk**)
+- Task#130 add docstrings to media app (by **Viktoriia Kovalchuk**)
+- Make test stronger and remove redundant read-only fields (by **torii044**)
+- Merge pull request #190 from ITA-Internship/task#144-fix-assignment-of-drone-status (by **Viktoriia Kovalchuk**)
 
 ### Refactor
 
@@ -689,9 +716,15 @@
 - Update viewer assignment permissions and improve test clarity (by **Anastasiia**)
 - Test (by **Maksym**)
 - Add test for downloading artifact from wrong mission (by **Anastasiia**)
+- Validate session authentication and CSRF behavior (by **yana-donda**)
 
 ### Miscellaneous Tasks
 
+- *(changelog)* Update CHANGELOG.md [skip ci] (by **github-actions[bot]**)
+- *(changelog)* Update CHANGELOG.md [skip ci] (by **github-actions[bot]**)
+- *(changelog)* Update CHANGELOG.md [skip ci] (by **github-actions[bot]**)
+- *(changelog)* Update CHANGELOG.md [skip ci] (by **github-actions[bot]**)
+- *(changelog)* Update CHANGELOG.md [skip ci] (by **github-actions[bot]**)
 - *(changelog)* Update CHANGELOG.md [skip ci] (by **github-actions[bot]**)
 - *(changelog)* Update CHANGELOG.md [skip ci] (by **github-actions[bot]**)
 - *(changelog)* Update CHANGELOG.md [skip ci] (by **github-actions[bot]**)
