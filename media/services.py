@@ -87,6 +87,8 @@ def record_artifact_view(*, user, artifact, request=None):
 
 
 def record_artifact_download(*, user, artifact, request=None):
+    """Log an entry indicating that an authorized user
+    downloaded the artifact."""
     _record_access(
         user=user,
         artifact=artifact,

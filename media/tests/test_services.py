@@ -90,12 +90,17 @@ class MediaAuditLogTransactionTests(TestCase):
 
 
 class MediaAuditLogRetentionTests(TestCase):
+    """Test MediaAuditLog retention policies and cleanup management command."""
+
     def setUp(self):
+        """Set up a user with operator role, mission and media artifact for testing."""
         self.operator = OperatorUserFactory()
         self.mission = MissionFactory()
         self.artifact = MissionArtifactFactory(mission=self.mission, is_image=True)
 
     def _log(self, age_days):
+        """Helper method to create a media audit log entry
+        backdated by a specific number of days."""
         log = MediaAuditLog.objects.create(
             user=self.operator,
             artifact=self.artifact,
@@ -109,6 +114,8 @@ class MediaAuditLogRetentionTests(TestCase):
         return log
 
     def test_purge_older_than_removes_only_expired(self):
+        """Verify that purge_older_than deletes records past the threshold
+        while preserving newer entries."""
         old = self._log(age_days=400)
         recent = self._log(age_days=10)
 
@@ -122,6 +129,8 @@ class MediaAuditLogRetentionTests(TestCase):
 
     @override_settings(MEDIA_AUDIT_LOG_RETENTION_DAYS=365)
     def test_purge_command_deletes_expired_entries(self):
+        """Verify that purge_audit_logs purges records according to
+        MEDIA_AUDIT_LOG_RETENTION_DAYS setting."""
         self._log(age_days=400)
         self._log(age_days=10)
 
@@ -131,6 +140,8 @@ class MediaAuditLogRetentionTests(TestCase):
 
     @override_settings(MEDIA_AUDIT_LOG_RETENTION_DAYS=365)
     def test_purge_command_dry_run_keeps_entries(self):
+        """Verify that purge_audit_logs --dry-run previews deletions
+        without removing records from the database."""
         self._log(age_days=400)
 
         call_command("purge_audit_logs", "--dry-run")
@@ -139,6 +150,8 @@ class MediaAuditLogRetentionTests(TestCase):
 
     @override_settings(MEDIA_AUDIT_LOG_RETENTION_DAYS=0)
     def test_purge_command_disabled_keeps_all(self):
+        """Verify that setting MEDIA_AUDIT_LOG_RETENTION_DAYS
+        to 0 disables log purging."""
         self._log(age_days=400)
 
         call_command("purge_audit_logs")
