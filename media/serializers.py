@@ -86,6 +86,7 @@ class VideoUploadSerializer(serializers.ModelSerializer):
         read_only_fields = ["id"]
 
     def validate_file(self, file):
+        """Validate the video file's real content, extension and size."""
         if file.size is None or file.size == 0:
             raise serializers.ValidationError(
                 "File is empty or its size cannot be determined."
@@ -252,7 +253,7 @@ class MissionArtifactUploadSerializer(serializers.Serializer):
         return stripped
 
     def validate_file(self, file):
-        """Validate extension matching and size of artifact file."""
+        """Validate the artifact file's real content, extension and size."""
         if file.size is None or file.size == 0:
             raise serializers.ValidationError(
                 "File is empty or its size cannot be determined."

@@ -153,6 +153,7 @@ class VideoMetadataAPITests(APITestCase):
 
     @patch("media.permissions.MediaUploadPermission.has_permission", return_value=True)
     def test_upload_video_rejects_non_video_content(self, mock_perm):
+        """Verify bytes named .mp4 with a spoofed content_type are rejected."""
         # Arbitrary bytes named .mp4 (with a spoofed video/mp4 content_type) must
         # be rejected: the real content is sniffed, the client header ignored.
         data = {
@@ -173,6 +174,8 @@ class VideoMetadataAPITests(APITestCase):
     def test_upload_video_records_server_detected_content_type(
         self, mock_subproc, mock_perm, mock_delay
     ):
+        """Verify the stored content_type comes from libmagic, not the client."""
+
         class MockResult:
             stdout = '{"format": {"duration": "10.0"}}'
             stderr = ""
@@ -599,6 +602,7 @@ class ArtifactListCreateTests(APITestCase):
         self.assertIn("file", response.data)
 
     def test_content_not_matching_extension_rejected(self):
+        """Verify bytes renamed to an allowed extension are rejected."""
         # H7: arbitrary bytes renamed to an allowed extension must be rejected
         # by content sniffing, regardless of the client-supplied content_type.
         self.client.force_authenticate(self.operator)

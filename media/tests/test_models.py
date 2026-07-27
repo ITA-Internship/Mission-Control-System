@@ -12,10 +12,14 @@ from missions.factories import MissionFactory, OperatorUserFactory
 
 
 class VideoUploadPathTests(TestCase):
+    """Test that video_upload_path is UUID-based and traversal-safe."""
+
     def _instance(self):
+        """Return a stub instance exposing mission_id and drone_id."""
         return SimpleNamespace(mission_id=7, drone_id=3)
 
     def test_uses_uuid_and_drops_raw_client_filename(self):
+        """Verify the stored name is a UUID, not the client filename."""
         path = video_upload_path(self._instance(), "flight_clip.mp4")
         self.assertTrue(path.startswith("missions/7/drones/3/"))
         self.assertTrue(path.endswith(".mp4"))
@@ -25,6 +29,7 @@ class VideoUploadPathTests(TestCase):
         self.assertEqual(len(path.rsplit("/", 1)[1]), 36)
 
     def test_rejects_path_traversal_filename(self):
+        """Verify a traversal filename cannot leak into the storage path."""
         # A traversal payload must not leak ".." or the attacker's basename.
         path = video_upload_path(self._instance(), "../../../../etc/passwd.mp4")
         self.assertNotIn("..", path)
@@ -32,6 +37,7 @@ class VideoUploadPathTests(TestCase):
         self.assertTrue(path.startswith("missions/7/drones/3/"))
 
     def test_rejects_unsupported_extension(self):
+        """Verify a disallowed extension is rejected."""
         with self.assertRaises(ValidationError):
             video_upload_path(self._instance(), "malware.exe")
 
