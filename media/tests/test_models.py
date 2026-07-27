@@ -1,3 +1,5 @@
+"""Test suite for MissionArtifact model lifecycle."""
+
 from types import SimpleNamespace
 
 from django.core.exceptions import ValidationError
@@ -43,7 +45,11 @@ class VideoUploadPathTests(TestCase):
     ARTIFACT_MAX_FILE_SIZE_MB=10,
 )
 class MissionArtifactModelTests(TestCase):
+    """Test creation, validation and deletion of media artifacts."""
+
     def test_str_representation(self):
+        """Verify the custom string representation format of
+        a MissionArtifact instance."""
         mission = MissionFactory()
         artifact = MissionArtifactFactory(
             title="Drone Footage", is_video=True, mission=mission
@@ -53,6 +59,7 @@ class MissionArtifactModelTests(TestCase):
         )
 
     def test_auto_fields_on_save(self):
+        """Verify automatic population of file metadata on initial save."""
         file_content = b"test content"
         upload_file = SimpleUploadedFile(
             "test_auto.jpg", file_content, content_type="image/jpeg"
@@ -75,6 +82,7 @@ class MissionArtifactModelTests(TestCase):
         self.assertEqual(artifact.storage_backend, "local")
 
     def test_clean_validates_blank_title(self):
+        """Ensure model-level validation flags whitespace-only titles."""
         artifact = MissionArtifactFactory.build(title="   ", is_image=True)
         with self.assertRaises(ValidationError) as context:
             artifact.clean()
@@ -82,6 +90,7 @@ class MissionArtifactModelTests(TestCase):
 
     @override_settings(ARTIFACT_ALLOWED_EXTENSIONS={"video": [".mp4"]})
     def test_unsupported_extension_raises_validation_error(self):
+        """Verify rejection of unlisted file extensions."""
         file_content = b"test data"
         upload_file = SimpleUploadedFile("test.xyz", file_content)
         artifact = MissionArtifactFactory.build(
@@ -101,6 +110,7 @@ class MissionArtifactModelTests(TestCase):
         )
 
     def test_empty_file_raises_validation_error(self):
+        """Verify that 0-byte files fail validation."""
         upload_file = SimpleUploadedFile("empty.jpg", b"")
         artifact = MissionArtifactFactory.build(file=upload_file)
 
