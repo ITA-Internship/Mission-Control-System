@@ -1,11 +1,11 @@
 """Content-based validation for uploaded files.
 
 Both the file extension and the client-supplied ``Content-Type`` header are
-trivially forgeable: a caller can rename arbitrary bytes to ``x.png`` or send
-any ``content_type`` it likes. Trusting either lets an attacker smuggle
-executables, HTML/SVG (stored XSS), or other hostile payloads past the
-allow-list. To stop that, we sniff the *real* MIME type from the file's leading
-bytes with libmagic and require it to match the claimed extension.
+forgeable: a caller can rename arbitrary bytes to ``x.png`` or send an arbitrary
+``content_type``. Trusting either permits executables, HTML/SVG (stored XSS), or
+other hostile payloads to pass the allow-list. To prevent this, the module
+derives the real MIME type from the file's leading bytes with libmagic and
+requires it to match the claimed extension.
 """
 
 import os
@@ -38,8 +38,8 @@ EXTENSION_CONTENT_TYPES = {
 def detect_content_type(file):
     """Return the MIME type libmagic infers from ``file``'s leading bytes.
 
-    The file's read position is restored before returning so the caller can
-    still persist the upload afterwards.
+    Restores the file's read position before returning so the caller can still
+    persist the upload afterwards.
     """
     pos = file.tell() if hasattr(file, "tell") else 0
     try:
@@ -56,10 +56,10 @@ def detect_content_type(file):
 def validate_file_content(file, allowed_extensions):
     """Validate ``file``'s real content against its claimed extension.
 
-    ``allowed_extensions`` is an iterable of dotted, lower-case extensions that
-    are acceptable in the calling context (the artifact or video allow-list).
-    On success returns ``(extension, detected_mime)``; otherwise raises
-    ``django.core.exceptions.ValidationError``. The client-supplied
+    ``allowed_extensions`` is an iterable of dotted, lower-case extensions
+    acceptable in the calling context (the artifact or video allow-list).
+    Returns ``(extension, detected_mime)`` on success and raises
+    ``django.core.exceptions.ValidationError`` otherwise. The client-supplied
     ``Content-Type`` is never consulted.
     """
     allowed = {ext.lower() for ext in allowed_extensions}
