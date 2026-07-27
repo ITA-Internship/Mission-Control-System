@@ -73,6 +73,8 @@
 - *(permissions)* Remove redundant mission unit check from MediaViewPermission (by **Anastasiia**)
 - *(permissions)* Enhance MediaViewPermission to include mission commander and created_by checks (by **Anastasiia**)
 - Fixed comments and added tests (by **Olena Kshyk**)
+- Fix video data filtering (by **Olena Kshyk**)
+- Fixed unit_id and added tests (by **Olena Kshyk**)
 
 ### Other
 
@@ -669,6 +671,8 @@
 - Added check for password in activation (by **Olena Kshyk**)
 - Merge pull request #176 from ITA-Internship/fix/task#141-password-check-for-acc-activation (by **Olena Kshyk**)
 - Task #141 — Account activation bypasses password-strength policy (by **Olena Kshyk**)
+- Merge pull request #175 from ITA-Internship/fix/task#139-video-exposure (by **Olena Kshyk**)
+- Fix C3 — Video metadata listing exposes all videos system-wide (by **Olena Kshyk**)
 
 ### Refactor
 
@@ -706,6 +710,7 @@
 
 ### Miscellaneous Tasks
 
+- *(changelog)* Update CHANGELOG.md [skip ci] (by **github-actions[bot]**)
 - *(changelog)* Update CHANGELOG.md [skip ci] (by **github-actions[bot]**)
 - *(changelog)* Update CHANGELOG.md [skip ci] (by **github-actions[bot]**)
 - *(changelog)* Update CHANGELOG.md [skip ci] (by **github-actions[bot]**)
