@@ -1,3 +1,10 @@
+"""OpenAPI schema definitions for media artifact endpoints.
+
+Contains OpenAPI/Swagger schema declarations for drf-spectacular
+documentation, request/response examples, parameters for mission artifact
+management.
+"""
+
 from drf_spectacular.types import OpenApiTypes
 from drf_spectacular.utils import OpenApiExample, OpenApiParameter, OpenApiResponse
 from rest_framework import status

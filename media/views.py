@@ -1,3 +1,8 @@
+"""API and HTML Views for media app.
+
+Provides endpoints for creating and managing mission artifacts,
+listing audit logs."""
+
 import logging
 import mimetypes
 import os
@@ -88,6 +93,11 @@ def scope_video_metadata_for_user(queryset, user):
 
 
 def filter_video_metadata_queryset(params, queryset=None, user=None):
+    """Apply functional parameter matrices against a VideoMetadata base queryset.
+
+    Parses, casts, and sanitizes input data signatures (IDs, enumerations,
+    and date ranges) against specific lookups.
+    """
     qs = (
         queryset
         or VideoMetadata.objects.select_related("mission", "drone", "uploader").all()
@@ -136,8 +146,11 @@ def filter_video_metadata_queryset(params, queryset=None, user=None):
 
 
 class _MissionArtifactMixin:
+    """Internal structural Mixin resolving the target mission."""
 
     def get_mission(self):
+        """Extract the target mission matching the primary key
+        specified in the URL path."""
         if not hasattr(self, "_mission"):
             self._mission = generics.get_object_or_404(
                 Mission, id=self.kwargs["mission_pk"]
@@ -147,27 +160,33 @@ class _MissionArtifactMixin:
 
 @extend_schema_view(get=artifact_get_schema, post=artifact_post_schema)
 class ArtifactListCreateView(_MissionArtifactMixin, generics.ListCreateAPIView):
+    """List and upload image and data mission artifacts."""
 
     pagination_class = StandardResultsSetPagination
     parser_classes = [MultiPartParser, FormParser]
 
     def get_permissions(self):
+        """Gate POST behind upload permission; safe methods behind view."""
         if self.request.method in permissions.SAFE_METHODS:
             return [permissions.IsAuthenticated(), MediaViewPermission()]
         return [permissions.IsAuthenticated(), MediaUploadPermission()]
 
     def get_serializer_class(self):
+        """Use the upload serializer for POST
+        and the read serializer for safe methods."""
         if self.request.method in permissions.SAFE_METHODS:
             return MissionArtifactSerializer
         return MissionArtifactUploadSerializer
 
     def get_queryset(self):
+        """Return mission artifacts related to the target mission."""
         mission = self.get_mission()
         return MissionArtifact.objects.filter(mission=mission).select_related(
             "uploaded_by"
         )
 
     def create(self, request, *args, **kwargs):
+        """Validate and save a mission artifact, create an audit log entry."""
         mission = self.get_mission()
 
         serializer = self.get_serializer(data=request.data)
@@ -194,22 +213,27 @@ class ArtifactListCreateView(_MissionArtifactMixin, generics.ListCreateAPIView):
     get=artifact_detail_get_schema, delete=artifact_detail_delete_schema
 )
 class ArtifactDetailView(_MissionArtifactMixin, generics.RetrieveDestroyAPIView):
+    """List detailed information or delete target mission artifact."""
 
     serializer_class = MissionArtifactSerializer
     lookup_url_kwarg = "artifact_pk"
 
     def get_permissions(self):
+        """Gate DELETE behind delete permission; safe methods behind view."""
         if self.request.method in permissions.SAFE_METHODS:
             return [permissions.IsAuthenticated(), MediaViewPermission()]
         return [permissions.IsAuthenticated(), MediaDeletePermission()]
 
     def get_queryset(self):
+        """Return mission artifacts related to the target mission."""
         mission = self.get_mission()
         return MissionArtifact.objects.filter(mission=mission).select_related(
             "uploaded_by"
         )
 
     def retrieve(self, request, *args, **kwargs):
+        """Fetch the detailed information about the artifact
+        and create an audit log entry."""
         instance = self.get_object()
         record_artifact_view(
             user=request.user,
@@ -220,6 +244,7 @@ class ArtifactDetailView(_MissionArtifactMixin, generics.RetrieveDestroyAPIView)
         return Response(serializer.data)
 
     def perform_destroy(self, instance):
+        """Delete the artifact and create an audit log entry."""
         delete_artifact(
             artifact=instance,
             action_user=self.request.user,
@@ -229,9 +254,17 @@ class ArtifactDetailView(_MissionArtifactMixin, generics.RetrieveDestroyAPIView)
 
 @extend_schema_view(get=protected_media_get_schema)
 class ProtectedMediaView(APIView):
+    """Secure download mission artifact.
+
+    Checks user permissions and serves files directly in DEBUG mode
+    or hands off the download to Nginx (via X-Accel-Redirect) in production.
+    """
+
     permission_classes = [IsAuthenticated, MediaViewPermission]
 
     def get(self, request, mission_pk, artifact_pk):
+        """Authorize the download request and return the file
+        or Nginx redirect response."""
         artifact = get_object_or_404(
             MissionArtifact, pk=artifact_pk, mission_id=mission_pk
         )
@@ -279,6 +312,8 @@ class ProtectedMediaView(APIView):
 
 
 class MediaAuditLogFilter(filters.FilterSet):
+    """Query string filter mappings for managing MediaAuditLog query scopes."""
+
     start_date = filters.DateTimeFilter(field_name="created_at", lookup_expr="gte")
     end_date = filters.DateTimeFilter(field_name="created_at", lookup_expr="lte")
 
@@ -292,6 +327,8 @@ class MediaAuditLogFilter(filters.FilterSet):
     retrieve=media_audit_log_retrieve_schema,
 )
 class MediaAuditLogViewSet(viewsets.ReadOnlyModelViewSet):
+    """List read-only media audit log entries."""
+
     serializer_class = MediaAuditLogSerializer
     permission_classes = [permissions.IsAuthenticated, MediaViewLogsPermission]
     pagination_class = StandardResultsSetPagination
@@ -309,6 +346,8 @@ class MediaAuditLogViewSet(viewsets.ReadOnlyModelViewSet):
     destroy=video_metadata_destroy_schema,
 )
 class VideoMetadataViewSet(viewsets.ModelViewSet):
+    """List, create, update and delete video metadata."""
+
     queryset = VideoMetadata.objects.select_related(
         "mission", "drone", "uploader"
     ).all()
@@ -317,11 +356,14 @@ class VideoMetadataViewSet(viewsets.ModelViewSet):
     pagination_class = StandardResultsSetPagination
 
     def get_serializer_class(self):
+        """Use the upload serializer for POST
+        and the read serializer for other methods."""
         if self.action == "create":
             return VideoUploadSerializer
         return VideoMetadataSerializer
 
     def get_queryset(self):
+        """Return a filtered list of video metadata entries."""
         return filter_video_metadata_queryset(
             self.request.query_params,
             queryset=super().get_queryset(),
@@ -329,6 +371,7 @@ class VideoMetadataViewSet(viewsets.ModelViewSet):
         )
 
     def get_permissions(self):
+        """Gate API methods behind their corresponding RBAC permissions."""
         if self.action in ["list", "retrieve"]:
             permission_classes = [IsAuthenticated, MediaViewPermission]
         elif self.action == "create":
@@ -340,6 +383,7 @@ class VideoMetadataViewSet(viewsets.ModelViewSet):
         return [permission() for permission in permission_classes]
 
     def perform_create(self, serializer):
+        """Extract video duration and save video metadata."""
         instance = serializer.save(
             uploader=self.request.user,
             status=VideoMetadata.Status.UPLOADING,
@@ -354,6 +398,8 @@ class VideoMetadataViewSet(viewsets.ModelViewSet):
             )
 
     def perform_destroy(self, instance):
+        """Safely delete the instance, returning a validation error
+        if it has protected dependencies."""
         try:
             with transaction.atomic():
                 instance.delete()
@@ -367,9 +413,13 @@ class VideoMetadataViewSet(viewsets.ModelViewSet):
 
 
 class VideoMetadataBrowserView(TemplateView):
+    """Render the HTML page for browsing video lists."""
+
     template_name = "media/video_browser.html"
 
     def dispatch(self, request, *args, **kwargs):
+        """Validate authorization and RBAC permissions of a user
+        before rendering the HTML page."""
         if not request.user or not request.user.is_authenticated:
             return HttpResponseForbidden("Authentication required.")
 
@@ -382,6 +432,8 @@ class VideoMetadataBrowserView(TemplateView):
         return super().dispatch(request, *args, **kwargs)
 
     def get_context_data(self, **kwargs):
+        """Return in context a filtered list of video metadata related
+        to provided drone/mission or a list of corresponding validation errors."""
         context = super().get_context_data(**kwargs)
         context["mission_id"] = self.request.GET.get("mission_id", "")
         context["drone_id"] = self.request.GET.get("drone_id", "")

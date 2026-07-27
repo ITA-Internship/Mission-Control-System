@@ -1,3 +1,5 @@
+"""Role-based access control (RBAC) permissions for the media API."""
+
 from accounts.permissions import HasRBACPermission, get_user_role_code
 from accounts.rbac import (
     PERMISSION_MEDIA_DELETE,
@@ -35,6 +37,8 @@ class MediaAuditedDenialMixin:
 
 
 class MediaUploadPermission(MediaAuditedDenialMixin, HasRBACPermission):
+    """Require the media upload RBAC permission."""
+
     required_permission = PERMISSION_MEDIA_UPLOAD
 
 
@@ -60,6 +64,11 @@ class MediaObjectPermission(MediaAuditedDenialMixin, HasRBACPermission):
 
 
 class MediaViewPermission(MediaObjectPermission):
+    """Require the media view RBAC and object-level permissions.
+
+    Access is granted if the user is an owner, admin, mission commander, mission creator
+    or an operator assigned to a drone within the mission."""
+
     required_permission = PERMISSION_MEDIA_VIEW
 
     def _check_object(self, request, obj):
@@ -99,6 +108,10 @@ class MediaViewPermission(MediaObjectPermission):
 
 
 class MediaDeletePermission(MediaObjectPermission):
+    """Require the media delete RBAC and object-level permissions.
+
+    Access is granted if the user is an owner or admin."""
+
     required_permission = PERMISSION_MEDIA_DELETE
 
     def _check_object(self, request, obj):
@@ -106,4 +119,6 @@ class MediaDeletePermission(MediaObjectPermission):
 
 
 class MediaViewLogsPermission(MediaAuditedDenialMixin, HasRBACPermission):
+    """Require the media audit log view RBAC permission."""
+
     required_permission = PERMISSION_MEDIA_VIEW_LOGS

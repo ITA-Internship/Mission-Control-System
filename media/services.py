@@ -1,3 +1,13 @@
+"""Provide service-layer functions for media management.
+
+Functions:
+    record_artifact_view: Logs an authorized user access event for an artifact.
+    upload_artifact: Creates a new artifact and an entry in media
+    and mission audit logs.
+    delete_artifact: Deletes an artifact and creates an entry in media
+    and mission audit logs.
+"""
+
 import logging
 
 from django.conf import settings
@@ -12,6 +22,7 @@ logger = logging.getLogger(__name__)
 
 
 def _get_client_ip(request):
+    """Resolve the originating client IP address from the HTTP request structure."""
     if request is None:
         return None
 
@@ -27,6 +38,7 @@ def _get_client_ip(request):
 
 
 def _artifact_snapshot(artifact):
+    """Generate a serializable dictionary representation of an artifact."""
     return {
         "artifact_id": artifact.id,
         "mission_id": artifact.mission_id,
@@ -64,6 +76,8 @@ def _record_access(*, user, artifact, action, request=None):
 
 
 def record_artifact_view(*, user, artifact, request=None):
+    """Log an entry indicating that an authorized user
+    viewed or accessed the artifact."""
     _record_access(
         user=user,
         artifact=artifact,
@@ -73,6 +87,8 @@ def record_artifact_view(*, user, artifact, request=None):
 
 
 def record_artifact_download(*, user, artifact, request=None):
+    """Log an entry indicating that an authorized user
+    downloaded the artifact."""
     _record_access(
         user=user,
         artifact=artifact,
@@ -123,6 +139,13 @@ def upload_artifact(
     captured_at=None,
     request=None,
 ):
+    """Ingest a new media artifact, save its physical payload
+    and create an audit log entry.
+
+    Executes inside an atomic database block. If the transaction crashes post-file-save,
+    a defensive cleanup block intercepts the error to purge the orphaned file from
+    the active storage backend.
+    """
     artifact = MissionArtifact(
         mission=mission,
         uploaded_by=uploaded_by,
@@ -169,6 +192,12 @@ def upload_artifact(
 
 
 def delete_artifact(*, artifact, action_user, request=None):
+    """Remove an artifact record from the database and queue physical file deletion.
+
+    Wraps database operations inside an atomic transaction block. The audit log
+    entry is written before the deletion to preserve foreign key associations.
+    The file removal from storage is safely deferred until the transaction commits.
+    """
     artifact_id = artifact.id
     mission_id = artifact.mission_id
     file_name = artifact.file.name if artifact.file else None
