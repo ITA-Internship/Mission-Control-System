@@ -228,7 +228,9 @@ class MissionStatusUpdateView(generics.RetrieveUpdateAPIView):
         queryset = self.filter_queryset(self.get_queryset())
 
         if self.request.method in ["PUT", "PATCH"]:
-            obj = queryset.select_for_update().get(pk=self.kwargs["pk"])
+            obj = generics.get_object_or_404(
+                queryset.select_for_update(), pk=self.kwargs["pk"]
+            )
             self.check_object_permissions(self.request, obj)
             return obj
 

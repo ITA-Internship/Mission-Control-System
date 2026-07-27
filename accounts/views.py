@@ -36,7 +36,7 @@ from rest_framework.throttling import ScopedRateThrottle
 from rest_framework.views import APIView
 
 from common.pagination import AuditLogPagination
-from common.utils import EchoBuffer
+from common.utils import EchoBuffer, sanitize_row
 
 from .api_details import (
     activate_account_schema,
@@ -271,16 +271,18 @@ class AuditLogViewSet(viewsets.ReadOnlyModelViewSet):
 
             for log in queryset.iterator(chunk_size=2000):
                 yield writer.writerow(
-                    [
-                        log.id,
-                        log.created_at.strftime("%Y-%m-%d %H:%M:%S"),
-                        log.actor.username if log.actor else "System",
-                        log.target_user.username if log.target_user else "N/A",
-                        log.action_type,
-                        log.result,
-                        log.ip_address or "N/A",
-                        log.description,
-                    ]
+                    sanitize_row(
+                        [
+                            log.id,
+                            log.created_at.strftime("%Y-%m-%d %H:%M:%S"),
+                            log.actor.username if log.actor else "System",
+                            log.target_user.username if log.target_user else "N/A",
+                            log.action_type,
+                            log.result,
+                            log.ip_address or "N/A",
+                            log.description,
+                        ]
+                    )
                 )
 
         response = StreamingHttpResponse(generate_csv(), content_type="text/csv")
@@ -526,15 +528,6 @@ class PasswordResetConfirmView(APIView):
         """Reset a user's password if the uid/token pair is valid."""
         serializer = PasswordResetConfirmSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        """Verify the reset token and set a new password for the user.
-        Args:
-            request (Request): The HTTP request containing the new password.
-            uidb64 (str): Base64 encoded user ID.
-            token (str): The one-time password reset token.
-
-        Returns:
-            Response: A success message or an error for invalid/expired tokens.
-        """
 
         try:
             uid = force_str(urlsafe_base64_decode(uidb64))

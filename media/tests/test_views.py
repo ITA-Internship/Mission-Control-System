@@ -17,6 +17,7 @@ from media.models import MediaAuditLog, MissionArtifact, VideoMetadata
 from media.tasks import extract_video_duration_task
 from missions.factories import (
     AdminUserFactory,
+    CommanderUserFactory,
     DispatcherUserFactory,
     MilitaryUnitFactory,
     MissionDroneFactory,
@@ -27,6 +28,22 @@ from missions.factories import (
 from missions.models import Mission, MissionAuditLog
 
 User = get_user_model()
+
+
+class MissionOperatorSetupMixin:
+    """Shared setUp for tests that need an admin, an operator assigned to a
+    mission via MissionDroneFactory, and a mission instance.
+
+    Subclasses should call ``super().setUp()`` and will receive:
+    ``self.admin``, ``self.operator``, ``self.mission``.
+    """
+
+    def setUp(self):
+        super().setUp()
+        self.admin = AdminUserFactory()
+        self.operator = OperatorUserFactory()
+        self.mission = MissionFactory()
+        MissionDroneFactory(mission=self.mission, operator=self.operator)
 
 
 class VideoMetadataAPITests(APITestCase):
@@ -427,13 +444,13 @@ class VideoMetadataAPITests(APITestCase):
     },
     ARTIFACT_MAX_FILE_SIZE_MB=10,
 )
-class ArtifactListCreateTests(APITestCase):
+class ArtifactListCreateTests(MissionOperatorSetupMixin, APITestCase):
     """Test artifact creation and list endpoints."""
 
     def setUp(self):
         """Set up users with admin, dispatcher, operator and viewer roles,
         and a mission for testing."""
-        self.admin = AdminUserFactory()
+        super().setUp()
         self.dispatcher = DispatcherUserFactory()
         self.operator = OperatorUserFactory()
         self.unit = MilitaryUnitFactory()
@@ -616,6 +633,7 @@ class ArtifactDetailTests(APITestCase):
 
         self.mission = MissionFactory(unit=self.viewer_unit)
         MissionDroneFactory(mission=self.mission, operator=self.assigned_operator)
+        MissionDroneFactory(mission=self.mission, operator=self.operator)
         self.artifact = MissionArtifactFactory(
             mission=self.mission, uploaded_by=self.operator, is_image=True
         )
@@ -679,7 +697,7 @@ class ArtifactDetailTests(APITestCase):
         self.assertIsNone(self.unrelated_operator.unit_id)
         self.client.force_authenticate(self.unrelated_operator)
         response = self.client.get(self.url)
-        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
 
     def test_unrelated_operator_without_unit_cannot_download_artifact(self):
         """Verify that an unassigned operator without a unit
@@ -687,7 +705,7 @@ class ArtifactDetailTests(APITestCase):
         self.assertIsNone(self.unrelated_operator.unit_id)
         self.client.force_authenticate(self.unrelated_operator)
         response = self.client.get(self.download_url)
-        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
 
     def test_unauthenticated_cannot_retrieve(self):
         """Verify that unauthenticated user cannot retrieve
@@ -763,16 +781,14 @@ class ArtifactDetailTests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
 
 
-class MediaAuditLoggingTests(APITestCase):
+class MediaAuditLoggingTests(MissionOperatorSetupMixin, APITestCase):
     """Test dual-write audit logging behavior."""
 
     def setUp(self):
         """Set up users with admin, dispatcher, operator and viewer roles,
         a mission and an artifact for testing."""
-        self.admin = AdminUserFactory()
-        self.operator = OperatorUserFactory()
+        super().setUp()
         self.viewer = ViewerUserFactory()
-        self.mission = MissionFactory()
         self.artifact = MissionArtifactFactory(
             mission=self.mission, uploaded_by=self.operator, is_image=True
         )
@@ -985,12 +1001,13 @@ class MediaAuditLogEndpointTests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_405_METHOD_NOT_ALLOWED)
 
 
-class ProtectedMediaDownloadTests(APITestCase):
+class ProtectedMediaDownloadTests(MissionOperatorSetupMixin, APITestCase):
     """Test secure media download endpoints."""
 
     def setUp(self):
         """Set up users with admin and operator roles,
         missions, artifacts for testing."""
+        super().setUp()
         self.admin = AdminUserFactory()
         self.operator = OperatorUserFactory()
         self.viewer_unit = MilitaryUnitFactory()
@@ -1143,3 +1160,108 @@ class MediaPermissionDeniedLoggingTests(APITestCase):
             )
 
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+
+@override_settings(
+    ARTIFACT_ALLOWED_EXTENSIONS={
+        "image": [".jpg", ".jpeg", ".png"],
+        "video": [".mp4", ".avi", ".mov"],
+        "data": [".json", ".csv", ".xml"],
+    },
+    ARTIFACT_MAX_FILE_SIZE_MB=10,
+)
+class CrossMissionIDORTests(APITestCase):
+    """Verify that mission-scoped artifact endpoints enforce authorization
+    via ``restrict_missions_for_user``, preventing cross-mission IDOR."""
+
+    def setUp(self):
+        self.admin = AdminUserFactory()
+        self.commander = CommanderUserFactory()
+        self.operator = OperatorUserFactory()
+
+        self.mission_a = MissionFactory()
+        self.mission_b = MissionFactory()
+
+        MissionDroneFactory(mission=self.mission_a, operator=self.operator)
+
+        self.artifact_b = MissionArtifactFactory(mission=self.mission_b, is_image=True)
+
+        self.list_url_b = reverse(
+            "missions:media:artifact-list-create",
+            kwargs={"mission_pk": self.mission_b.pk},
+        )
+        self.detail_url_b = reverse(
+            "missions:media:artifact-detail",
+            kwargs={
+                "mission_pk": self.mission_b.pk,
+                "artifact_pk": self.artifact_b.pk,
+            },
+        )
+        self.download_url_b = reverse(
+            "missions:media:artifact-download",
+            kwargs={
+                "mission_pk": self.mission_b.pk,
+                "artifact_pk": self.artifact_b.pk,
+            },
+        )
+
+    def test_operator_cannot_list_artifacts_of_unassigned_mission(self):
+        self.client.force_authenticate(self.operator)
+        response = self.client.get(self.list_url_b)
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+
+    def test_admin_can_list_artifacts_of_any_mission(self):
+        self.client.force_authenticate(self.admin)
+        response = self.client.get(self.list_url_b)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+    def test_commander_can_list_artifacts_of_any_mission(self):
+        self.client.force_authenticate(self.commander)
+        response = self.client.get(self.list_url_b)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+    def test_operator_cannot_upload_to_unassigned_mission(self):
+        self.client.force_authenticate(self.operator)
+        payload = {
+            "title": "IDOR upload",
+            "file": SimpleUploadedFile(
+                "exploit.jpg", b"img bytes", content_type="image/jpeg"
+            ),
+        }
+        response = self.client.post(self.list_url_b, payload, format="multipart")
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+        self.assertFalse(MissionArtifact.objects.filter(title="IDOR upload").exists())
+
+    def test_operator_can_upload_to_assigned_mission(self):
+        self.client.force_authenticate(self.operator)
+        url_a = reverse(
+            "missions:media:artifact-list-create",
+            kwargs={"mission_pk": self.mission_a.pk},
+        )
+        payload = {
+            "title": "Legit upload",
+            "file": SimpleUploadedFile(
+                "legit.jpg", b"img bytes", content_type="image/jpeg"
+            ),
+        }
+        response = self.client.post(url_a, payload, format="multipart")
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+
+    def test_operator_cannot_retrieve_artifact_of_unassigned_mission(self):
+        self.client.force_authenticate(self.operator)
+        response = self.client.get(self.detail_url_b)
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+
+    def test_operator_cannot_delete_artifact_of_unassigned_mission(self):
+        """Operator lacks media.delete RBAC — denied at the permission layer
+        before the mission-scoping queryset is even evaluated."""
+        self.client.force_authenticate(self.operator)
+        response = self.client.delete(self.detail_url_b)
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertTrue(MissionArtifact.objects.filter(pk=self.artifact_b.pk).exists())
+
+    @override_settings(DEBUG=True)
+    def test_operator_cannot_download_from_unassigned_mission(self):
+        self.client.force_authenticate(self.operator)
+        response = self.client.get(self.download_url_b)
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)

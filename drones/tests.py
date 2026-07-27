@@ -1449,6 +1449,10 @@ class DroneDataExportsTests(APITestCase):
             serial_number="SN-002", status="DAMAGED", military_unit=self.military_unit
         )
 
+        self.drone_for_injection = DroneFactory(
+            serial_number="+SN-003", status="ACTIVE", military_unit=self.military_unit
+        )
+
         self.client.force_authenticate(self.admin_user)
 
     def test_export_csv_success_and_format(self):
@@ -1467,7 +1471,7 @@ class DroneDataExportsTests(APITestCase):
 
         self.assertEqual(rows[0][0], "ID")
         self.assertEqual(rows[0][1], "Serial Number")
-        self.assertEqual(len(rows), 3)
+        self.assertEqual(len(rows), 4)
 
         content_str = content.lower()
         self.assertIn("sn-001", content_str)
@@ -1485,6 +1489,19 @@ class DroneDataExportsTests(APITestCase):
 
         self.assertIn("sn-001", content_str)
         self.assertNotIn("sn-002", content_str)
+
+    def test_export_sanitized(self):
+        response = self.client.get(self.export_url)
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        content = b"".join(response.streaming_content).decode("utf-8")
+        csv_reader = csv.reader(io.StringIO(content))
+        rows = list(csv_reader)
+
+        injected_row = next(row for row in rows if "sn-003" in row[1].lower())
+
+        self.assertEqual(injected_row[1], "'+SN-003")
 
 
 class DroneDataImportTests(APITestCase):
