@@ -2,9 +2,11 @@
 
 import os
 from datetime import datetime
+from unittest.mock import patch
 
 from django.conf import settings
 from django.contrib.auth import get_user_model
+from django.core.exceptions import ImproperlyConfigured
 from django.middleware.csrf import get_token
 from django.test import SimpleTestCase, TestCase, override_settings
 from django.urls import path
@@ -15,6 +17,7 @@ from rest_framework.test import APIClient, APIRequestFactory
 from rest_framework.views import APIView
 
 from .utils import sanitize_cell, sanitize_row
+from config.settings import env_bool
 
 
 class CSVSanitizationTests(TestCase):
@@ -115,6 +118,41 @@ class DefaultPermissionPolicyTests(SimpleTestCase):
         )
 
 
+class EnvironmentBooleanSettingsTests(SimpleTestCase):
+    """Verify strict parsing of boolean environment variables."""
+
+    @patch.dict(os.environ, {"TEST_BOOLEAN_SETTING": "true"})
+    def test_env_bool_accepts_true_value(self):
+        """Ensure supported true values are parsed correctly."""
+        self.assertTrue(env_bool("TEST_BOOLEAN_SETTING"))
+
+    @patch.dict(os.environ, {"TEST_BOOLEAN_SETTING": "False"})
+    def test_env_bool_accepts_false_value(self):
+        """Ensure supported false values are parsed correctly."""
+        self.assertFalse(env_bool("TEST_BOOLEAN_SETTING", default=True))
+
+    @patch.dict(os.environ, {"TEST_BOOLEAN_SETTING": "invalid"})
+    def test_env_bool_rejects_invalid_value(self):
+        """Ensure configuration errors are not silently ignored."""
+        with self.assertRaisesMessage(
+            ImproperlyConfigured,
+            "TEST_BOOLEAN_SETTING must be a boolean value",
+        ):
+            env_bool("TEST_BOOLEAN_SETTING")
+
+    def test_env_bool_uses_default_for_missing_value(self):
+        """Ensure the supplied default is used when the variable is absent."""
+        with patch.dict(os.environ, {}, clear=False):
+            os.environ.pop("TEST_MISSING_BOOLEAN_SETTING", None)
+
+            self.assertTrue(
+                env_bool(
+                    "TEST_MISSING_BOOLEAN_SETTING",
+                    default=True,
+                )
+            )
+
+
 class SecurityCookieSettingsTests(SimpleTestCase):
     """Verify secure defaults for session and CSRF cookies."""
 
@@ -137,21 +175,75 @@ class SecurityCookieSettingsTests(SimpleTestCase):
         )
 
     def test_session_cookie_secure_matches_environment(self):
-        """Ensure the session cookie policy matches the startup environment."""
-        debug_from_environment = os.getenv("DEBUG", "False") == "True"
+        """Ensure the session cookie policy matches its environment setting."""
+        expected_value = env_bool(
+            "SESSION_COOKIE_SECURE",
+            default=not settings.DEBUG,
+        )
 
         self.assertEqual(
             settings.SESSION_COOKIE_SECURE,
-            not debug_from_environment,
+            expected_value,
         )
 
     def test_csrf_cookie_secure_matches_environment(self):
-        """Ensure the CSRF cookie policy matches the startup environment."""
-        debug_from_environment = os.getenv("DEBUG", "False") == "True"
+        """Ensure the CSRF cookie policy matches its environment setting."""
+        expected_value = env_bool(
+            "CSRF_COOKIE_SECURE",
+            default=not settings.DEBUG,
+        )
 
         self.assertEqual(
             settings.CSRF_COOKIE_SECURE,
-            not debug_from_environment,
+            expected_value,
+        )
+
+    def test_ssl_redirect_matches_environment(self):
+        """Ensure HTTPS redirect follows its environment setting."""
+        expected_value = env_bool(
+            "SECURE_SSL_REDIRECT",
+            default=False,
+        )
+
+        self.assertEqual(
+            settings.SECURE_SSL_REDIRECT,
+            expected_value,
+        )
+
+    def test_hsts_seconds_matches_environment(self):
+        """Ensure HSTS duration follows its environment setting."""
+        expected_value = int(
+            os.getenv("SECURE_HSTS_SECONDS", "0"),
+        )
+
+        self.assertEqual(
+            settings.SECURE_HSTS_SECONDS,
+            expected_value,
+        )
+        self.assertGreaterEqual(settings.SECURE_HSTS_SECONDS, 0)
+
+    def test_hsts_include_subdomains_matches_environment(self):
+        """Ensure the HSTS subdomain policy follows its environment setting."""
+        expected_value = env_bool(
+            "SECURE_HSTS_INCLUDE_SUBDOMAINS",
+            default=False,
+        )
+
+        self.assertEqual(
+            settings.SECURE_HSTS_INCLUDE_SUBDOMAINS,
+            expected_value,
+        )
+
+    def test_hsts_preload_matches_environment(self):
+        """Ensure the HSTS preload policy follows its environment setting."""
+        expected_value = env_bool(
+            "SECURE_HSTS_PRELOAD",
+            default=False,
+        )
+
+        self.assertEqual(
+            settings.SECURE_HSTS_PRELOAD,
+            expected_value,
         )
 
 
