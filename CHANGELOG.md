@@ -76,6 +76,8 @@
 - Fixed comments and added tests (by **Olena Kshyk**)
 - Fix video data filtering (by **Olena Kshyk**)
 - Fixed unit_id and added tests (by **Olena Kshyk**)
+- Fix mass assignment of drone status on create (by **torii044**)
+- Fix mass assignment of drone status on create (by **Viktoriia Kovalchuk**)
 
 ### Other
 
@@ -679,6 +681,8 @@
 - Merge remote-tracking branch 'origin/develop' into task#130-add-comments-to-media-app (by **torii044**)
 - Merge pull request #159 from ITA-Internship/task#130-add-comments-to-media-app (by **Viktoriia Kovalchuk**)
 - Task#130 add docstrings to media app (by **Viktoriia Kovalchuk**)
+- Make test stronger and remove redundant read-only fields (by **torii044**)
+- Merge pull request #190 from ITA-Internship/task#144-fix-assignment-of-drone-status (by **Viktoriia Kovalchuk**)
 
 ### Refactor
 
@@ -716,6 +720,7 @@
 
 ### Miscellaneous Tasks
 
+- *(changelog)* Update CHANGELOG.md [skip ci] (by **github-actions[bot]**)
 - *(changelog)* Update CHANGELOG.md [skip ci] (by **github-actions[bot]**)
 - *(changelog)* Update CHANGELOG.md [skip ci] (by **github-actions[bot]**)
 - *(changelog)* Update CHANGELOG.md [skip ci] (by **github-actions[bot]**)
