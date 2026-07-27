@@ -132,7 +132,9 @@ class _MissionArtifactMixin:
             if get_user_role_code(self.request.user) == OPERATOR_CODE:
                 queryset = restrict_missions_for_user(queryset, self.request.user)
 
-            self._mission = generics.get_object_or_404(queryset, id=self.kwargs["mission_pk"])
+            self._mission = generics.get_object_or_404(
+                queryset, id=self.kwargs["mission_pk"]
+            )
         return self._mission
 
 

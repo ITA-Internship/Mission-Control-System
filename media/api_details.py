@@ -385,7 +385,8 @@ video_metadata_list_schema = description_schema(
     description=(
         "Retrieves a paginated list of video metadata records. Supports filtering "
         "by mission, drone, uploader, status, and creation/recording date ranges. "
-        "Viewers may only access video records for missions belonging to their own unit."
+        "Viewers may only access video records for missions belonging to "
+        "their own unit."
     ),
     permission_code="PERMISSION_MEDIA_VIEW",
     parameters=[

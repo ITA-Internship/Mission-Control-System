@@ -915,7 +915,8 @@ class WriteOffHistoryAuditTests(APITestCase):
         )
 
     def test_writeoff_history_report_view_returns_html_for_authorized_user(self):
-        """Verify that a user with write-off view permission can open the HTML report."""
+        """Verify that a user with write-off view permission
+        can open the HTML report."""
         self.create_writeoff_record(document_number="WO-REPORT-001")
 
         self.client.force_login(self.admin_user)
@@ -927,7 +928,8 @@ class WriteOffHistoryAuditTests(APITestCase):
         self.assertContains(response, "WO-REPORT-001")
 
     def test_writeoff_history_report_view_rejects_staff_without_rbac_permission(self):
-        """Verify that Django staff status alone does not grant write-off report access."""
+        """Verify that Django staff status alone
+        does not grant write-off report access."""
         self.create_writeoff_record(document_number="WO-REPORT-001")
 
         staff_user = AdminUserFactory(role=None)

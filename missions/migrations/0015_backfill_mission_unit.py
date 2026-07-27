@@ -14,10 +14,7 @@ def backfill_mission_unit(apps, schema_editor):
         created_by_unit_id = getattr(created_by, "unit_id", None)
         commander_unit_id = getattr(commander, "unit_id", None)
 
-        if (
-            created_by_unit_id is not None
-            and created_by_unit_id == commander_unit_id
-        ):
+        if created_by_unit_id is not None and created_by_unit_id == commander_unit_id:
             mission.unit_id = created_by_unit_id
             missions_to_update.append(mission)
 

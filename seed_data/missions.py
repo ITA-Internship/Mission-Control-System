@@ -1,8 +1,8 @@
 from datetime import datetime, timedelta
 
-from accounts.models import MilitaryUnit, User
 from django.utils import timezone
 
+from accounts.models import MilitaryUnit, User
 from missions.models import Mission
 from seed_data.data.missions_data import MISSIONS, MissionSeed
 

@@ -1308,7 +1308,8 @@ class RepairOrderCreateTests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
 
     def test_staff_without_manage_permission_cannot_create(self):
-        """Verify that Django staff status alone does not grant repair order creation."""
+        """Verify that Django staff status alone
+        does not grant repair order creation."""
         staff_viewer = ViewerUserFactory()
         staff_viewer.is_staff = True
         staff_viewer.save(update_fields=["is_staff"])
@@ -1358,6 +1359,7 @@ class RepairOrderListTests(APITestCase):
 
         response = self.client.get(self.url, {"status": RepairOrderStatus.PENDING})
         self.assertEqual(response.data["count"], 1)
+
 
 class RepairOrderDetailTests(APITestCase):
     """Verify detailed retrieval of repair orders."""
