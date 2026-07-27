@@ -656,6 +656,15 @@
 - Merge remote-tracking branch 'origin/develop' into task#137-fix-media-object-permission-access (by **Anastasiia**)
 - Merge pull request #161 from ITA-Internship/task#137-fix-media-object-permission-access (by **Anastasiia Humeniuk**)
 - Task#137 fix media object permission access (by **Anastasiia Humeniuk**)
+- Enforce authenticated API access by default (by **yana-donda**)
+- Harden session and CSRF cookie settings (by **yana-donda**)
+- Merge develop into 121-authentication-rbac-hardening (by **yana-donda**)
+- Complete profile RBAC and access-control documentation (by **yana-donda**)
+- Added one more test (by **yana-donda**)
+- Merge develop into 121-authentication-rbac-hardening (by **yana-donda**)
+- Corrected tests (by **yana-donda**)
+- Merge pull request #189 from ITA-Internship/121-authentication-rbac-hardening (by **Yana**)
+- Implement secure authentication and RBAC hardening (by **Yana**)
 
 ### Refactor
 
@@ -689,9 +698,11 @@
 - Update viewer assignment permissions and improve test clarity (by **Anastasiia**)
 - Test (by **Maksym**)
 - Add test for downloading artifact from wrong mission (by **Anastasiia**)
+- Validate session authentication and CSRF behavior (by **yana-donda**)
 
 ### Miscellaneous Tasks
 
+- *(changelog)* Update CHANGELOG.md [skip ci] (by **github-actions[bot]**)
 - *(changelog)* Update CHANGELOG.md [skip ci] (by **github-actions[bot]**)
 - *(changelog)* Update CHANGELOG.md [skip ci] (by **github-actions[bot]**)
 - *(changelog)* Update CHANGELOG.md [skip ci] (by **github-actions[bot]**)
