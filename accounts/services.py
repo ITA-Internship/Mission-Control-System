@@ -13,7 +13,6 @@ Functions:
 """
 
 from django.conf import settings
-from django.contrib.auth.tokens import default_token_generator
 from django.core.exceptions import ValidationError
 from django.db import transaction
 
@@ -67,8 +66,9 @@ def create_user_account(validated_data: dict, created_by: User = None) -> User:
 def send_activation_email(user) -> None:
     """Send a one-time activation link to the new user's email."""
     from .tasks import send_email_task
+    from .tokens import account_activation_token_generator
 
-    token = default_token_generator.make_token(user)
+    token = account_activation_token_generator.make_token(user)
 
     frontend_url = getattr(settings, "FRONTEND_URL", "http://localhost:3000")
 
@@ -108,7 +108,12 @@ def count_admin_users_locked() -> int:
 
 
 def set_user_password(user: User, raw_password: str) -> None:
-    """Set and save a new password for the user."""
+    """Set and save a new password for the user.
+
+    Persists the password and clears ``must_change_password`` in a single
+    ``UPDATE``. An account is considered "pending activation" while it has no
+    usable password, so setting one here is what activates the account.
+    """
     user.set_password(raw_password)
     user.must_change_password = False
     user.save(update_fields=["password", "must_change_password"])
