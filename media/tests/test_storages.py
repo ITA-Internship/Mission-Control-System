@@ -1,3 +1,5 @@
+"""Test suite for integration and security configuration of cloud storage providers."""
+
 from unittest.mock import PropertyMock, patch
 
 from django.core.files.uploadedfile import SimpleUploadedFile
@@ -12,7 +14,10 @@ from missions.factories import MissionFactory, OperatorUserFactory
 
 
 class CloudStorageIntegrationTests(TestCase):
+    """Test lifecycle operations for different cloud storages."""
+
     def setUp(self):
+        """Set up a mission, an operator and a media file for testing."""
         self.mission = MissionFactory()
         self.user = OperatorUserFactory()
         self.file_content = b"fake video content streaming data"
@@ -29,6 +34,7 @@ class CloudStorageIntegrationTests(TestCase):
     @patch("storages.backends.s3boto3.S3Boto3Storage.save")
     @patch("storages.backends.s3boto3.S3Boto3Storage.delete")
     def test_aws_s3_upload_and_delete_flow(self, mock_delete, mock_save, mock_init):
+        """Verify upload and transactional deletion pipeline using AWS S3 storage."""
         mock_save.return_value = "artifacts/mission_1/secure_s3_name.mp4"
 
         artifact = upload_artifact(
@@ -59,6 +65,7 @@ class CloudStorageIntegrationTests(TestCase):
     @patch("storages.backends.s3boto3.S3Boto3Storage.save")
     @patch("storages.backends.s3boto3.S3Boto3Storage.delete")
     def test_minio_upload_and_delete_flow(self, mock_delete, mock_save, mock_init):
+        """Verify upload and transactional deletion pipeline using MinIO storage."""
         mock_save.return_value = "artifacts/mission_1/secure_minio_name.mp4"
 
         artifact = upload_artifact(
@@ -91,6 +98,8 @@ class CloudStorageIntegrationTests(TestCase):
     @patch("storages.backends.azure_storage.AzureStorage.save")
     @patch("storages.backends.azure_storage.AzureStorage.delete")
     def test_azure_blob_upload_and_delete_flow(self, mock_delete, mock_save, mock_init):
+        """Verify upload and transactional deletion pipeline using
+        Azure Blob Storage."""
         mock_save.return_value = "artifacts/mission_1/secure_azure_name.mp4"
 
         artifact = upload_artifact(
@@ -123,6 +132,8 @@ class CloudStorageIntegrationTests(TestCase):
     @patch("storages.backends.gcloud.GoogleCloudStorage.save")
     @patch("storages.backends.gcloud.GoogleCloudStorage.delete")
     def test_gcs_upload_and_delete_flow(self, mock_delete, mock_save, mock_init):
+        """Verify upload and transactional deletion pipeline using
+        Google Cloud Storage."""
         mock_save.return_value = "artifacts/mission_1/secure_gcs_name.mp4"
 
         artifact = upload_artifact(
@@ -146,6 +157,7 @@ class CloudStorageIntegrationTests(TestCase):
 
 
 class SecurityConfigurationTests(TestCase):
+    """Test security parameters on initialized cloud storage driver instances."""
 
     @override_settings(
         AWS_ACCESS_KEY_ID="fake-key",
@@ -159,6 +171,7 @@ class SecurityConfigurationTests(TestCase):
         "storages.backends.s3boto3.S3Boto3Storage.connection", new_callable=PropertyMock
     )
     def test_s3_storage_security_parameters_are_applied(self, mock_connection):
+        """Verify security parameters on the AWS S3 storage driver."""
         storage = S3Boto3Storage()
 
         self.assertIsNone(storage.default_acl)
@@ -176,6 +189,7 @@ class SecurityConfigurationTests(TestCase):
         "storages.backends.s3boto3.S3Boto3Storage.connection", new_callable=PropertyMock
     )
     def test_minio_storage_security_parameters_are_applied(self, mock_connection):
+        """Verify security parameters on the MinIO storage driver."""
         storage = S3Boto3Storage()
 
         self.assertIsNone(storage.default_acl)
@@ -191,6 +205,7 @@ class SecurityConfigurationTests(TestCase):
         "storages.backends.azure_storage.AzureStorage.client", new_callable=PropertyMock
     )
     def test_azure_storage_security_parameters_are_applied(self, mock_client):
+        """Verify security parameters on the Azure Blob Storage driver."""
         storage = AzureStorage()
 
         self.assertFalse(storage.overwrite_files)
@@ -205,6 +220,7 @@ class SecurityConfigurationTests(TestCase):
         "storages.backends.gcloud.GoogleCloudStorage.client", new_callable=PropertyMock
     )
     def test_gcs_storage_security_parameters_are_applied(self, mock_client):
+        """Verify security parameters on the Google Cloud Storage driver."""
         storage = GoogleCloudStorage()
 
         self.assertIsNone(storage.default_acl)

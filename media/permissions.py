@@ -30,6 +30,7 @@ from accounts.rbac import (
     PERMISSION_MEDIA_VIEW,
     PERMISSION_MEDIA_VIEW_LOGS,
 )
+from missions.models import MissionDrone
 from roles.models import ADMIN_CODE
 
 from .services import record_permission_denied
@@ -59,6 +60,8 @@ class MediaAuditedDenialMixin:
 
 
 class MediaUploadPermission(MediaAuditedDenialMixin, HasRBACPermission):
+    """Require the media upload RBAC permission."""
+
     required_permission = PERMISSION_MEDIA_UPLOAD
 
 
@@ -84,19 +87,54 @@ class MediaObjectPermission(MediaAuditedDenialMixin, HasRBACPermission):
 
 
 class MediaViewPermission(MediaObjectPermission):
+    """Require the media view RBAC and object-level permissions.
+
+    Access is granted if the user is an owner, admin, mission commander, mission creator
+    or an operator assigned to a drone within the mission."""
+
     required_permission = PERMISSION_MEDIA_VIEW
 
     def _check_object(self, request, obj):
         if self._is_owner_or_admin(request, obj):
             return True
 
+        # A video carries a real unit via its capturing drone; scope by it so
+        # object-level access agrees with the queryset scoping applied to video
+        # listings (see media.views.scope_video_metadata_for_user).
+        drone = getattr(obj, "drone", None)
+        if drone is not None:
+            user_unit_id = getattr(request.user, "unit_id", None)
+            return (
+                user_unit_id is not None
+                and getattr(drone, "military_unit_id", None) == user_unit_id
+            )
+
+        # Artifacts have no unit relationship (Mission carries no unit); retain
+        # the existing mission-based check for them.
         mission = getattr(obj, "mission", None)
-        return bool(
-            mission and getattr(mission, "unit_id", None) == request.user.unit_id
-        )
+        if not mission:
+            return False
+
+        if mission.commander_id == request.user.id:
+            return True
+
+        if mission.created_by_id == request.user.id:
+            return True
+
+        if MissionDrone.objects.filter(
+            mission_id=mission.id,
+            operator_id=request.user.id,
+        ).exists():
+            return True
+
+        return False
 
 
 class MediaDeletePermission(MediaObjectPermission):
+    """Require the media delete RBAC and object-level permissions.
+
+    Access is granted if the user is an owner or admin."""
+
     required_permission = PERMISSION_MEDIA_DELETE
 
     def _check_object(self, request, obj):
@@ -104,4 +142,6 @@ class MediaDeletePermission(MediaObjectPermission):
 
 
 class MediaViewLogsPermission(MediaAuditedDenialMixin, HasRBACPermission):
+    """Require the media audit log view RBAC permission."""
+
     required_permission = PERMISSION_MEDIA_VIEW_LOGS

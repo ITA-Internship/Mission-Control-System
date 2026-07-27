@@ -9,6 +9,7 @@ from .views import (
     DroneDetailView,
     DroneListCreateView,
     DroneModelListCreateView,
+    DroneScopedWriteOffHistoryListView,
     DroneSpecChangeLogListView,
     DroneStatusHistoryListView,
     WriteOffHistoryListView,
@@ -37,7 +38,7 @@ urlpatterns = [
     ),
     path(
         "<int:drone_pk>/write-offs/history/",
-        WriteOffHistoryListView.as_view(),
+        DroneScopedWriteOffHistoryListView.as_view(),
         name="drone-writeoff-history",
     ),
     path(

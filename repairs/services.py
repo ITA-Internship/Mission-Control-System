@@ -17,7 +17,7 @@ from rest_framework.exceptions import PermissionDenied, ValidationError
 from accounts.permissions import user_has_permission
 from accounts.rbac import PERMISSION_REPAIRS_MANAGE, PERMISSION_REPAIRS_VERIFY
 from accounts.tasks import send_email_task
-from common.utils import EchoBuffer
+from common.utils import EchoBuffer, sanitize_row
 
 from .models import (
     REPAIR_ORDER_TRANSITIONS,
@@ -401,10 +401,18 @@ def generate_repair_history_csv(timeline_data):
     )
 
     for event in timeline_data:
+        timestamp = event.get("timestamp")
+        if timestamp and hasattr(timestamp, "strftime"):
+            date_str = timestamp.strftime("%Y-%m-%d %H:%M:%S")
+        else:
+            date_str = str(timestamp) if timestamp is not None else ""
+
         yield writer.writerow(
-            [
-                event["timestamp"].strftime("%Y-%m-%d %H:%M:%S"),
-                event["event_type"],
-                event["summary"],
-            ]
+            sanitize_row(
+                [
+                    date_str,
+                    event.get("event_type", ""),
+                    event.get("summary", ""),
+                ]
+            )
         )

@@ -1,3 +1,5 @@
+"""Configure Django admin interfaces for mission artifacts and audit logs."""
+
 from django.contrib import admin
 from django.template.defaultfilters import filesizeformat
 
@@ -6,6 +8,8 @@ from .models import MediaAuditLog, MissionArtifact
 
 @admin.register(MissionArtifact)
 class MissionArtifactAdmin(admin.ModelAdmin):
+    """Configure admin interface for mission artifact management."""
+
     list_display = (
         "id",
         "title",
@@ -32,11 +36,14 @@ class MissionArtifactAdmin(admin.ModelAdmin):
 
     @admin.display(description="File Size", ordering="file_size")
     def formatted_file_size(self, obj):
+        """Return the file size formatted in a human-readable format."""
         return filesizeformat(obj.file_size)
 
 
 @admin.register(MediaAuditLog)
 class MediaAuditLogAdmin(admin.ModelAdmin):
+    """Configure read-only admin interface for media audit log management."""
+
     list_display = (
         "id",
         "action",
@@ -55,7 +62,9 @@ class MediaAuditLogAdmin(admin.ModelAdmin):
     readonly_fields = [f.name for f in MediaAuditLog._meta.fields]
 
     def has_add_permission(self, request):
+        """Rejects manual creation of audit log entries in admin."""
         return False
 
     def has_change_permission(self, request, obj=None):
+        """Rejects editing audit log entries in admin."""
         return False

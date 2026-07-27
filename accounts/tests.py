@@ -1,6 +1,7 @@
 """Test suite for user accounts, role management, authentication."""
 
-from io import StringIO
+import csv
+import io
 from types import SimpleNamespace
 from unittest.mock import patch
 
@@ -14,14 +15,18 @@ from django.urls import reverse
 from django.utils.encoding import force_bytes
 from django.utils.http import urlsafe_base64_encode
 from rest_framework import status
-from rest_framework.test import APIRequestFactory, APITestCase
+from rest_framework.test import APIClient, APIRequestFactory, APITestCase
 
+from drones.factories import AdminUserFactory
 from roles.models import ADMIN_CODE, OPERATOR_CODE, Role
 from seed_data.users import seed_users
 
 from .models import AuditLog, User, UserRoleAuditLog, UserStatusLog
+from .permissions import user_has_permission
+from .rbac import PERMISSION_PROFILE_VIEW_ANY
 from .services import update_user_role
 from .throttles import AccountActivationThrottle, PasswordResetRequestThrottle
+from .tokens import account_activation_token_generator
 
 THROTTLE_TEST_SETTINGS = {
     "DEFAULT_AUTHENTICATION_CLASSES": [
@@ -311,6 +316,65 @@ class PasswordResetConfirmViewTests(APITestCase):
         args, kwargs = mock_send_mail.call_args
         self.assertEqual(kwargs["recipient_list"], [self.user.email])
 
+    @patch("accounts.tasks.send_mail")
+    def test_password_reset_invalidates_existing_session(self, mock_send_mail):
+        """Ensure password reset terminates the user's existing sessions."""
+        session_client = APIClient()
+
+        logged_in = session_client.login(
+            username=self.user.username,
+            password="OldPassword123!",
+        )
+        self.assertTrue(logged_in)
+
+        protected_url = reverse("accounts:user-me")
+
+        response_before_reset = session_client.get(protected_url)
+        self.assertEqual(
+            response_before_reset.status_code,
+            status.HTTP_200_OK,
+            response_before_reset.data,
+        )
+
+        # Login updates last_login, which invalidates the token created in setUp().
+        # Refresh the user and generate a new valid token after login.
+        self.user.refresh_from_db()
+
+        uidb64 = urlsafe_base64_encode(force_bytes(self.user.pk))
+        token = default_token_generator.make_token(self.user)
+
+        reset_url = reverse(
+            "accounts:password-reset-confirm",
+            kwargs={
+                "uidb64": uidb64,
+                "token": token,
+            },
+        )
+
+        reset_response = self.client.post(
+            reset_url,
+            {
+                "new_password": "BrandNewPassword123!",
+            },
+            format="json",
+        )
+
+        self.assertEqual(
+            reset_response.status_code,
+            status.HTTP_200_OK,
+            reset_response.data,
+        )
+
+        response_after_reset = session_client.get(protected_url)
+
+        self.assertEqual(
+            response_after_reset.status_code,
+            status.HTTP_403_FORBIDDEN,
+            response_after_reset.data,
+        )
+
+        mock_send_mail.assert_called_once()
+
     def test_password_reset_invalid_token(self):
         """Ensure that an invalid or expired token rejects the password reset."""
         invalid_url = reverse(
@@ -394,7 +458,7 @@ class SeedDbSecurityTests(TestCase):
     def test_disable_seeded_users_deactivates_existing_seeded_accounts(self):
         """Ensure that the disable command revokes access for all seeded users."""
         seed_users(seed_password="TemporarySeedPassword@123")
-        out = StringIO()
+        out = io.StringIO()
 
         call_command("disable_seeded_users", stdout=out)
 
@@ -419,16 +483,17 @@ class PublicAuthThrottleTests(APITestCase):
         """Clear cache to reset limits and initialize a test user."""
         cache.clear()
         self.request_factory = APIRequestFactory()
+        # Pending activation: no usable password yet (mirrors real account
+        # creation), so the activation endpoint accepts the first request.
         self.user = User.objects.create_user(
             username="throttle.user",
             email="throttle.user@example.com",
-            password="StrongTest@1234",
-            is_active=False,
+            password=None,
         )
 
     def test_activation_endpoint_is_throttled(self):
         """Verify that repeated account activation requests return a 429."""
-        token = default_token_generator.make_token(self.user)
+        token = account_activation_token_generator.make_token(self.user)
         url = reverse(
             "accounts:account-activate",
             kwargs={"user_id": self.user.pk, "token": token},
@@ -508,6 +573,168 @@ class PublicAuthThrottleTests(APITestCase):
         self.assertEqual(second_response.status_code, status.HTTP_429_TOO_MANY_REQUESTS)
 
 
+@override_settings(
+    EMAIL_BACKEND="django.core.mail.backends.locmem.EmailBackend",
+)
+class AccountActivationSecurityTests(APITestCase):
+    """Test that account activation enforces token scope and account state.
+
+    Activation and password-reset both build on Django's token machinery, so
+    these tests guard against the two flows' tokens being interchangeable and
+    against the endpoint being used to bypass administrative deactivation.
+    """
+
+    def setUp(self):
+        """Reset throttle state and create a user pending activation."""
+        cache.clear()
+        self.user = User.objects.create(
+            username="pending.user",
+            email="pending.user@example.com",
+        )
+        self.user.set_unusable_password()
+        self.user.save()
+
+    def _activation_url(self, token):
+        """Build the activation URL for the test user and given token."""
+        return reverse(
+            "accounts:account-activate",
+            kwargs={"user_id": self.user.pk, "token": token},
+        )
+
+    def test_valid_activation_token_activates_account(self):
+        """Verify a genuine activation token sets a usable password and activates."""
+        # Precondition: the account is pending (no usable password yet).
+        self.assertFalse(self.user.has_usable_password())
+
+        token = account_activation_token_generator.make_token(self.user)
+
+        response = self.client.post(
+            self._activation_url(token),
+            {"password": "NewStrongPassword@1234"},
+            format="json",
+        )
+
+        self.user.refresh_from_db()
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertTrue(self.user.is_active)
+        self.assertTrue(self.user.has_usable_password())
+        self.assertTrue(self.user.check_password("NewStrongPassword@1234"))
+        self.assertFalse(self.user.must_change_password)
+
+    def test_missing_password_field_is_rejected(self):
+        """Verify activation without a password returns a field error."""
+        token = account_activation_token_generator.make_token(self.user)
+
+        response = self.client.post(
+            self._activation_url(token),
+            {},
+            format="json",
+        )
+
+        self.user.refresh_from_db()
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("password", response.data)
+        self.assertIsInstance(response.data["password"], list)
+        self.assertFalse(self.user.has_usable_password())
+
+    def test_password_reset_token_cannot_activate_account(self):
+        """Verify a password-reset token is rejected by the activation endpoint."""
+        reset_token = default_token_generator.make_token(self.user)
+
+        response = self.client.post(
+            self._activation_url(reset_token),
+            {"password": "NewStrongPassword@1234"},
+            format="json",
+        )
+
+        self.user.refresh_from_db()
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertFalse(self.user.has_usable_password())
+
+    def test_deactivated_user_cannot_reactivate_via_reset_token(self):
+        """Verify a deactivated user cannot reactivate through the activation endpoint.
+
+        An administratively deactivated account already holds a usable password,
+        so it can only obtain a password-reset token. That token must not pass
+        activation and must not flip ``is_active`` back to True.
+        """
+        deactivated = User.objects.create_user(
+            username="deactivated.user",
+            email="deactivated.user@example.com",
+            password="ExistingStrongPassword@1234",
+            is_active=False,
+        )
+
+        reset_token = default_token_generator.make_token(deactivated)
+        url = reverse(
+            "accounts:account-activate",
+            kwargs={"user_id": deactivated.pk, "token": reset_token},
+        )
+
+        response = self.client.post(
+            url,
+            {"password": "AttackerStrongPassword@1234"},
+            format="json",
+        )
+
+        deactivated.refresh_from_db()
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertFalse(deactivated.is_active)
+        self.assertTrue(deactivated.check_password("ExistingStrongPassword@1234"))
+
+    def test_weak_password_is_rejected(self):
+        """Verify activation enforces the password-strength policy."""
+        token = account_activation_token_generator.make_token(self.user)
+
+        response = self.client.post(
+            self._activation_url(token),
+            {"password": "1"},
+            format="json",
+        )
+
+        self.user.refresh_from_db()
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("password", response.data)
+        self.assertIsInstance(response.data["password"], list)
+        self.assertTrue(response.data["password"])
+        self.assertFalse(self.user.has_usable_password())
+
+    def test_already_activated_account_cannot_be_reactivated(self):
+        """Verify an active account with a usable password cannot re-activate."""
+        active_user = User.objects.create_user(
+            username="active.user",
+            email="active.user@example.com",
+            password="ExistingStrongPassword@1234",
+            is_active=True,
+        )
+
+        token = account_activation_token_generator.make_token(active_user)
+        url = reverse(
+            "accounts:account-activate",
+            kwargs={"user_id": active_user.pk, "token": token},
+        )
+
+        response = self.client.post(
+            url,
+            {"password": "NewStrongPassword@1234"},
+            format="json",
+        )
+
+        active_user.refresh_from_db()
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(
+            response.data["detail"], "This account has already been activated."
+        )
+        self.assertTrue(active_user.is_active)
+        self.assertTrue(active_user.check_password("ExistingStrongPassword@1234"))
+
+
 @override_settings(REST_FRAMEWORK=THROTTLE_TEST_SETTINGS)
 class PasswordChangeSecurityTests(APITestCase):
     """Test application behavior regarding forced password changes."""
@@ -565,3 +792,168 @@ class PasswordChangeSecurityTests(APITestCase):
 
         self.assertEqual(first_response.status_code, status.HTTP_200_OK)
         self.assertEqual(second_response.status_code, status.HTTP_429_TOO_MANY_REQUESTS)
+
+
+class AuditLogExportTests(TestCase):
+    def setUp(self):
+        self.client = APIClient()
+        self.admin_user = AdminUserFactory()
+        self.client.force_authenticate(self.admin_user)
+
+    def test_audit_log_csv_export_is_sanitized(self):
+        """Integration test asserting exported CSV are protected against injection."""
+
+        malicious_description = "=cmd|'/C calc'!A0"
+        AuditLog.objects.create(
+            actor=self.admin_user,
+            action_type=AuditLog.ActionType.USER_CREATED,
+            result=AuditLog.ResultStatus.SUCCESS,
+            description=malicious_description,
+            ip_address="127.0.0.1",
+        )
+        url = reverse("accounts:audit-log-export")
+        response = self.client.get(url)
+
+        self.assertEqual(response.status_code, 200)
+        content = b"".join(response.streaming_content).decode("utf-8")
+        reader = csv.reader(io.StringIO(content))
+        rows = list(reader)
+        data_row = rows[1]
+
+        self.assertEqual(data_row[-1], f"'{malicious_description}")
+
+
+class ProtectedProfilePictureRBACTests(APITestCase):
+    """Test centralized RBAC access to protected profile pictures."""
+
+    def setUp(self):
+        """Create Admin, Operator, and target users."""
+        self.admin_role, _ = Role.objects.get_or_create(
+            code=ADMIN_CODE,
+            defaults={"name": "Administrator"},
+        )
+        self.operator_role, _ = Role.objects.get_or_create(
+            code=OPERATOR_CODE,
+            defaults={"name": "Operator"},
+        )
+
+        self.admin_user = User.objects.create_user(
+            username="profile.admin",
+            email="profile.admin@example.com",
+            password="StrongPassword123!",
+            role=self.admin_role,
+            is_active=True,
+        )
+
+        self.staff_operator = User.objects.create_user(
+            username="profile.staff.operator",
+            email="profile.staff.operator@example.com",
+            password="StrongPassword123!",
+            role=self.operator_role,
+            is_active=True,
+            is_staff=True,
+        )
+
+        self.target_user = User.objects.create_user(
+            username="profile.target",
+            email="profile.target@example.com",
+            password="StrongPassword123!",
+            role=self.operator_role,
+            is_active=True,
+        )
+
+        self.url = reverse(
+            "accounts:user-profile-picture",
+            kwargs={"user_id": self.target_user.pk},
+        )
+
+    def test_admin_has_view_any_profile_permission(self):
+        """Ensure the Admin role receives profile.view_any."""
+        self.assertTrue(
+            user_has_permission(
+                self.admin_user,
+                PERMISSION_PROFILE_VIEW_ANY,
+            )
+        )
+
+    def test_non_admin_staff_has_no_view_any_profile_permission(self):
+        """Ensure Django staff status does not bypass application RBAC."""
+        self.assertFalse(
+            user_has_permission(
+                self.staff_operator,
+                PERMISSION_PROFILE_VIEW_ANY,
+            )
+        )
+
+    def test_admin_can_access_another_users_profile_picture_endpoint(self):
+        """Ensure Admin passes authorization for another user's picture."""
+        self.client.force_authenticate(user=self.admin_user)
+
+        response = self.client.get(self.url)
+
+        self.assertEqual(
+            response.status_code,
+            status.HTTP_404_NOT_FOUND,
+        )
+        self.assertEqual(
+            response.data["detail"],
+            "User does not have a profile picture.",
+        )
+
+    def test_staff_non_admin_cannot_access_another_users_picture(self):
+        """Ensure is_staff does not grant access outside RBAC."""
+        self.client.force_authenticate(user=self.staff_operator)
+
+        response = self.client.get(self.url)
+
+        self.assertEqual(
+            response.status_code,
+            status.HTTP_403_FORBIDDEN,
+        )
+
+    def test_user_can_access_own_profile_picture_endpoint(self):
+        """Ensure users retain access to their own profile picture."""
+        self.client.force_authenticate(user=self.target_user)
+
+        response = self.client.get(self.url)
+
+        self.assertEqual(
+            response.status_code,
+            status.HTTP_404_NOT_FOUND,
+        )
+        self.assertEqual(
+            response.data["detail"],
+            "User does not have a profile picture.",
+        )
+
+    def test_anonymous_user_cannot_access_profile_picture(self):
+        """Ensure profile pictures require authentication."""
+        response = self.client.get(self.url)
+
+        self.assertEqual(
+            response.status_code,
+            status.HTTP_403_FORBIDDEN,
+        )
+
+
+class AuditLogRBACTests(APITestCase):
+    """Test RBAC restrictions for audit log endpoints."""
+
+    def test_user_without_audit_permissions_gets_forbidden(self):
+        """Ensure users without an RBAC role cannot view audit logs."""
+        user = User.objects.create_user(
+            username="no.audit.role",
+            email="no.audit.role@example.com",
+            password="StrongPassword123!",
+            is_active=True,
+        )
+        self.client.force_authenticate(user=user)
+
+        response = self.client.get(
+            reverse("accounts:audit-log-list"),
+        )
+
+        self.assertEqual(
+            response.status_code,
+            status.HTTP_403_FORBIDDEN,
+        )

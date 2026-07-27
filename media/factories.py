@@ -1,3 +1,5 @@
+"""Factory classes for generating media app test data."""
+
 import factory
 
 from missions.factories import MissionFactory, OperatorUserFactory
@@ -8,6 +10,8 @@ __all__ = ["MissionArtifactFactory"]
 
 
 class MissionArtifactFactory(factory.django.DjangoModelFactory):
+    """Factory for generating MissionArtifact instances for testing."""
+
     class Meta:
         model = MissionArtifact
 
@@ -18,6 +22,9 @@ class MissionArtifactFactory(factory.django.DjangoModelFactory):
     storage_backend = "local"
 
     class Params:
+        """Defines dynamic traits to mutate the factory outputs
+        to represent an image, a video or a data asset."""
+
         is_image = factory.Trait(
             file=factory.django.FileField(
                 filename="test_image.jpg", data=b"test image data"

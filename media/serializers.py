@@ -1,3 +1,9 @@
+"""DRF serializers for the media API.
+
+Validate and shape image, data and video artifacts,
+audit log entries.
+"""
+
 import json
 import logging
 import os
@@ -20,6 +26,8 @@ logger = logging.getLogger(__name__)
 
 
 class VideoMetadataSerializer(serializers.ModelSerializer):
+    """Serialize video metadata record for listing and updating."""
+
     url = serializers.SerializerMethodField()
     uploader_username = serializers.CharField(
         source="uploader.username", read_only=True, default=None
@@ -59,16 +67,23 @@ class VideoMetadataSerializer(serializers.ModelSerializer):
         ]
 
     def get_url(self, obj) -> str:
+        """Return video file URL."""
         return obj.url
 
 
 class VideoUploadSerializer(serializers.ModelSerializer):
+    """Serialize video metadata record.
+
+    Validates that the provided drone is actively assigned to the target mission.
+    """
+
     class Meta:
         model = VideoMetadata
         fields = ["id", "mission", "drone", "file", "recorded_at", "checksum"]
         read_only_fields = ["id"]
 
     def validate(self, attrs):
+        """Validate that the provided drone belongs to the target mission."""
         attrs = super().validate(attrs)
         if not MissionDrone.objects.filter(
             mission=attrs["mission"],
@@ -80,6 +95,13 @@ class VideoUploadSerializer(serializers.ModelSerializer):
         return attrs
 
     def create(self, validated_data):
+        """Populate file metadata, record the uploader
+        and extract video duration via ffprobe.
+
+        Sets status to UPLOADING and safely falls back to 0 or None for duration
+        if ffprobe execution fails.
+        """
+
         file_obj = validated_data["file"]
 
         validated_data["file_name"] = file_obj.name
@@ -133,6 +155,7 @@ class VideoUploadSerializer(serializers.ModelSerializer):
 
 
 class MissionArtifactSerializer(serializers.ModelSerializer):
+    """Serialize artifact data for list responses."""
 
     uploaded_by = UserBriefSerializer(read_only=True)
 
@@ -165,6 +188,7 @@ class MissionArtifactSerializer(serializers.ModelSerializer):
 
 
 class MediaAuditLogSerializer(serializers.ModelSerializer):
+    """Serialize read-only media audit log data for list responses."""
 
     user = UserBriefSerializer(read_only=True)
 
@@ -184,6 +208,7 @@ class MediaAuditLogSerializer(serializers.ModelSerializer):
 
 
 class MissionArtifactUploadSerializer(serializers.Serializer):
+    """Serialize mission artifact record."""
 
     file = serializers.FileField(required=True)
     title = serializers.CharField(max_length=255, required=True)
@@ -191,12 +216,14 @@ class MissionArtifactUploadSerializer(serializers.Serializer):
     captured_at = serializers.DateTimeField(required=False, allow_null=True)
 
     def validate_title(self, value):
+        """Validate that the artifact title is not blank."""
         stripped = (value or "").strip()
         if not stripped:
             raise serializers.ValidationError("Title is required.")
         return stripped
 
     def validate_file(self, file):
+        """Validate extension matching and size of artifact file."""
         if file.size is None or file.size == 0:
             raise serializers.ValidationError(
                 "File is empty or its size cannot be determined."
