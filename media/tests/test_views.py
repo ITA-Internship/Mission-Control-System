@@ -435,6 +435,41 @@ class VideoMetadataAPITests(APITestCase):
         names = {video["file_name"] for video in response.data["results"]}
         self.assertEqual(names, {"in_unit.mp4"})
 
+    def test_viewer_cannot_retrieve_video_from_other_unit(self):
+        """Verify object-level mission visibility also protects video retrieve."""
+        viewer = ViewerUserFactory(unit=self.military_unit)
+        other_unit = MilitaryUnit.objects.create(id=2, name="Unit 202", code="U202")
+        self.other_mission.unit = other_unit
+        self.other_mission.save(update_fields=["unit"])
+        foreign_drone = Drone.objects.create(
+            id=3,
+            name="Mavic Gamma",
+            serial_number="SN-MAVIC-003",
+            inventory_number="INV-DRONE-003",
+            drone_model=self.drone_model,
+            classification="RECONNAISSANCE",
+            status="ACTIVE",
+            military_unit=other_unit,
+            acquired_at=timezone.localdate(),
+        )
+        video = VideoMetadata.objects.create(
+            mission=self.other_mission,
+            drone=foreign_drone,
+            uploader=OperatorUserFactory(),
+            file=SimpleUploadedFile("foreign.mp4", b"b", content_type="video/mp4"),
+            file_name="foreign.mp4",
+            file_size=20,
+        )
+        detail_url = reverse(
+            "video_media:video-metadata-detail",
+            kwargs={"pk": video.pk},
+        )
+
+        self.client.force_authenticate(user=viewer)
+        response = self.client.get(detail_url)
+
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
 
 @override_settings(
     ARTIFACT_ALLOWED_EXTENSIONS={

@@ -129,6 +129,10 @@ class _MissionArtifactMixin:
         specified in the URL path."""
         if not hasattr(self, "_mission"):
             queryset = Mission.objects.all()
+            # Operators get anti-IDOR treatment at the mission boundary:
+            # an unassigned mission should resolve to 404 before media object
+            # permissions are evaluated. Other roles resolve the mission first
+            # and then rely on object-level media visibility checks.
             if get_user_role_code(self.request.user) == OPERATOR_CODE:
                 queryset = restrict_missions_for_user(queryset, self.request.user)
 

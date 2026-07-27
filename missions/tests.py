@@ -833,7 +833,9 @@ class MissionAssignmentAccessTests(APITestCase):
     def setUp(self):
         self.dispatcher = DispatcherUserFactory()
         self.unit = MilitaryUnitFactory()
+        self.other_unit = MilitaryUnitFactory()
         self.viewer = ViewerUserFactory(unit=self.unit)
+        self.other_viewer = ViewerUserFactory(unit=self.other_unit)
         self.mission = MissionFactory(unit=self.unit)
         MissionDroneFactory(mission=self.mission)
         self.url = reverse(
@@ -858,6 +860,13 @@ class MissionAssignmentAccessTests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.data["count"], 1)
         self.assertEqual(len(response.data["results"]), 1)
+
+    def test_viewer_from_other_unit_gets_404(self):
+        self.client.force_authenticate(self.other_viewer)
+
+        response = self.client.get(self.url)
+
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
 
 
 class MissionListTests(APITestCase):
