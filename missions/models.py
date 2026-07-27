@@ -163,8 +163,6 @@ class Mission(models.Model):
     unit = models.ForeignKey(
         "accounts.MilitaryUnit",
         on_delete=models.PROTECT,
-        null=True,
-        blank=True,
         related_name="missions",
     )
 

@@ -138,6 +138,8 @@ class ArtifactListCreateView(_MissionArtifactMixin, generics.ListCreateAPIView):
     def get_queryset(self):
         mission_queryset = Mission.objects.all()
         if self.request.method in permissions.SAFE_METHODS:
+            # Keep mission-derived artifact listings aligned with mission
+            # visibility so viewers only see media for missions they may read.
             mission_queryset = restrict_missions_for_user(
                 mission_queryset,
                 self.request.user,

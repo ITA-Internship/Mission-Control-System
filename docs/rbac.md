@@ -55,3 +55,48 @@ The system supports role-based access control with the following roles:
 Users can perform Profile operations (view, update, reset password) only on their own profiles.
 
 Only Admin users can view all audit logs. Other users can only view audit logs where they are either the actor or the target user.
+
+## Mission-Scoped Visibility
+
+Role-level RBAC grants the `Viewer` role read access to missions and media, but
+the final decision for mission-scoped resources is constrained by object-level
+visibility rules.
+
+### Viewer Rule
+
+`Viewer` users may read only missions that belong to their own military unit.
+This same rule applies to mission-derived media resources.
+
+Allowed:
+- Mission list/detail for missions where `mission.unit == request.user.unit`
+- Mission assignment list for missions where `mission.unit == request.user.unit`
+- Mission artifacts and protected media downloads for missions where
+  `mission.unit == request.user.unit`
+- Video metadata lists and browser results for missions where
+  `mission.unit == request.user.unit`
+
+Denied:
+- Any mission-scoped resource when the viewer belongs to a different unit
+- Any mission-scoped resource when the viewer has no `unit`
+
+### Shared Enforcement
+
+Mission-scoped read access is enforced through shared helpers in
+`missions/permissions.py`:
+
+- `can_user_view_mission(user, mission)`
+- `restrict_missions_for_user(queryset, user)`
+
+These helpers are the source of truth for mission visibility and are used by:
+
+- `MissionListCreateView`
+- `MissionDetailView`
+- `MissionAssignmentListCreateView`
+- `ArtifactListCreateView` (GET)
+- `ArtifactDetailView`
+- `ProtectedMediaView`
+- `VideoMetadataViewSet` (list scoping plus object checks)
+- `VideoMetadataBrowserView`
+
+This avoids duplicated per-endpoint logic and prevents insecure nullable-field
+fallbacks such as comparing two missing `unit_id` values.

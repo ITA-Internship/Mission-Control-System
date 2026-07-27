@@ -34,9 +34,15 @@ class VideoMetadataAPITests(APITestCase):
             email="travis@example.com",
             password="securepassword123",
         )
-        self.mission = Mission.objects.create(title="Test Mission Alpha")
-        self.other_mission = Mission.objects.create(title="Test Mission Beta")
         self.military_unit = MilitaryUnit.objects.create(id=1, name="Unit 101")
+        self.mission = Mission.objects.create(
+            title="Test Mission Alpha",
+            unit=self.military_unit,
+        )
+        self.other_mission = Mission.objects.create(
+            title="Test Mission Beta",
+            unit=self.military_unit,
+        )
         self.drone_model = DroneModel.objects.create(
             name="Mavic 3 Pro",
             manufacturer="DJI",

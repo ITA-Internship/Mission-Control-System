@@ -60,6 +60,13 @@ class MediaObjectPermission(MediaAuditedDenialMixin, HasRBACPermission):
 
 
 class MediaViewPermission(MediaObjectPermission):
+    """Allow mission media reads for the uploader/admin or visible missions.
+
+    Viewer access is not global: viewers may read mission-derived media only
+    when the mission itself is visible under the shared mission scoping rules
+    (currently same-unit visibility).
+    """
+
     required_permission = PERMISSION_MEDIA_VIEW
 
     def _check_object(self, request, obj):
