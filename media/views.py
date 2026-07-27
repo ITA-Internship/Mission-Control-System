@@ -5,7 +5,7 @@ import posixpath
 
 from django.conf import settings
 from django.db import transaction
-from django.db.models import ProtectedError
+from django.db.models import ProtectedError, Q
 from django.http import FileResponse, Http404, HttpResponse, HttpResponseForbidden
 from django.shortcuts import get_object_or_404
 from django.utils.dateparse import parse_date
@@ -20,8 +20,10 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from accounts.permissions import get_user_role_code
 from common.pagination import StandardResultsSetPagination
 from missions.models import Mission
+from roles.models import ADMIN_CODE
 
 from .api_details import (
     artifact_detail_delete_schema,
@@ -63,11 +65,36 @@ from .tasks import extract_video_duration_task
 logger = logging.getLogger(__name__)
 
 
-def filter_video_metadata_queryset(params, queryset=None):
+def scope_video_metadata_for_user(queryset, user):
+    """Restrict a ``VideoMetadata`` queryset to what ``user`` may view.
+
+    Mirrors ``MediaViewPermission._check_object`` for videos: admins see
+    everything; everyone else sees videos they uploaded plus videos captured by
+    a drone belonging to their own unit. Users without a unit only see their own
+    uploads. Applied before any request-supplied filters so listing can never
+    expose videos the caller is not authorized to retrieve.
+
+    A video's unit is reached through its drone (``drone__military_unit``);
+    ``Mission`` itself carries no unit, so it cannot be used for scoping.
+    """
+    if get_user_role_code(user) == ADMIN_CODE:
+        return queryset
+
+    scope = Q(uploader_id=user.id)
+    unit_id = getattr(user, "unit_id", None)
+    if unit_id is not None:
+        scope |= Q(drone__military_unit_id=unit_id)
+    return queryset.filter(scope)
+
+
+def filter_video_metadata_queryset(params, queryset=None, user=None):
     qs = (
         queryset
         or VideoMetadata.objects.select_related("mission", "drone", "uploader").all()
     )
+
+    if user is not None:
+        qs = scope_video_metadata_for_user(qs, user)
 
     for param_names, field in (
         (("mission_id", "mission"), "mission_id"),
@@ -298,6 +325,7 @@ class VideoMetadataViewSet(viewsets.ModelViewSet):
         return filter_video_metadata_queryset(
             self.request.query_params,
             queryset=super().get_queryset(),
+            user=self.request.user,
         )
 
     def get_permissions(self):
@@ -365,7 +393,8 @@ class VideoMetadataBrowserView(TemplateView):
 
         try:
             context["videos"] = filter_video_metadata_queryset(
-                self.request.GET
+                self.request.GET,
+                user=self.request.user,
             ).order_by("-created_at")
         except ValidationError as exc:
             if isinstance(exc.detail, dict):

@@ -66,6 +66,19 @@ class MediaViewPermission(MediaObjectPermission):
         if self._is_owner_or_admin(request, obj):
             return True
 
+        # A video carries a real unit via its capturing drone; scope by it so
+        # object-level access agrees with the queryset scoping applied to video
+        # listings (see media.views.scope_video_metadata_for_user).
+        drone = getattr(obj, "drone", None)
+        if drone is not None:
+            user_unit_id = getattr(request.user, "unit_id", None)
+            return (
+                user_unit_id is not None
+                and getattr(drone, "military_unit_id", None) == user_unit_id
+            )
+
+        # Artifacts have no unit relationship (Mission carries no unit); retain
+        # the existing mission-based check for them.
         mission = getattr(obj, "mission", None)
         if not mission:
             return False
