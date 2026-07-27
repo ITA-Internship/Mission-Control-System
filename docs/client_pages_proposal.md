@@ -4,6 +4,8 @@ Proposed web pages for the **Mission Control System** client application (planne
 
 The backend is a REST API under `/api/`. This document maps the client pages onto existing backend apps and endpoints so the frontend can be built directly against them. Use [`schema.yml`](../schema.yml) / `/api/docs/` to generate the typed API client, and [rbac.md](rbac.md) to drive role-based UI gating.
 
+Pages are kept deliberately broad: detail views, history timelines, and sub-actions (status changes, assignments, outcomes) are folded into their parent page as **tabs, side panels, or modals** rather than standalone routes. This keeps the client to ~13 pages.
+
 ## Prerequisites & Open Questions
 
 - **Authentication gap.** The backend currently uses **session + CSRF only** — there is no JSON login/JWT endpoint. Before client work begins, decide between:
@@ -18,84 +20,60 @@ The backend is a REST API under `/api/`. This document maps the client pages ont
 
 ## 1. Authentication & Account
 
-| Page | Purpose | Backend |
-|------|---------|---------|
-| **Login** | Session login + CSRF handshake (may require adding a login API) | `accounts` |
-| **Password Reset / Reset Confirm** | Public request + token-confirm flow | `users/password-reset/`, `.../confirm/` |
-| **Account Activation** | Landing page for activation token links | `activate/<user_id>/<token>/` |
-| **Force Password Change** | Blocking page when `must_change_password=true` | `users/me/change-password/` |
-| **My Profile** | View/edit own profile, rank, contact, avatar | `users/me/`, `users/<id>/profile-picture/` |
+| Page | Purpose (folded-in sections) | Backend |
+|------|------------------------------|---------|
+| **Auth** | Single flow covering login, password reset/confirm, account activation, and the blocking force-password-change screen (routed by token/state) | `accounts`, `users/password-reset/`, `activate/...`, `users/me/change-password/` |
+| **My Profile** | View/edit own profile, rank, contact, avatar; change own password | `users/me/`, `users/<id>/profile-picture/`, `users/me/change-password/` |
 
 ## 2. Drone Fleet (core)
 
-| Page | Purpose | Backend |
-|------|---------|---------|
-| **Drone Inventory (list)** | Filterable/paginated fleet table with status badges | `GET /api/drones/` |
-| **Drone Detail** | Full drone view: specs, current status, notes | `GET drones/<pk>/` |
-| **Drone Status History** | Lifecycle transition timeline | `drones/<pk>/history/` |
-| **Spec Change History** | Audit of spec edits | `drones/<pk>/spec-changes/` |
-| **Create/Edit Drone** | Registration & update forms | `POST/PATCH drones/` |
-| **Drone Comparison** | Side-by-side spec compare (replaces existing template) | `GET compare/` |
-| **Drone Models Catalog** | Manage drone models & supported classifications | `models/` |
-| **CSV Import / Export** | Bulk import + export download | `import/`, `export/` |
-| **Write-Off Records & History Report** | Create write-offs, view immutable history report | `write-offs/`, `.../history/report/` |
+| Page | Purpose (folded-in sections) | Backend |
+|------|------------------------------|---------|
+| **Drone Inventory** | Filterable/paginated fleet table with status badges. Toolbar hosts create, CSV import/export, model catalog, and drone comparison (modal/drawer) | `GET /api/drones/`, `POST drones/`, `models/`, `import/`, `export/`, `compare/` |
+| **Drone Detail** | Full drone view with tabs: **Specs / edit**, **Status history**, **Spec-change history**, **Write-offs** (create + immutable history report) | `drones/<pk>/`, `.../history/`, `.../spec-changes/`, `write-offs/` |
 
 ## 3. Missions
 
-| Page | Purpose | Backend |
-|------|---------|---------|
-| **Missions Board (list)** | Missions with state-machine status filters | `GET /api/missions/` |
-| **Mission Detail** | Overview: commander, location/map, timeline, status | `missions/<pk>/` |
-| **Create/Edit Mission** | Planning form (incl. lat/lng map picker) | `POST missions/` |
-| **Mission Status Control** | Drive state transitions (Planned→Active→Completed/Aborted) | `<pk>/status/` |
-| **Mission Assignments** | Assign drones + operators; post-mission condition | `<mission_pk>/assignments/` |
-| **Mission Outcome** | Record result + incident notes | `<pk>/outcome/` |
-| **Mission Artifacts & Videos** | Upload/view images, data files, and video gallery | `artifacts/`, `media/videos/` |
+| Page | Purpose (folded-in sections) | Backend |
+|------|------------------------------|---------|
+| **Missions Board** | Missions list with state-machine status filters; create/edit mission (form + lat/lng map picker) via modal | `GET /api/missions/`, `POST missions/` |
+| **Mission Detail** | Overview + tabs: **Status control** (transitions), **Assignments** (drones/operators + post-mission condition), **Outcome** (result/incident notes), **Artifacts & Videos** (upload/gallery) | `missions/<pk>/`, `<pk>/status/`, `assignments/`, `<pk>/outcome/`, `artifacts/`, `media/videos/` |
 
 ## 4. Repairs & Maintenance
 
-| Page | Purpose | Backend |
-|------|---------|---------|
-| **Defect Reports (list)** | Filter by severity/status | `defects/` |
-| **Defect Detail** | Defect view + status update + event history | `defects/<pk>/`, `.../history/` |
-| **Repair Orders** | Manage orders, assignment, transitions | `orders/` |
-| **Component Replacements** | Log hardware swaps + CSV export | `replacements/`, `.../export/` |
-| **Drone Repair History** | Full maintenance timeline per drone | `drones/<drone_id>/history/` |
+| Page | Purpose (folded-in sections) | Backend |
+|------|------------------------------|---------|
+| **Repairs Workbench** | Tabbed workspace: **Defects** (list/filter, detail, status update, event history), **Repair orders** (manage/assign/transition), **Component replacements** (log + CSV export) | `defects/`, `.../history/`, `orders/`, `replacements/`, `.../export/` |
+| **Drone Repair History** | Full maintenance timeline per drone (also reachable from Drone Detail) | `drones/<drone_id>/history/` |
 
 ## 5. Media
 
-| Page | Purpose | Backend |
-|------|---------|---------|
-| **Video Library** | Browse/upload mission videos with status | `media/videos/`, `videos/browser/` |
-| **Media Audit Log** | Read-only view/download/upload activity | `media/audit-logs/` |
+| Page | Purpose (folded-in sections) | Backend |
+|------|------------------------------|---------|
+| **Media Library** | Browse/upload mission videos with status; **Audit log** tab for view/download/upload activity | `media/videos/`, `media/audit-logs/` |
 
 ## 6. Administration (Admin / Commander)
 
-| Page | Purpose | Backend |
-|------|---------|---------|
-| **User Management** | Create users, activate/deactivate | `users/`, `users/<pk>/status/` |
-| **Role Assignment** | Change user roles | `users/<user_id>/role/` |
-| **Military Units** | Manage unit catalog | `accounts` (admin/API) |
-| **Audit Log Viewer** | System-wide immutable action log + CSV export | `audit-log/`, `.../export/` |
+| Page | Purpose (folded-in sections) | Backend |
+|------|------------------------------|---------|
+| **Administration** | Tabbed admin console: **Users** (create, activate/deactivate, role assignment), **Military units** catalog, **Audit log** viewer + CSV export | `users/`, `users/<pk>/status/`, `users/<user_id>/role/`, `audit-log/`, `.../export/` |
 
 ## 7. Cross-cutting
 
 | Page | Purpose |
 |------|---------|
-| **Dashboard / Home** | Role-aware KPIs: active missions, drones by status, open defects, recent audit events |
+| **Dashboard / Home** | Role-aware KPIs: active missions, drones by status, open defects, recent audit events; surfaces `GET /api/health/` status |
 | **Role-based Navigation Shell** | Layout that shows/hides features per RBAC permission matrix |
-| **System Health / Status** | Surface `GET /api/health/` for ops |
 
 ---
 
 ## Suggested Build Phases
 
-1. **Foundation** — Auth (login, password reset, force-change), navigation shell with RBAC gating, generated API client, Dashboard skeleton.
-2. **Core fleet** — Drone inventory, detail, create/edit, status & spec history.
-3. **Missions** — Board, detail, create/edit, status control, assignments, outcomes.
-4. **Repairs & media** — Defects, repair orders, component replacements, video library, artifacts.
-5. **Administration** — User management, role assignment, units, audit log viewer.
-6. **Polish** — Drone comparison, CSV import/export, write-off reports, health/status.
+1. **Foundation** — Auth page, navigation shell with RBAC gating, generated API client, Dashboard skeleton, My Profile.
+2. **Core fleet** — Drone Inventory (incl. create/import/export/compare) + Drone Detail (specs, histories, write-offs).
+3. **Missions** — Missions Board + Mission Detail (status, assignments, outcome, artifacts).
+4. **Repairs & media** — Repairs Workbench, Drone Repair History, Media Library.
+5. **Administration** — Administration console (users, roles, units, audit log).
 
 ## References
 
