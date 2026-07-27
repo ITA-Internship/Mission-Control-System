@@ -821,6 +821,8 @@ class AuditLogExportTests(TestCase):
         data_row = rows[1]
 
         self.assertEqual(data_row[-1], f"'{malicious_description}")
+
+
 class ProtectedProfilePictureRBACTests(APITestCase):
     """Test centralized RBAC access to protected profile pictures."""
 

@@ -1,4 +1,5 @@
 """Tests for shared application security behavior and export sanitization."""
+
 import os
 from datetime import datetime
 
@@ -63,7 +64,7 @@ class CSVSanitizationTests(TestCase):
         expected = [1, "'=malicious", "safe", "'-100", None]
         self.assertEqual(sanitize_row(row), expected)
 
-        
+
 class ProtectedByDefaultView(APIView):
     """Test-only view relying on the global DRF permission policy."""
 
