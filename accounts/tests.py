@@ -1,16 +1,19 @@
 """Test suite for user accounts, role management, authentication. """
 
+from datetime import timedelta
 from io import StringIO
 from types import SimpleNamespace
 from unittest.mock import patch
 
 from django.contrib.auth.tokens import default_token_generator
+from django.contrib.sessions.models import Session
 from django.core.cache import cache
 from django.core.exceptions import ImproperlyConfigured
 from django.core.management import call_command
 from django.core.management.base import CommandError
 from django.test import TestCase, override_settings
 from django.urls import reverse
+from django.utils import timezone
 from django.utils.encoding import force_bytes
 from django.utils.http import urlsafe_base64_encode
 from rest_framework import status
@@ -19,7 +22,7 @@ from rest_framework.test import APIRequestFactory, APITestCase
 from roles.models import ADMIN_CODE, OPERATOR_CODE, Role
 from seed_data.users import seed_users
 
-from .models import AuditLog, User, UserRoleAuditLog, UserStatusLog
+from .models import AuditLog, User, UserRoleAuditLog, UserSession, UserStatusLog
 from .services import update_user_role
 from .throttles import AccountActivationThrottle, PasswordResetRequestThrottle
 
@@ -233,6 +236,55 @@ class ChangePasswordViewTests(APITestCase):
             ).exists()
         )
 
+    def test_change_password_invalidates_other_sessions(self):
+        """Verify password change clears other sessions but keeps current."""
+        hijacked_session = Session.objects.create(
+            session_key="hijacked_key_123",
+            session_data="mock_data",
+            expire_date=timezone.now() + timedelta(days=1),
+        )
+        UserSession.objects.create(
+            user=self.user, session_key=hijacked_session.session_key
+        )
+
+        self.client.force_authenticate(user=self.user)
+        current_session = self.client.session
+        current_session["_auth_user_id"] = str(self.user.pk)
+        current_session.save()
+        current_session_key = current_session.session_key
+        UserSession.objects.create(user=self.user, session_key=current_session_key)
+
+        active_sessions = Session.objects.filter(
+            session_key__in=["hijacked_key_123", current_session_key]
+        )
+        tracked_sessions = UserSession.objects.filter(user=self.user)
+
+        self.assertEqual(active_sessions.count(), 2)
+        self.assertEqual(tracked_sessions.count(), 2)
+
+        payload = {
+            "old_password": "OldPassword123!",
+            "new_password": "NewPassword123!",
+            "confirm_password": "NewPassword123!",
+        }
+
+        response = self.client.post(self.url, payload, format="json")
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        self.assertFalse(
+            Session.objects.filter(session_key="hijacked_key_123").exists()
+        )
+        self.assertFalse(
+            UserSession.objects.filter(session_key="hijacked_key_123").exists()
+        )
+
+        self.assertEqual(UserSession.objects.filter(user=self.user).count(), 1)
+        self.assertTrue(
+            Session.objects.filter(session_key=current_session_key).exists()
+        )
+        self.assertEqual(self.client.session.get("_auth_user_id"), str(self.user.pk))
+
     def test_change_password_failure_invalid_data(self):
         """Ensure password change fails and logs failed audit for a wrong password."""
         self.client.force_authenticate(user=self.user)
@@ -310,6 +362,34 @@ class PasswordResetConfirmViewTests(APITestCase):
         mock_send_mail.assert_called_once()
         args, kwargs = mock_send_mail.call_args
         self.assertEqual(kwargs["recipient_list"], [self.user.email])
+
+    def test_password_reset_deletes_all_user_sessions(self):
+        """Verify password reset removes all tracked Session and UserSession rows."""
+        session_keys = ["reset_session_a", "reset_session_b"]
+        for session_key in session_keys:
+            Session.objects.create(
+                session_key=session_key,
+                session_data="mock_data",
+                expire_date=timezone.now() + timedelta(days=1),
+            )
+            UserSession.objects.create(user=self.user, session_key=session_key)
+
+        self.assertEqual(UserSession.objects.filter(user=self.user).count(), 2)
+        self.assertEqual(
+            Session.objects.filter(session_key__in=session_keys).count(), 2
+        )
+
+        response = self.client.post(
+            self.url,
+            {"new_password": "BrandNewPassword123!"},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(UserSession.objects.filter(user=self.user).count(), 0)
+        self.assertEqual(
+            Session.objects.filter(session_key__in=session_keys).count(), 0
+        )
 
     def test_password_reset_invalid_token(self):
         """Ensure that an invalid or expired token rejects the password reset."""
