@@ -75,6 +75,14 @@ Pages are kept deliberately broad: detail views, history timelines, and sub-acti
 4. **Repairs & media** — Repairs Workbench, Drone Repair History, Media Library.
 5. **Administration** — Administration console (users, roles, units, audit log).
 
+## Design Briefs (Figma Make)
+
+Per-page design briefs ready to paste into Figma Make live in [`docs/design/`](design/):
+
+- [Auth](design/auth.md)
+- [Dashboard / Home](design/dashboard.md)
+- [Drone Inventory](design/drone-inventory.md)
+
 ## References
 
 - [API reference](api.md) — full endpoint documentation
