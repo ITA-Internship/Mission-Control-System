@@ -460,6 +460,7 @@ class ArtifactListCreateTests(MissionOperatorSetupMixin, APITestCase):
         self.viewer_without_unit = ViewerUserFactory()
 
         self.mission = MissionFactory(unit=self.unit)
+        MissionDroneFactory(mission=self.mission, operator=self.operator)
         self.url = reverse(
             "missions:media:artifact-list-create",
             kwargs={"mission_pk": self.mission.pk},
@@ -1016,6 +1017,7 @@ class ProtectedMediaDownloadTests(MissionOperatorSetupMixin, APITestCase):
         self.other_viewer = ViewerUserFactory(unit=self.other_unit)
         self.viewer_without_unit = ViewerUserFactory()
         self.mission = MissionFactory(unit=self.viewer_unit)
+        MissionDroneFactory(mission=self.mission, operator=self.operator)
         self.other_mission = MissionFactory()
         self.artifact = MissionArtifactFactory(
             mission=self.mission, uploaded_by=self.operator, is_image=True
