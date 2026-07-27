@@ -6,6 +6,7 @@ from common.api_description_schema import description_schema
 from config.settings import MAX_EXPORT_LIMIT
 
 from .serializers import (
+    AccountActivationSerializer,
     AuditLogSerializer,
     ChangePasswordSerializer,
     PasswordResetConfirmSerializer,
@@ -129,7 +130,9 @@ activate_account_schema = description_schema(
     summary="Activate user account",
     description=(
         "Validates the activation token provided via the URL parameters. "
-        "If the token is valid, it sets the user's new password "
+        "If the token is valid and the account is still pending activation, "
+        "it validates the submitted password against the password-strength "
+        "policy, sets it as the user's password, activates the account, "
         "and creates an audit log entry. "
     ),
     permission_code="AllowAny",
@@ -149,7 +152,7 @@ activate_account_schema = description_schema(
             required=True,
         ),
     ],
-    request=None,
+    request=AccountActivationSerializer,
     responses={
         status.HTTP_200_OK: OpenApiResponse(
             description="Your account has been activated. You can now log in."
@@ -163,8 +166,21 @@ activate_account_schema = description_schema(
                     value={"detail": "Invalid or expired activation link."},
                 ),
                 OpenApiExample(
+                    name="Account already activated",
+                    value={"detail": "This account has already been activated."},
+                ),
+                OpenApiExample(
                     name="Missing required field",
-                    value={"password": "This field is required."},
+                    value={"password": ["This field is required."]},
+                ),
+                OpenApiExample(
+                    name="Password too weak",
+                    value={
+                        "password": [
+                            "This password is too short. It must contain at "
+                            "least 8 characters."
+                        ]
+                    },
                 ),
             ],
         ),
@@ -455,6 +471,67 @@ password_reset_schema = description_schema(
         ),
     },
     error_statuses=[status.HTTP_400_BAD_REQUEST],
+)
+
+profile_picture_get_schema = description_schema(
+    summary="Retrieve a user's profile picture",
+    description=(
+        "Returns the profile picture image file of the specified user, served "
+        "inline. In production the file is delivered through a protected "
+        "`X-Accel-Redirect` internal redirect; in debug mode the file is "
+        "streamed directly.\n\n"
+        "Access rules: \n"
+        "- Any authenticated user may retrieve their own profile picture. \n"
+        "- Only staff users may retrieve another user's profile picture. \n"
+        "- Returns 404 if the target user has no profile picture, or if the "
+        "stored file is missing from the server."
+    ),
+    permission_code="IsAuthenticated",
+    parameters=[
+        OpenApiParameter(
+            name="user_id",
+            type=int,
+            location=OpenApiParameter.PATH,
+            description="ID of the user whose profile picture is being retrieved.",
+            required=True,
+        ),
+    ],
+    request=None,
+    responses={
+        status.HTTP_200_OK: OpenApiResponse(
+            response=OpenApiTypes.BINARY,
+            description=(
+                "The profile picture image file is returned inline "
+                "with the appropriate content type."
+            ),
+        ),
+        status.HTTP_403_FORBIDDEN: OpenApiResponse(
+            description="Forbidden",
+            examples=[
+                OpenApiExample(
+                    name="Not owner and not staff",
+                    value={
+                        "detail": (
+                            "You do not have permission to view this profile picture."
+                        )
+                    },
+                ),
+            ],
+        ),
+        status.HTTP_404_NOT_FOUND: OpenApiResponse(
+            description="Not Found",
+            examples=[
+                OpenApiExample(
+                    name="User does not exist",
+                    value={"detail": "Not found."},
+                ),
+                OpenApiExample(
+                    name="User has no profile picture",
+                    value={"detail": "User does not have a profile picture."},
+                ),
+            ],
+        ),
+    },
 )
 
 password_reset_confirm_schema = description_schema(

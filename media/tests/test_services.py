@@ -1,3 +1,5 @@
+"""Test suite for media service layer and audit logging."""
+
 from datetime import timedelta
 from unittest.mock import patch
 
@@ -14,12 +16,16 @@ from missions.models import MissionAuditLog
 
 
 class ArtifactServicesTests(TestCase):
+    """Test business logic within the artifact service layer."""
+
     def setUp(self):
+        """Set up an operator user and a mission for testing."""
         self.operator = OperatorUserFactory()
         self.mission = MissionFactory()
 
     @patch("django.core.files.storage.default_storage.delete")
     def test_upload_artifact_exception_cleans_up_storage(self, mock_delete):
+        """Verify file cleanup when database operations fail during upload."""
         with patch(
             "media.services.MissionAuditLog.objects.create",
             side_effect=RuntimeError("DB Error"),
@@ -38,6 +44,7 @@ class ArtifactServicesTests(TestCase):
             mock_delete.assert_called_once()
 
     def test_delete_artifact_service_logic(self):
+        """Verify transactional deletion and deferred storage cleanup execution."""
         artifact = MissionArtifactFactory(mission=self.mission, is_image=True)
 
         with patch("django.core.files.storage.default_storage.delete") as mock_delete:
@@ -50,12 +57,17 @@ class ArtifactServicesTests(TestCase):
 
 
 class MediaAuditLogTransactionTests(TestCase):
+    """Test rollback mechanics for audit logging."""
+
     def setUp(self):
+        """Set up an operator user and a mission for testing."""
         self.operator = OperatorUserFactory()
         self.mission = MissionFactory()
 
     @patch("django.core.files.storage.default_storage.delete")
     def test_media_audit_log_failure_rolls_back_upload(self, mock_delete):
+        """Ensure that audit log persistence failures roll back
+        the entire upload transaction."""
         with patch(
             "media.services.MediaAuditLog.objects.create",
             side_effect=RuntimeError("DB Error"),
@@ -78,12 +90,17 @@ class MediaAuditLogTransactionTests(TestCase):
 
 
 class MediaAuditLogRetentionTests(TestCase):
+    """Test MediaAuditLog retention policies and cleanup management command."""
+
     def setUp(self):
+        """Set up a user with operator role, mission and media artifact for testing."""
         self.operator = OperatorUserFactory()
         self.mission = MissionFactory()
         self.artifact = MissionArtifactFactory(mission=self.mission, is_image=True)
 
     def _log(self, age_days):
+        """Helper method to create a media audit log entry
+        backdated by a specific number of days."""
         log = MediaAuditLog.objects.create(
             user=self.operator,
             artifact=self.artifact,
@@ -97,6 +114,8 @@ class MediaAuditLogRetentionTests(TestCase):
         return log
 
     def test_purge_older_than_removes_only_expired(self):
+        """Verify that purge_older_than deletes records past the threshold
+        while preserving newer entries."""
         old = self._log(age_days=400)
         recent = self._log(age_days=10)
 
@@ -110,6 +129,8 @@ class MediaAuditLogRetentionTests(TestCase):
 
     @override_settings(MEDIA_AUDIT_LOG_RETENTION_DAYS=365)
     def test_purge_command_deletes_expired_entries(self):
+        """Verify that purge_audit_logs purges records according to
+        MEDIA_AUDIT_LOG_RETENTION_DAYS setting."""
         self._log(age_days=400)
         self._log(age_days=10)
 
@@ -119,6 +140,8 @@ class MediaAuditLogRetentionTests(TestCase):
 
     @override_settings(MEDIA_AUDIT_LOG_RETENTION_DAYS=365)
     def test_purge_command_dry_run_keeps_entries(self):
+        """Verify that purge_audit_logs --dry-run previews deletions
+        without removing records from the database."""
         self._log(age_days=400)
 
         call_command("purge_audit_logs", "--dry-run")
@@ -127,6 +150,8 @@ class MediaAuditLogRetentionTests(TestCase):
 
     @override_settings(MEDIA_AUDIT_LOG_RETENTION_DAYS=0)
     def test_purge_command_disabled_keeps_all(self):
+        """Verify that setting MEDIA_AUDIT_LOG_RETENTION_DAYS
+        to 0 disables log purging."""
         self._log(age_days=400)
 
         call_command("purge_audit_logs")

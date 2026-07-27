@@ -1,3 +1,5 @@
+"""URL routing for image and data artifacts."""
+
 from django.urls import path
 from rest_framework.routers import DefaultRouter
 

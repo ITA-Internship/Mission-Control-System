@@ -58,11 +58,13 @@ from .permissions import HasAnyRBACPermission, HasRBACPermission, user_has_permi
 from .rbac import (
     PERMISSION_AUDIT_LOGS_VIEW_ALL,
     PERMISSION_AUDIT_LOGS_VIEW_OWN,
+    PERMISSION_PROFILE_VIEW_ANY,
     PERMISSION_USERS_ACTIVATE_DEACTIVATE,
     PERMISSION_USERS_CREATE,
     PERMISSION_USERS_MANAGE_ROLES,
 )
 from .serializers import (
+    AccountActivationSerializer,
     AuditLogSerializer,
     ChangePasswordSerializer,
     PasswordResetConfirmSerializer,
@@ -80,6 +82,7 @@ from .throttles import (
     PasswordResetConfirmThrottle,
     PasswordResetRequestThrottle,
 )
+from .tokens import account_activation_token_generator
 
 
 @user_registration_schema
@@ -147,20 +150,28 @@ class ActivateAccountAPIView(APIView):
         """
         user = get_object_or_404(User, pk=user_id)
 
-        if not default_token_generator.check_token(user, token):
+        if not account_activation_token_generator.check_token(user, token):
             return Response(
                 {"detail": "Invalid or expired activation link."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        new_password = request.data.get("password")
-        if not new_password:
+        # An account is pending activation only while it has no usable
+        # password. Once one is set, this endpoint must not double as a
+        # token-scoped "set password" endpoint for live accounts.
+        if user.has_usable_password():
             return Response(
-                {"password": ["This field is required."]},
+                {"detail": "This account has already been activated."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        set_user_password(user, new_password)
+        serializer = AccountActivationSerializer(
+            data=request.data, context={"user": user}
+        )
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        set_user_password(user, serializer.validated_data["password"])
 
         create_audit_log(
             actor=user,
@@ -591,7 +602,12 @@ class ProtectedProfilePictureView(APIView):
         """
         user = get_object_or_404(User, pk=user_id)
 
-        if request.user != user and not request.user.is_staff:
+        can_view_any_profile = user_has_permission(
+            request.user,
+            PERMISSION_PROFILE_VIEW_ANY,
+        )
+
+        if request.user != user and not can_view_any_profile:
             return Response(
                 {"detail": "You do not have permission to view this profile picture."},
                 status=status.HTTP_403_FORBIDDEN,
