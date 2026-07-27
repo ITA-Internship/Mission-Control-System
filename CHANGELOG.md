@@ -6,6 +6,7 @@
 - *(missions)* Implements nested serializer for mission drones creation (by **travis**)
 - Implement mission media artifacts upload and management (by **Maksym**)
 - *(client)* Add client-side web pages proposal documentation (by **mehalyna**)
+- *(docs)* Enhance client pages proposal with detailed section purposes and structure (by **mehalyna**)
 
 ### Bug Fixes
 
@@ -701,6 +702,7 @@
 - Bugfix#145 csv injection in exports (by **Maksym**)
 - Merge branch 'develop' into fix/cross-mission-idor-artifact-list-upload (by **Maksym**)
 - Merge pull request #178 from ITA-Internship/fix/cross-mission-idor-artifact-list-upload (by **Maksym Korchynskyi**)
+- Merge branch 'develop' of https://github.com/ITA-Internship/Mission-Control-System into develop (by **mehalyna**)
 
 ### Refactor
 
@@ -739,6 +741,7 @@
 
 ### Miscellaneous Tasks
 
+- *(changelog)* Update CHANGELOG.md [skip ci] (by **github-actions[bot]**)
 - *(changelog)* Update CHANGELOG.md [skip ci] (by **github-actions[bot]**)
 - *(changelog)* Update CHANGELOG.md [skip ci] (by **github-actions[bot]**)
 - *(changelog)* Update CHANGELOG.md [skip ci] (by **github-actions[bot]**)
