@@ -42,7 +42,8 @@ artifact_get_schema = description_schema(
     tags=["media"],
     summary="List all artifacts for a specific mission",
     description=(
-        "Retrieves a paginated list of artifacts associated with a given mission."
+        "Retrieves a paginated list of artifacts associated with a given mission. "
+        "Viewers may only access artifacts for missions belonging to their own unit."
     ),
     permission_code="PERMISSION_MEDIA_VIEW",
     parameters=[
@@ -135,7 +136,8 @@ artifact_detail_get_schema = description_schema(
     tags=["media"],
     summary="Retrieve specific artifact details",
     description=(
-        "Retrieves detailed information for a single mission artifact by its ID."
+        "Retrieves detailed information for a single mission artifact by its ID. "
+        "Viewers may only access artifacts for missions belonging to their own unit."
     ),
     permission_code="PERMISSION_MEDIA_VIEW",
     parameters=[
@@ -204,9 +206,10 @@ protected_media_get_schema = description_schema(
     description=(
         "Returns the binary file for a mission artifact as an attachment. In "
         "production the file is delivered through a protected `X-Accel-Redirect` "
-        "internal redirect; in debug mode the file is streamed directly. Access is "
-        "restricted to administrators, the uploader, or users belonging to the "
-        "artifact mission's unit.\n\n"
+        "internal redirect; in debug mode the file is streamed directly. Access "
+        "follows mission visibility rules: administrators and uploaders may "
+        "always access the file, while other users must be allowed to view the "
+        "underlying mission resource.\n\n"
         "Returns 404 if the artifact does not exist or the stored file is missing "
         "from the server."
     ),
@@ -381,7 +384,8 @@ video_metadata_list_schema = description_schema(
     summary="List video metadata records",
     description=(
         "Retrieves a paginated list of video metadata records. Supports filtering "
-        "by mission, drone, uploader, status, and creation/recording date ranges."
+        "by mission, drone, uploader, status, and creation/recording date ranges. "
+        "Viewers may only access video records for missions belonging to their own unit."
     ),
     permission_code="PERMISSION_MEDIA_VIEW",
     parameters=[
@@ -534,7 +538,8 @@ video_metadata_retrieve_schema = description_schema(
     summary="Retrieve a video metadata record",
     description=(
         "Retrieves detailed information about a specific video metadata record "
-        "by its ID."
+        "by its ID. Viewers may only access video records for missions "
+        "belonging to their own unit."
     ),
     permission_code="PERMISSION_MEDIA_VIEW",
     parameters=[

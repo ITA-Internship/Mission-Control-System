@@ -376,12 +376,9 @@ class VideoMetadataAPITests(APITestCase):
 
     @patch("media.permissions.MediaViewPermission.has_permission", return_value=True)
     def test_list_scopes_videos_to_callers_unit(self, mock_perm):
-        # Regression for C3: a non-admin caller with a unit must see only their
-        # own uploads plus videos captured by a drone in their own unit — never
-        # every video system-wide — and the unit-scoped query must resolve (the
-        # video's unit is reached via drone__military_unit, not the mission).
-        self.user.unit = self.military_unit  # Unit 101; owns self.drone
-        self.user.save(update_fields=["unit"])
+        """Verify that video list visibility follows the mission unit rule."""
+        viewer = ViewerUserFactory(unit=self.military_unit)
+        self.client.force_authenticate(user=viewer)
 
         other_unit = MilitaryUnit.objects.create(id=2, name="Unit 202", code="U202")
         foreign_drone = Drone.objects.create(
@@ -397,8 +394,6 @@ class VideoMetadataAPITests(APITestCase):
         )
         someone_else = OperatorUserFactory()
 
-        # Captured by a drone in the caller's unit, uploaded by someone else:
-        # visible via the unit branch, not the uploader branch.
         VideoMetadata.objects.create(
             mission=self.mission,
             drone=self.drone,
@@ -407,7 +402,8 @@ class VideoMetadataAPITests(APITestCase):
             file_name="in_unit.mp4",
             file_size=10,
         )
-        # Captured by a drone in a foreign unit: must be excluded.
+        self.other_mission.unit = other_unit
+        self.other_mission.save(update_fields=["unit"])
         VideoMetadata.objects.create(
             mission=self.other_mission,
             drone=foreign_drone,
@@ -633,6 +629,7 @@ class ArtifactDetailTests(APITestCase):
         )
 
     def test_viewer_from_same_unit_can_retrieve(self):
+        """Verify that a viewer may retrieve artifacts from missions of their unit."""
         self.client.force_authenticate(self.viewer)
         response = self.client.get(self.url)
         self.assertEqual(response.status_code, status.HTTP_200_OK)
