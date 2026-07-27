@@ -58,6 +58,7 @@ from .permissions import HasAnyRBACPermission, HasRBACPermission, user_has_permi
 from .rbac import (
     PERMISSION_AUDIT_LOGS_VIEW_ALL,
     PERMISSION_AUDIT_LOGS_VIEW_OWN,
+    PERMISSION_PROFILE_VIEW_ANY,
     PERMISSION_USERS_ACTIVATE_DEACTIVATE,
     PERMISSION_USERS_CREATE,
     PERMISSION_USERS_MANAGE_ROLES,
@@ -589,7 +590,12 @@ class ProtectedProfilePictureView(APIView):
         """
         user = get_object_or_404(User, pk=user_id)
 
-        if request.user != user and not request.user.is_staff:
+        can_view_any_profile = user_has_permission(
+            request.user,
+            PERMISSION_PROFILE_VIEW_ANY,
+        )
+
+        if request.user != user and not can_view_any_profile:
             return Response(
                 {"detail": "You do not have permission to view this profile picture."},
                 status=status.HTTP_403_FORBIDDEN,

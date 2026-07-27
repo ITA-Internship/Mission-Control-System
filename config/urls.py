@@ -22,6 +22,7 @@ from drf_spectacular.views import (
     SpectacularRedocView,
     SpectacularSwaggerView,
 )
+from rest_framework.permissions import AllowAny
 
 from media.urls import audit_urlpatterns as media_audit_urlpatterns
 
@@ -36,11 +37,25 @@ urlpatterns = [
     path("api/media/", include("media.urls_video")),
     path("api/missions/<int:mission_pk>/artifacts/", include("media.urls")),
     path("api/media/", include(media_audit_urlpatterns)),
-    path("api/schema/", SpectacularAPIView.as_view(), name="schema"),
+    path(
+        "api/schema/",
+        SpectacularAPIView.as_view(permission_classes=[AllowAny]),
+        name="schema",
+    ),
     path(
         "api/docs/",
-        SpectacularSwaggerView.as_view(url_name="schema"),
+        SpectacularSwaggerView.as_view(
+            url_name="schema",
+            permission_classes=[AllowAny],
+        ),
         name="swagger-ui",
     ),
-    path("api/redoc/", SpectacularRedocView.as_view(url_name="schema"), name="redoc"),
+    path(
+        "api/redoc/",
+        SpectacularRedocView.as_view(
+            url_name="schema",
+            permission_classes=[AllowAny],
+        ),
+        name="redoc",
+    ),
 ]

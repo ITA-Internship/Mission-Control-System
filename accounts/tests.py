@@ -14,12 +14,14 @@ from django.urls import reverse
 from django.utils.encoding import force_bytes
 from django.utils.http import urlsafe_base64_encode
 from rest_framework import status
-from rest_framework.test import APIRequestFactory, APITestCase
+from rest_framework.test import APIClient, APIRequestFactory, APITestCase
 
 from roles.models import ADMIN_CODE, OPERATOR_CODE, Role
 from seed_data.users import seed_users
 
 from .models import AuditLog, User, UserRoleAuditLog, UserStatusLog
+from .permissions import user_has_permission
+from .rbac import PERMISSION_PROFILE_VIEW_ANY
 from .services import update_user_role
 from .throttles import AccountActivationThrottle, PasswordResetRequestThrottle
 
@@ -311,6 +313,65 @@ class PasswordResetConfirmViewTests(APITestCase):
         args, kwargs = mock_send_mail.call_args
         self.assertEqual(kwargs["recipient_list"], [self.user.email])
 
+    @patch("accounts.tasks.send_mail")
+    def test_password_reset_invalidates_existing_session(self, mock_send_mail):
+        """Ensure password reset terminates the user's existing sessions."""
+        session_client = APIClient()
+
+        logged_in = session_client.login(
+            username=self.user.username,
+            password="OldPassword123!",
+        )
+        self.assertTrue(logged_in)
+
+        protected_url = reverse("accounts:user-me")
+
+        response_before_reset = session_client.get(protected_url)
+        self.assertEqual(
+            response_before_reset.status_code,
+            status.HTTP_200_OK,
+            response_before_reset.data,
+        )
+
+        # Login updates last_login, which invalidates the token created in setUp().
+        # Refresh the user and generate a new valid token after login.
+        self.user.refresh_from_db()
+
+        uidb64 = urlsafe_base64_encode(force_bytes(self.user.pk))
+        token = default_token_generator.make_token(self.user)
+
+        reset_url = reverse(
+            "accounts:password-reset-confirm",
+            kwargs={
+                "uidb64": uidb64,
+                "token": token,
+            },
+        )
+
+        reset_response = self.client.post(
+            reset_url,
+            {
+                "new_password": "BrandNewPassword123!",
+            },
+            format="json",
+        )
+
+        self.assertEqual(
+            reset_response.status_code,
+            status.HTTP_200_OK,
+            reset_response.data,
+        )
+
+        response_after_reset = session_client.get(protected_url)
+
+        self.assertEqual(
+            response_after_reset.status_code,
+            status.HTTP_403_FORBIDDEN,
+            response_after_reset.data,
+        )
+
+        mock_send_mail.assert_called_once()
+
     def test_password_reset_invalid_token(self):
         """Ensure that an invalid or expired token rejects the password reset."""
         invalid_url = reverse(
@@ -565,3 +626,139 @@ class PasswordChangeSecurityTests(APITestCase):
 
         self.assertEqual(first_response.status_code, status.HTTP_200_OK)
         self.assertEqual(second_response.status_code, status.HTTP_429_TOO_MANY_REQUESTS)
+
+
+class ProtectedProfilePictureRBACTests(APITestCase):
+    """Test centralized RBAC access to protected profile pictures."""
+
+    def setUp(self):
+        """Create Admin, Operator, and target users."""
+        self.admin_role, _ = Role.objects.get_or_create(
+            code=ADMIN_CODE,
+            defaults={"name": "Administrator"},
+        )
+        self.operator_role, _ = Role.objects.get_or_create(
+            code=OPERATOR_CODE,
+            defaults={"name": "Operator"},
+        )
+
+        self.admin_user = User.objects.create_user(
+            username="profile.admin",
+            email="profile.admin@example.com",
+            password="StrongPassword123!",
+            role=self.admin_role,
+            is_active=True,
+        )
+
+        self.staff_operator = User.objects.create_user(
+            username="profile.staff.operator",
+            email="profile.staff.operator@example.com",
+            password="StrongPassword123!",
+            role=self.operator_role,
+            is_active=True,
+            is_staff=True,
+        )
+
+        self.target_user = User.objects.create_user(
+            username="profile.target",
+            email="profile.target@example.com",
+            password="StrongPassword123!",
+            role=self.operator_role,
+            is_active=True,
+        )
+
+        self.url = reverse(
+            "accounts:user-profile-picture",
+            kwargs={"user_id": self.target_user.pk},
+        )
+
+    def test_admin_has_view_any_profile_permission(self):
+        """Ensure the Admin role receives profile.view_any."""
+        self.assertTrue(
+            user_has_permission(
+                self.admin_user,
+                PERMISSION_PROFILE_VIEW_ANY,
+            )
+        )
+
+    def test_non_admin_staff_has_no_view_any_profile_permission(self):
+        """Ensure Django staff status does not bypass application RBAC."""
+        self.assertFalse(
+            user_has_permission(
+                self.staff_operator,
+                PERMISSION_PROFILE_VIEW_ANY,
+            )
+        )
+
+    def test_admin_can_access_another_users_profile_picture_endpoint(self):
+        """Ensure Admin passes authorization for another user's picture."""
+        self.client.force_authenticate(user=self.admin_user)
+
+        response = self.client.get(self.url)
+
+        self.assertEqual(
+            response.status_code,
+            status.HTTP_404_NOT_FOUND,
+        )
+        self.assertEqual(
+            response.data["detail"],
+            "User does not have a profile picture.",
+        )
+
+    def test_staff_non_admin_cannot_access_another_users_picture(self):
+        """Ensure is_staff does not grant access outside RBAC."""
+        self.client.force_authenticate(user=self.staff_operator)
+
+        response = self.client.get(self.url)
+
+        self.assertEqual(
+            response.status_code,
+            status.HTTP_403_FORBIDDEN,
+        )
+
+    def test_user_can_access_own_profile_picture_endpoint(self):
+        """Ensure users retain access to their own profile picture."""
+        self.client.force_authenticate(user=self.target_user)
+
+        response = self.client.get(self.url)
+
+        self.assertEqual(
+            response.status_code,
+            status.HTTP_404_NOT_FOUND,
+        )
+        self.assertEqual(
+            response.data["detail"],
+            "User does not have a profile picture.",
+        )
+
+    def test_anonymous_user_cannot_access_profile_picture(self):
+        """Ensure profile pictures require authentication."""
+        response = self.client.get(self.url)
+
+        self.assertEqual(
+            response.status_code,
+            status.HTTP_403_FORBIDDEN,
+        )
+
+
+class AuditLogRBACTests(APITestCase):
+    """Test RBAC restrictions for audit log endpoints."""
+
+    def test_user_without_audit_permissions_gets_forbidden(self):
+        """Ensure users without an RBAC role cannot view audit logs."""
+        user = User.objects.create_user(
+            username="no.audit.role",
+            email="no.audit.role@example.com",
+            password="StrongPassword123!",
+            is_active=True,
+        )
+        self.client.force_authenticate(user=user)
+
+        response = self.client.get(
+            reverse("accounts:audit-log-list"),
+        )
+
+        self.assertEqual(
+            response.status_code,
+            status.HTTP_403_FORBIDDEN,
+        )
