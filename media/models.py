@@ -49,10 +49,16 @@ def _validate_file_size(file):
 
 
 def video_upload_path(instance, filename):
+    # Never interpolate the raw client filename into the storage path: it may
+    # contain path-traversal sequences (``../``) or other hostile characters.
+    # Mirror ``artifact_upload_path`` and use a UUID plus the validated
+    # extension so the stored name is fully server-controlled.
+    ext = os.path.splitext(filename)[1].lower()
+    if ext.lstrip(".") not in VIDEO_ALLOWED_EXTENSIONS:
+        raise ValidationError(f"Unsupported video file extension: {ext}")
+    safe_name = f"{uuid.uuid4().hex}{ext}"
     return (
-        f"missions/{instance.mission_id}/"
-        f"drones/{instance.drone_id}/"
-        f"{uuid.uuid4()}_{filename}"
+        f"missions/{instance.mission_id}/" f"drones/{instance.drone_id}/" f"{safe_name}"
     )
 
 

@@ -1,9 +1,37 @@
+from types import SimpleNamespace
+
 from django.core.exceptions import ValidationError
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import TestCase, override_settings
 
 from media.factories import MissionArtifactFactory
+from media.models import video_upload_path
 from missions.factories import MissionFactory, OperatorUserFactory
+
+
+class VideoUploadPathTests(TestCase):
+    def _instance(self):
+        return SimpleNamespace(mission_id=7, drone_id=3)
+
+    def test_uses_uuid_and_drops_raw_client_filename(self):
+        path = video_upload_path(self._instance(), "flight_clip.mp4")
+        self.assertTrue(path.startswith("missions/7/drones/3/"))
+        self.assertTrue(path.endswith(".mp4"))
+        # The raw client name must not survive into the storage path.
+        self.assertNotIn("flight_clip", path)
+        # <uuid4 hex>.mp4 == 32 + 4 characters.
+        self.assertEqual(len(path.rsplit("/", 1)[1]), 36)
+
+    def test_rejects_path_traversal_filename(self):
+        # A traversal payload must not leak ".." or the attacker's basename.
+        path = video_upload_path(self._instance(), "../../../../etc/passwd.mp4")
+        self.assertNotIn("..", path)
+        self.assertNotIn("passwd", path)
+        self.assertTrue(path.startswith("missions/7/drones/3/"))
+
+    def test_rejects_unsupported_extension(self):
+        with self.assertRaises(ValidationError):
+            video_upload_path(self._instance(), "malware.exe")
 
 
 @override_settings(
