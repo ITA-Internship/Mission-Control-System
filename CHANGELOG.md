@@ -706,6 +706,9 @@
 - Deleted unnessecery sync probe in media (by **Olena Kshyk**)
 - Merge pull request #194 from ITA-Internship/fix/task#148-remove-sync-probe (by **Olena Kshyk**)
 - Task #148 Remove synchronous ffprobe from the video upload request path (by **Olena Kshyk**)
+- Add tests covering all user-roles in Roles app (by **Maksym Lirko**)
+- Merge pull request #192 from ITA-Internship/bugfix#153-covering-testing-gaps (by **Maksym**)
+- Add tests covering all user-roles in Roles app (by **Maksym**)
 
 ### Refactor
 
@@ -744,6 +747,7 @@
 
 ### Miscellaneous Tasks
 
+- *(changelog)* Update CHANGELOG.md [skip ci] (by **github-actions[bot]**)
 - *(changelog)* Update CHANGELOG.md [skip ci] (by **github-actions[bot]**)
 - *(changelog)* Update CHANGELOG.md [skip ci] (by **github-actions[bot]**)
 - *(changelog)* Update CHANGELOG.md [skip ci] (by **github-actions[bot]**)
