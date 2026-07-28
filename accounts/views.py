@@ -19,7 +19,7 @@ import os
 import posixpath
 
 from django.conf import settings
-from django.contrib.auth import update_session_auth_hash
+from django.contrib.auth import HASH_SESSION_KEY
 from django.contrib.auth.tokens import default_token_generator
 from django.core.exceptions import ValidationError as DjangoValidationError
 from django.http import FileResponse, Http404, HttpResponse, StreamingHttpResponse
@@ -391,10 +391,11 @@ class UserMeView(generics.RetrieveUpdateAPIView):
         )
 
 
-def invalidate_user_sessions(user):
+def invalidate_user_sessions(user, exclude_session_key=None):
     """Invalidate and delete all active sessions for a given user.
     Args:
         user (User): The user whose sessions should be terminated.
+        exclude_session_key (str): Optional session key to keep (e.g. current request).
     """
     from django.contrib.sessions.models import Session
     from django.utils import timezone
@@ -402,11 +403,17 @@ def invalidate_user_sessions(user):
     from .models import UserSession
 
     tracked = UserSession.objects.filter(user=user)
-    session_keys = list(tracked.values_list("session_key", flat=True))
+    if exclude_session_key:
+        sessions_to_remove = tracked.exclude(session_key=exclude_session_key)
+    else:
+        sessions_to_remove = tracked
 
-    if session_keys:
-        Session.objects.filter(session_key__in=session_keys).delete()
-        tracked.delete()
+    session_keys = list(sessions_to_remove.values_list("session_key", flat=True))
+
+    if tracked.exists():
+        if session_keys:
+            Session.objects.filter(session_key__in=session_keys).delete()
+            sessions_to_remove.delete()
     else:
         # Fallback: scan sessions if UserSession tracking wasn't populated yet
         active_sessions = Session.objects.filter(expire_date__gte=timezone.now())
@@ -417,6 +424,11 @@ def invalidate_user_sessions(user):
             data = session.get_decoded()
             if user_pk_str == str(data.get("_auth_user_id")):
                 keys_to_delete.append(session.session_key)
+
+        if exclude_session_key:
+            keys_to_delete = [
+                key for key in keys_to_delete if key != exclude_session_key
+            ]
 
         if keys_to_delete:
             Session.objects.filter(session_key__in=keys_to_delete).delete()
@@ -438,7 +450,10 @@ class ChangePasswordView(APIView):
             user = request.user
             set_user_password(user, serializer.validated_data["new_password"])
 
-            update_session_auth_hash(request, user)
+            current_session_key = request.session.session_key
+            invalidate_user_sessions(user, exclude_session_key=current_session_key)
+            request.session[HASH_SESSION_KEY] = user.get_session_auth_hash()
+            request.session.save()
 
             create_audit_log(
                 actor=user,
@@ -544,6 +559,8 @@ class PasswordResetConfirmView(APIView):
                 message="Your password has been reset successfully.",
                 recipient_list=[user.email],
             )
+
+            invalidate_user_sessions(user)
 
             create_audit_log(
                 actor=user,
