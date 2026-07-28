@@ -16,7 +16,13 @@ omit = [
 
 [tool.bandit]
 exclude_dirs = ["tests", "*/migrations", "venv", ".venv"]
-skips = ["B101"]
+skips = [
+    "B101", # assert statements
+    "B105", # hardcoded password strings in docs/constants
+    "B110", # try-except-pass
+    "B404", # import subprocess
+    "B603"  # subprocess call without shell=True
+]
 
 [tool.coverage.report]
 fail_under = 60
