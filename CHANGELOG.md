@@ -631,6 +631,9 @@
 - Fix lint issues (by **Maksym Lirko**)
 - Merge pull request #155 from ITA-Internship/task123-clean (by **Maksym**)
 - Task#123 automate deployment and release workflow (by **Maksym**)
+- Invalidate sessions on password reset and change (by **Yevhen Yedynets**)
+- Add tests for session invalidation (by **Yevhen Yedynets**)
+- Resolve pre-commit checks error (by **Yevhen Yedynets**)
 - Added new actions in audit log and retention (by **Olena Kshyk**)
 - Merge branch 'develop' of https://github.com/ITA-Internship/Mission-Control-System into task#120-file-access-and-audit-log (by **Olena Kshyk**)
 - Updated docs for the task (by **Olena Kshyk**)
@@ -709,6 +712,9 @@
 - Add tests covering all user-roles in Roles app (by **Maksym Lirko**)
 - Merge pull request #192 from ITA-Internship/bugfix#153-covering-testing-gaps (by **Maksym**)
 - Add tests covering all user-roles in Roles app (by **Maksym**)
+- Resolve merge conflicts (by **Yevhen Yedynets**)
+- Merge pull request #177 from ITA-Internship/bugfix#142-invalidate-sessions (by **Yevhen Yedynets**)
+- Invalidate sessions on password reset and change (by **Yevhen Yedynets**)
 
 ### Refactor
 
@@ -747,6 +753,7 @@
 
 ### Miscellaneous Tasks
 
+- *(changelog)* Update CHANGELOG.md [skip ci] (by **github-actions[bot]**)
 - *(changelog)* Update CHANGELOG.md [skip ci] (by **github-actions[bot]**)
 - *(changelog)* Update CHANGELOG.md [skip ci] (by **github-actions[bot]**)
 - *(changelog)* Update CHANGELOG.md [skip ci] (by **github-actions[bot]**)
