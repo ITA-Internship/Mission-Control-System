@@ -7,7 +7,7 @@ paths = [
   '''docs/api\.md'''
 ]
 
-regexes = [
+gregexes = [
   '''session_key''',
   '''new_password'''
 ]
