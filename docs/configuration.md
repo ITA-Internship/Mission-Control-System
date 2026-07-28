@@ -67,4 +67,75 @@ The bundled Nginx config also adds:
 - proxy buffering for upstream requests
 - common security headers such as `X-Frame-Options` and `X-Content-Type-Options`
 
-TLS is still a deployment concern. For a real production setup, terminate HTTPS in front of this stack with valid certificates and enable HSTS only after HTTPS is working end-to-end.
+## Production HTTPS and Transport Security
+
+Production deployments must use HTTPS for all external traffic.
+
+The recommended deployment topology is:
+
+```text
+Client
+  -> HTTPS load balancer or reverse proxy
+  -> Nginx
+  -> Gunicorn
+  -> Django
+```
+
+The trusted load balancer or reverse proxy must:
+
+* listen on HTTPS port `443` using a valid TLS certificate;
+* redirect all public HTTP traffic from port `80` to HTTPS;
+* remove any client-provided `X-Forwarded-Proto` header;
+* set `X-Forwarded-Proto: https` for requests received over HTTPS;
+* be the only component allowed to connect directly to the bundled Nginx listener.
+
+The following settings must be enabled in the production environment:
+
+```env
+DEBUG=False
+
+ALLOWED_HOSTS=api.example.com
+CSRF_TRUSTED_ORIGINS=https://api.example.com
+
+# Host header used by internal Docker health checks.
+# It must match one of the values in ALLOWED_HOSTS.
+HEALTHCHECK_HOST=api.example.com
+
+SESSION_COOKIE_SECURE=True
+CSRF_COOKIE_SECURE=True
+SECURE_SSL_REDIRECT=True
+
+SECURE_HSTS_SECONDS=31536000
+SECURE_HSTS_INCLUDE_SUBDOMAINS=True
+SECURE_HSTS_PRELOAD=True
+```
+
+Do not include `http://`, `https://`, ports, or URL paths in
+`ALLOWED_HOSTS` or `HEALTHCHECK_HOST`.
+
+For the initial HSTS rollout, use a short duration:
+
+```env
+SECURE_HSTS_SECONDS=3600
+SECURE_HSTS_INCLUDE_SUBDOMAINS=False
+SECURE_HSTS_PRELOAD=False
+```
+
+Increase `SECURE_HSTS_SECONDS` and enable `SECURE_HSTS_INCLUDE_SUBDOMAINS`
+and `SECURE_HSTS_PRELOAD` only after confirming that the main domain, all
+subdomains, and all external resources work correctly over HTTPS.
+
+Local development continues to use HTTP. Keep the local transport security
+settings disabled as shown in `.env.example`:
+
+```env
+HEALTHCHECK_HOST=localhost
+
+SESSION_COOKIE_SECURE=False
+CSRF_COOKIE_SECURE=False
+SECURE_SSL_REDIRECT=False
+
+SECURE_HSTS_SECONDS=0
+SECURE_HSTS_INCLUDE_SUBDOMAINS=False
+SECURE_HSTS_PRELOAD=False
+```

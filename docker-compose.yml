@@ -64,7 +64,15 @@ services:
       redis:
         condition: service_healthy
     healthcheck:
+<<<<<<< HEAD
       test: ["CMD-SHELL", "wget -qO- http://localhost:8000/api/health/ || exit 1"]
+=======
+      test:
+        [
+          "CMD-SHELL",
+          "python -c \"import urllib.request; request = urllib.request.Request('http://localhost:8000/api/health/', headers={'Host': '${HEALTHCHECK_HOST:-localhost}', 'X-Forwarded-Proto': 'https'}); urllib.request.urlopen(request)\" || exit 1",
+        ]
+>>>>>>> 89b5190 (fix(security): enforce production transport security checks)
       interval: 30s
       timeout: 10s
       retries: 3
@@ -93,7 +101,7 @@ services:
       test:
         [
           "CMD-SHELL",
-          "wget -qO- http://127.0.0.1:80/api/health/ || exit 1"
+          "wget -qO- --header='Host: ${HEALTHCHECK_HOST:-localhost}' --header='X-Forwarded-Proto: https' http://127.0.0.1:80/api/health/ || exit 1",
         ]
       interval: 30s
       timeout: 10s

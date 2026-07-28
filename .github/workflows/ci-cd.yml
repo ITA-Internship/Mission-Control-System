@@ -9,6 +9,7 @@ on:
 jobs:
   linting:
     runs-on: ubuntu-latest
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -68,6 +69,21 @@ jobs:
           pip install -r requirements.txt
           pip install coverage
 
+      - name: Run Django deployment security checks
+        env:
+          DEBUG: "False"
+          DJANGO_SECRET_KEY: >-
+            ci-only-deployment-check-key-7f3a91c5e8d24b6fa0472c59bfe8a102
+          ALLOWED_HOSTS: "api.example.com"
+          CSRF_TRUSTED_ORIGINS: "https://api.example.com"
+          SESSION_COOKIE_SECURE: "True"
+          CSRF_COOKIE_SECURE: "True"
+          SECURE_SSL_REDIRECT: "True"
+          SECURE_HSTS_SECONDS: "31536000"
+          SECURE_HSTS_INCLUDE_SUBDOMAINS: "True"
+          SECURE_HSTS_PRELOAD: "True"
+        run: python manage.py check --deploy --tag security --fail-level WARNING
+
       - name: Run Tests with coverage
         run: |
           coverage run manage.py test
@@ -84,10 +100,10 @@ jobs:
           name: coverage-report
           path: coverage.xml
 
-
   security:
     name: Dependency & SAST Scan
     runs-on: ubuntu-latest
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -112,6 +128,7 @@ jobs:
   secret-scan:
     name: Secret Scanning (gitleaks)
     runs-on: ubuntu-latest
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -157,7 +174,6 @@ jobs:
 
       - name: Build frontend
         run: npm run build
-
 
   build-verify:
     name: Build Verification

@@ -16,8 +16,9 @@ from rest_framework.response import Response
 from rest_framework.test import APIClient, APIRequestFactory
 from rest_framework.views import APIView
 
-from .utils import sanitize_cell, sanitize_row
 from config.settings import env_bool
+
+from .utils import sanitize_cell, sanitize_row
 
 
 class CSVSanitizationTests(TestCase):
