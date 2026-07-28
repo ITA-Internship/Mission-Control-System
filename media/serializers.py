@@ -1,7 +1,11 @@
-import json
+"""DRF serializers for the media API.
+
+Validate and shape image, data and video artifacts,
+audit log entries.
+"""
+
 import logging
 import os
-import subprocess
 
 from django.conf import settings
 from rest_framework import serializers
@@ -20,6 +24,8 @@ logger = logging.getLogger(__name__)
 
 
 class VideoMetadataSerializer(serializers.ModelSerializer):
+    """Serialize video metadata record for listing and updating."""
+
     url = serializers.SerializerMethodField()
     uploader_username = serializers.CharField(
         source="uploader.username", read_only=True, default=None
@@ -58,17 +64,24 @@ class VideoMetadataSerializer(serializers.ModelSerializer):
             "file_name",
         ]
 
-    def get_url(self, obj):
+    def get_url(self, obj) -> str:
+        """Return video file URL."""
         return obj.url
 
 
 class VideoUploadSerializer(serializers.ModelSerializer):
+    """Serialize video metadata record.
+
+    Validates that the provided drone is actively assigned to the target mission.
+    """
+
     class Meta:
         model = VideoMetadata
         fields = ["id", "mission", "drone", "file", "recorded_at", "checksum"]
         read_only_fields = ["id"]
 
     def validate(self, attrs):
+        """Validate that the provided drone belongs to the target mission."""
         attrs = super().validate(attrs)
         if not MissionDrone.objects.filter(
             mission=attrs["mission"],
@@ -80,6 +93,13 @@ class VideoUploadSerializer(serializers.ModelSerializer):
         return attrs
 
     def create(self, validated_data):
+        """Populate file metadata and record the uploader.
+
+        Sets status to UPLOADING. Video duration is extracted asynchronously by
+        ``extract_video_duration_task`` (enqueued in the view), which runs the
+        ffprobe subprocess with a strict timeout off the request path.
+        """
+
         file_obj = validated_data["file"]
 
         validated_data["file_name"] = file_obj.name
@@ -92,47 +112,12 @@ class VideoUploadSerializer(serializers.ModelSerializer):
 
         if not content_type.startswith("video/"):
             validated_data["duration_seconds"] = None
-            return super().create(validated_data)
 
-        instance = super().create(validated_data)
-
-        try:
-            file_path = instance.file.path
-
-            cmd = [
-                "ffprobe",
-                "-v",
-                "error",
-                "-show_entries",
-                "format=duration",
-                "-of",
-                "json",
-                file_path,
-            ]
-
-            result = subprocess.run(
-                cmd,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                text=True,
-                check=True,
-            )
-
-            probe_data = json.loads(result.stdout)
-            duration = float(probe_data["format"]["duration"])
-
-            instance.duration_seconds = int(duration)
-            instance.save(update_fields=["duration_seconds"])
-
-        except Exception as e:
-            logger.error(f"FFprobe failed to parse video duration: {str(e)}")
-            instance.duration_seconds = 0
-            instance.save(update_fields=["duration_seconds"])
-
-        return instance
+        return super().create(validated_data)
 
 
 class MissionArtifactSerializer(serializers.ModelSerializer):
+    """Serialize artifact data for list responses."""
 
     uploaded_by = UserBriefSerializer(read_only=True)
 
@@ -165,6 +150,7 @@ class MissionArtifactSerializer(serializers.ModelSerializer):
 
 
 class MediaAuditLogSerializer(serializers.ModelSerializer):
+    """Serialize read-only media audit log data for list responses."""
 
     user = UserBriefSerializer(read_only=True)
 
@@ -184,6 +170,7 @@ class MediaAuditLogSerializer(serializers.ModelSerializer):
 
 
 class MissionArtifactUploadSerializer(serializers.Serializer):
+    """Serialize mission artifact record."""
 
     file = serializers.FileField(required=True)
     title = serializers.CharField(max_length=255, required=True)
@@ -191,12 +178,14 @@ class MissionArtifactUploadSerializer(serializers.Serializer):
     captured_at = serializers.DateTimeField(required=False, allow_null=True)
 
     def validate_title(self, value):
+        """Validate that the artifact title is not blank."""
         stripped = (value or "").strip()
         if not stripped:
             raise serializers.ValidationError("Title is required.")
         return stripped
 
     def validate_file(self, file):
+        """Validate extension matching and size of artifact file."""
         if file.size is None or file.size == 0:
             raise serializers.ValidationError(
                 "File is empty or its size cannot be determined."

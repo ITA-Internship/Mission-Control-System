@@ -15,4 +15,14 @@ case "$DEBUG" in
         ;;
 esac
 
+case "$RUN_MIGRATIONS" in
+    true|True|1|yes|YES)
+        echo "Running database migrations..."
+        python manage.py migrate --noinput
+        ;;
+esac
+
+echo "Collecting static files..."
+python manage.py collectstatic --noinput
+
 exec "$@"

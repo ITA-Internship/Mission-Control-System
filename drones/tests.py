@@ -259,6 +259,20 @@ class DroneCreateTests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertIn("additional_modules", response.data["spec"])
 
+    def test_create_drone_ignores_status_mass_assignment(self):
+        """Ensure that status passed during creation is ignored
+        and defaults to ACTIVE."""
+        payload = copy.deepcopy(self.base_payload)
+        payload["status"] = Drone.STATUS_WRITTEN_OFF
+
+        response = self.client.post(self.create_url, payload, format="json")
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(response.data["status"], Drone.STATUS_ACTIVE)
+
+        drone = Drone.objects.get(pk=response.data["id"])
+        self.assertEqual(drone.status, Drone.STATUS_ACTIVE)
+
 
 class DroneUpdateAndDecommissionTests(APITestCase):
     """Verify drone updates, RBAC restrictions, status history, and write-off flows."""
@@ -1424,6 +1438,10 @@ class DroneDataExportsTests(APITestCase):
             serial_number="SN-002", status="DAMAGED", military_unit=self.military_unit
         )
 
+        self.drone_for_injection = DroneFactory(
+            serial_number="+SN-003", status="ACTIVE", military_unit=self.military_unit
+        )
+
         self.client.force_authenticate(self.admin_user)
 
     def test_export_csv_success_and_format(self):
@@ -1442,7 +1460,7 @@ class DroneDataExportsTests(APITestCase):
 
         self.assertEqual(rows[0][0], "ID")
         self.assertEqual(rows[0][1], "Serial Number")
-        self.assertEqual(len(rows), 3)
+        self.assertEqual(len(rows), 4)
 
         content_str = content.lower()
         self.assertIn("sn-001", content_str)
@@ -1460,6 +1478,19 @@ class DroneDataExportsTests(APITestCase):
 
         self.assertIn("sn-001", content_str)
         self.assertNotIn("sn-002", content_str)
+
+    def test_export_sanitized(self):
+        response = self.client.get(self.export_url)
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        content = b"".join(response.streaming_content).decode("utf-8")
+        csv_reader = csv.reader(io.StringIO(content))
+        rows = list(csv_reader)
+
+        injected_row = next(row for row in rows if "sn-003" in row[1].lower())
+
+        self.assertEqual(injected_row[1], "'+SN-003")
 
 
 class DroneDataImportTests(APITestCase):

@@ -22,7 +22,7 @@ from rest_framework.views import APIView
 from accounts.permissions import user_has_permission
 from accounts.rbac import PERMISSION_REPAIRS_VIEW
 from common.pagination import StandardResultsSetPagination
-from common.utils import EchoBuffer
+from common.utils import EchoBuffer, sanitize_row
 from drones.models import Drone
 
 from .api_details import (
@@ -32,7 +32,16 @@ from .api_details import (
     component_replacement_post_schema,
     defect_detail_schema,
     defect_get_schema,
+    defect_history_get_schema,
     defect_post_schema,
+    defect_status_update_post_schema,
+    drone_repair_history_export_schema,
+    drone_repair_history_get_schema,
+    repair_order_detail_get_schema,
+    repair_order_detail_patch_schema,
+    repair_order_get_schema,
+    repair_order_post_schema,
+    repair_order_replacement_post_schema,
 )
 from .filters import ComponentReplacementFilter, DefectFilter, RepairOrderFilter
 from .models import ComponentReplacement, DefectReport, RepairEvent, RepairOrder
@@ -99,6 +108,7 @@ class DefectDetailView(generics.RetrieveAPIView):
     http_method_names = ["get", "head", "options"]
 
 
+@extend_schema_view(get=defect_history_get_schema)
 class DefectHistoryView(generics.ListAPIView):
     """List the audit history of state changes for a specific defect report."""
 
@@ -114,11 +124,13 @@ class DefectHistoryView(generics.ListAPIView):
         )
 
 
+@extend_schema_view(post=defect_status_update_post_schema)
 class DefectStatusUpdateView(APIView):
     """Transition a defect report to a new status."""
 
     permission_classes = [RepairPermission]
 
+    @defect_status_update_post_schema
     def post(self, request, pk):
         """Apply the status transition via the service layer."""
         serializer = DefectStatusUpdateSerializer(data=request.data)
@@ -213,22 +225,28 @@ class ComponentReplacementExportView(generics.GenericAPIView):
 
             for replacement in queryset.iterator(chunk_size=2000):
                 yield writer.writerow(
-                    [
-                        replacement.id,
-                        replacement.drone_id,
-                        replacement.drone.serial_number,
-                        replacement.component_type,
-                        replacement.component_name or "N/A",
-                        replacement.old_serial_number or "N/A",
-                        replacement.new_serial_number,
-                        replacement.reason,
-                        replacement.replaced_at.strftime("%Y-%m-%d %H:%M:%S"),
-                        (
-                            replacement.replaced_by.username
-                            if replacement.replaced_by
-                            else "N/A"
-                        ),
-                    ]
+                    sanitize_row(
+                        [
+                            replacement.id,
+                            replacement.drone_id,
+                            replacement.drone.serial_number,
+                            replacement.component_type,
+                            replacement.component_name or "N/A",
+                            replacement.old_serial_number or "N/A",
+                            replacement.new_serial_number or "N/A",
+                            replacement.reason or "N/A",
+                            (
+                                replacement.replaced_at.strftime("%Y-%m-%d %H:%M:%S")
+                                if replacement.replaced_at
+                                else "N/A"
+                            ),
+                            (
+                                replacement.replaced_by.username
+                                if replacement.replaced_by
+                                else "N/A"
+                            ),
+                        ]
+                    )
                 )
 
         response = StreamingHttpResponse(generate_csv(), content_type="text/csv")
@@ -252,6 +270,7 @@ class DefectUIDetailView(LoginRequiredMixin, UserPassesTestMixin, DetailView):
         return user_has_permission(self.request.user, PERMISSION_REPAIRS_VIEW)
 
 
+@extend_schema_view(get=repair_order_get_schema, post=repair_order_post_schema)
 class RepairOrderListCreateView(generics.ListCreateAPIView):
     """List existing repair orders or create a new one."""
 
@@ -274,6 +293,9 @@ class RepairOrderListCreateView(generics.ListCreateAPIView):
         return RepairOrderCreateSerializer
 
 
+@extend_schema_view(
+    get=repair_order_detail_get_schema, patch=repair_order_detail_patch_schema
+)
 class RepairOrderDetailView(generics.RetrieveAPIView):
     """Retrieve or transition a specific repair order."""
 
@@ -307,6 +329,7 @@ class RepairOrderDetailView(generics.RetrieveAPIView):
         )
 
 
+@extend_schema_view(post=repair_order_replacement_post_schema)
 class RepairOrderReplacementView(generics.CreateAPIView):
     """Attach a new component replacement to an existing repair order."""
 
@@ -322,6 +345,7 @@ class RepairOrderReplacementView(generics.CreateAPIView):
         serializer.save(repair_order=self.get_repair_order())
 
 
+@extend_schema_view(get=drone_repair_history_get_schema)
 class DroneRepairHistoryView(generics.GenericAPIView):
     """Retrieve a chronological, aggregated timeline of repair events for a drone."""
 
@@ -358,10 +382,12 @@ class DroneRepairHistoryView(generics.GenericAPIView):
         return paginator.get_paginated_response(serializer.data)
 
 
+@extend_schema_view(get=drone_repair_history_export_schema)
 class DroneRepairHistoryExportView(generics.GenericAPIView):
     """Stream a CSV export of a drone's complete repair timeline."""
 
     permission_classes = [RepairHistoryExportPermission]
+    serializer_class = RepairHistoryTimelineSerializer
 
     def get(self, request, drone_id):
         """Fetch the timeline and assemble the CSV streaming response."""

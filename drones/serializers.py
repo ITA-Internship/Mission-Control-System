@@ -291,7 +291,26 @@ class DroneSerializer(serializers.ModelSerializer):
         """Expose all Drone fields for create and detail responses."""
 
         model = Drone
-        fields = "__all__"
+        fields = (
+            "id",
+            "serial_number",
+            "inventory_number",
+            "name",
+            "drone_model",
+            "classification",
+            "status",
+            "military_unit",
+            "acquired_at",
+            "notes",
+            "created_at",
+            "updated_at",
+            "spec",
+            "writeoff_record",
+            "status_label",
+            "status_indicator",
+            "status_category",
+        )
+        read_only_fields = ("status",)
 
     def create(self, validated_data):
         """Create a drone through the service layer so initial audit logging is kept."""
