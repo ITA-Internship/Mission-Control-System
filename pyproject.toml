@@ -1,2 +1,28 @@
 [tool.isort]
 profile = "black"
+
+[tool.coverage.run]
+source = ["."]
+omit = [
+    "*/migrations/*",
+    "*/tests.py",
+    "*/tests/*",
+    "manage.py",
+    "config/*",
+    "*/apps.py",
+    "venv/*",
+    ".venv/*",
+]
+
+[tool.bandit]
+exclude_dirs = ["tests", "*/migrations", "venv", ".venv"]
+skips = ["B101"]
+
+[tool.coverage.report]
+fail_under = 60
+show_missing = true
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "raise NotImplementedError",
+]
