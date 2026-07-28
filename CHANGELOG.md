@@ -703,6 +703,9 @@
 - Merge branch 'develop' into fix/cross-mission-idor-artifact-list-upload (by **Maksym**)
 - Merge pull request #178 from ITA-Internship/fix/cross-mission-idor-artifact-list-upload (by **Maksym Korchynskyi**)
 - Merge branch 'develop' of https://github.com/ITA-Internship/Mission-Control-System into develop (by **mehalyna**)
+- Deleted unnessecery sync probe in media (by **Olena Kshyk**)
+- Merge pull request #194 from ITA-Internship/fix/task#148-remove-sync-probe (by **Olena Kshyk**)
+- Task #148 Remove synchronous ffprobe from the video upload request path (by **Olena Kshyk**)
 
 ### Refactor
 
@@ -741,6 +744,7 @@
 
 ### Miscellaneous Tasks
 
+- *(changelog)* Update CHANGELOG.md [skip ci] (by **github-actions[bot]**)
 - *(changelog)* Update CHANGELOG.md [skip ci] (by **github-actions[bot]**)
 - *(changelog)* Update CHANGELOG.md [skip ci] (by **github-actions[bot]**)
 - *(changelog)* Update CHANGELOG.md [skip ci] (by **github-actions[bot]**)
