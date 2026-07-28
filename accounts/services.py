@@ -202,6 +202,41 @@ def update_user_role(*, target_user: User, new_role_id: int, changed_by: User) -
     return locked_user
 
 
+def get_client_ip(request) -> str | None:
+    """Resolve the real client IP address from the request.
+
+    Trusts only the rightmost ``settings.TRUSTED_PROXY_COUNT`` entries of the
+    ``X-Forwarded-For`` header, since those are the ones appended by our own
+    reverse proxies. Everything to the left of that is attacker-controlled
+    and must not be trusted. Falls back to ``REMOTE_ADDR`` whenever the
+    header is missing, no proxy is trusted (``TRUSTED_PROXY_COUNT == 0``),
+    or it doesn't contain enough entries to safely strip the trusted hops.
+
+    Args:
+        request (HttpRequest): The incoming HTTP request.
+
+    Returns:
+        str | None: The resolved client IP address, or None if it can't be
+            determined at all (e.g. no request metadata available).
+    """
+    trusted_proxy_count = getattr(settings, "TRUSTED_PROXY_COUNT", 0)
+    remote_addr = request.META.get("REMOTE_ADDR")
+
+    if trusted_proxy_count <= 0:
+        return remote_addr
+
+    x_forwarded_for = request.META.get("HTTP_X_FORWARDED_FOR")
+    if not x_forwarded_for:
+        return remote_addr
+
+    ips = [ip.strip() for ip in x_forwarded_for.split(",") if ip.strip()]
+
+    if len(ips) <= trusted_proxy_count:
+        return remote_addr
+
+    return ips[-(trusted_proxy_count + 1)]
+
+
 def create_audit_log(
     actor, action_type, result, target_user=None, description="", request=None
 ):
@@ -224,12 +259,7 @@ def create_audit_log(
 
     if request:
         user_agent = request.META.get("HTTP_USER_AGENT", "")
-
-        x_forwarded_for = request.META.get("HTTP_X_FORWARDED_FOR")
-        if x_forwarded_for:
-            ip_address = x_forwarded_for.split(",")[-1].strip()
-        else:
-            ip_address = request.META.get("REMOTE_ADDR")
+        ip_address = get_client_ip(request)
 
     return AuditLog.objects.create(
         actor=actor if actor and actor.is_authenticated else None,
