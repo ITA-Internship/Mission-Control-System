@@ -1243,7 +1243,7 @@ class CrossMissionIDORTests(APITestCase):
         payload = {
             "title": "Legit upload",
             "file": SimpleUploadedFile(
-                "legit.jpg", b"img bytes", content_type="image/jpeg"
+                "legit.png", VALID_PNG_BYTES, content_type="image/png"
             ),
         }
         response = self.client.post(url_a, payload, format="multipart")
