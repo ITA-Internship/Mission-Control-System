@@ -53,6 +53,8 @@ class VideoMetadataSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = [
             "id",
+            "mission",
+            "drone",
             "file_size",
             "content_type",
             "status",
