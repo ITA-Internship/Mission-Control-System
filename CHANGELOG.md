@@ -715,6 +715,9 @@
 - Resolve merge conflicts (by **Yevhen Yedynets**)
 - Merge pull request #177 from ITA-Internship/bugfix#142-invalidate-sessions (by **Yevhen Yedynets**)
 - Invalidate sessions on password reset and change (by **Yevhen Yedynets**)
+- Update media/serializers.py (by **Maksym Lirko**)
+- Merge pull request #195 from ITA-Internship/bugfix#151-vide-metadata-mass-assignment (by **Maksym**)
+- Update media/serializers.py (by **Maksym**)
 
 ### Refactor
 
@@ -753,6 +756,7 @@
 
 ### Miscellaneous Tasks
 
+- *(changelog)* Update CHANGELOG.md [skip ci] (by **github-actions[bot]**)
 - *(changelog)* Update CHANGELOG.md [skip ci] (by **github-actions[bot]**)
 - *(changelog)* Update CHANGELOG.md [skip ci] (by **github-actions[bot]**)
 - *(changelog)* Update CHANGELOG.md [skip ci] (by **github-actions[bot]**)
