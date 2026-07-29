@@ -60,9 +60,9 @@ Only Admin users can view all audit logs. Other users can only view audit logs w
 
 ## Mission-Scoped Visibility
 
-Role-level RBAC grants the `Viewer` role read access to missions and media, but
-the final decision for mission-scoped resources is constrained by object-level
-visibility rules.
+Role-level RBAC and object-level scope both apply to mission-derived resources.
+The permission matrix decides which role may access an endpoint category, and
+the final decision is then narrowed by mission visibility rules.
 
 ### Viewer Rule
 
@@ -80,6 +80,26 @@ Allowed:
 Denied:
 - Any mission-scoped resource when the viewer belongs to a different unit
 - Any mission-scoped resource when the viewer has no `unit`
+
+### Technician Rule
+
+`Technician` users do not receive `missions.view`, so they cannot browse mission
+list/detail endpoints. They do receive `media.view`, and their access to
+mission-derived media is limited to missions that are part of a maintenance or
+write-off workflow.
+
+Allowed:
+- Mission artifacts, protected media downloads, and video metadata for missions
+  with at least one damaged or lost mission-drone assignment
+- Mission artifacts, protected media downloads, and video metadata for missions
+  that already have write-off records
+- Mission artifacts, protected media downloads, and video metadata for missions
+  linked through drone status history to a repair order or write-off
+
+Denied:
+- Mission list/detail endpoints, because `Technician` has no `missions.view`
+- Media for unrelated operational missions that have no repair or write-off
+  linkage
 
 ### Shared Enforcement
 
@@ -100,8 +120,14 @@ These helpers are the source of truth for mission visibility and are used by:
 - `VideoMetadataViewSet` (list scoping plus object checks)
 - `VideoMetadataBrowserView`
 
-This avoids duplicated per-endpoint logic and prevents insecure nullable-field
-fallbacks such as comparing two missing `unit_id` values.
+The helpers must stay consistent:
+
+- list endpoints use `restrict_missions_for_user(queryset, user)`
+- object checks use `can_user_view_mission(user, mission)`
+
+This avoids duplicated per-endpoint logic, keeps list and retrieve behavior
+aligned, and prevents insecure nullable-field fallbacks such as comparing two
+missing `unit_id` values.
 
 ## Authentication
 

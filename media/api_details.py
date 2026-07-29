@@ -43,7 +43,10 @@ artifact_get_schema = description_schema(
     summary="List all artifacts for a specific mission",
     description=(
         "Retrieves a paginated list of artifacts associated with a given mission. "
-        "Viewers may only access artifacts for missions belonging to their own unit."
+        "Mission-derived media access is scoped by mission visibility rules: "
+        "viewers may only access artifacts for missions belonging to their own "
+        "unit, and technicians may only access artifacts for missions tied to "
+        "repair or write-off workflow."
     ),
     permission_code="PERMISSION_MEDIA_VIEW",
     parameters=[
@@ -137,7 +140,10 @@ artifact_detail_get_schema = description_schema(
     summary="Retrieve specific artifact details",
     description=(
         "Retrieves detailed information for a single mission artifact by its ID. "
-        "Viewers may only access artifacts for missions belonging to their own unit."
+        "Mission-derived media access is scoped by mission visibility rules: "
+        "viewers may only access artifacts for missions belonging to their own "
+        "unit, and technicians may only access artifacts for missions tied to "
+        "repair or write-off workflow."
     ),
     permission_code="PERMISSION_MEDIA_VIEW",
     parameters=[
@@ -209,7 +215,9 @@ protected_media_get_schema = description_schema(
         "internal redirect; in debug mode the file is streamed directly. Access "
         "follows mission visibility rules: administrators and uploaders may "
         "always access the file, while other users must be allowed to view the "
-        "underlying mission resource.\n\n"
+        "underlying mission resource. For example, viewers are limited to their "
+        "own unit's missions, and technicians are limited to repair- or "
+        "write-off-related missions.\n\n"
         "Returns 404 if the artifact does not exist or the stored file is missing "
         "from the server."
     ),
@@ -385,8 +393,10 @@ video_metadata_list_schema = description_schema(
     description=(
         "Retrieves a paginated list of video metadata records. Supports filtering "
         "by mission, drone, uploader, status, and creation/recording date ranges. "
-        "Viewers may only access video records for missions belonging to "
-        "their own unit."
+        "Mission-derived media access is scoped by mission visibility rules: "
+        "viewers may only access video records for missions belonging to their "
+        "own unit, and technicians may only access video records for missions "
+        "tied to repair or write-off workflow."
     ),
     permission_code="PERMISSION_MEDIA_VIEW",
     parameters=[
@@ -539,8 +549,10 @@ video_metadata_retrieve_schema = description_schema(
     summary="Retrieve a video metadata record",
     description=(
         "Retrieves detailed information about a specific video metadata record "
-        "by its ID. Viewers may only access video records for missions "
-        "belonging to their own unit."
+        "by its ID. Mission-derived media access is scoped by mission visibility "
+        "rules: viewers may only access video records for missions belonging to "
+        "their own unit, and technicians may only access video records for "
+        "missions tied to repair or write-off workflow."
     ),
     permission_code="PERMISSION_MEDIA_VIEW",
     parameters=[

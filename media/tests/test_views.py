@@ -25,9 +25,23 @@ from missions.factories import (
     OperatorUserFactory,
     ViewerUserFactory,
 )
-from missions.models import Mission, MissionAuditLog
+from missions.models import Condition, Mission, MissionAuditLog
+from roles.models import TECHNICIAN_CODE, Role
 
 User = get_user_model()
+
+
+def _create_technician_user():
+    technician_role, _ = Role.objects.get_or_create(
+        code=TECHNICIAN_CODE,
+        defaults={"name": "Technician"},
+    )
+    return User.objects.create_user(
+        username="technician_media_user",
+        email="technician_media_user@example.com",
+        password="StrongPassword123!",
+        role=technician_role,
+    )
 
 
 class MissionOperatorSetupMixin:
@@ -52,10 +66,9 @@ class VideoMetadataAPITests(APITestCase):
     def setUp(self):
         """Set up a user, missions, drones, military unit
         and video file for testing."""
-        self.user = User.objects.create_user(
+        self.user = OperatorUserFactory(
             username="operator_travis",
             email="travis@example.com",
-            password="securepassword123",
         )
         self.military_unit = MilitaryUnit.objects.create(id=1, name="Unit 101")
         self.mission = Mission.objects.create(
@@ -491,6 +504,51 @@ class VideoMetadataAPITests(APITestCase):
 
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
 
+    @patch("media.permissions.MediaViewPermission.has_permission", return_value=True)
+    def test_technician_with_media_view_gets_empty_video_list(self, mock_perm):
+        """Verify technicians do not receive mission-scoped video list access."""
+        technician = _create_technician_user()
+        self.client.force_authenticate(user=technician)
+
+        VideoMetadata.objects.create(
+            mission=self.mission,
+            drone=self.drone,
+            uploader=OperatorUserFactory(),
+            file=SimpleUploadedFile("in_unit.mp4", b"a", content_type="video/mp4"),
+            file_name="in_unit.mp4",
+            file_size=10,
+        )
+
+        response = self.client.get(self.list_url)
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["count"], 0)
+        self.assertEqual(response.data["results"], [])
+
+    @patch("media.permissions.MediaViewPermission.has_permission", return_value=True)
+    def test_technician_can_list_videos_for_repair_related_mission(self, mock_perm):
+        """Verify technicians can list videos for repair/write-off related missions."""
+        technician = _create_technician_user()
+        assignment = self.mission.mission_drones.get(drone=self.drone)
+        assignment.condition_after = Condition.DAMAGED
+        assignment.save(update_fields=["condition_after"])
+        self.client.force_authenticate(user=technician)
+
+        VideoMetadata.objects.create(
+            mission=self.mission,
+            drone=self.drone,
+            uploader=OperatorUserFactory(),
+            file=SimpleUploadedFile("repair.mp4", b"a", content_type="video/mp4"),
+            file_name="repair.mp4",
+            file_size=10,
+        )
+
+        response = self.client.get(self.list_url)
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["count"], 1)
+        self.assertEqual(response.data["results"][0]["file_name"], "repair.mp4")
+
 
 @override_settings(
     ARTIFACT_ALLOWED_EXTENSIONS={
@@ -664,6 +722,34 @@ class ArtifactListCreateTests(MissionOperatorSetupMixin, APITestCase):
         response = self.client.get(self.url)
 
         self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+
+    def test_technician_with_media_view_cannot_list_artifacts(self):
+        """Verify technicians do not receive mission-scoped artifact list access."""
+        technician = _create_technician_user()
+        self.client.force_authenticate(technician)
+
+        response = self.client.get(self.url)
+
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+
+    def test_technician_can_list_artifacts_for_repair_related_mission(self):
+        """Verify technicians can list artifacts.
+
+        Access is limited to repair/write-off related missions.
+        """
+        technician = _create_technician_user()
+        MissionDroneFactory(
+            mission=self.mission,
+            operator=OperatorUserFactory(),
+            condition_after=Condition.DAMAGED,
+        )
+        MissionArtifactFactory(mission=self.mission, is_image=True)
+        self.client.force_authenticate(technician)
+
+        response = self.client.get(self.url)
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["count"], 1)
 
     def test_unauthenticated_cannot_list(self):
         """Verify that unauthenticated users cannot list artifacts."""
