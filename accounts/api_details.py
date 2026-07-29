@@ -481,12 +481,14 @@ profile_picture_get_schema = description_schema(
         "`X-Accel-Redirect` internal redirect; in debug mode the file is "
         "streamed directly.\n\n"
         "Access rules: \n"
-        "- Any authenticated user may retrieve their own profile picture. \n"
-        "- Only staff users may retrieve another user's profile picture. \n"
+        "- Users need `PERMISSION_PROFILE_VIEW_OWN` to retrieve their own "
+        "profile picture. \n"
+        "- Retrieving another user's profile picture also requires "
+        "`PERMISSION_PROFILE_VIEW_ANY`. \n"
         "- Returns 404 if the target user has no profile picture, or if the "
         "stored file is missing from the server."
     ),
-    permission_code="IsAuthenticated",
+    permission_code="PERMISSION_PROFILE_VIEW_OWN",
     parameters=[
         OpenApiParameter(
             name="user_id",
