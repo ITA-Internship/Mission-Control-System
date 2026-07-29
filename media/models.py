@@ -66,11 +66,15 @@ def video_upload_path(instance, filename):
     """Generate a destination path for video artifact uploads."""
     # Never interpolate the raw client filename into the storage path: it may
     # contain path-traversal sequences (``../``) or other hostile characters.
-    # Mirror ``artifact_upload_path`` and use a UUID plus the validated
-    # extension so the stored name is fully server-controlled.
+    # A UUID plus the (separator-free) extension makes the stored name fully
+    # server-controlled, which is this callable's only security responsibility.
+    #
+    # Extension allow-listing is enforced upstream — by
+    # VideoUploadSerializer.validate_file (API -> HTTP 400) and by the field's
+    # FileExtensionValidator (forms / full_clean). It is deliberately NOT
+    # re-checked here: this runs inside Storage.save(), too late to raise a
+    # user-facing ValidationError (DRF would not convert it, yielding a 500).
     ext = os.path.splitext(filename)[1].lower()
-    if ext.lstrip(".") not in VIDEO_ALLOWED_EXTENSIONS:
-        raise ValidationError(f"Unsupported video file extension: {ext}")
     safe_name = f"{uuid.uuid4().hex}{ext}"
     return (
         f"missions/{instance.mission_id}/" f"drones/{instance.drone_id}/" f"{safe_name}"

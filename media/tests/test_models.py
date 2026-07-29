@@ -36,10 +36,16 @@ class VideoUploadPathTests(TestCase):
         self.assertNotIn("passwd", path)
         self.assertTrue(path.startswith("missions/7/drones/3/"))
 
-    def test_rejects_unsupported_extension(self):
-        """Verify a disallowed extension is rejected."""
-        with self.assertRaises(ValidationError):
-            video_upload_path(self._instance(), "malware.exe")
+    def test_sanitises_without_raising_on_odd_extension(self):
+        """Verify the callable only sanitises; extension policy lives upstream.
+
+        It must not raise from inside Storage.save(); allow-listing is enforced
+        by the serializer and the field's FileExtensionValidator instead.
+        """
+        path = video_upload_path(self._instance(), "../../malware.exe")
+        self.assertNotIn("..", path)
+        self.assertNotIn("malware", path)
+        self.assertTrue(path.startswith("missions/7/drones/3/"))
 
 
 @override_settings(

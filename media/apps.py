@@ -21,6 +21,7 @@ class MediaConfig(AppConfig):
         import media.signals  # noqa: F401
 
         self._verify_storage_configuration()
+        self._verify_content_signatures()
 
     def _verify_storage_configuration(self):
         """Validate that the storage provider matches
@@ -45,6 +46,35 @@ class MediaConfig(AppConfig):
                 f"STORAGE_PROVIDER is '{configured_provider}', "
                 f"which expects backend '{expected_backend}', but DEFAULT_FILE_STORAGE "
                 f"is actually set to '{actual_backend}'. This breaks self-verification."
+            )
+            logger.critical(error_msg)
+            raise ImproperlyConfigured(error_msg)
+
+    def _verify_content_signatures(self):
+        """Ensure every configured upload extension has a content-type signature.
+
+        ARTIFACT_ALLOWED_EXTENSIONS is environment-configurable, but the libmagic
+        signature map in media.validators is code. Without this guard, adding an
+        extension via env (e.g. .pdf) would look valid yet make content
+        validation reject every such upload at runtime. Fail loudly on startup.
+        """
+        from media.models import VIDEO_ALLOWED_EXTENSIONS
+        from media.validators import missing_signatures
+
+        configured = [
+            ext
+            for exts in settings.ARTIFACT_ALLOWED_EXTENSIONS.values()
+            for ext in exts
+        ]
+        configured += list(VIDEO_ALLOWED_EXTENSIONS)
+
+        missing = missing_signatures(configured)
+        if missing:
+            error_msg = (
+                f"MEDIA MISCONFIGURATION: upload extensions "
+                f"{', '.join(sorted(missing))} have no content-type signature in "
+                f"media.validators.EXTENSION_CONTENT_TYPES. Add a signature entry "
+                f"for each, or remove it from the allow-list."
             )
             logger.critical(error_msg)
             raise ImproperlyConfigured(error_msg)

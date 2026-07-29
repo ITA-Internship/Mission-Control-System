@@ -22,6 +22,13 @@ _SNIFF_BYTES = 2048
 # ``text/plain`` by many libmagic builds, so those extensions also accept the
 # generic text type. The map is intentionally broader than any single upload
 # allow-list so it can back both artifact and video validation.
+#
+# IMPORTANT: this map must stay in sync with the configured upload allow-lists
+# (``ARTIFACT_ALLOWED_EXTENSIONS`` — env-configurable — and
+# ``VIDEO_ALLOWED_EXTENSIONS``). Any allowed extension without an entry here
+# fails content validation for *every* upload. ``MediaConfig.ready`` enforces
+# this at startup via ``missing_signatures`` so the gap surfaces on deploy
+# rather than as silently rejected uploads.
 EXTENSION_CONTENT_TYPES = {
     ".jpg": {"image/jpeg"},
     ".jpeg": {"image/jpeg"},
@@ -33,6 +40,19 @@ EXTENSION_CONTENT_TYPES = {
     ".mov": {"video/quicktime"},
     ".mkv": {"video/x-matroska", "application/x-matroska"},
 }
+
+
+def missing_signatures(extensions):
+    """Return the configured ``extensions`` that lack a content-type signature.
+
+    Each extension is normalised to a lower-case, dotted form before lookup, so
+    both ``"jpg"`` and ``".jpg"`` are accepted. Used by the media app's startup
+    check to guarantee every allowed upload extension can be content-validated.
+    """
+    normalised = {
+        ext.lower() if ext.startswith(".") else f".{ext.lower()}" for ext in extensions
+    }
+    return {ext for ext in normalised if ext not in EXTENSION_CONTENT_TYPES}
 
 
 def detect_content_type(file):
