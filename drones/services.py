@@ -151,6 +151,24 @@ def _create_spec_change_log(*, spec, changed_fields, old_values, user):
     )
 
 
+def _validate_status_transition(current_status, new_status):
+    """Raise ValidationError if the drone status transition is not allowed."""
+    if current_status == new_status:
+        return
+
+    allowed = Drone.ALLOWED_TRANSITIONS.get(current_status, set())
+    if new_status not in allowed:
+        raise ValidationError(
+            {
+                "status": (
+                    f"Cannot transition from '{current_status}' to '{new_status}'. "
+                    f"Allowed transitions from '{current_status}': "
+                    f"{', '.join(sorted(allowed)) or 'none (terminal status)'}."
+                )
+            }
+        )
+
+
 @transaction.atomic
 def update_drone(
     *,
@@ -166,6 +184,10 @@ def update_drone(
     status_change_reason="",
 ):
     """Update a drone and record specification/status audit events atomically.
+
+    Re-fetches the drone with a row-level lock (select_for_update) to prevent
+    concurrent PATCHes from racing on status and history. Validates state-machine
+    transitions before applying changes.
 
     Applies changed Drone fields, optionally updates or creates DroneSpec, and
     writes DroneSpecChangeLog entries for existing specification changes. When
@@ -192,10 +214,14 @@ def update_drone(
     """
     user = _get_authenticated_user(user)
 
+    drone = Drone.objects.select_for_update().get(pk=drone.pk)
+
     old_status = drone.status
     requested_status = drone_data.get("status")
-    # Any transition into an inactive status is treated as a decommission/write-off
-    # flow and requires the metadata validated by DroneUpdateSerializer.
+
+    if requested_status is not None and requested_status != old_status:
+        _validate_status_transition(old_status, requested_status)
+
     is_decommission_flow = requested_status in Drone.INACTIVE_STATUSES
 
     drone_changed_fields = _update_instance_fields(drone, drone_data)
@@ -670,6 +696,10 @@ def create_writeoff_record(
         Changes the drone status to WRITTEN_OFF and creates DroneStatusHistory.
     """
     user = _get_authenticated_user(user)
+
+    drone = Drone.objects.select_for_update().get(pk=drone.pk)
+
+    _validate_status_transition(drone.status, Drone.STATUS_WRITTEN_OFF)
 
     old_status = drone.status
     drone.status = Drone.STATUS_WRITTEN_OFF

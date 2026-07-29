@@ -778,6 +778,160 @@ class DroneUpdateAndDecommissionTests(APITestCase):
         with self.assertRaises(ValidationError):
             change_log.full_clean()
 
+    def test_written_off_drone_cannot_return_to_active(self):
+        """Verify that a written-off drone cannot be transitioned back to active."""
+        self.client.force_authenticate(self.admin_user)
+
+        drone = DroneFactory(status=Drone.STATUS_WRITTEN_OFF)
+        DroneSpecFactory(drone=drone)
+        detail_url = reverse("drones:drone-detail", kwargs={"pk": drone.pk})
+
+        response = self.client.patch(
+            detail_url,
+            {"status": Drone.STATUS_ACTIVE},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("status", response.data)
+
+    def test_decommissioned_drone_cannot_change_status(self):
+        """Verify that a decommissioned drone cannot transition to any status."""
+        self.client.force_authenticate(self.admin_user)
+
+        drone = DroneFactory(status=Drone.STATUS_DECOMMISSIONED)
+        DroneSpecFactory(drone=drone)
+        detail_url = reverse("drones:drone-detail", kwargs={"pk": drone.pk})
+
+        response = self.client.patch(
+            detail_url,
+            {"status": Drone.STATUS_ACTIVE},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("status", response.data)
+
+    def test_sold_drone_cannot_change_status(self):
+        """Verify that a sold drone cannot transition to any status."""
+        self.client.force_authenticate(self.admin_user)
+
+        drone = DroneFactory(status=Drone.STATUS_SOLD)
+        DroneSpecFactory(drone=drone)
+        detail_url = reverse("drones:drone-detail", kwargs={"pk": drone.pk})
+
+        response = self.client.patch(
+            detail_url,
+            {"status": Drone.STATUS_ACTIVE},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("status", response.data)
+
+    def test_transferred_drone_cannot_change_status(self):
+        """Verify that a transferred drone cannot transition to any status."""
+        self.client.force_authenticate(self.admin_user)
+
+        drone = DroneFactory(status=Drone.STATUS_TRANSFERRED)
+        DroneSpecFactory(drone=drone)
+        detail_url = reverse("drones:drone-detail", kwargs={"pk": drone.pk})
+
+        response = self.client.patch(
+            detail_url,
+            {"status": Drone.STATUS_ACTIVE},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("status", response.data)
+
+    def test_active_to_damaged_transition_allowed(self):
+        """Verify that an active drone can transition to damaged."""
+        self.client.force_authenticate(self.admin_user)
+
+        response = self.client.patch(
+            self.detail_url,
+            {"status": Drone.STATUS_DAMAGED},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        self.drone.refresh_from_db()
+        self.assertEqual(self.drone.status, Drone.STATUS_DAMAGED)
+
+    def test_active_to_in_mission_transition_allowed(self):
+        """Verify that an active drone can transition to in-mission."""
+        self.client.force_authenticate(self.admin_user)
+
+        response = self.client.patch(
+            self.detail_url,
+            {"status": Drone.STATUS_IN_MISSION},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        self.drone.refresh_from_db()
+        self.assertEqual(self.drone.status, Drone.STATUS_IN_MISSION)
+
+    def test_damaged_to_active_transition_allowed(self):
+        """Verify that a damaged drone can transition back to active (repaired)."""
+        self.client.force_authenticate(self.admin_user)
+
+        self.drone.status = Drone.STATUS_DAMAGED
+        self.drone.save(update_fields=["status"])
+
+        response = self.client.patch(
+            self.detail_url,
+            {"status": Drone.STATUS_ACTIVE},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        self.drone.refresh_from_db()
+        self.assertEqual(self.drone.status, Drone.STATUS_ACTIVE)
+
+    def test_in_mission_cannot_be_sold(self):
+        """Verify that a drone in mission cannot be directly sold."""
+        self.client.force_authenticate(self.admin_user)
+
+        self.drone.status = Drone.STATUS_IN_MISSION
+        self.drone.save(update_fields=["status"])
+
+        response = self.client.patch(
+            self.detail_url,
+            {
+                "status": Drone.STATUS_SOLD,
+                "writeoff_reason": WriteOffRecord.Reason.OTHER,
+                "writeoff_reason_description": "Sold during mission.",
+                "written_off_at": "2026-05-17",
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("status", response.data)
+
+    def test_error_message_lists_allowed_transitions(self):
+        """Verify that a rejected transition includes the list of allowed statuses."""
+        self.client.force_authenticate(self.admin_user)
+
+        drone = DroneFactory(status=Drone.STATUS_WRITTEN_OFF)
+        DroneSpecFactory(drone=drone)
+        detail_url = reverse("drones:drone-detail", kwargs={"pk": drone.pk})
+
+        response = self.client.patch(
+            detail_url,
+            {"status": Drone.STATUS_ACTIVE},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("none (terminal status)", str(response.data["status"]))
+
 
 class WriteOffHistoryAuditTests(APITestCase):
     """Verify immutable write-off audit history and protected history access."""

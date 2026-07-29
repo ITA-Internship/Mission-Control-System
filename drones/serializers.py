@@ -410,14 +410,32 @@ class DroneUpdateSerializer(serializers.ModelSerializer):
         }
 
     def validate(self, attrs):
-        """
-        Validate classification compatibility and require write-off metadata for
-        inactive status transitions.
+        """Validate state-machine transitions, classification compatibility,
+        and require write-off metadata for inactive status transitions.
         """
         requested_status = attrs.get("status")
 
-        # Terminal inventory states require write-off metadata before the service
-        # creates immutable audit records
+        if requested_status is not None and self.instance is not None:
+            current_status = self.instance.status
+            if requested_status != current_status:
+                allowed = Drone.ALLOWED_TRANSITIONS.get(current_status, set())
+                if requested_status not in allowed:
+                    allowed_label = (
+                        ", ".join(sorted(allowed)) or "none (terminal status)"
+                    )
+                    raise serializers.ValidationError(
+                        {
+                            "status": (
+                                f"Cannot transition from "
+                                f"'{current_status}' to "
+                                f"'{requested_status}'. "
+                                f"Allowed transitions from "
+                                f"'{current_status}': "
+                                f"{allowed_label}."
+                            )
+                        }
+                    )
+
         if requested_status not in Drone.INACTIVE_STATUSES:
             return attrs
 
