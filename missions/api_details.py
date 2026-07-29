@@ -20,6 +20,11 @@ mission_example_value = {
         "username": "commander.south",
         "email": "commander.south@example.com",
     },
+    "unit": {
+        "id": 7,
+        "name": "Attack Wing South",
+        "code": "ATK-02",
+    },
     "status": "planned",
     "result": None,
     "location_description": (
@@ -82,8 +87,9 @@ paginated_assignment_example_value = {
 mission_get_schema = description_schema(
     summary="List missions",
     description=(
-        "Retrieves a paginated and filtered by status list of missions, "
-        "assigned to the currently authenticated user. "
+        "Retrieves a paginated mission list with optional filters. Operators "
+        "only see missions they are assigned to; viewers only see missions "
+        "belonging to their own unit."
     ),
     permission_code="PERMISSION_MISSIONS_VIEW",
     parameters=[
@@ -130,6 +136,7 @@ mission_post_schema = description_schema(
         "The logged-in user is automatically assigned "
         "as the creator (`created_by`).\n\n"
         "Validation: \n"
+        "- `unit_id` is required and must reference an existing military unit. \n"
         f"- Title of the mission must be at least {TITLE_MIN_LENGTH} character long. \n"
         "- User assigned as a commander must have a Commander role. \n"
         "- Either location or latitude and longitude must be provided. \n"
@@ -150,7 +157,7 @@ mission_post_schema = description_schema(
             request_only=True,
             value={
                 "title": "Fallback Route Mapping",
-                "status": "planned",
+                "unit_id": 7,
                 "location_description": (
                     "Secondary fallback route south-west of artillery support line."
                 ),
@@ -168,6 +175,11 @@ mission_post_schema = description_schema(
                 "id": 33,
                 "title": "Fallback Route Mapping",
                 "commander": None,
+                "unit": {
+                    "id": 7,
+                    "name": "Attack Wing South",
+                    "code": "ATK-02",
+                },
                 "status": "planned",
                 "result": None,
                 "location_description": (
@@ -194,7 +206,11 @@ mission_post_schema = description_schema(
 
 mission_detail_schema = description_schema(
     summary="Retrieve mission details",
-    description="Retrieves detailed information about a single mission by its ID.",
+    description=(
+        "Retrieves detailed information about a single mission by its ID. "
+        "Operators may only retrieve assigned missions; viewers may only "
+        "retrieve missions belonging to their own unit."
+    ),
     permission_code="PERMISSION_MISSIONS_VIEW",
     parameters=[
         OpenApiParameter(

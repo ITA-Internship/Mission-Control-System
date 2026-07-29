@@ -30,7 +30,7 @@ from accounts.rbac import (
     PERMISSION_MEDIA_VIEW,
     PERMISSION_MEDIA_VIEW_LOGS,
 )
-from missions.models import MissionDrone
+from missions.permissions import can_user_view_mission
 from roles.models import ADMIN_CODE
 
 from .services import record_permission_denied
@@ -87,10 +87,12 @@ class MediaObjectPermission(MediaAuditedDenialMixin, HasRBACPermission):
 
 
 class MediaViewPermission(MediaObjectPermission):
-    """Require the media view RBAC and object-level permissions.
+    """Allow mission media reads for the uploader/admin or visible missions.
 
-    Access is granted if the user is an owner, admin, mission commander, mission creator
-    or an operator assigned to a drone within the mission."""
+    Viewer access is not global: viewers may read mission-derived media only
+    when the mission itself is visible under the shared mission scoping rules
+    (currently same-unit visibility).
+    """
 
     required_permission = PERMISSION_MEDIA_VIEW
 
@@ -98,36 +100,11 @@ class MediaViewPermission(MediaObjectPermission):
         if self._is_owner_or_admin(request, obj):
             return True
 
-        # A video carries a real unit via its capturing drone; scope by it so
-        # object-level access agrees with the queryset scoping applied to video
-        # listings (see media.views.scope_video_metadata_for_user).
-        drone = getattr(obj, "drone", None)
-        if drone is not None:
-            user_unit_id = getattr(request.user, "unit_id", None)
-            return (
-                user_unit_id is not None
-                and getattr(drone, "military_unit_id", None) == user_unit_id
-            )
-
-        # Artifacts have no unit relationship (Mission carries no unit); retain
-        # the existing mission-based check for them.
         mission = getattr(obj, "mission", None)
         if not mission:
             return False
 
-        if mission.commander_id == request.user.id:
-            return True
-
-        if mission.created_by_id == request.user.id:
-            return True
-
-        if MissionDrone.objects.filter(
-            mission_id=mission.id,
-            operator_id=request.user.id,
-        ).exists():
-            return True
-
-        return False
+        return can_user_view_mission(request.user, mission)
 
 
 class MediaDeletePermission(MediaObjectPermission):

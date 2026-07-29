@@ -60,7 +60,6 @@ class RepairPermission(BasePermission):
 class RepairManagePermission(BasePermission):
     """Access control for managing repair orders and their state transitions.
 
-    Staff users bypass explicit permission checks. For standard users:
     - SAFE_METHODS require PERMISSION_REPAIRS_VIEW.
     - All mutation methods require PERMISSION_REPAIRS_MANAGE.
     """
@@ -68,12 +67,9 @@ class RepairManagePermission(BasePermission):
     message = "You do not have permission to perform this action."
 
     def has_permission(self, request, view):
-        """Evaluate access based on staff status and the HTTP method."""
+        """Evaluate access based on the HTTP method and assigned RBAC codes."""
         if not request.user or not request.user.is_authenticated:
             return False
-
-        if getattr(request.user, "is_staff", False):
-            return True
 
         if request.method in SAFE_METHODS:
             return user_has_permission(request.user, PERMISSION_REPAIRS_VIEW)
@@ -84,18 +80,15 @@ class RepairManagePermission(BasePermission):
 class RepairHistoryExportPermission(BasePermission):
     """Access control for streaming CSV exports of repair history.
 
-    Staff users bypass explicit permission checks. Standard users must hold
-    the dedicated PERMISSION_REPAIRS_EXPORT permission.
+    Access is granted only to users with the dedicated
+    PERMISSION_REPAIRS_EXPORT permission.
     """
 
     message = "You do not have permission to export repair history."
 
     def has_permission(self, request, view):
-        """Evaluate export access based on staff status and specific RBAC codes."""
+        """Evaluate export access using authentication and RBAC codes only."""
         if not request.user or not request.user.is_authenticated:
             return False
-
-        if getattr(request.user, "is_staff", False):
-            return True
 
         return user_has_permission(request.user, PERMISSION_REPAIRS_EXPORT)
