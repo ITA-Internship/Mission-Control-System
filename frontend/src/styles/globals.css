@@ -5,6 +5,9 @@
   --color-mc-card: #161d26;
   --color-mc-field: #1e2733;
   --color-mc-accent: #c8a24a;
+  --color-mc-accent-hover: #d4ad57;
+  --color-mc-accent-active: #b8922a;
+  --color-mc-warning: #f59e0b;
   --color-mc-text: #e6eaf0;
   --color-mc-muted: #8a94a6;
   --color-mc-subtle: #4a5568;
@@ -13,6 +16,7 @@
 }
 
 :root {
+  color-scheme: dark;
   font-family:
     Inter,
     "IBM Plex Sans",
@@ -49,6 +53,17 @@ body {
 button,
 input {
   font: inherit;
+}
+
+input:-webkit-autofill,
+input:-webkit-autofill:hover,
+input:-webkit-autofill:focus {
+  -webkit-text-fill-color: var(--color-mc-text);
+  caret-color: var(--color-mc-text);
+  -webkit-box-shadow:
+    0 0 0 1000px var(--color-mc-field) inset;
+  box-shadow:
+    0 0 0 1000px var(--color-mc-field) inset;
 }
 
 .auth-background {
