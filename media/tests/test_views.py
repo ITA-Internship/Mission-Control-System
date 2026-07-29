@@ -435,6 +435,27 @@ class VideoMetadataAPITests(APITestCase):
         names = {video["file_name"] for video in response.data["results"]}
         self.assertEqual(names, {"in_unit.mp4"})
 
+    @patch("media.permissions.MediaViewPermission.has_permission", return_value=True)
+    def test_viewer_without_accessible_missions_gets_empty_video_list(self, mock_perm):
+        """Verify an empty scoped queryset is not widened to the global queryset."""
+        viewer_without_unit = ViewerUserFactory()
+        self.client.force_authenticate(user=viewer_without_unit)
+
+        VideoMetadata.objects.create(
+            mission=self.mission,
+            drone=self.drone,
+            uploader=OperatorUserFactory(),
+            file=SimpleUploadedFile("in_unit.mp4", b"a", content_type="video/mp4"),
+            file_name="in_unit.mp4",
+            file_size=10,
+        )
+
+        response = self.client.get(self.list_url)
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["count"], 0)
+        self.assertEqual(response.data["results"], [])
+
     def test_viewer_cannot_retrieve_video_from_other_unit(self):
         """Verify object-level mission visibility also protects video retrieve."""
         viewer = ViewerUserFactory(unit=self.military_unit)

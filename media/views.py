@@ -79,7 +79,8 @@ def filter_video_metadata_queryset(params, queryset=None):
     """
     qs = (
         queryset
-        or VideoMetadata.objects.select_related("mission", "drone", "uploader").all()
+        if queryset is not None
+        else VideoMetadata.objects.select_related("mission", "drone", "uploader").all()
     )
 
     for param_names, field in (
