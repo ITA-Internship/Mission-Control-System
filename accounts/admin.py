@@ -1,4 +1,4 @@
-"""Configure Django admin interface for Users, Military Unit and Audit Log. """
+"""Configure Django admin interface for Users, Military Unit and Audit Log."""
 
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin

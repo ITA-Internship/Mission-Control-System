@@ -20,7 +20,7 @@ from django.core.exceptions import ValidationError
 from django.db import IntegrityError, transaction
 
 from accounts.models import MilitaryUnit
-from common.utils import EchoBuffer
+from common.utils import EchoBuffer, sanitize_row
 
 from .models import (
     Drone,
@@ -312,21 +312,23 @@ def generate_drones_csv(queryset):
 
     for drone in queryset.iterator(chunk_size=2000):
         yield writer.writerow(
-            [
-                drone.id,
-                drone.serial_number,
-                drone.inventory_number,
-                drone.name,
-                drone.drone_model,
-                drone.get_classification_display(),
-                drone.get_status_display(),
-                drone.military_unit.name if drone.military_unit else "",
-                (
-                    drone.created_at.strftime("%Y-%m-%d %H:%M:%S")
-                    if drone.created_at
-                    else ""
-                ),
-            ]
+            sanitize_row(
+                [
+                    drone.id,
+                    drone.serial_number,
+                    drone.inventory_number,
+                    drone.name,
+                    drone.drone_model,
+                    drone.get_classification_display(),
+                    drone.get_status_display(),
+                    drone.military_unit.name if drone.military_unit else "",
+                    (
+                        drone.created_at.strftime("%Y-%m-%d %H:%M:%S")
+                        if drone.created_at
+                        else ""
+                    ),
+                ]
+            )
         )
 
 

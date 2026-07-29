@@ -1,25 +1,30 @@
-"""Test suite for user accounts, role management, authentication. """
+"""Test suite for user accounts, role management, authentication."""
 
-from io import StringIO
+import csv
+import io
+from datetime import timedelta
 from types import SimpleNamespace
 from unittest.mock import patch
 
 from django.contrib.auth.tokens import default_token_generator
+from django.contrib.sessions.models import Session
 from django.core.cache import cache
 from django.core.exceptions import ImproperlyConfigured
 from django.core.management import call_command
 from django.core.management.base import CommandError
 from django.test import TestCase, override_settings
 from django.urls import reverse
+from django.utils import timezone
 from django.utils.encoding import force_bytes
 from django.utils.http import urlsafe_base64_encode
 from rest_framework import status
 from rest_framework.test import APIClient, APIRequestFactory, APITestCase
 
+from drones.factories import AdminUserFactory
 from roles.models import ADMIN_CODE, OPERATOR_CODE, Role
 from seed_data.users import seed_users
 
-from .models import AuditLog, User, UserRoleAuditLog, UserStatusLog
+from .models import AuditLog, User, UserRoleAuditLog, UserSession, UserStatusLog
 from .permissions import user_has_permission
 from .rbac import PERMISSION_PROFILE_VIEW_ANY
 from .services import update_user_role
@@ -236,6 +241,55 @@ class ChangePasswordViewTests(APITestCase):
             ).exists()
         )
 
+    def test_change_password_invalidates_other_sessions(self):
+        """Verify password change clears other sessions but keeps current."""
+        hijacked_session = Session.objects.create(
+            session_key="hijacked_key_123",
+            session_data="mock_data",
+            expire_date=timezone.now() + timedelta(days=1),
+        )
+        UserSession.objects.create(
+            user=self.user, session_key=hijacked_session.session_key
+        )
+
+        self.client.force_authenticate(user=self.user)
+        current_session = self.client.session
+        current_session["_auth_user_id"] = str(self.user.pk)
+        current_session.save()
+        current_session_key = current_session.session_key
+        UserSession.objects.create(user=self.user, session_key=current_session_key)
+
+        active_sessions = Session.objects.filter(
+            session_key__in=["hijacked_key_123", current_session_key]
+        )
+        tracked_sessions = UserSession.objects.filter(user=self.user)
+
+        self.assertEqual(active_sessions.count(), 2)
+        self.assertEqual(tracked_sessions.count(), 2)
+
+        payload = {
+            "old_password": "OldPassword123!",
+            "new_password": "NewPassword123!",
+            "confirm_password": "NewPassword123!",
+        }
+
+        response = self.client.post(self.url, payload, format="json")
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        self.assertFalse(
+            Session.objects.filter(session_key="hijacked_key_123").exists()
+        )
+        self.assertFalse(
+            UserSession.objects.filter(session_key="hijacked_key_123").exists()
+        )
+
+        self.assertEqual(UserSession.objects.filter(user=self.user).count(), 1)
+        self.assertTrue(
+            Session.objects.filter(session_key=current_session_key).exists()
+        )
+        self.assertEqual(self.client.session.get("_auth_user_id"), str(self.user.pk))
+
     def test_change_password_failure_invalid_data(self):
         """Ensure password change fails and logs failed audit for a wrong password."""
         self.client.force_authenticate(user=self.user)
@@ -313,6 +367,34 @@ class PasswordResetConfirmViewTests(APITestCase):
         mock_send_mail.assert_called_once()
         args, kwargs = mock_send_mail.call_args
         self.assertEqual(kwargs["recipient_list"], [self.user.email])
+
+    def test_password_reset_deletes_all_user_sessions(self):
+        """Verify password reset removes all tracked Session and UserSession rows."""
+        session_keys = ["reset_session_a", "reset_session_b"]
+        for session_key in session_keys:
+            Session.objects.create(
+                session_key=session_key,
+                session_data="mock_data",
+                expire_date=timezone.now() + timedelta(days=1),
+            )
+            UserSession.objects.create(user=self.user, session_key=session_key)
+
+        self.assertEqual(UserSession.objects.filter(user=self.user).count(), 2)
+        self.assertEqual(
+            Session.objects.filter(session_key__in=session_keys).count(), 2
+        )
+
+        response = self.client.post(
+            self.url,
+            {"new_password": "BrandNewPassword123!"},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(UserSession.objects.filter(user=self.user).count(), 0)
+        self.assertEqual(
+            Session.objects.filter(session_key__in=session_keys).count(), 0
+        )
 
     @patch("accounts.tasks.send_mail")
     def test_password_reset_invalidates_existing_session(self, mock_send_mail):
@@ -456,7 +538,7 @@ class SeedDbSecurityTests(TestCase):
     def test_disable_seeded_users_deactivates_existing_seeded_accounts(self):
         """Ensure that the disable command revokes access for all seeded users."""
         seed_users(seed_password="TemporarySeedPassword@123")
-        out = StringIO()
+        out = io.StringIO()
 
         call_command("disable_seeded_users", stdout=out)
 
@@ -790,6 +872,35 @@ class PasswordChangeSecurityTests(APITestCase):
 
         self.assertEqual(first_response.status_code, status.HTTP_200_OK)
         self.assertEqual(second_response.status_code, status.HTTP_429_TOO_MANY_REQUESTS)
+
+
+class AuditLogExportTests(TestCase):
+    def setUp(self):
+        self.client = APIClient()
+        self.admin_user = AdminUserFactory()
+        self.client.force_authenticate(self.admin_user)
+
+    def test_audit_log_csv_export_is_sanitized(self):
+        """Integration test asserting exported CSV are protected against injection."""
+
+        malicious_description = "=cmd|'/C calc'!A0"
+        AuditLog.objects.create(
+            actor=self.admin_user,
+            action_type=AuditLog.ActionType.USER_CREATED,
+            result=AuditLog.ResultStatus.SUCCESS,
+            description=malicious_description,
+            ip_address="127.0.0.1",
+        )
+        url = reverse("accounts:audit-log-export")
+        response = self.client.get(url)
+
+        self.assertEqual(response.status_code, 200)
+        content = b"".join(response.streaming_content).decode("utf-8")
+        reader = csv.reader(io.StringIO(content))
+        rows = list(reader)
+        data_row = rows[1]
+
+        self.assertEqual(data_row[-1], f"'{malicious_description}")
 
 
 class ProtectedProfilePictureRBACTests(APITestCase):
