@@ -82,6 +82,12 @@ Per-page design briefs ready to paste into Figma Make live in [`docs/design/`](d
 - [Auth](design/auth.md)
 - [Dashboard / Home](design/dashboard.md)
 - [Drone Inventory](design/drone-inventory.md)
+- [Drone Detail](design/drone-detail.md)
+- [Missions Board](design/missions-board.md)
+- [Mission Detail](design/mission-detail.md)
+- [Repairs Workbench](design/repairs-workbench.md)
+- [Media Library](design/media-library.md)
+- [Administration](design/administration.md)
 - [My Profile](design/my-profile.md)
 
 ## References
