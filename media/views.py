@@ -80,7 +80,9 @@ def filter_video_metadata_queryset(params, queryset=None):
     qs = (
         queryset
         if queryset is not None
-        else VideoMetadata.objects.select_related("mission", "drone", "uploaded_by").all()
+        else VideoMetadata.objects.select_related(
+            "mission", "drone", "uploaded_by"
+        ).all()
     )
 
     for param_names, field in (
@@ -459,7 +461,7 @@ class VideoMetadataBrowserView(TemplateView):
                 queryset=VideoMetadata.objects.select_related(
                     "mission",
                     "drone",
-                    "uploader",
+                    "uploaded_by",
                 ).filter(mission_id__in=visible_missions),
             ).order_by("-created_at")
         except ValidationError as exc:

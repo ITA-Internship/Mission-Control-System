@@ -48,7 +48,7 @@
                     <th>Drone ID</th>
                     <th>File Name</th>
                     <th>Status</th>
-                    <th>Uploader</th>
+                    <th>Uploaded By</th>
                     <th>Recorded At</th>
                     <th>Created At</th>
                     <th>File URL</th>
@@ -62,7 +62,7 @@
                         <td>{{ video.drone_id }}</td>
                         <td>{{ video.file_name }}</td>
                         <td>{{ video.status }}</td>
-                        <td>{{ video.uploader.username|default:"N/A" }}</td>
+                        <td>{{ video.uploaded_by.username|default:"N/A" }}</td>
                         <td>{{ video.recorded_at|default:"N/A" }}</td>
                         <td>{{ video.created_at }}</td>
                         <td>
