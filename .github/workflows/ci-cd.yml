@@ -114,6 +114,7 @@ jobs:
       - unit-tests
       - frontend-checks
     runs-on: ubuntu-latest
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -128,36 +129,36 @@ jobs:
           push: false
           tags: django-app:ci-test
 
+      - name: Test frontend Nginx build
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: deploy/nginx/Dockerfile
+          push: false
+          tags: mission-control-nginx:ci-test
+
   deploy:
     name: Deploy to target Environment
     needs: build-verify
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     runs-on: ubuntu-latest
+
     steps:
-        - name: Checkout code
-          uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-        - name: Environment Validation Check
-          run: |
-            echo "Checking environment requirements before deployment..."
-            # If the server doesn't exist yet, we simply check for the presence of the secret for SSH.
-            if [ -z "${{ secrets.PROD_SSH_KEY }}" ]; then
-              echo "Warning: PROD_SSH_KEY secret is not set. Real deployment is skipped."
-            fi
+      - name: Environment Validation Check
+        run: |
+          echo "Checking environment requirements before deployment..."
+          if [ -z "${{ secrets.PROD_SSH_KEY }}" ]; then
+            echo "Warning: PROD_SSH_KEY secret is not set. Real deployment is skipped."
+          fi
 
-        - name: Deployment Foundation
-          run: |
-            echo "Executing deployment steps for the target environment..."
-            echo "Example script:"
-            echo "ssh user@production-server 'cd /var/www/app && \
-              git pull origin main && \
-              bash deploy/scripts/check_env.sh && \
-              docker-compose up -d --build'"
-
-        - name: Test frontend Nginx build
-          uses: docker/build-push-action@v5
-          with:
-            context: .
-            file: deploy/nginx/Dockerfile
-            push: false
-            tags: mission-control-nginx:ci-test
+      - name: Deployment Foundation
+        run: |
+          echo "Executing deployment steps for the target environment..."
+          echo "Example script:"
+          echo "ssh user@production-server 'cd /var/www/app && \
+            git pull origin main && \
+            bash deploy/scripts/check_env.sh && \
+            docker-compose up -d --build'"
