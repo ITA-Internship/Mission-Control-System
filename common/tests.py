@@ -1,6 +1,9 @@
 """Tests for shared application security behavior and export sanitization."""
 
+import json
 import os
+import subprocess
+import sys
 from datetime import datetime
 from unittest.mock import patch
 
@@ -175,77 +178,69 @@ class SecurityCookieSettingsTests(SimpleTestCase):
             "Lax",
         )
 
-    def test_session_cookie_secure_matches_environment(self):
-        """Ensure the session cookie policy matches its environment setting."""
-        expected_value = env_bool(
-            "SESSION_COOKIE_SECURE",
-            default=not settings.DEBUG,
+    def test_production_transport_security_values_are_secure(self):
+        """Ensure production settings load concrete secure values."""
+        environment = os.environ.copy()
+        environment.update(
+            {
+                "DJANGO_SETTINGS_MODULE": "config.settings",
+                "DJANGO_SECRET_KEY": "test-secret-key",
+                "DEBUG": "False",
+                "DB_NAME": "test_db",
+                "DB_USER": "test_user",
+                "DB_PASSWORD": "test_password",
+                "DB_HOST": "localhost",
+                "DB_PORT": "5432",
+                "STORAGE_PROVIDER": "local",
+                "USE_LOCAL_CACHE": "true",
+                "SESSION_COOKIE_SECURE": "True",
+                "CSRF_COOKIE_SECURE": "True",
+                "SECURE_SSL_REDIRECT": "True",
+                "SECURE_HSTS_SECONDS": "31536000",
+                "SECURE_HSTS_INCLUDE_SUBDOMAINS": "True",
+                "SECURE_HSTS_PRELOAD": "True",
+            }
         )
 
+        result = subprocess.run(
+            [
+                sys.executable,
+                "-c",
+                (
+                    "import json; "
+                    "from django.conf import settings; "
+                    "print(json.dumps({"
+                    "'debug': settings.DEBUG, "
+                    "'session_cookie_secure': settings.SESSION_COOKIE_SECURE, "
+                    "'csrf_cookie_secure': settings.CSRF_COOKIE_SECURE, "
+                    "'ssl_redirect': settings.SECURE_SSL_REDIRECT, "
+                    "'hsts_seconds': settings.SECURE_HSTS_SECONDS, "
+                    "'hsts_include_subdomains': "
+                    "settings.SECURE_HSTS_INCLUDE_SUBDOMAINS, "
+                    "'hsts_preload': settings.SECURE_HSTS_PRELOAD"
+                    "}))"
+                ),
+            ],
+            check=True,
+            capture_output=True,
+            text=True,
+            env=environment,
+        )
+
+        production_settings = json.loads(result.stdout)
+
+        self.assertFalse(production_settings["debug"])
+        self.assertTrue(production_settings["session_cookie_secure"])
+        self.assertTrue(production_settings["csrf_cookie_secure"])
+        self.assertTrue(production_settings["ssl_redirect"])
         self.assertEqual(
-            settings.SESSION_COOKIE_SECURE,
-            expected_value,
+            production_settings["hsts_seconds"],
+            31536000,
         )
-
-    def test_csrf_cookie_secure_matches_environment(self):
-        """Ensure the CSRF cookie policy matches its environment setting."""
-        expected_value = env_bool(
-            "CSRF_COOKIE_SECURE",
-            default=not settings.DEBUG,
+        self.assertTrue(
+            production_settings["hsts_include_subdomains"],
         )
-
-        self.assertEqual(
-            settings.CSRF_COOKIE_SECURE,
-            expected_value,
-        )
-
-    def test_ssl_redirect_matches_environment(self):
-        """Ensure HTTPS redirect follows its environment setting."""
-        expected_value = env_bool(
-            "SECURE_SSL_REDIRECT",
-            default=False,
-        )
-
-        self.assertEqual(
-            settings.SECURE_SSL_REDIRECT,
-            expected_value,
-        )
-
-    def test_hsts_seconds_matches_environment(self):
-        """Ensure HSTS duration follows its environment setting."""
-        expected_value = int(
-            os.getenv("SECURE_HSTS_SECONDS", "0"),
-        )
-
-        self.assertEqual(
-            settings.SECURE_HSTS_SECONDS,
-            expected_value,
-        )
-        self.assertGreaterEqual(settings.SECURE_HSTS_SECONDS, 0)
-
-    def test_hsts_include_subdomains_matches_environment(self):
-        """Ensure the HSTS subdomain policy follows its environment setting."""
-        expected_value = env_bool(
-            "SECURE_HSTS_INCLUDE_SUBDOMAINS",
-            default=False,
-        )
-
-        self.assertEqual(
-            settings.SECURE_HSTS_INCLUDE_SUBDOMAINS,
-            expected_value,
-        )
-
-    def test_hsts_preload_matches_environment(self):
-        """Ensure the HSTS preload policy follows its environment setting."""
-        expected_value = env_bool(
-            "SECURE_HSTS_PRELOAD",
-            default=False,
-        )
-
-        self.assertEqual(
-            settings.SECURE_HSTS_PRELOAD,
-            expected_value,
-        )
+        self.assertTrue(production_settings["hsts_preload"])
 
 
 TEST_ENDPOINT = "/test/session-protected/"

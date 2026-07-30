@@ -39,11 +39,26 @@ get_env_value() {
     grep -E "^${1}=" "$ENV_FILE" \
         | tail -n 1 \
         | cut -d "=" -f 2- \
-        | tr -d '\r'
+        | tr -d '\r' \
+        | sed -E "s/^[[:space:]]+//; s/[[:space:]]+#.*$//; s/[[:space:]]+$//; s/^\"(.*)\"$/\1/; s/^'(.*)'$/\1/"
 }
 
 normalize_boolean() {
     printf '%s' "$1" | tr '[:upper:]' '[:lower:]'
+}
+
+is_true() {
+    case "$(normalize_boolean "$1")" in
+        true|1|yes|on) return 0 ;;
+        *) return 1 ;;
+    esac
+}
+
+is_false() {
+    case "$(normalize_boolean "$1")" in
+        false|0|no|off) return 0 ;;
+        *) return 1 ;;
+    esac
 }
 
 validation_failed=0
@@ -57,17 +72,17 @@ for var in "${REQUIRED_VARS[@]}"; do
     fi
 done
 
-debug_value="$(normalize_boolean "$(get_env_value "DEBUG")")"
+debug_value="$(get_env_value "DEBUG")"
 
-if [ "$debug_value" != "false" ]; then
+if ! is_false "$debug_value"; then
     echo "Error: DEBUG must be False in production."
     validation_failed=1
 fi
 
 for var in "${REQUIRED_TRUE_VARS[@]}"; do
-    value="$(normalize_boolean "$(get_env_value "$var")")"
+    value="$(get_env_value "$var")"
 
-    if [ "$value" != "true" ]; then
+    if ! is_true "$value"; then
         echo "Error: $var must be True in production."
         validation_failed=1
     fi
@@ -85,6 +100,29 @@ case "$hsts_seconds" in
         validation_failed=1
         ;;
 esac
+
+allowed_hosts="$(get_env_value "ALLOWED_HOSTS")"
+healthcheck_host="$(get_env_value "HEALTHCHECK_HOST")"
+healthcheck_host_allowed=0
+
+IFS=',' read -r -a allowed_host_entries <<< "$allowed_hosts"
+
+for allowed_host in "${allowed_host_entries[@]}"; do
+    allowed_host="$(
+        printf '%s' "$allowed_host" \
+            | sed -E 's/^[[:space:]]+//; s/[[:space:]]+$//'
+    )"
+
+    if [ "$allowed_host" = "$healthcheck_host" ]; then
+        healthcheck_host_allowed=1
+        break
+    fi
+done
+
+if [ "$healthcheck_host_allowed" -ne 1 ]; then
+    echo "Error: HEALTHCHECK_HOST must be one of the ALLOWED_HOSTS values."
+    validation_failed=1
+fi
 
 if [ "$validation_failed" -ne 0 ]; then
     echo "Production environment validation failed. Deployment aborted."
