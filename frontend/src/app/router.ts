@@ -27,7 +27,15 @@ export const router = createBrowserRouter([
     Component: ResetPasswordPage,
   },
   {
+    path: "/reset-password/*",
+    Component: ResetPasswordPage,
+  },
+  {
     path: "/activate/:userId/:token",
+    Component: ActivateAccountPage,
+  },
+  {
+    path: "/activate/*",
     Component: ActivateAccountPage,
   },
   {

@@ -1,4 +1,8 @@
-import type { ReactNode } from "react";
+import { forwardRef } from "react";
+import type {
+  HTMLAttributes,
+  ReactNode,
+} from "react";
 import {
   AlertCircle,
   CheckCircle2,
@@ -10,7 +14,11 @@ export type AuthAlertVariant =
   | "success"
   | "info";
 
-interface AuthAlertProps {
+interface AuthAlertProps
+  extends Omit<
+    HTMLAttributes<HTMLDivElement>,
+    "children"
+  > {
   variant: AuthAlertVariant;
   children: ReactNode;
 }
@@ -33,15 +41,29 @@ const alertIcons = {
   info: Info,
 };
 
-export function AuthAlert({
-  variant,
-  children,
-}: AuthAlertProps) {
+export const AuthAlert = forwardRef<
+  HTMLDivElement,
+  AuthAlertProps
+>(function AuthAlert(
+  {
+    variant,
+    children,
+    className,
+    ...divProps
+  },
+  ref,
+) {
   const Icon = alertIcons[variant];
 
   return (
     <div
-      role={variant === "error" ? "alert" : "status"}
+      {...divProps}
+      ref={ref}
+      role={
+        variant === "error"
+          ? "alert"
+          : "status"
+      }
       aria-live={
         variant === "error"
           ? "assertive"
@@ -53,7 +75,10 @@ export function AuthAlert({
         "px-3.5 py-3 text-sm leading-5",
         "wrap-break-word",
         alertStyles[variant],
-      ].join(" ")}
+        className,
+      ]
+        .filter(Boolean)
+        .join(" ")}
     >
       <Icon
         size={15}
@@ -64,4 +89,4 @@ export function AuthAlert({
       <div>{children}</div>
     </div>
   );
-}
+});

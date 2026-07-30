@@ -1,75 +1,214 @@
-# React + TypeScript + Vite
+# Mission Control Frontend
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+React and TypeScript frontend for the Mission Control System.
 
-Currently, two official plugins are available:
+## Requirements
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+Before starting the frontend, make sure the following tools are installed:
 
-## React Compiler
+- Node.js LTS
+- npm
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+Check the installed versions:
 
-## Expanding the ESLint configuration
-
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
-
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
-
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-
+```bash
+node --version
+npm --version
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+## Local setup
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+Open the frontend directory:
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-
+```bash
+cd frontend
 ```
+
+Install dependencies:
+
+```bash
+npm install
+```
+
+Create a local frontend environment file.
+
+### PowerShell
+
+```powershell
+Copy-Item .env.example .env.local
+```
+
+### Git Bash
+
+```bash
+cp .env.example .env.local
+```
+
+Start the development server:
+
+```bash
+npm run dev
+```
+
+The frontend will be available at:
+
+```text
+http://localhost:5173
+```
+
+## Backend connection
+
+Frontend API requests use relative `/api` URLs by default.
+
+During local development, the Vite development server proxies these requests to:
+
+```text
+http://127.0.0.1:8000
+```
+
+The proxy target is configured in `.env.local`:
+
+```dotenv
+API_PROXY_TARGET=http://127.0.0.1:8000
+```
+
+For the default local setup, leave `VITE_API_BASE_URL` empty:
+
+```dotenv
+VITE_API_BASE_URL=
+```
+
+This produces requests such as:
+
+```text
+http://localhost:5173/api/accounts/users/password-reset/
+```
+
+Vite then proxies them to the Django backend:
+
+```text
+http://127.0.0.1:8000/api/accounts/users/password-reset/
+```
+
+When the frontend must call a backend hosted on another origin directly, set the full backend URL:
+
+```dotenv
+VITE_API_BASE_URL=http://127.0.0.1:8000
+```
+
+Session-based requests use:
+
+```text
+credentials: include
+```
+
+Unsafe requests include the Django CSRF token when the CSRF cookie is available.
+
+## Frontend environment variables
+
+The frontend supports the following variables:
+
+```dotenv
+# Leave empty to call the API through the same origin.
+VITE_API_BASE_URL=
+
+# Used by the Vite development server as the local API proxy target.
+API_PROXY_TARGET=http://127.0.0.1:8000
+
+# Django CSRF cookie name.
+VITE_CSRF_COOKIE_NAME=csrftoken
+
+# Header used to send the Django CSRF token.
+VITE_CSRF_HEADER_NAME=X-CSRFToken
+```
+
+Local values should be stored in:
+
+```text
+frontend/.env.local
+```
+
+Do not commit `.env.local` because it is intended for local configuration.
+
+The reusable template is stored in:
+
+```text
+frontend/.env.example
+```
+
+## Backend environment configuration
+
+The backend root `.env` file should contain the frontend URL:
+
+```dotenv
+FRONTEND_URL=http://localhost:5173
+```
+
+It should also trust both the backend and frontend local origins:
+
+```dotenv
+CSRF_TRUSTED_ORIGINS=http://localhost:8000,http://127.0.0.1:8000,http://localhost:5173,http://127.0.0.1:5173
+```
+
+`FRONTEND_URL` is used by the backend when generating password-reset and account-activation links.
+
+For local development, those links should point to routes such as:
+
+```text
+http://localhost:5173/reset-password/<uid>/<token>
+http://localhost:5173/activate/<userId>/<token>
+```
+
+## Available authentication routes
+
+```text
+/login
+/forgot-password
+/reset-password/:uid/:token
+/activate/:userId/:token
+/change-password/required
+```
+
+## Available commands
+
+Start the development server:
+
+```bash
+npm run dev
+```
+
+Run ESLint:
+
+```bash
+npm run lint
+```
+
+Run TypeScript checks:
+
+```bash
+npm run typecheck
+```
+
+Create a production build:
+
+```bash
+npm run build
+```
+
+Preview the production build locally:
+
+```bash
+npm run preview
+```
+
+## Required checks before committing
+
+Run all frontend checks:
+
+```bash
+npm run lint
+npm run typecheck
+npm run build
+```
+
+All commands must complete successfully before creating a commit.

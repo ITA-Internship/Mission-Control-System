@@ -2,7 +2,7 @@ import { MissionControlLogo } from "./MissionControlLogo";
 
 export function AuthHeader() {
   return (
-    <header className="flex flex-col items-center gap-3 border-b border-white/[0.06] px-8 pt-8 pb-6">
+    <header className="flex flex-col items-center gap-3 border-b border-white/6 px-8 pt-8 pb-6">
       <MissionControlLogo className="text-mc-accent" />
 
       <div className="flex flex-col items-center gap-0.5">
