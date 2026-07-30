@@ -16,6 +16,7 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+      start_period: 30s
     networks:
       - mission_control_network
 
@@ -35,6 +36,7 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+      start_period: 10s
     networks:
       - mission_control_network
 
@@ -62,7 +64,7 @@ services:
       redis:
         condition: service_healthy
     healthcheck:
-      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8000/api/health/')\" || exit 1"]
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8000/api/health/ || exit 1"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -116,6 +118,12 @@ services:
         condition: service_healthy
     networks:
       - mission_control_network
+    healthcheck:
+      test: ["CMD-SHELL", "celery -A config inspect ping --timeout 10 || exit 1"]
+      interval: 30s
+      timeout: 15s
+      retries: 3
+      start_period: 30s
 
   pgadmin:
     image: dpage/pgadmin4:latest
