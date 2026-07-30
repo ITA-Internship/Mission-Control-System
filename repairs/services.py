@@ -341,7 +341,11 @@ def get_drone_repair_history(
     if not querysets:
         return DefectReport.objects.none()
 
-    return querysets[0].union(*querysets[1:]).order_by("-timestamp")
+    return (
+        querysets[0]
+        .union(*querysets[1:])
+        .order_by("-timestamp", "event_type", "entity_id")
+    )
 
 
 def hydrate_timeline_page(page_items):
@@ -435,18 +439,19 @@ def hydrate_timeline_page(page_items):
                 }
             )
         if item["event_type"] == "replacement":
+            old_sn = obj.old_serial_number or "N/A"
             hydrated_data.append(
                 {
                     "event_type": "replacement",
                     "timestamp": item["timestamp"],
                     "summary": (
                         f"{obj.get_component_type_display()} replaced: "
-                        f"{obj.old_serial_number} -> {obj.new_serial_number}"
+                        f"{old_sn} -> {obj.new_serial_number}"
                     ),
                     "details": {
                         "id": obj.id,
                         "component_type": obj.component_type,
-                        "old_serial_number": obj.old_serial_number,
+                        "old_serial_number": old_sn,
                         "new_serial_number": obj.new_serial_number,
                         "reason": obj.reason,
                         "repair_order_id": obj.repair_order_id,

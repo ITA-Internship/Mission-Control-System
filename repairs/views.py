@@ -473,10 +473,11 @@ class DroneRepairHistoryPageView(LoginRequiredMixin, UserPassesTestMixin, Templa
             "date_to": self.request.GET.get("date_to", ""),
             "event_type": event_type or "",
         }
-        context["timeline"] = get_drone_repair_history(
+        timeline = get_drone_repair_history(
             drone_id,
             date_from=date_from,
             date_to=date_to,
             event_types=event_types,
         )
+        context["timeline"] = hydrate_timeline_page(list(timeline))
         return context
