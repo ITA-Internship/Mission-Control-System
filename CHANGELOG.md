@@ -90,6 +90,7 @@
 - Fix mass assignment of drone status on create (by **Viktoriia Kovalchuk**)
 - Scope artifact endpoints to requester's authorized missions (IDOR #138) (by **Maksym Korchynskyi**)
 - *(media)* Restore artifact access control and test coverage (by **Anastasiia**)
+- *(docker)* Resolve web healthcheck and entrypoint duplicate (by **Maksym**)
 
 ### Other
 
@@ -729,6 +730,8 @@
 - Merge remote-tracking branch 'origin/develop' into task#160-implement-user-object-level (by **Anastasiia**)
 - Merge pull request #193 from ITA-Internship/task#160-implement-user-object-level (by **Anastasiia Humeniuk**)
 - Task#160 implement user object level (by **Anastasiia Humeniuk**)
+- Merge pull request #199 from ITA-Internship/fix-docker-188 (by **Maksym Korchynskyi**)
+- Fix Docker configuration and stabilize healthchecks #188 (by **Maksym Korchynskyi**)
 
 ### Refactor
 
@@ -771,6 +774,7 @@
 
 ### Miscellaneous Tasks
 
+- *(changelog)* Update CHANGELOG.md [skip ci] (by **github-actions[bot]**)
 - *(changelog)* Update CHANGELOG.md [skip ci] (by **github-actions[bot]**)
 - *(changelog)* Update CHANGELOG.md [skip ci] (by **github-actions[bot]**)
 - *(changelog)* Update CHANGELOG.md [skip ci] (by **github-actions[bot]**)
