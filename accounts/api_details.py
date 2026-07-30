@@ -569,4 +569,3 @@ password_reset_confirm_schema = description_schema(
     },
     error_statuses=[status.HTTP_400_BAD_REQUEST],
 )
-
