@@ -27,8 +27,8 @@ class VideoMetadataSerializer(serializers.ModelSerializer):
     """Serialize video metadata record for listing and updating."""
 
     url = serializers.SerializerMethodField()
-    uploader_username = serializers.CharField(
-        source="uploader.username", read_only=True, default=None
+    uploaded_by_username = serializers.CharField(
+        source="uploaded_by.username", read_only=True, default=None
     )
 
     class Meta:
@@ -37,8 +37,8 @@ class VideoMetadataSerializer(serializers.ModelSerializer):
             "id",
             "mission",
             "drone",
-            "uploader",
-            "uploader_username",
+            "uploaded_by",
+            "uploaded_by_username",
             "file",
             "file_name",
             "file_size",
@@ -60,7 +60,7 @@ class VideoMetadataSerializer(serializers.ModelSerializer):
             "status",
             "created_at",
             "updated_at",
-            "uploader",
+            "uploaded_by",
             "duration_seconds",
             "file",
             "file_name",
@@ -109,7 +109,7 @@ class VideoUploadSerializer(serializers.ModelSerializer):
         content_type = getattr(file_obj, "content_type", "") or ""
         validated_data["content_type"] = content_type
 
-        validated_data["uploader"] = self.context["request"].user
+        validated_data["uploaded_by"] = self.context["request"].user
         validated_data.setdefault("status", VideoMetadata.Status.UPLOADING)
 
         if not content_type.startswith("video/"):

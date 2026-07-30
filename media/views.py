@@ -86,7 +86,7 @@ def scope_video_metadata_for_user(queryset, user):
     if get_user_role_code(user) == ADMIN_CODE:
         return queryset
 
-    scope = Q(uploader_id=user.id)
+    scope = Q(uploaded_by_id=user.id)
     unit_id = getattr(user, "unit_id", None)
     if unit_id is not None:
         scope |= Q(drone__military_unit_id=unit_id)
@@ -101,7 +101,7 @@ def filter_video_metadata_queryset(params, queryset=None, user=None):
     """
     qs = (
         queryset
-        or VideoMetadata.objects.select_related("mission", "drone", "uploader").all()
+        or VideoMetadata.objects.select_related("mission", "drone", "uploaded_by").all()
     )
 
     if user is not None:
@@ -110,7 +110,7 @@ def filter_video_metadata_queryset(params, queryset=None, user=None):
     for param_names, field in (
         (("mission_id", "mission"), "mission_id"),
         (("drone_id", "drone"), "drone_id"),
-        (("uploader_id", "uploader"), "uploader_id"),
+        (("uploaded_by_id", "uploaded_by"), "uploaded_by_id"),
     ):
         value = None
         for param in param_names:
@@ -358,7 +358,7 @@ class VideoMetadataViewSet(viewsets.ModelViewSet):
     """List, create, update and delete video metadata."""
 
     queryset = VideoMetadata.objects.select_related(
-        "mission", "drone", "uploader"
+        "mission", "drone", "uploaded_by"
     ).all()
     permission_classes = [permissions.IsAuthenticated]
     parser_classes = [parsers.MultiPartParser, parsers.FormParser, parsers.JSONParser]
@@ -394,7 +394,7 @@ class VideoMetadataViewSet(viewsets.ModelViewSet):
     def perform_create(self, serializer):
         """Extract video duration and save video metadata."""
         instance = serializer.save(
-            uploader=self.request.user,
+            uploaded_by=self.request.user,
             status=VideoMetadata.Status.UPLOADING,
         )
 
