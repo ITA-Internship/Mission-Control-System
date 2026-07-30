@@ -6,6 +6,7 @@ from drones.factories import (
     AdminRoleFactory,
     AdminUserFactory,
     DroneFactory,
+    MilitaryUnitFactory,
     ViewerRoleFactory,
     ViewerUserFactory,
 )
@@ -96,6 +97,7 @@ class MissionFactory(factory.django.DjangoModelFactory):
     ended_at = datetime.datetime(2026, 5, 27, 12, 0, tzinfo=datetime.timezone.utc)
     commander = factory.SubFactory(CommanderUserFactory)
     created_by = factory.SubFactory(AdminUserFactory)
+    unit = factory.SubFactory(MilitaryUnitFactory)
 
 
 class MissionDroneFactory(factory.django.DjangoModelFactory):

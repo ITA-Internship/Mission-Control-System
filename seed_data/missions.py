@@ -2,7 +2,7 @@ from datetime import datetime, timedelta
 
 from django.utils import timezone
 
-from accounts.models import User
+from accounts.models import MilitaryUnit, User
 from missions.models import Mission
 from seed_data.data.missions_data import MISSIONS, MissionSeed
 
@@ -10,6 +10,7 @@ from seed_data.data.missions_data import MISSIONS, MissionSeed
 class MissionSeeder:
     def __init__(self) -> None:
         self.users = self._load_users()
+        self.units = self._load_units()
 
     def seed(self) -> dict[str, int]:
         created_count = 0
@@ -42,15 +43,32 @@ class MissionSeeder:
 
         return users
 
+    def _load_units(self) -> dict[str, MilitaryUnit]:
+        unit_codes = {mission_seed.unit_code for mission_seed in MISSIONS}
+        units = {
+            unit.code: unit for unit in MilitaryUnit.objects.filter(code__in=unit_codes)
+        }
+        missing_unit_codes = unit_codes - units.keys()
+
+        if missing_unit_codes:
+            missing_units_display = ", ".join(sorted(missing_unit_codes))
+            raise MilitaryUnit.DoesNotExist(
+                f"Missing required mission units: {missing_units_display}"
+            )
+
+        return units
+
     def _upsert_mission(self, mission_seed: MissionSeed) -> tuple[Mission, bool]:
         started_at, ended_at = self._build_schedule(mission_seed)
         commander = self.users[mission_seed.commander_username]
         created_by = self.users[mission_seed.created_by_username]
+        unit = self.units[mission_seed.unit_code]
 
         mission, created = Mission.objects.update_or_create(
             title=mission_seed.title,
             defaults={
                 "commander": commander,
+                "unit": unit,
                 "status": mission_seed.status,
                 "result": mission_seed.result,
                 "location_description": mission_seed.location_description,
