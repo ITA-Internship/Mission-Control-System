@@ -80,13 +80,15 @@ def filter_video_metadata_queryset(params, queryset=None):
     qs = (
         queryset
         if queryset is not None
-        else VideoMetadata.objects.select_related("mission", "drone", "uploader").all()
+        else VideoMetadata.objects.select_related(
+            "mission", "drone", "uploaded_by"
+        ).all()
     )
 
     for param_names, field in (
         (("mission_id", "mission"), "mission_id"),
         (("drone_id", "drone"), "drone_id"),
-        (("uploader_id", "uploader"), "uploader_id"),
+        (("uploaded_by_id", "uploaded_by"), "uploaded_by_id"),
     ):
         value = None
         for param in param_names:
@@ -350,7 +352,7 @@ class VideoMetadataViewSet(viewsets.ModelViewSet):
     """List, create, update and delete video metadata."""
 
     queryset = VideoMetadata.objects.select_related(
-        "mission", "drone", "uploader"
+        "mission", "drone", "uploaded_by"
     ).all()
     permission_classes = [permissions.IsAuthenticated]
     parser_classes = [parsers.MultiPartParser, parsers.FormParser, parsers.JSONParser]
@@ -391,7 +393,7 @@ class VideoMetadataViewSet(viewsets.ModelViewSet):
     def perform_create(self, serializer):
         """Extract video duration and save video metadata."""
         instance = serializer.save(
-            uploader=self.request.user,
+            uploaded_by=self.request.user,
             status=VideoMetadata.Status.UPLOADING,
         )
 
@@ -459,7 +461,7 @@ class VideoMetadataBrowserView(TemplateView):
                 queryset=VideoMetadata.objects.select_related(
                     "mission",
                     "drone",
-                    "uploader",
+                    "uploaded_by",
                 ).filter(mission_id__in=visible_missions),
             ).order_by("-created_at")
         except ValidationError as exc:

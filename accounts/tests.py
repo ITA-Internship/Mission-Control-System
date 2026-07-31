@@ -26,7 +26,12 @@ from seed_data.users import seed_users
 
 from .models import AuditLog, User, UserRoleAuditLog, UserSession, UserStatusLog
 from .permissions import user_has_permission
-from .rbac import PERMISSION_PROFILE_VIEW_ANY
+from .rbac import (
+    PERMISSION_PROFILE_RESET_PASSWORD_OWN,
+    PERMISSION_PROFILE_UPDATE_OWN,
+    PERMISSION_PROFILE_VIEW_ANY,
+    PERMISSION_PROFILE_VIEW_OWN,
+)
 from .services import update_user_role
 from .throttles import AccountActivationThrottle, PasswordResetRequestThrottle
 from .tokens import account_activation_token_generator
@@ -206,9 +211,16 @@ class ChangePasswordViewTests(APITestCase):
 
     def setUp(self):
         """Initialize a standard user for password change operations."""
+        self.operator_role = Role.objects.get(code=OPERATOR_CODE)
         self.user = User.objects.create_user(
             username="testuser",
             email="testuser@example.com",
+            password="OldPassword123!",
+            role=self.operator_role,
+        )
+        self.user_without_role = User.objects.create_user(
+            username="testuser.no.role",
+            email="testuser.no.role@example.com",
             password="OldPassword123!",
         )
         self.url = reverse("accounts:change-password")
@@ -315,10 +327,97 @@ class ChangePasswordViewTests(APITestCase):
             ).exists()
         )
 
+    def test_authenticated_user_without_role_cannot_change_password(self):
+        """Ensure password change requires the explicit RBAC permission."""
+        self.client.force_authenticate(user=self.user_without_role)
+
+        response = self.client.post(
+            self.url,
+            {
+                "old_password": "OldPassword123!",
+                "new_password": "NewPassword123!",
+                "confirm_password": "NewPassword123!",
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
     def test_unauthenticated_user_cannot_access(self):
         """Verify that anonymous users are blocked from accessing password change."""
         response = self.client.post(self.url, {}, format="json")
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+
+class UserMeRBACTests(APITestCase):
+    """Test RBAC enforcement for self-service profile endpoints."""
+
+    def setUp(self):
+        self.operator_role = Role.objects.get(code=OPERATOR_CODE)
+        self.user = User.objects.create_user(
+            username="profile.owner",
+            email="profile.owner@example.com",
+            password="StrongPassword123!",
+            role=self.operator_role,
+            is_active=True,
+        )
+        self.user_without_role = User.objects.create_user(
+            username="profile.no.role",
+            email="profile.no.role@example.com",
+            password="StrongPassword123!",
+            is_active=True,
+        )
+        self.url = reverse("accounts:user-me")
+
+    def test_operator_role_has_self_service_profile_permissions(self):
+        """Ensure the operator role includes self-service profile permissions."""
+        self.assertTrue(user_has_permission(self.user, PERMISSION_PROFILE_VIEW_OWN))
+        self.assertTrue(user_has_permission(self.user, PERMISSION_PROFILE_UPDATE_OWN))
+        self.assertTrue(
+            user_has_permission(self.user, PERMISSION_PROFILE_RESET_PASSWORD_OWN)
+        )
+
+    def test_authenticated_user_without_role_cannot_view_own_profile(self):
+        """Ensure self-profile read requires the explicit RBAC permission."""
+        self.client.force_authenticate(self.user_without_role)
+
+        response = self.client.get(self.url)
+
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_authenticated_user_without_role_cannot_update_own_profile(self):
+        """Ensure self-profile update requires the explicit RBAC permission."""
+        self.client.force_authenticate(self.user_without_role)
+
+        response = self.client.patch(
+            self.url,
+            {"first_name": "Blocked"},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_user_with_profile_permissions_can_view_own_profile(self):
+        """Ensure role-based self-profile access still works for valid users."""
+        self.client.force_authenticate(self.user)
+
+        response = self.client.get(self.url)
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+    def test_user_with_profile_permissions_can_update_own_profile(self):
+        """Ensure role-based self-profile updates still work for valid users."""
+        self.client.force_authenticate(self.user)
+
+        response = self.client.patch(
+            self.url,
+            {"first_name": "Updated"},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.user.refresh_from_db()
+        self.assertEqual(self.user.first_name, "Updated")
 
 
 class LoginViewTests(APITestCase):
@@ -436,8 +535,12 @@ class PasswordResetConfirmViewTests(APITestCase):
 
     def setUp(self):
         """Set up a user and generate valid base64 and token parameters."""
+        self.operator_role = Role.objects.get(code=OPERATOR_CODE)
         self.user = User.objects.create_user(
-            username="resetuser", email="test@example.com", password="OldPassword123!"
+            username="resetuser",
+            email="test@example.com",
+            password="OldPassword123!",
+            role=self.operator_role,
         )
         self.uidb64 = urlsafe_base64_encode(force_bytes(self.user.pk))
         self.token = default_token_generator.make_token(self.user)
@@ -931,10 +1034,12 @@ class PasswordChangeSecurityTests(APITestCase):
 
     def setUp(self):
         """Initialize a user specifically flagged for a mandatory password change."""
+        self.operator_role = Role.objects.get(code=OPERATOR_CODE)
         self.user = User.objects.create_user(
             username="must.change.user",
             email="must.change.user@example.com",
             password="OldStrongPassword@1234",
+            role=self.operator_role,
             is_active=True,
             must_change_password=True,
         )
@@ -1051,6 +1156,12 @@ class ProtectedProfilePictureRBACTests(APITestCase):
             role=self.operator_role,
             is_active=True,
         )
+        self.user_without_role = User.objects.create_user(
+            username="profile.no.role.picture",
+            email="profile.no.role.picture@example.com",
+            password="StrongPassword123!",
+            is_active=True,
+        )
 
         self.url = reverse(
             "accounts:user-profile-picture",
@@ -1114,6 +1225,21 @@ class ProtectedProfilePictureRBACTests(APITestCase):
         self.assertEqual(
             response.data["detail"],
             "User does not have a profile picture.",
+        )
+
+    def test_authenticated_user_without_role_cannot_access_own_profile_picture(self):
+        """Ensure self-profile picture access requires explicit RBAC permission."""
+        own_url = reverse(
+            "accounts:user-profile-picture",
+            kwargs={"user_id": self.user_without_role.pk},
+        )
+        self.client.force_authenticate(user=self.user_without_role)
+
+        response = self.client.get(own_url)
+
+        self.assertEqual(
+            response.status_code,
+            status.HTTP_403_FORBIDDEN,
         )
 
     def test_anonymous_user_cannot_access_profile_picture(self):

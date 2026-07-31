@@ -2853,18 +2853,18 @@ Required permission: `PERMISSION_MEDIA_VIEW`.
 
 ### Parameters
 
-| Name | Type | Required | Description |
-|------|------|----------|-------------|
-| created_after | string |  | Filter by creation date lower bound (format YYYY-MM-DD). |
-| created_before | string |  | Filter by creation date upper bound (format YYYY-MM-DD). |
-| drone_id | integer |  | Filter by drone ID (alias: `drone`). |
-| mission_id | integer |  | Filter by mission ID (alias: `mission`). |
-| page | integer | False | A page number within the paginated result set. |
-| page_size | integer | False | Number of results to return per page. |
-| recorded_after | string |  | Filter by recording date lower bound (format YYYY-MM-DD). |
+| Name            | Type | Required | Description                                               |
+|-----------------|------|----------|-----------------------------------------------------------|
+| created_after   | string |  | Filter by creation date lower bound (format YYYY-MM-DD).  |
+| created_before  | string |  | Filter by creation date upper bound (format YYYY-MM-DD).  |
+| drone_id        | integer |  | Filter by drone ID (alias: `drone`).                      |
+| mission_id      | integer |  | Filter by mission ID (alias: `mission`).                  |
+| page            | integer | False | A page number within the paginated result set.            |
+| page_size       | integer | False | Number of results to return per page.                     |
+| recorded_after  | string |  | Filter by recording date lower bound (format YYYY-MM-DD). |
 | recorded_before | string |  | Filter by recording date upper bound (format YYYY-MM-DD). |
-| status | string |  | Filter by status (`uploading`, `ready`, `failed`). |
-| uploader_id | integer |  | Filter by uploader user ID (alias: `uploader`). |
+| status          | string |  | Filter by status (`uploading`, `ready`, `failed`).        |
+| uploaded_by_id     | integer |  | Filter by uploader user ID (alias: `uploaded_by`).        |
 
 
 ### Responses
@@ -2898,8 +2898,8 @@ Examples
       "id": 3,
       "mission": 11,
       "drone": 21,
-      "uploader": 24,
-      "uploader_username": "oleksandr.koval",
+      "uploaded_by": 24,
+      "uploaded_by_username": "oleksandr.koval",
       "file": "http://localhost:8000/media/videos/mission_11/recon.mp4",
       "file_name": "recon.mp4",
       "file_size": 20984320,
@@ -2966,7 +2966,7 @@ Forbidden. User does not have permission to perform this action.
 
 Upload a video metadata record
 
-Uploads a new video file and creates its metadata record. The uploader is set to the authenticated user and the record starts in the `uploading` status while the duration is extracted asynchronously.
+Uploads a new video file and creates its metadata record. The uploaded_by is set to the authenticated user and the record starts in the `uploading` status while the duration is extracted asynchronously.
 
 Validation:
 - The selected drone must be assigned to the selected mission.
@@ -3126,8 +3126,8 @@ Examples
   "id": 3,
   "mission": 11,
   "drone": 21,
-  "uploader": 24,
-  "uploader_username": "oleksandr.koval",
+  "uploaded_by": 24,
+  "uploaded_by_username": "oleksandr.koval",
   "file": "http://localhost:8000/media/videos/mission_11/recon.mp4",
   "file_name": "recon.mp4",
   "file_size": 20984320,
@@ -3242,8 +3242,8 @@ Examples
   "id": 3,
   "mission": 11,
   "drone": 21,
-  "uploader": 24,
-  "uploader_username": "oleksandr.koval",
+  "uploaded_by": 24,
+  "uploaded_by_username": "oleksandr.koval",
   "file": "http://localhost:8000/media/videos/mission_11/recon.mp4",
   "file_name": "recon.mp4",
   "file_size": 20984320,
@@ -3363,8 +3363,8 @@ Examples
   "id": 3,
   "mission": 11,
   "drone": 21,
-  "uploader": 24,
-  "uploader_username": "oleksandr.koval",
+  "uploaded_by": 24,
+  "uploaded_by_username": "oleksandr.koval",
   "file": "http://localhost:8000/media/videos/mission_11/recon.mp4",
   "file_name": "recon.mp4",
   "file_size": 20984320,
@@ -7536,24 +7536,24 @@ Serialize user status update requests.
 
 
 
-| Field | Type | Description |
-|-------|------|-------------|
-| id | integer |  |
-| mission | integer | Mission associated with this video |
-| drone | integer | Drone used to capture this video |
-| uploader | integer | User who uploaded the file |
-| uploader_username | string |  |
-| file | string |  |
-| file_name | string |  |
-| file_size | integer | File size in bytes |
-| content_type | string |  |
-| status |  |  |
-| checksum | string | Optional SHA-256 checksum of the file |
-| duration_seconds | integer |  |
-| recorded_at | string | Video recording timestamp from drone metadata |
-| created_at | string |  |
-| updated_at | string |  |
-| url | string |  |
+| Field                  | Type | Description |
+|------------------------|------|-------------|
+| id                     | integer |  |
+| mission                | integer | Mission associated with this video |
+| drone                  | integer | Drone used to capture this video |
+| uploaded_by            | integer | User who uploaded the file |
+| uploaded_by_username | string |  |
+| file                   | string |  |
+| file_name              | string |  |
+| file_size              | integer | File size in bytes |
+| content_type           | string |  |
+| status                 |  |  |
+| checksum               | string | Optional SHA-256 checksum of the file |
+| duration_seconds       | integer |  |
+| recorded_at            | string | Video recording timestamp from drone metadata |
+| created_at             | string |  |
+| updated_at             | string |  |
+| url                    | string |  |
 
 
 ## RepairEvent
@@ -7749,24 +7749,24 @@ Serialize user role update responses.
 
 
 
-| Field | Type | Description |
-|-------|------|-------------|
-| id | integer |  |
-| mission | integer | Mission associated with this video |
-| drone | integer | Drone used to capture this video |
-| uploader | integer | User who uploaded the file |
-| uploader_username | string |  |
-| file | string |  |
-| file_name | string |  |
-| file_size | integer | File size in bytes |
-| content_type | string |  |
-| status |  |  |
-| checksum | string | Optional SHA-256 checksum of the file |
-| duration_seconds | integer |  |
-| recorded_at | string | Video recording timestamp from drone metadata |
-| created_at | string |  |
-| updated_at | string |  |
-| url | string |  |
+| Field              | Type | Description |
+|--------------------|------|-------------|
+| id                 | integer |  |
+| mission            | integer | Mission associated with this video |
+| drone              | integer | Drone used to capture this video |
+| uploaded_by        | integer | User who uploaded the file |
+| upload_by_username | string |  |
+| file               | string |  |
+| file_name          | string |  |
+| file_size          | integer | File size in bytes |
+| content_type       | string |  |
+| status             |  |  |
+| checksum           | string | Optional SHA-256 checksum of the file |
+| duration_seconds   | integer |  |
+| recorded_at        | string | Video recording timestamp from drone metadata |
+| created_at         | string |  |
+| updated_at         | string |  |
+| url                | string |  |
 
 
 ## VideoMetadataStatusEnum

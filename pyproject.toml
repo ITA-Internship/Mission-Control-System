@@ -1,2 +1,34 @@
 [tool.isort]
 profile = "black"
+
+[tool.coverage.run]
+source = ["."]
+omit = [
+    "*/migrations/*",
+    "*/tests.py",
+    "*/tests/*",
+    "manage.py",
+    "config/*",
+    "*/apps.py",
+    "venv/*",
+    ".venv/*",
+]
+
+[tool.bandit]
+exclude_dirs = ["tests", "*/migrations", "venv", ".venv"]
+skips = [
+    "B101", # assert statements
+    "B105", # hardcoded password strings in docs/constants
+    "B110", # try-except-pass
+    "B404", # import subprocess
+    "B603"  # subprocess call without shell=True
+]
+
+[tool.coverage.report]
+fail_under = 60
+show_missing = true
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "raise NotImplementedError",
+]
