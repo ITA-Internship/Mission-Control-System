@@ -49,6 +49,7 @@ export function isAbortError(
 interface ApiRequestOptions
   extends Omit<RequestInit, "body"> {
   json?: unknown;
+  formData?: FormData;
 }
 
 function getCookie(
@@ -105,6 +106,7 @@ export async function apiRequest<T>(
   path: string,
   {
     json,
+    formData,
     headers: initialHeaders,
     ...options
   }: ApiRequestOptions = {},
@@ -126,6 +128,10 @@ export async function apiRequest<T>(
     );
 
     body = JSON.stringify(json);
+  }
+
+  if (formData !== undefined) {
+    body = formData;
   }
 
   if (!SAFE_METHODS.has(method)) {

@@ -19,13 +19,17 @@ import os
 import posixpath
 
 from django.conf import settings
+from django.contrib.auth import authenticate, login
 from django.contrib.auth import HASH_SESSION_KEY
 from django.contrib.auth.tokens import default_token_generator
 from django.core.exceptions import ValidationError as DjangoValidationError
 from django.http import FileResponse, Http404, HttpResponse, StreamingHttpResponse
+from django.middleware.csrf import get_token
 from django.shortcuts import get_object_or_404
 from django.utils.encoding import escape_uri_path, force_bytes, force_str
 from django.utils.http import urlsafe_base64_decode, urlsafe_base64_encode
+from django.utils.decorators import method_decorator
+from django.views.decorators.csrf import csrf_exempt
 from django_filters import rest_framework as filters
 from drf_spectacular.utils import extend_schema_view
 from rest_framework import generics, permissions, status, viewsets
@@ -67,6 +71,7 @@ from .serializers import (
     AccountActivationSerializer,
     AuditLogSerializer,
     ChangePasswordSerializer,
+    LoginSerializer,
     PasswordResetConfirmSerializer,
     PasswordResetRequestSerializer,
     UserMeSerializer,
@@ -93,6 +98,47 @@ class UserRegistrationView(generics.CreateAPIView):
     serializer_class = UserRegistrationSerializer
     permission_classes = [HasRBACPermission]
     required_permission = PERMISSION_USERS_CREATE
+
+
+@method_decorator(csrf_exempt, name="dispatch")
+class LoginView(APIView):
+    """Create a session for a user authenticated by email or username."""
+
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        """Authenticate the submitted credentials and start a Django session."""
+        serializer = LoginSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        identifier = serializer.validated_data["identifier"].strip()
+        password = serializer.validated_data["password"]
+
+        username = identifier
+        if "@" in identifier:
+            matched_user = User.objects.filter(email__iexact=identifier).first()
+            if matched_user is not None:
+                username = matched_user.username
+
+        user = authenticate(
+            request,
+            username=username,
+            password=password,
+        )
+
+        if user is None:
+            return Response(
+                {"detail": "Invalid credentials."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        login(request, user)
+        get_token(request)
+
+        return Response(
+            UserMeSerializer(user).data,
+            status=status.HTTP_200_OK,
+        )
 
 
 @user_role_update_schema

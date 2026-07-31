@@ -155,6 +155,18 @@ class UserMeSerializer(serializers.ModelSerializer):
         allow_null=True,
         validators=[validate_image_size, validate_image_extension],
     )
+    role_name = serializers.CharField(
+        source="role.name", read_only=True, default=None
+    )
+    role_code = serializers.CharField(
+        source="role.code", read_only=True, default=None
+    )
+    unit_name = serializers.CharField(
+        source="unit.name", read_only=True, default=None
+    )
+    unit_code = serializers.CharField(
+        source="unit.code", read_only=True, default=None
+    )
 
     class Meta:
         model = User
@@ -168,7 +180,11 @@ class UserMeSerializer(serializers.ModelSerializer):
             "contact",
             "profile_picture",
             "role",
+            "role_name",
+            "role_code",
             "unit",
+            "unit_name",
+            "unit_code",
             "is_active",
             "must_change_password",
         )
@@ -177,7 +193,11 @@ class UserMeSerializer(serializers.ModelSerializer):
             "username",
             "email",
             "role",
+            "role_name",
+            "role_code",
             "unit",
+            "unit_name",
+            "unit_code",
             "is_active",
             "must_change_password",
             "is_staff",
@@ -259,3 +279,10 @@ class PasswordResetConfirmSerializer(serializers.Serializer):
         except DjangoValidationError as exc:
             raise serializers.ValidationError(list(exc.messages))
         return value
+
+
+class LoginSerializer(serializers.Serializer):
+    """Serialize login requests for session-based authentication."""
+
+    identifier = serializers.CharField(required=True, allow_blank=False)
+    password = serializers.CharField(required=True, write_only=True)

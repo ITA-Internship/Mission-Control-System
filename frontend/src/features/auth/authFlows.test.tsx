@@ -40,6 +40,10 @@ import {
 } from "./pages/ForgotPasswordPage";
 
 import {
+  LoginPage,
+} from "./pages/LoginPage";
+
+import {
   ResetPasswordPage,
 } from "./pages/ResetPasswordPage";
 
@@ -251,6 +255,101 @@ describe("forgot password", () => {
         /Unable to reach Mission Control/i,
       ),
     ).toBeInTheDocument();
+  });
+});
+
+describe("login", () => {
+  it("signs in and redirects to my profile", async () => {
+    const user = userEvent.setup();
+
+    mockJsonResponse({
+      id: 47,
+      username: "root.admin",
+      email: "root.admin@example.com",
+      first_name: "Root",
+      last_name: "Admin",
+      rank: null,
+      contact: null,
+      profile_picture: null,
+      role: 1,
+      unit: null,
+      is_active: true,
+      must_change_password: false,
+    });
+
+    const router = createMemoryRouter(
+      [
+        {
+          path: "/login",
+          Component: LoginPage,
+        },
+        {
+          path: "/my-profile",
+          element: <div>My Profile</div>,
+        },
+        {
+          path: "/change-password/required",
+          element: (
+            <div>
+              Password change required
+            </div>
+          ),
+        },
+      ],
+      {
+        initialEntries: ["/login"],
+      },
+    );
+
+    render(
+      <RouterProvider router={router} />,
+    );
+
+    await user.type(
+      screen.getByLabelText("Email or Username"),
+      "root.admin@example.com",
+    );
+
+    await user.type(
+      screen.getByLabelText("Password"),
+      "Test@1234",
+    );
+
+    await user.click(
+      screen.getByRole(
+        "button",
+        {
+          name: "Sign in",
+        },
+      ),
+    );
+
+    expect(
+      await screen.findByText("My Profile"),
+    ).toBeInTheDocument();
+
+    const fetchMock = vi.mocked(
+      globalThis.fetch,
+    );
+
+    const [
+      requestUrl,
+      requestOptions,
+    ] = fetchMock.mock.calls[0];
+
+    expect(requestUrl).toBe(
+      "/api/accounts/login/",
+    );
+
+    expect(
+      JSON.parse(
+        requestOptions?.body as string,
+      ),
+    ).toEqual({
+      identifier:
+        "root.admin@example.com",
+      password: "Test@1234",
+    });
   });
 });
 

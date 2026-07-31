@@ -321,6 +321,78 @@ class ChangePasswordViewTests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
 
 
+class LoginViewTests(APITestCase):
+    """Test the session login endpoint used by the frontend sign-in form."""
+
+    def setUp(self):
+        """Create an active user and the endpoint URLs used by the tests."""
+        self.password = "Test@1234"
+        self.user = User.objects.create_user(
+            username="root.admin",
+            email="root.admin@example.com",
+            password=self.password,
+            is_active=True,
+        )
+        self.url = reverse("accounts:login")
+        self.me_url = reverse("accounts:user-me")
+
+    def test_login_with_email_creates_session(self):
+        """Verify email-based login starts a session and returns user data."""
+        response = self.client.post(
+            self.url,
+            {
+                "identifier": self.user.email,
+                "password": self.password,
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK, response.data)
+        self.assertEqual(response.data["id"], self.user.id)
+        self.assertEqual(response.data["email"], self.user.email)
+        self.assertEqual(
+            self.client.session.get("_auth_user_id"),
+            str(self.user.pk),
+        )
+        self.assertIn("csrftoken", response.cookies)
+
+        me_response = self.client.get(self.me_url)
+        self.assertEqual(me_response.status_code, status.HTTP_200_OK, me_response.data)
+        self.assertEqual(me_response.data["email"], self.user.email)
+
+    def test_login_with_username_creates_session(self):
+        """Verify username-based login is also accepted for compatibility."""
+        response = self.client.post(
+            self.url,
+            {
+                "identifier": self.user.username,
+                "password": self.password,
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK, response.data)
+        self.assertEqual(
+            self.client.session.get("_auth_user_id"),
+            str(self.user.pk),
+        )
+
+    def test_login_rejects_invalid_credentials(self):
+        """Verify the endpoint does not authenticate wrong credentials."""
+        response = self.client.post(
+            self.url,
+            {
+                "identifier": self.user.email,
+                "password": "WrongPassword!",
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(response.data["detail"], "Invalid credentials.")
+        self.assertNotIn("_auth_user_id", self.client.session)
+
+
 class PasswordResetConfirmViewTests(APITestCase):
     """Test the password reset confirmation API endpoint via token."""
 
