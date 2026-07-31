@@ -66,6 +66,7 @@ function ViewToggle({
           key={option}
           type="button"
           onClick={() => onChange(option)}
+          aria-pressed={view === option}
           className={cn(
             "rounded-md px-2.5 py-1 font-mono text-[10px] uppercase tracking-wide transition-colors",
             view === option
@@ -175,7 +176,14 @@ export function FleetStatusChart({
         <EmptyState title="No fleet data" description="No drones registered yet." />
       ) : (
         <>
-          <div className="relative" style={{ height: 200 }}>
+          <div
+            className="relative"
+            style={{ height: 200 }}
+            role="img"
+            aria-label={`Fleet status: ${total} drones — ${data
+              .map((slice) => `${slice.label} ${slice.count}`)
+              .join(", ")}.`}
+          >
             <ResponsiveContainer width="100%" height="100%">
               {view === "donut" ? (
                 <PieChart>
@@ -214,14 +222,14 @@ export function FleetStatusChart({
                 >
                   <XAxis
                     type="number"
-                    tick={{ fill: "#8A94A6", fontSize: 10 }}
+                    tick={{ fill: "var(--color-mc-muted)", fontSize: 10 }}
                     axisLine={false}
                     tickLine={false}
                   />
                   <YAxis
                     type="category"
                     dataKey="label"
-                    tick={{ fill: "#8A94A6", fontSize: 10 }}
+                    tick={{ fill: "var(--color-mc-muted)", fontSize: 10 }}
                     axisLine={false}
                     tickLine={false}
                     width={92}
@@ -250,7 +258,7 @@ export function FleetStatusChart({
             )}
           </div>
           <Legend
-            data={fleet ?? []}
+            data={data}
             hovered={hovered}
             onHover={setHovered}
           />

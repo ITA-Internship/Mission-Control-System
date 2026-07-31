@@ -12,13 +12,14 @@ import { KPI_ROLES } from "../rbac";
 import type {
   DashboardSummary,
   HealthState,
+  KpiTileId,
   RoleCode,
+  SectionState,
 } from "../types/dashboard";
-import type { SectionState } from "../hooks/useDashboardData";
 import { Skeleton } from "./states";
 
 interface TileConfig {
-  id: string;
+  id: KpiTileId;
   label: string;
   icon: LucideIcon;
   iconColor: string;
@@ -161,7 +162,7 @@ function SkeletonTile() {
 }
 
 function tileContent(
-  id: string,
+  id: KpiTileId,
   summary: DashboardSummary,
 ): React.ReactNode {
   switch (id) {
@@ -192,7 +193,10 @@ function tileContent(
     case "open-defects":
       return (
         <>
-          <TileValue value={summary.openDefects} alert />
+          <TileValue
+            value={summary.openDefects}
+            alert={summary.criticalDefects > 0}
+          />
           <div className="mt-1.5 flex items-center gap-2 font-mono text-[10px]">
             <span className="text-mc-muted">Critical</span>
             <span className="font-semibold text-mc-error">
@@ -266,13 +270,18 @@ export function KpiTiles({ role, summary }: KpiTilesProps) {
 
   const data = summary.data;
 
+  // The Open Defects tile only escalates to its red "alert" treatment when
+  // there is actually a critical defect — a permanently-red KPI trains
+  // operators to ignore it.
+  const defectsAlert = !!data && data.criticalDefects > 0;
+
   return (
     <div className={gridClass}>
       {visible.map((tile) => (
         <TileShell
           key={tile.id}
           config={tile}
-          alert={tile.id === "open-defects"}
+          alert={tile.id === "open-defects" && defectsAlert}
         >
           {data ? (
             tileContent(tile.id, data)

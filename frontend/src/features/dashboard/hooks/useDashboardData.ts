@@ -28,18 +28,8 @@ import type {
   HealthState,
   MissionListItem,
   RoleCode,
+  SectionState,
 } from "../types/dashboard";
-
-export type SectionStatus =
-  | "loading"
-  | "success"
-  | "error"
-  | "restricted";
-
-export interface SectionState<T> {
-  status: SectionStatus;
-  data: T | null;
-}
 
 const loading = <T,>(): SectionState<T> => ({
   status: "loading",

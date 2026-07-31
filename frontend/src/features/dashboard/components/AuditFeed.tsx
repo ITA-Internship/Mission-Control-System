@@ -1,6 +1,5 @@
 import { cn } from "../../../shared/utils/cn";
-import type { AuditLogItem } from "../types/dashboard";
-import type { SectionState } from "../hooks/useDashboardData";
+import type { AuditLogItem, SectionState } from "../types/dashboard";
 import { formatRelative, humanizeEnum } from "../utils/format";
 import { Panel } from "./Panel";
 import {
@@ -24,6 +23,8 @@ function AuditRow({ entry }: { entry: AuditLogItem }) {
   return (
     <div className="flex items-start gap-3 border-b border-mc-border py-3 last:border-b-0">
       <span
+        role="img"
+        aria-label={`Result: ${humanizeEnum(entry.result)}`}
         className={cn(
           "mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full",
           resultColor(entry.result),

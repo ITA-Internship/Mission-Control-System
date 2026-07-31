@@ -29,9 +29,9 @@ export function Panel({
       {(title || action) && (
         <div className="mb-4 flex items-center justify-between">
           {title && (
-            <h3 className="text-[13px] font-semibold uppercase tracking-wider text-mc-text">
+            <h2 className="text-[13px] font-semibold uppercase tracking-wider text-mc-text">
               {title}
-            </h3>
+            </h2>
           )}
           {action}
         </div>

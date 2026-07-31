@@ -9,18 +9,20 @@ interface PillStyle {
   color: string;
 }
 
+/* Colors reference the shared CSS tokens in globals.css so the pills stay in
+ * sync with the rest of the status palette instead of duplicating hex values. */
 const MISSION_STATUS: Record<MissionStatus, PillStyle> = {
-  active: { label: "Active", color: "#3FB950" },
-  planned: { label: "Planned", color: "#4C8DFF" },
-  completed: { label: "Completed", color: "#8A94A6" },
-  aborted: { label: "Aborted", color: "#E5484D" },
+  active: { label: "Active", color: "var(--color-status-active)" },
+  planned: { label: "Planned", color: "var(--color-status-mission)" },
+  completed: { label: "Completed", color: "var(--color-mc-muted)" },
+  aborted: { label: "Aborted", color: "var(--color-mc-error)" },
 };
 
 const SEVERITY: Record<DefectSeverity, PillStyle> = {
-  LOW: { label: "Low", color: "#8A94A6" },
-  MEDIUM: { label: "Medium", color: "#C8A24A" },
-  HIGH: { label: "High", color: "#F0883E" },
-  CRITICAL: { label: "Critical", color: "#E5484D" },
+  LOW: { label: "Low", color: "var(--color-mc-muted)" },
+  MEDIUM: { label: "Medium", color: "var(--color-status-maintenance)" },
+  HIGH: { label: "High", color: "var(--color-severity-high)" },
+  CRITICAL: { label: "Critical", color: "var(--color-mc-error)" },
 };
 
 function Pill({ label, color }: PillStyle) {
@@ -29,7 +31,7 @@ function Pill({ label, color }: PillStyle) {
       className="inline-flex items-center rounded-full px-2 py-0.5 font-mono text-[10px] font-semibold uppercase tracking-wide"
       style={{
         color,
-        backgroundColor: `${color}26`,
+        backgroundColor: `color-mix(in srgb, ${color} 15%, transparent)`,
       }}
     >
       {label}
@@ -45,7 +47,7 @@ export function MissionStatusPill({
   const style =
     MISSION_STATUS[status] ?? {
       label: status,
-      color: "#8A94A6",
+      color: "var(--color-mc-muted)",
     };
   return <Pill {...style} />;
 }
@@ -58,7 +60,7 @@ export function SeverityPill({
   const style =
     SEVERITY[severity] ?? {
       label: severity,
-      color: "#8A94A6",
+      color: "var(--color-mc-muted)",
     };
   return <Pill {...style} />;
 }

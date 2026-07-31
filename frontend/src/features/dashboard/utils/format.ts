@@ -21,6 +21,7 @@ export function formatShortDate(
   return date.toLocaleDateString(undefined, {
     month: "short",
     day: "numeric",
+    timeZone: "UTC",
   });
 }
 

@@ -1,5 +1,6 @@
-import type { DefectListItem } from "../types/dashboard";
-import type { SectionState } from "../hooks/useDashboardData";
+import { useMemo } from "react";
+
+import type { DefectListItem, SectionState } from "../types/dashboard";
 import { formatShortDate, humanizeEnum } from "../utils/format";
 import { Panel } from "./Panel";
 import { SeverityPill } from "./StatusPill";
@@ -60,6 +61,11 @@ export function DefectsPanel({
 }: {
   state: SectionState<DefectListItem[]>;
 }) {
+  const sorted = useMemo(
+    () => (state.data ? sortDefects(state.data) : []),
+    [state.data],
+  );
+
   return (
     <Panel title="Open Defects">
       {state.status === "loading" ? (
@@ -75,7 +81,7 @@ export function DefectsPanel({
         />
       ) : (
         <div>
-          {sortDefects(state.data).map((defect) => (
+          {sorted.map((defect) => (
             <DefectRow key={defect.id} defect={defect} />
           ))}
         </div>

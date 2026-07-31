@@ -136,3 +136,28 @@ export interface DashboardSummary {
   inMaintenance: number;
   health: HealthState;
 }
+
+/* Identifier for each KPI stat tile. Keeping this a union (rather than a bare
+ * string) makes the tile config, the RBAC visibility map and the content
+ * switch exhaustive — a typo or a missing role set is a compile error. */
+export type KpiTileId =
+  | "active-missions"
+  | "fleet-total"
+  | "open-defects"
+  | "maintenance"
+  | "system-health";
+
+/* ---- Per-section async state ----
+ *
+ * The terminal state of one dashboard section. `restricted` is distinct from
+ * `error`: it is the UI's reaction to a backend 403 and is never retryable. */
+export type SectionStatus =
+  | "loading"
+  | "success"
+  | "error"
+  | "restricted";
+
+export interface SectionState<T> {
+  status: SectionStatus;
+  data: T | null;
+}

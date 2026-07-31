@@ -1,8 +1,7 @@
 import { ArrowRight } from "lucide-react";
 import { Link } from "react-router";
 
-import type { MissionListItem } from "../types/dashboard";
-import type { SectionState } from "../hooks/useDashboardData";
+import type { MissionListItem, SectionState } from "../types/dashboard";
 import {
   formatUtcTime,
 } from "../utils/format";

@@ -10,7 +10,7 @@ import {
   ShieldCheck,
 } from "lucide-react";
 
-import type { RoleCode } from "./types/dashboard";
+import type { KpiTileId, RoleCode } from "./types/dashboard";
 
 /*
  * Frontend RBAC visibility matrix.
@@ -129,7 +129,7 @@ export const CAN_SEE_AUDIT = new Set<RoleCode>([
 ]);
 
 /* KPI tile visibility, keyed by tile id. */
-export const KPI_ROLES: Record<string, Set<RoleCode>> = {
+export const KPI_ROLES: Record<KpiTileId, Set<RoleCode>> = {
   "active-missions": new Set([
     "ADMIN",
     "COMMANDER",
