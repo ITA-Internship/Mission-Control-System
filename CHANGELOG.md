@@ -96,6 +96,9 @@
 - *(media)* Restore artifact access control and test coverage (by **Anastasiia**)
 - *(docker)* Resolve web healthcheck and entrypoint duplicate (by **Maksym**)
 - *(auth)* Address pull request readiness issues (#200) (by **yana-donda**)
+- Enforce RBAC on self-service profile endpoints (by **Anastasiia**)
+- Align self-service profile RBAC and schema (by **Anastasiia**)
+- Lint (by **Anastasiia**)
 
 ### Other
 
@@ -757,6 +760,8 @@
 - Fix lint issues and tests (by **Maksym Lirko**)
 - Merge pull request #203 from ITA-Internship/bugfix#184-video-ownership-wrong-fk (by **Maksym**)
 - Fix bug with checking owner function (by **Maksym**)
+- Merge pull request #204 from ITA-Internship/task#157-fix-accounts-self-service-rbac (by **Anastasiia Humeniuk**)
+- Task#157 fix accounts self service rbac (by **Anastasiia Humeniuk**)
 
 ### Refactor
 
@@ -828,5 +833,6 @@
 - *(changelog)* Update CHANGELOG.md [skip ci] (by **github-actions[bot]**)
 - *(changelog)* Update CHANGELOG.md [skip ci] (by **github-actions[bot]**)
 - *(auth)* Add frontend runtime, SPA deployment and tests (#200) (by **yana-donda**)
+- *(changelog)* Update CHANGELOG.md [skip ci] (by **github-actions[bot]**)
 - *(changelog)* Update CHANGELOG.md [skip ci] (by **github-actions[bot]**)
 - *(changelog)* Update CHANGELOG.md [skip ci] (by **github-actions[bot]**)
