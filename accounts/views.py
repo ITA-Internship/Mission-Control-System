@@ -58,7 +58,10 @@ from .permissions import HasAnyRBACPermission, HasRBACPermission, user_has_permi
 from .rbac import (
     PERMISSION_AUDIT_LOGS_VIEW_ALL,
     PERMISSION_AUDIT_LOGS_VIEW_OWN,
+    PERMISSION_PROFILE_RESET_PASSWORD_OWN,
+    PERMISSION_PROFILE_UPDATE_OWN,
     PERMISSION_PROFILE_VIEW_ANY,
+    PERMISSION_PROFILE_VIEW_OWN,
     PERMISSION_USERS_ACTIVATE_DEACTIVATE,
     PERMISSION_USERS_CREATE,
     PERMISSION_USERS_MANAGE_ROLES,
@@ -371,7 +374,15 @@ class UserMeView(generics.RetrieveUpdateAPIView):
     """Retrieve and update the currently authenticated user's profile."""
 
     serializer_class = UserMeSerializer
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [HasRBACPermission]
+
+    def get_permissions(self):
+        """Resolve the RBAC permission dynamically for read vs write actions."""
+        if self.request.method in permissions.SAFE_METHODS:
+            self.required_permission = PERMISSION_PROFILE_VIEW_OWN
+        else:
+            self.required_permission = PERMISSION_PROFILE_UPDATE_OWN
+        return super().get_permissions()
 
     def get_object(self):
         """Return the currently authenticated user."""
@@ -438,7 +449,8 @@ def invalidate_user_sessions(user, exclude_session_key=None):
 class ChangePasswordView(APIView):
     """Handle authenticated password changes."""
 
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [HasRBACPermission]
+    required_permission = PERMISSION_PROFILE_RESET_PASSWORD_OWN
 
     def post(self, request):
         """Verify the old password and set a new password for the user."""
@@ -596,7 +608,8 @@ class PasswordResetConfirmView(APIView):
 class ProtectedProfilePictureView(APIView):
     """Serve profile picture securely."""
 
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [HasRBACPermission]
+    required_permission = PERMISSION_PROFILE_VIEW_OWN
 
     def get(self, request, user_id):
         """Return the user's profile picture if the requester has permission.
