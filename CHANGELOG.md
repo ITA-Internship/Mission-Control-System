@@ -13,6 +13,9 @@
 - *(missions)* Enforce unit-based access control for mission artifacts and video metadata (by **Anastasiia**)
 - *(permissions)* Restrict write-off history access to authorized users only and add tests to ensure staff users without permissions cannot access write-off history and repair orders (by **Anastasiia**)
 - *(permissions, api_details, tests)* Implement technician role access for mission-derived media and enhance visibility rules (by **Anastasiia**)
+- *(client)* Add auth application shell and routes (#200) (by **yana-donda**)
+- *(auth)* Add reusable form controls and auth page forms (#200) (by **yana-donda**)
+- *(auth)* Integrate password recovery and activation APIs (#200) (by **yana-donda**)
 
 ### Bug Fixes
 
@@ -90,6 +93,8 @@
 - Fix mass assignment of drone status on create (by **Viktoriia Kovalchuk**)
 - Scope artifact endpoints to requester's authorized missions (IDOR #138) (by **Maksym Korchynskyi**)
 - *(media)* Restore artifact access control and test coverage (by **Anastasiia**)
+- *(docker)* Resolve web healthcheck and entrypoint duplicate (by **Maksym**)
+- *(auth)* Address pull request readiness issues (#200) (by **yana-donda**)
 
 ### Other
 
@@ -729,6 +734,11 @@
 - Merge remote-tracking branch 'origin/develop' into task#160-implement-user-object-level (by **Anastasiia**)
 - Merge pull request #193 from ITA-Internship/task#160-implement-user-object-level (by **Anastasiia Humeniuk**)
 - Task#160 implement user object level (by **Anastasiia Humeniuk**)
+- Merge pull request #199 from ITA-Internship/fix-docker-188 (by **Maksym Korchynskyi**)
+- Fix Docker configuration and stabilize healthchecks #188 (by **Maksym Korchynskyi**)
+- Corrected linting (by **yana-donda**)
+- Merge pull request #210 from ITA-Internship/task#200-frontend-auth-flows (by **Yana**)
+- [Frontend] Implement authentication and account access flows (by **Yana**)
 
 ### Refactor
 
@@ -796,3 +806,6 @@
 - *(changelog)* Update CHANGELOG.md [skip ci] (by **github-actions[bot]**)
 - *(changelog)* Update CHANGELOG.md [skip ci] (by **github-actions[bot]**)
 - *(changelog)* Update CHANGELOG.md [skip ci] (by **github-actions[bot]**)
+- *(changelog)* Update CHANGELOG.md [skip ci] (by **github-actions[bot]**)
+- *(changelog)* Update CHANGELOG.md [skip ci] (by **github-actions[bot]**)
+- *(auth)* Add frontend runtime, SPA deployment and tests (#200) (by **yana-donda**)
