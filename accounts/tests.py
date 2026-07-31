@@ -426,10 +426,12 @@ class LoginViewTests(APITestCase):
     def setUp(self):
         """Create an active user and the endpoint URLs used by the tests."""
         self.password = "Test@1234"
+        self.operator_role = Role.objects.get(code=OPERATOR_CODE)
         self.user = User.objects.create_user(
             username="root.admin",
             email="root.admin@example.com",
             password=self.password,
+            role=self.operator_role,
             is_active=True,
         )
         self.client = APIClient(enforce_csrf_checks=True)
