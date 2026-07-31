@@ -41,6 +41,9 @@ import {
 } from "react-router";
 
 import {
+  isAbortError,
+} from "../../auth/api/apiClient";
+import {
   changePassword,
   getCurrentUser,
 } from "../../auth/api/authApi";
@@ -789,6 +792,10 @@ export function MyProfilePage() {
           getProfileFormState(user),
         );
       } catch (error) {
+        if (isAbortError(error)) {
+          return;
+        }
+
         const message = getFormError(
           error,
           "We could not load your profile right now.",
@@ -796,7 +803,9 @@ export function MyProfilePage() {
 
         setLoadError(message);
       } finally {
-        setLoading(false);
+        if (!controller.signal.aborted) {
+          setLoading(false);
+        }
       }
     }
 

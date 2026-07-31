@@ -39,6 +39,17 @@ export function signIn(
   );
 }
 
+export function prepareSignIn(
+  signal?: AbortSignal,
+): Promise<DetailResponse> {
+  return apiRequest<DetailResponse>(
+    "/api/accounts/login/",
+    {
+      signal,
+    },
+  );
+}
+
 export function confirmPasswordReset(
   uid: string,
   token: string,

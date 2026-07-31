@@ -263,6 +263,9 @@ describe("login", () => {
     const user = userEvent.setup();
 
     mockJsonResponse({
+      detail: "CSRF cookie set.",
+    });
+    mockJsonResponse({
       id: 47,
       username: "root.admin",
       email: "root.admin@example.com",
@@ -333,17 +336,24 @@ describe("login", () => {
     );
 
     const [
-      requestUrl,
-      requestOptions,
+      firstRequestUrl,
     ] = fetchMock.mock.calls[0];
+    const [
+      secondRequestUrl,
+      secondRequestOptions,
+    ] = fetchMock.mock.calls[1];
 
-    expect(requestUrl).toBe(
+    expect(firstRequestUrl).toBe(
+      "/api/accounts/login/",
+    );
+
+    expect(secondRequestUrl).toBe(
       "/api/accounts/login/",
     );
 
     expect(
       JSON.parse(
-        requestOptions?.body as string,
+        secondRequestOptions?.body as string,
       ),
     ).toEqual({
       identifier:

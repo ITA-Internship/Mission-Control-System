@@ -333,11 +333,27 @@ class LoginViewTests(APITestCase):
             password=self.password,
             is_active=True,
         )
+        self.client = APIClient(enforce_csrf_checks=True)
         self.url = reverse("accounts:login")
         self.me_url = reverse("accounts:user-me")
 
-    def test_login_with_email_creates_session(self):
-        """Verify email-based login starts a session and returns user data."""
+    def _prime_csrf_cookie(self):
+        """Request the CSRF cookie required by the session login endpoint."""
+        response = self.client.get(self.url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK, response.data)
+        self.assertIn("csrftoken", self.client.cookies)
+        return self.client.cookies["csrftoken"].value
+
+    def test_login_get_issues_csrf_cookie(self):
+        """Verify the login bootstrap request returns a CSRF cookie."""
+        response = self.client.get(self.url)
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK, response.data)
+        self.assertEqual(response.data["detail"], "CSRF cookie set.")
+        self.assertIn("csrftoken", self.client.cookies)
+
+    def test_login_requires_csrf_token(self):
+        """Verify unsafe login requests are rejected without a CSRF token."""
         response = self.client.post(
             self.url,
             {
@@ -345,6 +361,22 @@ class LoginViewTests(APITestCase):
                 "password": self.password,
             },
             format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_login_with_email_creates_session(self):
+        """Verify email-based login starts a session and returns user data."""
+        csrf_token = self._prime_csrf_cookie()
+
+        response = self.client.post(
+            self.url,
+            {
+                "identifier": self.user.email,
+                "password": self.password,
+            },
+            format="json",
+            HTTP_X_CSRFTOKEN=csrf_token,
         )
 
         self.assertEqual(response.status_code, status.HTTP_200_OK, response.data)
@@ -362,6 +394,8 @@ class LoginViewTests(APITestCase):
 
     def test_login_with_username_creates_session(self):
         """Verify username-based login is also accepted for compatibility."""
+        csrf_token = self._prime_csrf_cookie()
+
         response = self.client.post(
             self.url,
             {
@@ -369,6 +403,7 @@ class LoginViewTests(APITestCase):
                 "password": self.password,
             },
             format="json",
+            HTTP_X_CSRFTOKEN=csrf_token,
         )
 
         self.assertEqual(response.status_code, status.HTTP_200_OK, response.data)
@@ -379,6 +414,8 @@ class LoginViewTests(APITestCase):
 
     def test_login_rejects_invalid_credentials(self):
         """Verify the endpoint does not authenticate wrong credentials."""
+        csrf_token = self._prime_csrf_cookie()
+
         response = self.client.post(
             self.url,
             {
@@ -386,6 +423,7 @@ class LoginViewTests(APITestCase):
                 "password": "WrongPassword!",
             },
             format="json",
+            HTTP_X_CSRFTOKEN=csrf_token,
         )
 
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)

@@ -7,7 +7,10 @@ import { Mail } from "lucide-react";
 import { useNavigate } from "react-router";
 
 import { isAbortError } from "../api/apiClient";
-import { signIn } from "../api/authApi";
+import {
+  prepareSignIn,
+  signIn,
+} from "../api/authApi";
 import { AuthAlert } from "../components/AuthAlert";
 import { AuthLayout } from "../components/AuthLayout";
 import { AuthPageContent } from "../components/AuthPageContent";
@@ -86,6 +89,14 @@ export function LoginPage() {
     setIsSubmitting(true);
 
     try {
+      await run((signal) =>
+        prepareSignIn(signal),
+      );
+
+      if (!isMounted()) {
+        return;
+      }
+
       const user = await run((signal) =>
         signIn(
           trimmedIdentifier,

@@ -91,3 +91,18 @@ class PasswordResetConfirmThrottle(_BaseIPThrottle):
         if uidb64 is None:
             return ident
         return f"{ident}:uid:{_hash_cache_part(uidb64)}"
+
+
+class LoginThrottle(_BaseIPThrottle):
+    """Throttle limits for session login attempts."""
+
+    scope = "login"
+
+    def get_throttle_ident(self, request, view):
+        """Append the hashed identifier to the base identifier when present."""
+        ident = super().get_throttle_ident(request, view)
+        identifier = getattr(request, "data", {}).get("identifier", "")
+        identifier = identifier.strip().lower()
+        if not identifier:
+            return ident
+        return f"{ident}:identifier:{_hash_cache_part(identifier)}"

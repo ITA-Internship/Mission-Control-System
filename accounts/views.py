@@ -29,7 +29,7 @@ from django.shortcuts import get_object_or_404
 from django.utils.encoding import escape_uri_path, force_bytes, force_str
 from django.utils.http import urlsafe_base64_decode, urlsafe_base64_encode
 from django.utils.decorators import method_decorator
-from django.views.decorators.csrf import csrf_exempt
+from django.views.decorators.csrf import csrf_protect
 from django_filters import rest_framework as filters
 from drf_spectacular.utils import extend_schema_view
 from rest_framework import generics, permissions, status, viewsets
@@ -84,6 +84,7 @@ from .services import create_audit_log, set_user_password, update_user_role
 from .tasks import send_email_task
 from .throttles import (
     AccountActivationThrottle,
+    LoginThrottle,
     PasswordResetConfirmThrottle,
     PasswordResetRequestThrottle,
 )
@@ -100,11 +101,20 @@ class UserRegistrationView(generics.CreateAPIView):
     required_permission = PERMISSION_USERS_CREATE
 
 
-@method_decorator(csrf_exempt, name="dispatch")
+@method_decorator(csrf_protect, name="dispatch")
 class LoginView(APIView):
     """Create a session for a user authenticated by email or username."""
 
     permission_classes = [AllowAny]
+    throttle_classes = [LoginThrottle]
+
+    def get(self, request):
+        """Issue a CSRF cookie for the upcoming login request."""
+        get_token(request)
+        return Response(
+            {"detail": "CSRF cookie set."},
+            status=status.HTTP_200_OK,
+        )
 
     def post(self, request):
         """Authenticate the submitted credentials and start a Django session."""
