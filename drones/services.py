@@ -214,7 +214,12 @@ def update_drone(
     """
     user = _get_authenticated_user(user)
 
-    drone = Drone.objects.select_for_update().get(pk=drone.pk)
+    try:
+        drone = Drone.objects.select_for_update().get(pk=drone.pk)
+    except Drone.DoesNotExist:
+        raise ValidationError(
+            {"drone": "This drone no longer exists. It may have been deleted."}
+        )
 
     old_status = drone.status
     requested_status = drone_data.get("status")
@@ -697,7 +702,12 @@ def create_writeoff_record(
     """
     user = _get_authenticated_user(user)
 
-    drone = Drone.objects.select_for_update().get(pk=drone.pk)
+    try:
+        drone = Drone.objects.select_for_update().get(pk=drone.pk)
+    except Drone.DoesNotExist:
+        raise ValidationError(
+            {"drone": "This drone no longer exists. It may have been deleted."}
+        )
 
     _validate_status_transition(drone.status, Drone.STATUS_WRITTEN_OFF)
 
