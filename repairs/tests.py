@@ -1307,6 +1307,22 @@ class RepairOrderCreateTests(APITestCase):
         )
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
 
+    def test_staff_without_manage_permission_cannot_create(self):
+        """Verify that Django staff status alone
+        does not grant repair order creation."""
+        staff_viewer = ViewerUserFactory()
+        staff_viewer.is_staff = True
+        staff_viewer.save(update_fields=["is_staff"])
+        self.client.force_authenticate(staff_viewer)
+
+        response = self.client.post(
+            self.url,
+            _repair_order_payload(self.drone),
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
 
 class RepairOrderListTests(APITestCase):
     """Verify repair order listing, filtering, and pagination."""
@@ -1619,6 +1635,17 @@ class RepairHistoryExportTests(APITestCase):
         response = self.client.get(self.url)
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
 
+    def test_staff_without_export_permission_cannot_export(self):
+        """Verify that Django staff status alone does not grant repair exports."""
+        staff_viewer = ViewerUserFactory()
+        staff_viewer.is_staff = True
+        staff_viewer.save(update_fields=["is_staff"])
+        self.client.force_authenticate(staff_viewer)
+
+        response = self.client.get(self.url)
+
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
 
 class RepairOrderServiceTests(APITestCase):
     """Verify the business logic and state transitions in the repair order service."""
@@ -1769,7 +1796,6 @@ class DefectStatusUpdateTests(APITestCase):
         )
         self.user = AdminUserFactory()
         self.user.role = self.role
-        self.user.is_staff = True
         self.user.save()
         self.client.force_authenticate(self.user)
 
@@ -1860,7 +1886,6 @@ class DefectStatusUpdateRBACTests(APITestCase):
         """Verify that viewers are restricted from mutating defect statuses."""
         user = AdminUserFactory()
         user.role = self.viewer_role
-        user.is_staff = True
         user.save()
         self.client.force_authenticate(user)
 
@@ -1876,7 +1901,6 @@ class DefectStatusUpdateRBACTests(APITestCase):
         """
         tech = AdminUserFactory()
         tech.role = self.tech_role
-        tech.is_staff = True
         tech.save()
         self.client.force_authenticate(tech)
 
@@ -1902,7 +1926,6 @@ class DefectStatusUpdateRBACTests(APITestCase):
         """Verify that commanders hold the required authority to verify defects."""
         cmd = AdminUserFactory()
         cmd.role = self.cmd_role
-        cmd.is_staff = True
         cmd.save()
         self.client.force_authenticate(cmd)
 

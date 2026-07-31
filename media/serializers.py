@@ -4,10 +4,8 @@ Validate and shape image, data and video artifacts,
 audit log entries.
 """
 
-import json
 import logging
 import os
-import subprocess
 
 from django.conf import settings
 from rest_framework import serializers
@@ -55,6 +53,8 @@ class VideoMetadataSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = [
             "id",
+            "mission",
+            "drone",
             "file_size",
             "content_type",
             "status",
@@ -95,11 +95,11 @@ class VideoUploadSerializer(serializers.ModelSerializer):
         return attrs
 
     def create(self, validated_data):
-        """Populate file metadata, record the uploader
-        and extract video duration via ffprobe.
+        """Populate file metadata and record the uploader.
 
-        Sets status to UPLOADING and safely falls back to 0 or None for duration
-        if ffprobe execution fails.
+        Sets status to UPLOADING. Video duration is extracted asynchronously by
+        ``extract_video_duration_task`` (enqueued in the view), which runs the
+        ffprobe subprocess with a strict timeout off the request path.
         """
 
         file_obj = validated_data["file"]
@@ -114,44 +114,8 @@ class VideoUploadSerializer(serializers.ModelSerializer):
 
         if not content_type.startswith("video/"):
             validated_data["duration_seconds"] = None
-            return super().create(validated_data)
 
-        instance = super().create(validated_data)
-
-        try:
-            file_path = instance.file.path
-
-            cmd = [
-                "ffprobe",
-                "-v",
-                "error",
-                "-show_entries",
-                "format=duration",
-                "-of",
-                "json",
-                file_path,
-            ]
-
-            result = subprocess.run(
-                cmd,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                text=True,
-                check=True,
-            )
-
-            probe_data = json.loads(result.stdout)
-            duration = float(probe_data["format"]["duration"])
-
-            instance.duration_seconds = int(duration)
-            instance.save(update_fields=["duration_seconds"])
-
-        except Exception as e:
-            logger.error(f"FFprobe failed to parse video duration: {str(e)}")
-            instance.duration_seconds = 0
-            instance.save(update_fields=["duration_seconds"])
-
-        return instance
+        return super().create(validated_data)
 
 
 class MissionArtifactSerializer(serializers.ModelSerializer):

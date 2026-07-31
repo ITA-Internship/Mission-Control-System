@@ -10,6 +10,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     postgresql-client \
     libpq-dev \
     ffmpeg \
+    wget \
     && rm -rf /var/lib/apt/lists/*
 
 COPY requirements.txt .

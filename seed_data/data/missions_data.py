@@ -9,6 +9,7 @@ class MissionSeed:
     title: str
     commander_username: str
     created_by_username: str
+    unit_code: str
     status: str
     result: str | None
     location_description: str
@@ -24,6 +25,7 @@ MISSIONS = (
         title="Northern Treeline Recon",
         commander_username="commander.north",
         created_by_username="admin.ops",
+        unit_code="ATK-02",
         status=Status.COMPLETED,
         result=Result.SUCCESS,
         location_description="Forest edge north of the supply route.",
@@ -41,6 +43,7 @@ MISSIONS = (
         title="Riverbank Signal Check",
         commander_username="commander.south",
         created_by_username="admin.ops",
+        unit_code="ATK-02",
         status=Status.COMPLETED,
         result=Result.SUCCESS,
         location_description="Riverbank relay corridor near fallback crossing.",
@@ -58,6 +61,7 @@ MISSIONS = (
         title="Industrial Yard Strike",
         commander_username="commander.north",
         created_by_username="root.admin",
+        unit_code="ATK-02",
         status=Status.COMPLETED,
         result=Result.FAILURE,
         location_description="Industrial storage yard on the eastern perimeter.",
@@ -75,6 +79,7 @@ MISSIONS = (
         title="Southern Tree Line Sweep",
         commander_username="commander.south",
         created_by_username="admin.ops",
+        unit_code="ATK-02",
         status=Status.COMPLETED,
         result=Result.SUCCESS,
         location_description="Southern tree line covering approach to reserve trench.",
@@ -92,6 +97,7 @@ MISSIONS = (
         title="Rail Crossing Interdiction",
         commander_username="commander.north",
         created_by_username="root.admin",
+        unit_code="ATK-02",
         status=Status.COMPLETED,
         result=Result.FAILURE,
         location_description="Rail crossing west of logistics junction.",
@@ -109,6 +115,7 @@ MISSIONS = (
         title="Urban Block Observation",
         commander_username="commander.south",
         created_by_username="admin.ops",
+        unit_code="ATK-02",
         status=Status.COMPLETED,
         result=Result.SUCCESS,
         location_description="Dense urban block near municipal checkpoint.",
@@ -126,6 +133,7 @@ MISSIONS = (
         title="Forward Relay Setup",
         commander_username="commander.north",
         created_by_username="root.admin",
+        unit_code="ATK-02",
         status=Status.ACTIVE,
         result=None,
         location_description="Forward relay point behind primary observation ridge.",
@@ -142,6 +150,7 @@ MISSIONS = (
         title="Dawn Recon Window",
         commander_username="commander.south",
         created_by_username="admin.ops",
+        unit_code="ATK-02",
         status=Status.PLANNED,
         result=None,
         location_description="Open field corridor east of reserve logistics line.",
@@ -159,6 +168,7 @@ MISSIONS = (
         title="Bridge Approach Survey",
         commander_username="commander.north",
         created_by_username="root.admin",
+        unit_code="ATK-02",
         status=Status.PLANNED,
         result=None,
         location_description="Bridge approach sector covering both embankments.",
@@ -176,6 +186,7 @@ MISSIONS = (
         title="Fallback Route Mapping",
         commander_username="commander.south",
         created_by_username="admin.ops",
+        unit_code="ATK-02",
         status=Status.PLANNED,
         result=None,
         location_description=(

@@ -124,10 +124,51 @@ jobs:
           tar -zxvf gitleaks_8.18.2_linux_x64.tar.gz
           ./gitleaks detect --verbose --redact
 
+  frontend-checks:
+    name: Frontend Verification
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: frontend
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: "npm"
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install frontend dependencies
+        run: npm ci
+
+      - name: Run ESLint
+        run: npm run lint
+
+      - name: Run TypeScript checks
+        run: npm run typecheck
+
+      - name: Run frontend tests
+        run: npm run test
+
+      - name: Build frontend
+        run: npm run build
+
+
   build-verify:
     name: Build Verification
-    needs: [linting, unit-tests, security, secret-scan]
+    needs:
+      - linting
+      - unit-tests
+      - frontend-checks
+      - security
+      - secret-scan
     runs-on: ubuntu-latest
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -142,28 +183,36 @@ jobs:
           push: false
           tags: django-app:ci-test
 
+      - name: Test frontend Nginx build
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: deploy/nginx/Dockerfile
+          push: false
+          tags: mission-control-nginx:ci-test
+
   deploy:
     name: Deploy to target Environment
     needs: build-verify
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     runs-on: ubuntu-latest
+
     steps:
-        - name: Checkout code
-          uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-        - name: Environment Validation Check
-          run: |
-            echo "Checking environment requirements before deployment..."
-            # If the server doesn't exist yet, we simply check for the presence of the secret for SSH.
-            if [ -z "${{ secrets.PROD_SSH_KEY }}" ]; then
-              echo "Warning: PROD_SSH_KEY secret is not set. Real deployment is skipped."
-            fi
+      - name: Environment Validation Check
+        run: |
+          echo "Checking environment requirements before deployment..."
+          if [ -z "${{ secrets.PROD_SSH_KEY }}" ]; then
+            echo "Warning: PROD_SSH_KEY secret is not set. Real deployment is skipped."
+          fi
 
-        - name: Deployment Foundation
-          run: |
-            echo "Executing deployment steps for the target environment..."
-            echo "Example script:"
-            echo "ssh user@production-server 'cd /var/www/app && \
-              git pull origin main && \
-              bash deploy/scripts/check_env.sh && \
-              docker-compose up -d --build'"
+      - name: Deployment Foundation
+        run: |
+          echo "Executing deployment steps for the target environment..."
+          echo "Example script:"
+          echo "ssh user@production-server 'cd /var/www/app && \
+            git pull origin main && \
+            bash deploy/scripts/check_env.sh && \
+            docker-compose up -d --build'"
