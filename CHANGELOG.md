@@ -750,6 +750,13 @@
 - Merge branch 'develop' into task#149-security-scanning-and-coverage-gate (by **travis**)
 - Merge pull request #196 from ITA-Internship/task#149-security-scanning-and-coverage-gate (by **danylo**)
 - Task#149 security scanning and coverage gate (by **danylo**)
+- Fix bug with inappropriate field name in VideoMetadata model (by **Maksym Lirko**)
+- Add test to check visibility of media (by **Maksym Lirko**)
+- Add migrations (by **Maksym Lirko**)
+- Merge branch 'develop' into bugfix#184-video-ownership-wrong-fk (by **Maksym**)
+- Fix lint issues and tests (by **Maksym Lirko**)
+- Merge pull request #203 from ITA-Internship/bugfix#184-video-ownership-wrong-fk (by **Maksym**)
+- Fix bug with checking owner function (by **Maksym**)
 
 ### Refactor
 
@@ -768,6 +775,7 @@
 - Add project bootstrapping instructions (by **yana-donda**)
 - Add project bootstrapping instructions (by **Yana**)
 - *(drones)* Document drone business logic (by **yana-donda**)
+- Rename the entry from 'uploader' to 'uploaded_by' (by **Maksym Lirko**)
 
 ### Styling
 
@@ -820,4 +828,5 @@
 - *(changelog)* Update CHANGELOG.md [skip ci] (by **github-actions[bot]**)
 - *(changelog)* Update CHANGELOG.md [skip ci] (by **github-actions[bot]**)
 - *(auth)* Add frontend runtime, SPA deployment and tests (#200) (by **yana-donda**)
+- *(changelog)* Update CHANGELOG.md [skip ci] (by **github-actions[bot]**)
 - *(changelog)* Update CHANGELOG.md [skip ci] (by **github-actions[bot]**)
