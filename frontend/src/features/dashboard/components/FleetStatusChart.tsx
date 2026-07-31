@@ -177,7 +177,7 @@ export function FleetStatusChart({
       ) : (
         <>
           <div
-            className="relative"
+            className="relative w-full min-w-0"
             style={{ height: 200 }}
             role="img"
             aria-label={`Fleet status: ${total} drones — ${data

@@ -83,12 +83,12 @@ function TileShell({
   return (
     <div
       className={cn(
-        "flex flex-col gap-1 rounded-xl border bg-mc-card p-4 transition-colors",
+        "flex min-w-0 flex-col gap-1 overflow-hidden rounded-xl border bg-mc-card p-4 transition-colors",
         alert ? "border-mc-error/30" : "border-mc-border",
       )}
     >
       <div className="flex items-start justify-between gap-2">
-        <p className="text-[11px] font-medium uppercase leading-tight tracking-wider text-mc-muted">
+        <p className="min-w-0 truncate text-[11px] font-medium uppercase leading-tight tracking-wider text-mc-muted">
           {config.label}
         </p>
         <div
@@ -197,7 +197,7 @@ function tileContent(
             value={summary.openDefects}
             alert={summary.criticalDefects > 0}
           />
-          <div className="mt-1.5 flex items-center gap-2 font-mono text-[10px]">
+          <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 font-mono text-[10px]">
             <span className="text-mc-muted">Critical</span>
             <span className="font-semibold text-mc-error">
               {summary.criticalDefects}

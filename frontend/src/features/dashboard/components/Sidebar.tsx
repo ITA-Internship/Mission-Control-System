@@ -28,14 +28,20 @@ export function Sidebar({
 }: SidebarProps) {
   const items = visibleNavItems(role);
 
-  // Close the drawer on Escape while it's open (mobile only).
+  // While the drawer is open (mobile only): close on Escape and lock the
+  // background from scrolling behind the overlay.
   useEffect(() => {
     if (!mobileOpen) return;
     function onKeyDown(event: KeyboardEvent) {
       if (event.key === "Escape") onMobileClose();
     }
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
     document.addEventListener("keydown", onKeyDown);
-    return () => document.removeEventListener("keydown", onKeyDown);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      document.removeEventListener("keydown", onKeyDown);
+    };
   }, [mobileOpen, onMobileClose]);
 
   return (

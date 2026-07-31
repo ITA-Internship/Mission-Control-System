@@ -42,11 +42,14 @@ export function AppShell({ user }: { user: CurrentUser }) {
       />
       <main
         className={cn(
-          "min-h-screen pt-14 transition-[padding] duration-200",
+          "min-h-screen overflow-x-clip pt-14 transition-[padding] duration-200",
           contentOffsetClass(collapsed),
         )}
       >
-        <div className="mx-auto px-6 py-6" style={{ maxWidth: 1440 }}>
+        <div
+          className="mx-auto min-w-0 px-4 py-6 sm:px-6"
+          style={{ maxWidth: 1440 }}
+        >
           <Outlet context={context} />
         </div>
       </main>
