@@ -10,31 +10,15 @@ Functions:
 
 import logging
 
-from django.conf import settings
 from django.core.files.storage import default_storage
 from django.db import transaction
 
+from common.request_utils import get_client_ip
 from missions.models import MissionAuditLog
 
 from .models import MediaAuditLog, MissionArtifact
 
 logger = logging.getLogger(__name__)
-
-
-def _get_client_ip(request):
-    """Resolve the originating client IP address from the HTTP request structure."""
-    if request is None:
-        return None
-
-    trusted = getattr(settings, "TRUSTED_PROXY_COUNT", 0)
-    x_forwarded_for = request.META.get("HTTP_X_FORWARDED_FOR")
-    if x_forwarded_for and trusted > 0:
-        parts = [ip.strip() for ip in x_forwarded_for.split(",") if ip.strip()]
-        idx = len(parts) - trusted - 1
-        if 0 <= idx < len(parts):
-            return parts[idx]
-
-    return request.META.get("REMOTE_ADDR")
 
 
 def _artifact_snapshot(artifact):
@@ -57,7 +41,7 @@ def _write_media_audit_log(*, user, artifact, action, request=None, changes=None
         mission_id=artifact.mission_id if artifact else None,
         action=action,
         changes=changes or {},
-        ip_address=_get_client_ip(request),
+        ip_address=get_client_ip(request),
     )
 
 
