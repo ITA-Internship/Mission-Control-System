@@ -1,0 +1,13 @@
+[allowlist]
+description = "Ignore test fixtures and documentation false positives"
+
+paths = [
+  '''accounts/tests\.py''',
+  '''accounts/api_details\.py''',
+  '''docs/api\.md'''
+]
+
+gregexes = [
+  '''session_key''',
+  '''new_password'''
+]
