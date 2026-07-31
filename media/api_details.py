@@ -372,8 +372,8 @@ video_metadata_example_value = {
     "id": 3,
     "mission": 11,
     "drone": 21,
-    "uploader": 24,
-    "uploader_username": "oleksandr.koval",
+    "uploaded_by": 24,
+    "uploaded_by_username": "oleksandr.koval",
     "file": "http://localhost:8000/media/videos/mission_11/recon.mp4",
     "file_name": "recon.mp4",
     "file_size": 20984320,
@@ -415,10 +415,10 @@ video_metadata_list_schema = description_schema(
             required=False,
         ),
         OpenApiParameter(
-            name="uploader_id",
+            name="uploaded_by_id",
             type=int,
             location=OpenApiParameter.QUERY,
-            description="Filter by uploader user ID (alias: `uploader`).",
+            description="Filter by uploader user ID (alias: `uploaded_by`).",
             required=False,
         ),
         OpenApiParameter(

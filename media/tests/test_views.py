@@ -249,7 +249,7 @@ class VideoMetadataAPITests(APITestCase):
         VideoMetadata.objects.create(
             mission=self.mission,
             drone=self.drone,
-            uploader=self.user,
+            uploaded_by=self.user,
             file=self.video_file,
             file_name="video_1.mp4",
             file_size=100,
@@ -266,7 +266,7 @@ class VideoMetadataAPITests(APITestCase):
         VideoMetadata.objects.create(
             mission=self.mission,
             drone=self.drone,
-            uploader=self.user,
+            uploaded_by=self.user,
             file=self.video_file,
             file_name="video_1.mp4",
             file_size=100,
@@ -274,7 +274,7 @@ class VideoMetadataAPITests(APITestCase):
         VideoMetadata.objects.create(
             mission=self.other_mission,
             drone=self.other_drone,
-            uploader=self.user,
+            uploaded_by=self.user,
             file=self.video_file,
             file_name="video_2.mp4",
             file_size=200,
@@ -291,7 +291,7 @@ class VideoMetadataAPITests(APITestCase):
         VideoMetadata.objects.create(
             mission=self.mission,
             drone=self.drone,
-            uploader=self.user,
+            uploaded_by=self.user,
             file=self.video_file,
             file_name="video_1.mp4",
             file_size=100,
@@ -299,7 +299,7 @@ class VideoMetadataAPITests(APITestCase):
         VideoMetadata.objects.create(
             mission=self.other_mission,
             drone=self.other_drone,
-            uploader=self.user,
+            uploaded_by=self.user,
             file=SimpleUploadedFile(
                 name="flight_video_4.mp4",
                 content=b"fourth_fake_video_content_bytes",
@@ -320,7 +320,7 @@ class VideoMetadataAPITests(APITestCase):
         VideoMetadata.objects.create(
             mission=self.mission,
             drone=self.drone,
-            uploader=self.user,
+            uploaded_by=self.user,
             file=self.video_file,
             file_name="video_1.mp4",
             file_size=100,
@@ -328,7 +328,7 @@ class VideoMetadataAPITests(APITestCase):
         VideoMetadata.objects.create(
             mission=self.other_mission,
             drone=self.other_drone,
-            uploader=self.user,
+            uploaded_by=self.user,
             file=SimpleUploadedFile(
                 name="flight_video_2.mp4",
                 content=b"other_fake_video_content_bytes",
@@ -349,7 +349,7 @@ class VideoMetadataAPITests(APITestCase):
         VideoMetadata.objects.create(
             mission=self.mission,
             drone=self.drone,
-            uploader=self.user,
+            uploaded_by=self.user,
             file=self.video_file,
             file_name="video_1.mp4",
             file_size=100,
@@ -357,7 +357,7 @@ class VideoMetadataAPITests(APITestCase):
         VideoMetadata.objects.create(
             mission=self.other_mission,
             drone=self.other_drone,
-            uploader=self.user,
+            uploaded_by=self.user,
             file=SimpleUploadedFile(
                 name="flight_video_3.mp4",
                 content=b"third_fake_video_content_bytes",
@@ -379,7 +379,7 @@ class VideoMetadataAPITests(APITestCase):
         VideoMetadata.objects.create(
             mission=self.mission,
             drone=self.drone,
-            uploader=self.user,
+            uploaded_by=self.user,
             file=self.video_file,
             file_name="video_1.mp4",
             file_size=100,
@@ -387,7 +387,7 @@ class VideoMetadataAPITests(APITestCase):
         VideoMetadata.objects.create(
             mission=self.other_mission,
             drone=self.other_drone,
-            uploader=self.user,
+            uploaded_by=self.user,
             file=SimpleUploadedFile(
                 name="flight_video_browser.mp4",
                 content=b"browser_fake_video_content_bytes",
@@ -427,7 +427,7 @@ class VideoMetadataAPITests(APITestCase):
         VideoMetadata.objects.create(
             mission=self.mission,
             drone=self.drone,
-            uploader=someone_else,
+            uploaded_by=someone_else,
             file=SimpleUploadedFile("in_unit.mp4", b"a", content_type="video/mp4"),
             file_name="in_unit.mp4",
             file_size=10,
@@ -437,7 +437,7 @@ class VideoMetadataAPITests(APITestCase):
         VideoMetadata.objects.create(
             mission=self.other_mission,
             drone=foreign_drone,
-            uploader=someone_else,
+            uploaded_by=someone_else,
             file=SimpleUploadedFile("foreign.mp4", b"b", content_type="video/mp4"),
             file_name="foreign.mp4",
             file_size=20,
@@ -449,7 +449,49 @@ class VideoMetadataAPITests(APITestCase):
         self.assertEqual(names, {"in_unit.mp4"})
 
     @patch("media.permissions.MediaViewPermission.has_permission", return_value=True)
-    def test_viewer_without_accessible_missions_gets_empty_video_list(self, mock_perm):
+    def test_uploader_can_retrieve_own_video(self, mock_perm):
+        """Verify that the user who uploaded the video can retrieve its details."""
+        video = VideoMetadata.objects.create(
+            mission=self.mission,
+            drone=self.drone,
+            uploaded_by=self.user,
+            file=self.video_file,
+            file_name="video_1.mp4",
+            file_size=100,
+        )
+
+        detail_url = reverse(
+            "video_media:video-metadata-detail", kwargs={"pk": video.id}
+        )
+        response = self.client.get(detail_url)
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["id"], video.id)
+
+    def test_admin_user_can_retrieve_foreign_video(self):
+        """Verify that an admin user can retrieve any video metadata."""
+        admin_user = AdminUserFactory()
+        self.client.force_authenticate(admin_user)
+
+        video = VideoMetadata.objects.create(
+            mission=self.mission,
+            drone=self.other_drone,
+            uploaded_by=self.user,
+            file=self.video_file,
+            file_name="foreign_video.mp4",
+            file_size=100,
+        )
+
+        detail_url = reverse(
+            "video_media:video-metadata-detail", kwargs={"pk": video.id}
+        )
+        response = self.client.get(detail_url)
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        self.assertEqual(response.data["id"], video.id)
+
+    def test_viewer_without_accessible_missions_gets_empty_video_list(self):
         """Verify an empty scoped queryset is not widened to the global queryset."""
         viewer_without_unit = ViewerUserFactory()
         self.client.force_authenticate(user=viewer_without_unit)
@@ -457,7 +499,7 @@ class VideoMetadataAPITests(APITestCase):
         VideoMetadata.objects.create(
             mission=self.mission,
             drone=self.drone,
-            uploader=OperatorUserFactory(),
+            uploaded_by=OperatorUserFactory(),
             file=SimpleUploadedFile("in_unit.mp4", b"a", content_type="video/mp4"),
             file_name="in_unit.mp4",
             file_size=10,
@@ -489,7 +531,7 @@ class VideoMetadataAPITests(APITestCase):
         video = VideoMetadata.objects.create(
             mission=self.other_mission,
             drone=foreign_drone,
-            uploader=OperatorUserFactory(),
+            uploaded_by=OperatorUserFactory(),
             file=SimpleUploadedFile("foreign.mp4", b"b", content_type="video/mp4"),
             file_name="foreign.mp4",
             file_size=20,
@@ -513,7 +555,7 @@ class VideoMetadataAPITests(APITestCase):
         VideoMetadata.objects.create(
             mission=self.mission,
             drone=self.drone,
-            uploader=OperatorUserFactory(),
+            uploaded_by=OperatorUserFactory(),
             file=SimpleUploadedFile("in_unit.mp4", b"a", content_type="video/mp4"),
             file_name="in_unit.mp4",
             file_size=10,
@@ -537,7 +579,7 @@ class VideoMetadataAPITests(APITestCase):
         VideoMetadata.objects.create(
             mission=self.mission,
             drone=self.drone,
-            uploader=OperatorUserFactory(),
+            uploaded_by=OperatorUserFactory(),
             file=SimpleUploadedFile("repair.mp4", b"a", content_type="video/mp4"),
             file_name="repair.mp4",
             file_size=10,

@@ -302,7 +302,7 @@ class VideoMetadata(models.Model):
         help_text="Drone used to capture this video",
     )
 
-    uploader = models.ForeignKey(
+    uploaded_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.SET_NULL,
         null=True,
@@ -360,7 +360,7 @@ class VideoMetadata(models.Model):
 
         indexes = [
             models.Index(fields=["mission", "drone"]),
-            models.Index(fields=["uploader"]),
+            models.Index(fields=["uploaded_by"]),
             models.Index(fields=["created_at"]),
         ]
 
