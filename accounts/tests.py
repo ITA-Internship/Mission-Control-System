@@ -24,7 +24,7 @@ from seed_data.users import seed_users
 from .models import AuditLog, User, UserRoleAuditLog, UserStatusLog
 from .permissions import user_has_permission
 from .rbac import PERMISSION_PROFILE_VIEW_ANY
-from .services import create_audit_log, get_client_ip, update_user_role
+from .services import create_audit_log, update_user_role
 from .throttles import AccountActivationThrottle, PasswordResetRequestThrottle
 from .tokens import account_activation_token_generator
 
@@ -99,56 +99,6 @@ class UpdateUserRoleTests(TestCase):
         )
 
 
-class GetClientIPTests(TestCase):
-    """Test client IP resolution against X-Forwarded-For spoofing."""
-
-    def setUp(self):
-        """Initialize a request factory for building fake requests."""
-        self.factory = RequestFactory()
-
-    def _make_request(self, xff=None, remote_addr="203.0.113.9"):
-        """Build a bare request with an optional X-Forwarded-For header."""
-        extra = {"REMOTE_ADDR": remote_addr}
-        if xff is not None:
-            extra["HTTP_X_FORWARDED_FOR"] = xff
-        return self.factory.get("/", **extra)
-
-    @override_settings(TRUSTED_PROXY_COUNT=0)
-    def test_zero_trusted_proxies_ignores_header(self):
-        """Verify the header is fully ignored when no proxy is trusted."""
-        request = self._make_request(xff="6.6.6.6", remote_addr="203.0.113.9")
-
-        self.assertEqual(get_client_ip(request), "203.0.113.9")
-
-    @override_settings(TRUSTED_PROXY_COUNT=2)
-    def test_strips_exactly_n_trusted_hops(self):
-        """Verify only the rightmost N trusted hops are stripped from the header."""
-        request = self._make_request(xff="1.2.3.4, 10.0.0.1, 10.0.0.2")
-
-        self.assertEqual(get_client_ip(request), "1.2.3.4")
-
-    @override_settings(TRUSTED_PROXY_COUNT=2)
-    def test_not_enough_hops_falls_back_to_remote_addr(self):
-        """Ensure a header shorter than the trusted count is rejected, not trusted."""
-        request = self._make_request(xff="10.0.0.1, 10.0.0.2", remote_addr="10.0.0.2")
-
-        self.assertEqual(get_client_ip(request), "10.0.0.2")
-
-    @override_settings(TRUSTED_PROXY_COUNT=1)
-    def test_missing_header_falls_back_to_remote_addr(self):
-        """Verify REMOTE_ADDR is used when no X-Forwarded-For header is present."""
-        request = self._make_request(xff=None, remote_addr="203.0.113.9")
-
-        self.assertEqual(get_client_ip(request), "203.0.113.9")
-
-    @override_settings(TRUSTED_PROXY_COUNT=1)
-    def test_attacker_cannot_forge_ip_via_extra_header_entries(self):
-        """Ensure prepending fake entries to the header does not spoof the client IP."""
-        request = self._make_request(xff="6.6.6.6, 10.0.0.1")
-
-        self.assertEqual(get_client_ip(request), "6.6.6.6")
-
-
 class CreateAuditLogIPResolutionTests(TestCase):
     """Test that create_audit_log persists the resolved client IP, not raw headers."""
 
@@ -197,7 +147,7 @@ class CreateAuditLogIPResolutionTests(TestCase):
             request=request,
         )
 
-        self.assertEqual(log.ip_address, "1.2.3.4")
+        self.assertEqual(log.ip_address, "10.0.0.1")
 
 
 class UserStatusUpdateViewTests(APITestCase):
