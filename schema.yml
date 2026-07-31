@@ -2260,10 +2260,10 @@ paths:
           type: string
         description: Filter by status (`uploading`, `ready`, `failed`).
       - in: query
-        name: uploader_id
+        name: uploaded_by_id
         schema:
           type: integer
-        description: 'Filter by uploader user ID (alias: `uploader`).'
+        description: 'Filter by uploader user ID (alias: `uploaded_by`).'
       tags:
       - media
       security:
@@ -2285,8 +2285,8 @@ paths:
                     - id: 3
                       mission: 11
                       drone: 21
-                      uploader: 24
-                      uploader_username: oleksandr.koval
+                      uploaded_by: 24
+                      uploaded_by_username: oleksandr.koval
                       file: http://localhost:8000/media/videos/mission_11/recon.mp4
                       file_name: recon.mp4
                       file_size: 20984320
@@ -2321,7 +2321,7 @@ paths:
     post:
       operationId: media_videos_create
       description: "Uploads a new video file and creates its metadata record. The
-        uploader is set to the authenticated user and the record starts in the `uploading`
+        uploaded_by is set to the authenticated user and the record starts in the `uploading`
         status while the duration is extracted asynchronously.\n\nValidation: \n-
         The selected drone must be assigned to the selected mission.\n\nRequired permission:
         `PERMISSION_MEDIA_UPLOAD`."
@@ -2415,8 +2415,8 @@ paths:
                     id: 3
                     mission: 11
                     drone: 21
-                    uploader: 24
-                    uploader_username: oleksandr.koval
+                    uploaded_by: 24
+                    uploaded_by_username: oleksandr.koval
                     file: http://localhost:8000/media/videos/mission_11/recon.mp4
                     file_name: recon.mp4
                     file_size: 20984320
@@ -2487,8 +2487,8 @@ paths:
                     id: 3
                     mission: 11
                     drone: 21
-                    uploader: 24
-                    uploader_username: oleksandr.koval
+                    uploaded_by: 24
+                    uploaded_by_username: oleksandr.koval
                     file: http://localhost:8000/media/videos/mission_11/recon.mp4
                     file_name: recon.mp4
                     file_size: 20984320
@@ -2557,8 +2557,8 @@ paths:
                     id: 3
                     mission: 11
                     drone: 21
-                    uploader: 24
-                    uploader_username: oleksandr.koval
+                    uploaded_by: 24
+                    uploaded_by_username: oleksandr.koval
                     file: http://localhost:8000/media/videos/mission_11/recon.mp4
                     file_name: recon.mp4
                     file_size: 20984320
@@ -6435,12 +6435,12 @@ components:
         drone:
           type: integer
           description: Drone used to capture this video
-        uploader:
+        uploaded_by:
           type: integer
           readOnly: true
           nullable: true
           description: User who uploaded the file
-        uploader_username:
+        uploaded_by_username:
           type: string
           readOnly: true
         file:
@@ -6882,12 +6882,12 @@ components:
         drone:
           type: integer
           description: Drone used to capture this video
-        uploader:
+        uploaded_by:
           type: integer
           readOnly: true
           nullable: true
           description: User who uploaded the file
-        uploader_username:
+        uploaded_by_username:
           type: string
           readOnly: true
         file:
@@ -6945,8 +6945,8 @@ components:
       - mission
       - status
       - updated_at
-      - uploader
-      - uploader_username
+      - uploaded_by
+      - uploaded_by_username
       - url
     VideoMetadataStatusEnum:
       enum:
