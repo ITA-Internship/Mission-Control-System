@@ -7,6 +7,15 @@
 - Implement mission media artifacts upload and management (by **Maksym**)
 - *(client)* Add client-side web pages proposal documentation (by **mehalyna**)
 - *(docs)* Enhance client pages proposal with detailed section purposes and structure (by **mehalyna**)
+- *(missions)* Add unit field to mission model and API (by **Anastasiia**)
+- *(missions)* Implement user object-level permissions and restrict mission visibility (by **Anastasiia**)
+- *(missions)* Make mission unit required and update seed data (by **Anastasiia**)
+- *(missions)* Enforce unit-based access control for mission artifacts and video metadata (by **Anastasiia**)
+- *(permissions)* Restrict write-off history access to authorized users only and add tests to ensure staff users without permissions cannot access write-off history and repair orders (by **Anastasiia**)
+- *(permissions, api_details, tests)* Implement technician role access for mission-derived media and enhance visibility rules (by **Anastasiia**)
+- *(client)* Add auth application shell and routes (#200) (by **yana-donda**)
+- *(auth)* Add reusable form controls and auth page forms (#200) (by **yana-donda**)
+- *(auth)* Integrate password recovery and activation APIs (#200) (by **yana-donda**)
 
 ### Bug Fixes
 
@@ -83,6 +92,9 @@
 - Fix mass assignment of drone status on create (by **torii044**)
 - Fix mass assignment of drone status on create (by **Viktoriia Kovalchuk**)
 - Scope artifact endpoints to requester's authorized missions (IDOR #138) (by **Maksym Korchynskyi**)
+- *(media)* Restore artifact access control and test coverage (by **Anastasiia**)
+- *(docker)* Resolve web healthcheck and entrypoint duplicate (by **Maksym**)
+- *(auth)* Address pull request readiness issues (#200) (by **yana-donda**)
 
 ### Other
 
@@ -718,6 +730,15 @@
 - Update media/serializers.py (by **Maksym Lirko**)
 - Merge pull request #195 from ITA-Internship/bugfix#151-vide-metadata-mass-assignment (by **Maksym**)
 - Update media/serializers.py (by **Maksym**)
+- Merge remote-tracking branch 'origin/develop' into task#160-implement-user-object-level (by **Anastasiia**)
+- Merge remote-tracking branch 'origin/develop' into task#160-implement-user-object-level (by **Anastasiia**)
+- Merge pull request #193 from ITA-Internship/task#160-implement-user-object-level (by **Anastasiia Humeniuk**)
+- Task#160 implement user object level (by **Anastasiia Humeniuk**)
+- Merge pull request #199 from ITA-Internship/fix-docker-188 (by **Maksym Korchynskyi**)
+- Fix Docker configuration and stabilize healthchecks #188 (by **Maksym Korchynskyi**)
+- Corrected linting (by **yana-donda**)
+- Merge pull request #210 from ITA-Internship/task#200-frontend-auth-flows (by **Yana**)
+- [Frontend] Implement authentication and account access flows (by **Yana**)
 
 ### Refactor
 
@@ -728,6 +749,8 @@
 - Simplify RBAC permissions for user profile and password change views (by **Anastasiia**)
 - Remove unused RBAC permissions from views (by **Anastasiia**)
 - Update API documentation for pagination and examples (by **Anastasiia**)
+- *(entrypoint)* Remove database migration step from entrypoint script (by **Anastasiia**)
+- *(tests, api_details, views)* Improve docstring formatting and code readability (by **Anastasiia**)
 
 ### Documentation
 
@@ -753,6 +776,8 @@
 - Fix missing CommanderUserFactory import (by **Maksym**)
 - Add test for downloading artifact from wrong mission (by **Anastasiia**)
 - Validate session authentication and CSRF behavior (by **yana-donda**)
+- *(missions, views)* Add object-level visibility tests for video retrieval and mission access (by **Anastasiia**)
+- *(video_metadata)* Add test for viewer without accessible missions returning empty video list (by **Anastasiia**)
 
 ### Miscellaneous Tasks
 
@@ -780,3 +805,7 @@
 - *(changelog)* Update CHANGELOG.md [skip ci] (by **github-actions[bot]**)
 - *(changelog)* Update CHANGELOG.md [skip ci] (by **github-actions[bot]**)
 - *(changelog)* Update CHANGELOG.md [skip ci] (by **github-actions[bot]**)
+- *(changelog)* Update CHANGELOG.md [skip ci] (by **github-actions[bot]**)
+- *(changelog)* Update CHANGELOG.md [skip ci] (by **github-actions[bot]**)
+- *(changelog)* Update CHANGELOG.md [skip ci] (by **github-actions[bot]**)
+- *(auth)* Add frontend runtime, SPA deployment and tests (#200) (by **yana-donda**)

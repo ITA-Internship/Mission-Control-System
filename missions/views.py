@@ -11,7 +11,6 @@ from rest_framework import generics, permissions
 from rest_framework.exceptions import ValidationError
 
 from common.pagination import StandardResultsSetPagination
-from roles.models import OPERATOR_CODE
 
 from .api_details import (
     mission_assignment_delete_schema,
@@ -35,6 +34,7 @@ from .permissions import (
     CanViewMission,
     IsAssignedToMissionOrAdmin,
     IsDispatcherOrAssignedOperatorOrAdmin,
+    restrict_missions_for_user,
 )
 from .serializers import (
     MissionDroneConditionSerializer,
@@ -44,19 +44,6 @@ from .serializers import (
     MissionStatusUpdateSerializer,
 )
 from .services import unassign_drone_from_mission
-
-
-def restrict_missions_for_user(queryset, user):
-    """Scope a mission queryset to what ``user`` is allowed to see.
-
-    Operators only see missions they are assigned to (via a drone); every
-    other role sees the queryset unchanged. Applied by the mission read views
-    so object-level ownership is enforced at the queryset level.
-    """
-    role_code = getattr(getattr(user, "role", None), "code", None)
-    if role_code == OPERATOR_CODE:
-        return queryset.filter(mission_drones__operator_id=user.id).distinct()
-    return queryset
 
 
 @extend_schema_view(get=mission_get_schema, post=mission_post_schema)
