@@ -99,6 +99,11 @@
 - Enforce RBAC on self-service profile endpoints (by **Anastasiia**)
 - Align self-service profile RBAC and schema (by **Anastasiia**)
 - Lint (by **Anastasiia**)
+- *(security)* Configure Django transport security (by **yana-donda**)
+- *(security)* Preserve forwarded HTTPS scheme in nginx (by **yana-donda**)
+- *(security)* Enforce production transport security checks (by **yana-donda**)
+- *(security)* Finalize production transport validation (by **yana-donda**)
+- *(security)* Address review comments (by **yana-donda**)
 
 ### Other
 
@@ -762,6 +767,9 @@
 - Fix bug with checking owner function (by **Maksym**)
 - Merge pull request #204 from ITA-Internship/task#157-fix-accounts-self-service-rbac (by **Anastasiia Humeniuk**)
 - Task#157 fix accounts self service rbac (by **Anastasiia Humeniuk**)
+- Corrected linting (by **yana-donda**)
+- Merge pull request #198 from ITA-Internship/140-transport-security-hardening (by **Yana**)
+- Fix transport security and secure cookies (by **Yana**)
 
 ### Refactor
 
@@ -833,6 +841,7 @@
 - *(changelog)* Update CHANGELOG.md [skip ci] (by **github-actions[bot]**)
 - *(changelog)* Update CHANGELOG.md [skip ci] (by **github-actions[bot]**)
 - *(auth)* Add frontend runtime, SPA deployment and tests (#200) (by **yana-donda**)
+- *(changelog)* Update CHANGELOG.md [skip ci] (by **github-actions[bot]**)
 - *(changelog)* Update CHANGELOG.md [skip ci] (by **github-actions[bot]**)
 - *(changelog)* Update CHANGELOG.md [skip ci] (by **github-actions[bot]**)
 - *(changelog)* Update CHANGELOG.md [skip ci] (by **github-actions[bot]**)
