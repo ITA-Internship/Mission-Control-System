@@ -190,6 +190,47 @@ function getUserIdentifier(user: CurrentUser): string {
   )}`;
 }
 
+function formatDate(
+  value: string | null | undefined,
+): string | null {
+  if (!value) {
+    return null;
+  }
+
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) {
+    return null;
+  }
+
+  return new Intl.DateTimeFormat(
+    undefined,
+    {
+      dateStyle: "medium",
+    },
+  ).format(parsed);
+}
+
+function formatDateTime(
+  value: string | null | undefined,
+): string | null {
+  if (!value) {
+    return null;
+  }
+
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) {
+    return null;
+  }
+
+  return new Intl.DateTimeFormat(
+    undefined,
+    {
+      dateStyle: "medium",
+      timeStyle: "short",
+    },
+  ).format(parsed);
+}
+
 function getProfileFormState(
   user: CurrentUser,
 ): ProfileFormState {
@@ -848,6 +889,13 @@ export function MyProfilePage() {
     getPasswordRequirements(
       passwordForm.newPassword,
     );
+
+  const createdAtLabel = formatDate(
+    currentUser?.created_at,
+  );
+  const lastLoginLabel = formatDateTime(
+    currentUser?.last_login,
+  );
 
   function setProfileField(
     key: keyof ProfileFormState,
@@ -2698,63 +2746,69 @@ export function MyProfilePage() {
                       </span>
                     </div>
 
-                    <div className="flex flex-col gap-1.5">
-                      <FieldLabel>
-                        Date Joined
-                      </FieldLabel>
-                      <div className="flex items-center gap-2">
-                        <Clock
-                          size={13}
-                          style={{
-                            color: "#8A94A6",
-                          }}
-                        />
+                    {createdAtLabel ? (
+                      <div className="flex flex-col gap-1.5">
+                        <FieldLabel>
+                          Date Joined
+                        </FieldLabel>
+                        <div className="flex items-center gap-2">
+                          <Clock
+                            size={13}
+                            style={{
+                              color: "#8A94A6",
+                            }}
+                          />
+                          <span
+                            className="text-sm font-mono"
+                            style={{
+                              color: "#8A94A6",
+                            }}
+                          >
+                            {createdAtLabel}
+                          </span>
+                        </div>
+                      </div>
+                    ) : null}
+
+                    {currentUser.created_by_username ? (
+                      <div className="flex flex-col gap-1.5">
+                        <FieldLabel>
+                          Account Created By
+                        </FieldLabel>
                         <span
-                          className="text-sm font-mono"
+                          className="text-sm"
                           style={{
                             color: "#8A94A6",
                           }}
                         >
-                          Not available
+                          {currentUser.created_by_username}
                         </span>
                       </div>
-                    </div>
+                    ) : null}
 
-                    <div className="flex flex-col gap-1.5">
-                      <FieldLabel>
-                        Account Created By
-                      </FieldLabel>
-                      <span
-                        className="text-sm"
-                        style={{
-                          color: "#8A94A6",
-                        }}
-                      >
-                        Not available
-                      </span>
-                    </div>
-
-                    <div className="flex flex-col gap-1.5">
-                      <FieldLabel>
-                        Last Login
-                      </FieldLabel>
-                      <div className="flex items-center gap-2">
-                        <Activity
-                          size={13}
-                          style={{
-                            color: "#8A94A6",
-                          }}
-                        />
-                        <span
-                          className="text-sm font-mono"
-                          style={{
-                            color: "#8A94A6",
-                          }}
-                        >
-                          Not available
-                        </span>
+                    {lastLoginLabel ? (
+                      <div className="flex flex-col gap-1.5">
+                        <FieldLabel>
+                          Last Login
+                        </FieldLabel>
+                        <div className="flex items-center gap-2">
+                          <Activity
+                            size={13}
+                            style={{
+                              color: "#8A94A6",
+                            }}
+                          />
+                          <span
+                            className="text-sm font-mono"
+                            style={{
+                              color: "#8A94A6",
+                            }}
+                          >
+                            {lastLoginLabel}
+                          </span>
+                        </div>
                       </div>
-                    </div>
+                    ) : null}
 
                     <div className="flex flex-col gap-1.5">
                       <FieldLabel>

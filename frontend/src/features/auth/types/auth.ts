@@ -19,4 +19,7 @@ export interface CurrentUser {
   unit_code?: string | null;
   is_active: boolean;
   must_change_password: boolean;
+  last_login?: string | null;
+  created_at?: string | null;
+  created_by_username?: string | null;
 }

@@ -159,6 +159,11 @@ class UserMeSerializer(serializers.ModelSerializer):
     role_code = serializers.CharField(source="role.code", read_only=True, default=None)
     unit_name = serializers.CharField(source="unit.name", read_only=True, default=None)
     unit_code = serializers.CharField(source="unit.code", read_only=True, default=None)
+    created_by_username = serializers.CharField(
+        source="created_by.username",
+        read_only=True,
+        default=None,
+    )
 
     class Meta:
         model = User
@@ -179,6 +184,9 @@ class UserMeSerializer(serializers.ModelSerializer):
             "unit_code",
             "is_active",
             "must_change_password",
+            "last_login",
+            "created_at",
+            "created_by_username",
         )
         read_only_fields = (
             "id",
@@ -192,6 +200,9 @@ class UserMeSerializer(serializers.ModelSerializer):
             "unit_code",
             "is_active",
             "must_change_password",
+            "last_login",
+            "created_at",
+            "created_by_username",
             "is_staff",
             "is_superuser",
             "created_by",
