@@ -155,18 +155,10 @@ class UserMeSerializer(serializers.ModelSerializer):
         allow_null=True,
         validators=[validate_image_size, validate_image_extension],
     )
-    role_name = serializers.CharField(
-        source="role.name", read_only=True, default=None
-    )
-    role_code = serializers.CharField(
-        source="role.code", read_only=True, default=None
-    )
-    unit_name = serializers.CharField(
-        source="unit.name", read_only=True, default=None
-    )
-    unit_code = serializers.CharField(
-        source="unit.code", read_only=True, default=None
-    )
+    role_name = serializers.CharField(source="role.name", read_only=True, default=None)
+    role_code = serializers.CharField(source="role.code", read_only=True, default=None)
+    unit_name = serializers.CharField(source="unit.name", read_only=True, default=None)
+    unit_code = serializers.CharField(source="unit.code", read_only=True, default=None)
 
     class Meta:
         model = User
