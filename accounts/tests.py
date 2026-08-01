@@ -269,7 +269,7 @@ class ChangePasswordViewTests(APITestCase):
         """Verify password change clears other sessions but keeps current."""
         hijacked_session = Session.objects.create(
             session_key="hijacked_key_123",
-            session_data="mock_data",
+            session_data=SessionStore().encode({"test_session": "hijacked"}),
             expire_date=timezone.now() + timedelta(days=1),
         )
         UserSession.objects.create(
@@ -324,12 +324,12 @@ class ChangePasswordViewTests(APITestCase):
         )
         own_session = Session.objects.create(
             session_key="own_tracked_session",
-            session_data="mock_data",
+            session_data=SessionStore().encode({"test_session": "own"}),
             expire_date=timezone.now() + timedelta(days=1),
         )
         other_session = Session.objects.create(
             session_key="other_tracked_session",
-            session_data="mock_data",
+            session_data=SessionStore().encode({"test_session": "other"}),
             expire_date=timezone.now() + timedelta(days=1),
         )
         UserSession.objects.create(
@@ -678,7 +678,7 @@ class PasswordResetConfirmViewTests(APITestCase):
         for session_key in session_keys:
             Session.objects.create(
                 session_key=session_key,
-                session_data="mock_data",
+                session_data=SessionStore().encode({"test_session": session_key}),
                 expire_date=timezone.now() + timedelta(days=1),
             )
             UserSession.objects.create(user=self.user, session_key=session_key)
