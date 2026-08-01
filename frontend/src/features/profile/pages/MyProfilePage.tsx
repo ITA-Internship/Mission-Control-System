@@ -604,6 +604,8 @@ export function MyProfilePage({
     ]);
 
     if (!allowed.has(file.type)) {
+      setAvatarFile(null);
+      setAvatarRemoved(false);
       setAvatarState("error");
       setAvatarError(
         "Invalid file type. Accepted: JPG, PNG, WEBP.",
@@ -612,6 +614,8 @@ export function MyProfilePage({
     }
 
     if (file.size > 5 * 1024 * 1024) {
+      setAvatarFile(null);
+      setAvatarRemoved(false);
       setAvatarState("error");
       setAvatarError(
         "File too large. Maximum size is 5 MB.",

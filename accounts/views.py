@@ -19,7 +19,7 @@ import os
 import posixpath
 
 from django.conf import settings
-from django.contrib.auth import HASH_SESSION_KEY
+from django.contrib.auth import update_session_auth_hash
 from django.contrib.auth.tokens import default_token_generator
 from django.core.exceptions import ValidationError as DjangoValidationError
 from django.http import FileResponse, Http404, HttpResponse, StreamingHttpResponse
@@ -54,7 +54,7 @@ from .api_details import (
     user_role_update_schema,
     user_status_update_schema,
 )
-from .models import AuditLog, User, UserStatusLog
+from .models import AuditLog, User, UserSession, UserStatusLog
 from .permissions import HasAnyRBACPermission, HasRBACPermission, user_has_permission
 from .rbac import (
     PERMISSION_AUDIT_LOGS_VIEW_ALL,
@@ -416,8 +416,6 @@ def invalidate_user_sessions(user, exclude_session_key=None):
     """
     from django.contrib.sessions.models import Session
 
-    from .models import UserSession
-
     sessions_to_remove = UserSession.objects.filter(user=user)
     if exclude_session_key:
         sessions_to_remove = sessions_to_remove.exclude(session_key=exclude_session_key)
@@ -448,8 +446,19 @@ class ChangePasswordView(APIView):
 
             current_session_key = request.session.session_key
             invalidate_user_sessions(user, exclude_session_key=current_session_key)
-            request.session[HASH_SESSION_KEY] = user.get_session_auth_hash()
-            request.session.save()
+            update_session_auth_hash(request, user)
+
+            rotated_session_key = request.session.session_key
+            if current_session_key != rotated_session_key:
+                UserSession.objects.filter(
+                    user=user,
+                    session_key=current_session_key,
+                ).delete()
+            if rotated_session_key:
+                UserSession.objects.update_or_create(
+                    user=user,
+                    session_key=rotated_session_key,
+                )
 
             create_audit_log(
                 actor=user,
@@ -537,16 +546,21 @@ class PasswordResetConfirmView(APIView):
 
     def post(self, request, uidb64, token):
         """Reset a user's password if the uid/token pair is valid."""
-        serializer = PasswordResetConfirmSerializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-
         try:
             uid = force_str(urlsafe_base64_decode(uidb64))
             user = User.objects.get(pk=uid)
         except (TypeError, ValueError, OverflowError, User.DoesNotExist):
             user = None
 
-        if user and default_token_generator.check_token(user, token):
+        token_is_valid = bool(user and default_token_generator.check_token(user, token))
+
+        serializer = PasswordResetConfirmSerializer(
+            data=request.data,
+            context={"user": user if token_is_valid else None},
+        )
+        serializer.is_valid(raise_exception=True)
+
+        if token_is_valid:
             set_user_password(user, serializer.validated_data["new_password"])
             invalidate_user_sessions(user)
 

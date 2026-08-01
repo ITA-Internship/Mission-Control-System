@@ -1,4 +1,5 @@
 import {
+  fireEvent,
   render,
   screen,
   waitFor,
@@ -431,6 +432,63 @@ describe("MyProfilePage", () => {
     expect(
       screen.queryByText("Ready to save"),
     ).not.toBeInTheDocument();
+  });
+
+  it("clears a pending avatar when the next selected file is invalid", async () => {
+    const user = userEvent.setup();
+    const validAvatar = new File(
+      ["avatar"],
+      "avatar.png",
+      { type: "image/png" },
+    );
+    const invalidAvatar = new File(
+      ["invalid"],
+      "avatar.gif",
+      { type: "image/gif" },
+    );
+
+    mockJsonResponse(currentUserResponse);
+    mockJsonResponse(currentUserResponse);
+
+    renderPage();
+
+    await screen.findByText(
+      "Major Sarah Chen",
+    );
+    const fileInput = screen.getByLabelText(
+      "Choose profile avatar",
+    );
+    await user.upload(fileInput, validAvatar);
+    fireEvent.change(fileInput, {
+      target: {
+        files: [invalidAvatar],
+      },
+    });
+
+    expect(
+      screen.getByText(
+        "Invalid file type. Accepted: JPG, PNG, WEBP.",
+      ),
+    ).toBeInTheDocument();
+
+    await user.click(
+      screen.getByRole("button", {
+        name: "Save Changes",
+      }),
+    );
+
+    await screen.findByText(
+      "Profile changes saved successfully.",
+    );
+    const requestBody = vi.mocked(
+      globalThis.fetch,
+    ).mock.calls[1]?.[1]?.body;
+    expect(requestBody).toBeInstanceOf(FormData);
+    expect(
+      (requestBody as FormData).get(
+        "profile_picture",
+      ),
+    ).toBeNull();
   });
 
   it("shows incorrect current password error", async () => {

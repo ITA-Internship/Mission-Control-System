@@ -4,7 +4,7 @@ import csv
 import io
 from datetime import timedelta
 from types import SimpleNamespace
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 from django.conf import settings
 from django.contrib.auth import BACKEND_SESSION_KEY, HASH_SESSION_KEY, SESSION_KEY
@@ -44,6 +44,7 @@ from .rbac import (
     PERMISSION_PROFILE_VIEW_ANY,
     PERMISSION_PROFILE_VIEW_OWN,
 )
+from .serializers import delete_storage_file_safely
 from .services import update_user_role
 from .throttles import AccountActivationThrottle, PasswordResetRequestThrottle
 from .tokens import account_activation_token_generator
@@ -266,7 +267,7 @@ class ChangePasswordViewTests(APITestCase):
         )
 
     def test_change_password_invalidates_other_sessions(self):
-        """Verify password change clears other sessions but keeps current."""
+        """Verify password change clears other sessions and rotates the current one."""
         hijacked_session = Session.objects.create(
             session_key="hijacked_key_123",
             session_data=SessionStore().encode({"test_session": "hijacked"}),
@@ -309,8 +310,19 @@ class ChangePasswordViewTests(APITestCase):
         )
 
         self.assertEqual(UserSession.objects.filter(user=self.user).count(), 1)
-        self.assertTrue(
+        rotated_session_key = self.client.cookies[settings.SESSION_COOKIE_NAME].value
+        self.assertNotEqual(rotated_session_key, current_session_key)
+        self.assertFalse(
             Session.objects.filter(session_key=current_session_key).exists()
+        )
+        self.assertFalse(
+            UserSession.objects.filter(session_key=current_session_key).exists()
+        )
+        self.assertTrue(
+            Session.objects.filter(session_key=rotated_session_key).exists()
+        )
+        self.assertTrue(
+            UserSession.objects.filter(session_key=rotated_session_key).exists()
         )
         self.assertEqual(self.client.session.get("_auth_user_id"), str(self.user.pk))
 
@@ -573,6 +585,33 @@ class UserMeRBACTests(APITestCase):
         self.assertEqual(response.data["first_name"][0], "First name is required.")
         self.assertEqual(response.data["last_name"][0], "Last name is required.")
 
+    def test_user_cannot_exceed_profile_field_lengths(self):
+        """Reject values that exceed the backing profile model limits."""
+        self.client.force_authenticate(self.user)
+
+        response = self.client.patch(
+            self.url,
+            {
+                "rank": "R" * 101,
+                "contact": "C" * 256,
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("rank", response.data)
+        self.assertIn("contact", response.data)
+
+    @patch("accounts.serializers.logger.exception")
+    def test_profile_picture_cleanup_failure_is_logged(self, mock_log_exception):
+        """Keep a committed profile update successful when old-file cleanup fails."""
+        storage = SimpleNamespace(delete=Mock(side_effect=OSError("storage offline")))
+
+        delete_storage_file_safely(storage, "profile_pictures/old.png")
+
+        storage.delete.assert_called_once_with("profile_pictures/old.png")
+        mock_log_exception.assert_called_once()
+
     def test_user_with_profile_permissions_can_update_own_profile_with_multipart(self):
         """Ensure self-profile updates accept multipart form data for avatars."""
         self.client.force_authenticate(self.user)
@@ -700,6 +739,31 @@ class PasswordResetConfirmViewTests(APITestCase):
             Session.objects.filter(session_key__in=session_keys).count(), 0
         )
 
+    def test_password_reset_uses_user_aware_password_validation(self):
+        """Reject reset passwords that are too similar to account attributes."""
+        response = self.client.post(
+            self.url,
+            {"new_password": "resetuser123!A"},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("too similar", response.data["new_password"][0].lower())
+
+    def test_password_reset_rejects_current_password(self):
+        """Do not let a reset token preserve the user's compromised password."""
+        response = self.client.post(
+            self.url,
+            {"new_password": "OldPassword123!"},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(
+            response.data["new_password"][0],
+            "New password must be different from the current password.",
+        )
+
     @patch("accounts.tasks.send_mail")
     def test_password_reset_invalidates_existing_session(self, mock_send_mail):
         """Ensure password reset terminates the user's existing sessions."""
@@ -779,6 +843,26 @@ class PasswordResetConfirmViewTests(APITestCase):
                 target_user=self.user,
             ).exists()
         )
+
+    def test_invalid_reset_token_cannot_probe_the_current_password(self):
+        """Do not expose password-match validation for an invalid reset token."""
+        invalid_url = reverse(
+            "accounts:password-reset-confirm",
+            kwargs={"uidb64": self.uidb64, "token": "invalid-token"},
+        )
+
+        response = self.client.post(
+            invalid_url,
+            {"new_password": "OldPassword123!"},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(
+            response.data["detail"],
+            "The reset link is invalid or has expired.",
+        )
+        self.assertNotIn("new_password", response.data)
 
     def test_password_reset_invalid_uidb64(self):
         """Ensure that an invalid base64 encoded user ID rejects the request."""

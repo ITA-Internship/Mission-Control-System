@@ -237,6 +237,7 @@ export function FormTextInput({
   rightElement,
   inputRef,
   autoComplete,
+  maxLength,
 }: {
   id: string;
   ariaLabel?: string;
@@ -249,6 +250,7 @@ export function FormTextInput({
   rightElement?: ReactNode;
   inputRef?: RefObject<HTMLInputElement | null>;
   autoComplete?: string;
+  maxLength?: number;
 }) {
   const [focused, setFocused] =
     useState(false);
@@ -267,6 +269,7 @@ export function FormTextInput({
           placeholder={placeholder}
           disabled={disabled}
           autoComplete={autoComplete}
+          maxLength={maxLength}
           onFocus={() => setFocused(true)}
           onBlur={() => setFocused(false)}
           className="w-full rounded-lg px-3 py-2.5 text-sm outline-none transition-all"

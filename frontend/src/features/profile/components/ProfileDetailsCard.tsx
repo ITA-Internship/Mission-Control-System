@@ -93,6 +93,7 @@ export function ProfileDetailsCard({
                     profileErrors.firstName
                   }
                   autoComplete="given-name"
+                  maxLength={150}
                 />
                 <FormTextInput
                   id="profile-last-name"
@@ -109,6 +110,7 @@ export function ProfileDetailsCard({
                     profileErrors.lastName
                   }
                   autoComplete="family-name"
+                  maxLength={150}
                 />
               </div>
             ) : (
@@ -141,6 +143,7 @@ export function ProfileDetailsCard({
                 }
                 placeholder="e.g. Major"
                 error={profileErrors.rank}
+                maxLength={100}
               />
             ) : (
               <span
@@ -195,6 +198,7 @@ export function ProfileDetailsCard({
                 type="tel"
                 placeholder="+1 (000) 000-0000"
                 error={profileErrors.contact}
+                maxLength={255}
                 autoComplete="tel"
               />
             ) : (
