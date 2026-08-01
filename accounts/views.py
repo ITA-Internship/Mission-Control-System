@@ -649,6 +649,7 @@ class ProtectedProfilePictureView(APIView):
         if settings.DEBUG:
             response = FileResponse(file_field.open("rb"), content_type=content_type)
             response["Content-Disposition"] = f'inline; filename="{filename}"'
+            response["Cache-Control"] = "private, no-store"
             return response
 
         response = HttpResponse(content_type=content_type)
@@ -660,4 +661,5 @@ class ProtectedProfilePictureView(APIView):
         response["Content-Disposition"] = (
             f"inline; filename*=UTF-8''{escape_uri_path(filename)}"
         )
+        response["Cache-Control"] = "private, no-store"
         return response

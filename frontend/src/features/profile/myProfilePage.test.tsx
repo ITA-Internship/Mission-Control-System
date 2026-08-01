@@ -491,6 +491,93 @@ describe("MyProfilePage", () => {
     ).toBeNull();
   });
 
+  it("falls back to initials when protected avatar images fail to load", async () => {
+    mockJsonResponse({
+      ...currentUserResponse,
+      profile_picture:
+        "/api/accounts/users/47/profile-picture/",
+    });
+
+    renderPage();
+
+    await screen.findByText(
+      "Major Sarah Chen",
+    );
+    const avatarImages = screen.getAllByRole(
+      "img",
+    );
+    expect(avatarImages).toHaveLength(3);
+
+    avatarImages.forEach((image) => {
+      fireEvent.error(image);
+    });
+
+    await waitFor(() => {
+      expect(
+        screen.queryAllByRole("img"),
+      ).toHaveLength(0);
+    });
+    expect(
+      screen.getAllByText("SC").length,
+    ).toBeGreaterThan(0);
+  });
+
+  it("clears a stale avatar API error after selecting another file", async () => {
+    const user = userEvent.setup();
+    const firstAvatar = new File(
+      ["first"],
+      "first.png",
+      { type: "image/png" },
+    );
+    const replacementAvatar = new File(
+      ["replacement"],
+      "replacement.png",
+      { type: "image/png" },
+    );
+
+    mockJsonResponse(currentUserResponse);
+    mockJsonResponse(
+      {
+        profile_picture: [
+          "The selected image could not be processed.",
+        ],
+      },
+      400,
+    );
+
+    renderPage();
+
+    await screen.findByText(
+      "Major Sarah Chen",
+    );
+    const fileInput = screen.getByLabelText(
+      "Choose profile avatar",
+    );
+    await user.upload(fileInput, firstAvatar);
+    await user.click(
+      screen.getByRole("button", {
+        name: "Save Changes",
+      }),
+    );
+
+    expect(
+      await screen.findByText(
+        "The selected image could not be processed.",
+      ),
+    ).toBeInTheDocument();
+
+    await user.upload(
+      fileInput,
+      replacementAvatar,
+    );
+
+    expect(
+      screen.queryByText(
+        "The selected image could not be processed.",
+      ),
+    ).not.toBeInTheDocument();
+  });
+
   it("shows incorrect current password error", async () => {
     const user = userEvent.setup();
 
@@ -627,6 +714,41 @@ describe("MyProfilePage", () => {
 
     expect(
       await screen.findByText("Login page"),
+    ).toBeInTheDocument();
+  });
+
+  it("redirects to required password change when the backend enforces it", async () => {
+    const user = userEvent.setup();
+    mockJsonResponse(currentUserResponse);
+    mockJsonResponse(
+      {
+        detail:
+          "Password change is required before accessing this resource.",
+        code: "password_change_required",
+      },
+      403,
+    );
+
+    renderPage();
+
+    await screen.findByText(
+      "Major Sarah Chen",
+    );
+    await user.click(
+      screen.getByRole("button", {
+        name: "Edit Profile",
+      }),
+    );
+    await user.click(
+      screen.getByRole("button", {
+        name: "Save Changes",
+      }),
+    );
+
+    expect(
+      await screen.findByText(
+        "Password change required",
+      ),
     ).toBeInTheDocument();
   });
 

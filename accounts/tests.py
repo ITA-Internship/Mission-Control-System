@@ -568,6 +568,63 @@ class UserMeRBACTests(APITestCase):
         self.user.refresh_from_db()
         self.assertEqual(self.user.first_name, "Updated")
 
+    def test_required_password_change_blocks_profile_updates(self):
+        """Reject direct unsafe API calls until the password is changed."""
+        self.user.must_change_password = True
+        self.user.save(update_fields=["must_change_password"])
+        self.assertTrue(
+            self.client.login(
+                username=self.user.username,
+                password="StrongPassword123!",
+            )
+        )
+
+        response = self.client.patch(
+            self.url,
+            {"first_name": "Blocked"},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertEqual(response.json()["code"], "password_change_required")
+        self.user.refresh_from_db()
+        self.assertNotEqual(self.user.first_name, "Blocked")
+
+    def test_required_password_change_allows_me_read_and_unlocks_api(self):
+        """Allow state discovery and restore API access after password change."""
+        self.user.must_change_password = True
+        self.user.save(update_fields=["must_change_password"])
+        self.assertTrue(
+            self.client.login(
+                username=self.user.username,
+                password="StrongPassword123!",
+            )
+        )
+
+        me_response = self.client.get(self.url)
+        self.assertEqual(me_response.status_code, status.HTTP_200_OK)
+        self.assertTrue(me_response.data["must_change_password"])
+
+        password_response = self.client.post(
+            reverse("accounts:change-password"),
+            {
+                "old_password": "StrongPassword123!",
+                "new_password": "NewStrongPassword456!",
+            },
+            format="json",
+        )
+        self.assertEqual(password_response.status_code, status.HTTP_200_OK)
+
+        update_response = self.client.patch(
+            self.url,
+            {"first_name": "Unlocked"},
+            format="json",
+        )
+        self.assertEqual(update_response.status_code, status.HTTP_200_OK)
+        self.user.refresh_from_db()
+        self.assertFalse(self.user.must_change_password)
+        self.assertEqual(self.user.first_name, "Unlocked")
+
     def test_user_cannot_clear_required_profile_names(self):
         """Reject whitespace-only first and last names at the API boundary."""
         self.client.force_authenticate(self.user)
@@ -642,6 +699,14 @@ class UserMeRBACTests(APITestCase):
                 "accounts:user-profile-picture",
                 kwargs={"user_id": self.user.pk},
             ),
+        )
+
+        with self.settings(DEBUG=False):
+            picture_response = self.client.get(response.data["profile_picture"])
+        self.assertEqual(picture_response.status_code, status.HTTP_200_OK)
+        self.assertEqual(
+            picture_response.headers["Cache-Control"],
+            "private, no-store",
         )
 
         remove_response = self.client.patch(

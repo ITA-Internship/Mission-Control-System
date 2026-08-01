@@ -14,6 +14,7 @@ import { getInitials } from "../utils/profileUtils";
 import {
   AlertBanner,
   Card,
+  ProfileAvatarImage,
 } from "./ProfilePrimitives";
 
 export function ProfileAvatarCard({
@@ -58,29 +59,27 @@ export function ProfileAvatarCard({
       <div className="flex flex-col items-start gap-6 sm:flex-row">
         <div className="flex flex-shrink-0 flex-col items-center gap-2">
           <div
-            className="flex h-24 w-24 items-center justify-center overflow-hidden rounded-full border-2"
+            className="relative flex h-24 w-24 items-center justify-center overflow-hidden rounded-full border-2"
             style={{
               borderColor:
                 "rgba(200,162,74,.3)",
               background: "#1A2233",
             }}
           >
-            {avatarDisplay ? (
-              <img
-                src={avatarDisplay}
-                alt="Avatar"
-                className="h-full w-full object-cover"
-              />
-            ) : (
-              <span
-                className="text-2xl font-bold"
-                style={{
-                  color: "#C8A24A",
-                }}
-              >
-                {getInitials(currentUser)}
-              </span>
-            )}
+            <span
+              className="text-2xl font-bold"
+              style={{
+                color: "#C8A24A",
+              }}
+              aria-hidden={Boolean(avatarDisplay)}
+            >
+              {getInitials(currentUser)}
+            </span>
+            <ProfileAvatarImage
+              source={avatarDisplay}
+              alt="Avatar"
+              className="absolute inset-0 h-full w-full object-cover"
+            />
           </div>
 
           {avatarDisplay ? (

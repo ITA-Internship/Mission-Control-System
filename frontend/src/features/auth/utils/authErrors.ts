@@ -106,6 +106,18 @@ export function isSessionAuthenticationError(
   );
 }
 
+export function isPasswordChangeRequiredError(
+  error: unknown,
+): boolean {
+  return (
+    error instanceof ApiError &&
+    error.status === 403 &&
+    isRecord(error.body) &&
+    error.body.code ===
+      "password_change_required"
+  );
+}
+
 export function getFormError(
   error: unknown,
   fallback: string,

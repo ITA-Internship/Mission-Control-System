@@ -12,6 +12,33 @@ import type {
   RefObject,
 } from "react";
 
+export function ProfileAvatarImage({
+  source,
+  alt,
+  className,
+}: {
+  source: string | null;
+  alt: string;
+  className: string;
+}) {
+  const [failedSource, setFailedSource] =
+    useState<string | null>(null);
+
+  if (!source || failedSource === source) {
+    return null;
+  }
+
+  return (
+    <img
+      src={source}
+      alt={alt}
+      className={className}
+      onLoad={() => setFailedSource(null)}
+      onError={() => setFailedSource(source)}
+    />
+  );
+}
+
 export function RoleBadge({
   role,
 }: {

@@ -25,6 +25,7 @@ import { AuthAlert } from "../../auth/components/AuthAlert";
 import {
   getApiFieldError,
   getFormError,
+  isPasswordChangeRequiredError,
   isSessionAuthenticationError,
 } from "../../auth/utils/authErrors";
 import type { CurrentUser } from "../../auth/types/auth";
@@ -350,6 +351,14 @@ export function MyProfilePage({
     setAvatarRemoved(false);
     setAvatarError("");
     setAvatarState("idle");
+    clearProfilePictureError();
+  }
+
+  function clearProfilePictureError() {
+    setProfileErrors((current) => ({
+      ...current,
+      profile_picture: "",
+    }));
   }
 
   function handleAvatarRemoval() {
@@ -364,6 +373,7 @@ export function MyProfilePage({
 
     setAvatarRemoved(true);
     setAvatarError("");
+    clearProfilePictureError();
     setAvatarState("success");
     setProfileMode("edit");
     setProfileBanner(null);
@@ -372,6 +382,13 @@ export function MyProfilePage({
   function redirectExpiredSession(
     error: unknown,
   ): boolean {
+    if (isPasswordChangeRequiredError(error)) {
+      navigate("/change-password/required", {
+        replace: true,
+      });
+      return true;
+    }
+
     if (isSessionAuthenticationError(error)) {
       navigate("/login", {
         replace: true,
@@ -607,6 +624,7 @@ export function MyProfilePage({
       setAvatarFile(null);
       setAvatarRemoved(false);
       setAvatarState("error");
+      clearProfilePictureError();
       setAvatarError(
         "Invalid file type. Accepted: JPG, PNG, WEBP.",
       );
@@ -617,6 +635,7 @@ export function MyProfilePage({
       setAvatarFile(null);
       setAvatarRemoved(false);
       setAvatarState("error");
+      clearProfilePictureError();
       setAvatarError(
         "File too large. Maximum size is 5 MB.",
       );
@@ -624,6 +643,7 @@ export function MyProfilePage({
     }
 
     setAvatarError("");
+    clearProfilePictureError();
     setAvatarRemoved(false);
     setAvatarFile(file);
     setAvatarState("success");
