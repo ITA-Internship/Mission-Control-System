@@ -33,7 +33,11 @@ from .rbac import (
     PERMISSION_PROFILE_VIEW_OWN,
 )
 from .services import update_user_role
-from .throttles import AccountActivationThrottle, PasswordResetRequestThrottle
+from .throttles import (
+    AccountActivationThrottle,
+    LoginThrottle,
+    PasswordResetRequestThrottle,
+)
 from .tokens import account_activation_token_generator
 
 THROTTLE_TEST_SETTINGS = {
@@ -45,6 +49,7 @@ THROTTLE_TEST_SETTINGS = {
         "rest_framework.throttling.ScopedRateThrottle",
     ],
     "DEFAULT_THROTTLE_RATES": {
+        "login": "5/minute",
         "account_activation": "1/minute",
         "password_reset_request": "1/minute",
         "password_reset_confirm": "1/minute",
@@ -493,6 +498,27 @@ class LoginViewTests(APITestCase):
         self.assertEqual(me_response.status_code, status.HTTP_200_OK, me_response.data)
         self.assertEqual(me_response.data["email"], self.user.email)
 
+    def test_login_rotates_existing_anonymous_session_key(self):
+        """Verify session login rotates the session key to avoid fixation."""
+        csrf_token = self._prime_csrf_cookie()
+        session = self.client.session
+        session["bootstrap"] = "anonymous"
+        session.save()
+        anonymous_session_key = session.session_key
+
+        response = self.client.post(
+            self.url,
+            {
+                "identifier": self.user.email,
+                "password": self.password,
+            },
+            format="json",
+            HTTP_X_CSRFTOKEN=csrf_token,
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK, response.data)
+        self.assertNotEqual(self.client.session.session_key, anonymous_session_key)
+
     def test_login_with_username_creates_session(self):
         """Verify username-based login is also accepted for compatibility."""
         csrf_token = self._prime_csrf_cookie()
@@ -848,6 +874,27 @@ class PublicAuthThrottleTests(APITestCase):
 
         self.assertNotEqual(first_key, second_key)
         self.assertNotIn("first@example.com", first_key)
+
+    def test_login_throttle_cache_key_is_scoped_by_normalized_identifier(self):
+        """Verify login throttling hashes the normalized identifier value."""
+        view = SimpleNamespace(kwargs={})
+        request = self.request_factory.post("/login/")
+        request.data = {"identifier": "  ROOT.ADMIN@EXAMPLE.COM "}
+
+        cache_key = LoginThrottle().get_cache_key(request, view)
+
+        self.assertIn("identifier:", cache_key)
+        self.assertNotIn("ROOT.ADMIN@EXAMPLE.COM", cache_key)
+
+    def test_login_throttle_ignores_non_mapping_request_data(self):
+        """Verify login throttling falls back safely when request.data is unexpected."""
+        view = SimpleNamespace(kwargs={})
+        request = self.request_factory.post("/login/")
+        request.data = "invalid-payload"
+
+        cache_key = LoginThrottle().get_cache_key(request, view)
+
+        self.assertNotIn("identifier:", cache_key)
 
     def test_password_reset_request_endpoint_is_throttled(self):
         """Verify that repeated password reset generation requests are rate-limited."""

@@ -128,6 +128,8 @@ class LoginView(APIView):
 
         username = identifier
         if "@" in identifier:
+            # Email is unique on the custom user model, so a lookup by email
+            # resolves to at most one username without exposing account state.
             matched_user = User.objects.filter(email__iexact=identifier).first()
             if matched_user is not None:
                 username = matched_user.username
@@ -144,6 +146,8 @@ class LoginView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
+        # Django rotates the session key during login to defend against
+        # session fixation; the test suite asserts this behavior.
         login(request, user)
         get_token(request)
 

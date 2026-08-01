@@ -157,6 +157,11 @@ describe("MyProfilePage", () => {
     expect(
       fetchMock.mock.calls[1]?.[1]?.body,
     ).toBeInstanceOf(FormData);
+    expect(
+      new Headers(
+        fetchMock.mock.calls[1]?.[1]?.headers,
+      ).get("Content-Type"),
+    ).toBeNull();
   });
 
   it("shows profile validation errors", async () => {
