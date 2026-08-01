@@ -44,4 +44,3 @@ export interface StatusBanner {
   type: "success" | "error";
   message: string;
 }
-
