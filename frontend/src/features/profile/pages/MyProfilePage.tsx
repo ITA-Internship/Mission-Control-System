@@ -720,8 +720,6 @@ export function MyProfilePage() {
     useState("");
   const [avatarFile, setAvatarFile] =
     useState<File | null>(null);
-  const [avatarPreview, setAvatarPreview] =
-    useState<string | null>(null);
   const [profileMode, setProfileMode] =
     useState<"read" | "edit" | "saving">(
       "read",
@@ -857,21 +855,21 @@ export function MyProfilePage() {
     };
   }, [navigate]);
 
-  useEffect(() => {
+  const avatarPreview = useMemo(() => {
     if (!avatarFile) {
-      setAvatarPreview(null);
-      return undefined;
+      return null;
     }
 
-    const objectUrl =
-      URL.createObjectURL(avatarFile);
-
-    setAvatarPreview(objectUrl);
-
-    return () => {
-      URL.revokeObjectURL(objectUrl);
-    };
+    return URL.createObjectURL(avatarFile);
   }, [avatarFile]);
+
+  useEffect(() => {
+    return () => {
+      if (avatarPreview) {
+        URL.revokeObjectURL(avatarPreview);
+      }
+    };
+  }, [avatarPreview]);
 
   const avatarUrl = useMemo(() => {
     return (
@@ -2203,7 +2201,6 @@ export function MyProfilePage() {
                         <button
                           onClick={() => {
                             setAvatarFile(null);
-                            setAvatarPreview(null);
                             setAvatarState("idle");
                             setAvatarError("");
                           }}
