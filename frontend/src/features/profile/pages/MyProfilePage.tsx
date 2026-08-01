@@ -531,7 +531,7 @@ export function MyProfilePage({
         return;
       }
 
-      setProfileErrors({
+      const nextProfileErrors = {
         firstName:
           getApiFieldError(
             error,
@@ -557,14 +557,23 @@ export function MyProfilePage({
             error,
             "profile_picture",
           ) ?? "",
-      });
-      setProfileBanner({
-        type: "error",
-        message: getFormError(
-          error,
-          "We could not save your profile changes.",
-        ),
-      });
+      };
+      const hasFieldErrors = Object.values(
+        nextProfileErrors,
+      ).some(Boolean);
+
+      setProfileErrors(nextProfileErrors);
+      setProfileBanner(
+        hasFieldErrors
+          ? null
+          : {
+              type: "error",
+              message: getFormError(
+                error,
+                "We could not save your profile changes.",
+              ),
+            },
+      );
       setProfileMode("edit");
     }
   }
