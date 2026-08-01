@@ -34,8 +34,19 @@ SECRET_KEY = os.getenv("DJANGO_SECRET_KEY")
 if not SECRET_KEY:
     raise RuntimeError("Django secret key is required!")
 
+
+def env_bool(name, default=False):
+    """Read common boolean environment variable representations safely."""
+    return os.getenv(name, str(default)).strip().lower() in {
+        "1",
+        "true",
+        "yes",
+        "on",
+    }
+
+
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = os.getenv("DEBUG", "False") == "True"
+DEBUG = env_bool("DEBUG")
 
 ALLOWED_HOSTS = [
     host.strip()
@@ -51,11 +62,11 @@ CSRF_TRUSTED_ORIGINS = [
 
 # Session cookie security
 SESSION_COOKIE_HTTPONLY = True
-SESSION_COOKIE_SECURE = not DEBUG
+SESSION_COOKIE_SECURE = env_bool("SESSION_COOKIE_SECURE", not DEBUG)
 SESSION_COOKIE_SAMESITE = "Lax"
 
 # CSRF cookie security
-CSRF_COOKIE_SECURE = not DEBUG
+CSRF_COOKIE_SECURE = env_bool("CSRF_COOKIE_SECURE", not DEBUG)
 CSRF_COOKIE_SAMESITE = "Lax"
 
 USE_X_FORWARDED_HOST = True
@@ -169,6 +180,7 @@ REST_FRAMEWORK = {
         "rest_framework.throttling.ScopedRateThrottle",
     ],
     "DEFAULT_THROTTLE_RATES": {
+        "login": os.getenv("THROTTLE_LOGIN", "5/min"),
         "account_activation": os.getenv("THROTTLE_ACCOUNT_ACTIVATION", "5/hour"),
         "password_reset_request": os.getenv(
             "THROTTLE_PASSWORD_RESET_REQUEST",

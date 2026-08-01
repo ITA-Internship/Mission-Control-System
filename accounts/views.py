@@ -22,13 +22,20 @@ from django.conf import settings
 from django.contrib.auth import (
     HASH_SESSION_KEY,
     SESSION_KEY,
+    authenticate,
+    login,
+    logout,
 )
 from django.contrib.auth.tokens import default_token_generator
 from django.core.exceptions import ValidationError as DjangoValidationError
+from django.db.models import Q
 from django.http import FileResponse, Http404, HttpResponse, StreamingHttpResponse
+from django.middleware.csrf import get_token
 from django.shortcuts import get_object_or_404
+from django.utils.decorators import method_decorator
 from django.utils.encoding import escape_uri_path, force_bytes, force_str
 from django.utils.http import urlsafe_base64_decode, urlsafe_base64_encode
+from django.views.decorators.csrf import csrf_protect
 from django_filters import rest_framework as filters
 from drf_spectacular.utils import extend_schema_view
 from rest_framework import generics, permissions, status, viewsets
@@ -74,6 +81,7 @@ from .serializers import (
     AccountActivationSerializer,
     AuditLogSerializer,
     ChangePasswordSerializer,
+    LoginSerializer,
     PasswordResetConfirmSerializer,
     PasswordResetRequestSerializer,
     UserMeSerializer,
@@ -86,6 +94,7 @@ from .services import create_audit_log, set_user_password, update_user_role
 from .tasks import send_email_task
 from .throttles import (
     AccountActivationThrottle,
+    LoginThrottle,
     PasswordResetConfirmThrottle,
     PasswordResetRequestThrottle,
 )
@@ -100,6 +109,98 @@ class UserRegistrationView(generics.CreateAPIView):
     serializer_class = UserRegistrationSerializer
     permission_classes = [HasRBACPermission]
     required_permission = PERMISSION_USERS_CREATE
+
+
+@method_decorator(csrf_protect, name="dispatch")
+class LoginView(APIView):
+    """Create a session for a user authenticated by email or username."""
+
+    permission_classes = [AllowAny]
+    throttle_classes = [LoginThrottle]
+
+    def get(self, request):
+        """Issue a CSRF cookie for the upcoming login request."""
+        get_token(request)
+        return Response(
+            {"detail": "CSRF cookie set."},
+            status=status.HTTP_200_OK,
+        )
+
+    def post(self, request):
+        """Authenticate the submitted credentials and start a Django session."""
+        raw_identifier = None
+        if hasattr(request, "data") and hasattr(request.data, "get"):
+            raw_identifier = request.data.get("identifier")
+        if isinstance(raw_identifier, str) and not raw_identifier.strip():
+            return Response(
+                {"detail": "Identifier is required."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        serializer = LoginSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        identifier = serializer.validated_data["identifier"].strip()
+        if not identifier:
+            return Response(
+                {"detail": "Identifier is required."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        identifier_normalized = identifier.lower()
+        password = serializer.validated_data["password"]
+
+        username = identifier
+        # Resolve either username or email case-insensitively before handing off
+        # to Django auth. This keeps lookup behavior consistent while preserving
+        # the generic invalid-credentials response.
+        matched_user = (
+            User.objects.filter(
+                Q(username__iexact=identifier_normalized)
+                | Q(email__iexact=identifier_normalized)
+            )
+            .only("username")
+            .order_by("id")
+            .first()
+        )
+        if matched_user is not None:
+            username = matched_user.username
+
+        user = authenticate(
+            request,
+            username=username,
+            password=password,
+        )
+
+        if user is None or not getattr(user, "is_active", True):
+            return Response(
+                {"detail": "Invalid credentials."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # Django rotates the session key during login to defend against
+        # session fixation; the test suite asserts this behavior.
+        login(request, user)
+        get_token(request)
+
+        return Response(
+            UserMeSerializer(user).data,
+            status=status.HTTP_200_OK,
+        )
+
+
+class LogoutView(APIView):
+    """End the authenticated user's current Django session."""
+
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request):
+        """Flush the session and emit Django's logout signal."""
+        logout(request)
+        return Response(
+            {"detail": "Signed out successfully."},
+            status=status.HTTP_200_OK,
+        )
 
 
 @user_role_update_schema

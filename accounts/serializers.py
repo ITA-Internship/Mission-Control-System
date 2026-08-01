@@ -317,3 +317,10 @@ class PasswordResetConfirmSerializer(serializers.Serializer):
         except DjangoValidationError as exc:
             raise serializers.ValidationError(list(exc.messages))
         return value
+
+
+class LoginSerializer(serializers.Serializer):
+    """Serialize login requests for session-based authentication."""
+
+    identifier = serializers.CharField(required=True, allow_blank=False)
+    password = serializers.CharField(required=True, write_only=True)

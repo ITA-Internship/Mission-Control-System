@@ -6,7 +6,7 @@ React and TypeScript frontend for the Mission Control System.
 
 Before starting the frontend, make sure the following tools are installed:
 
-- Node.js LTS
+- Node.js 24+
 - npm
 
 Check the installed versions:
@@ -15,6 +15,9 @@ Check the installed versions:
 node --version
 npm --version
 ```
+
+The frontend test stack now depends on `jsdom@30`, which requires Node 24+.
+The GitHub Actions workflow already runs frontend checks on Node 24.
 
 ## Install dependencies
 
@@ -220,6 +223,10 @@ credentials: include
 ```
 
 Unsafe requests include the Django CSRF token when the CSRF cookie is available.
+
+For session sign-in, the frontend first performs a safe `GET /api/accounts/login/`
+request to bootstrap the Django CSRF cookie, then sends the login `POST` with
+the configured `X-CSRFToken` header.
 
 ---
 

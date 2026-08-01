@@ -21,6 +21,7 @@ import {
 import {
   changePassword,
   getCurrentUser,
+  signOut,
 } from "../../auth/api/authApi";
 import { AuthAlert } from "../../auth/components/AuthAlert";
 import {
@@ -132,6 +133,8 @@ export function MyProfilePage({
     useState<StatusBanner | null>(null);
   const [passwordStatus, setPasswordStatus] =
     useState<"idle" | "saving">("idle");
+  const [signingOut, setSigningOut] =
+    useState(false);
   const [passwordVisibility, setPasswordVisibility] =
     useState<
       Record<PasswordVisibilityKey, boolean>
@@ -638,6 +641,37 @@ export function MyProfilePage({
     }, 250);
   }
 
+  async function handleSignOut() {
+    if (signingOut) {
+      return;
+    }
+
+    setSigningOut(true);
+    setUserMenuOpen(false);
+
+    try {
+      await signOut();
+      navigate("/login", {
+        replace: true,
+      });
+    } catch (error) {
+      if (redirectExpiredSession(error)) {
+        return;
+      }
+
+      setProfileBanner({
+        type: "error",
+        message: getFormError(
+          error,
+          "We could not sign you out. Please try again.",
+        ),
+      });
+      scrollToSection("profile");
+    } finally {
+      setSigningOut(false);
+    }
+  }
+
   function handleAvatarDrop(
     event: DragEvent<HTMLDivElement>,
   ) {
@@ -745,6 +779,8 @@ export function MyProfilePage({
       onToggleUserMenu={() =>
         setUserMenuOpen((current) => !current)
       }
+      onSignOut={handleSignOut}
+      signingOut={signingOut}
     >
       <div className="mx-auto max-w-240 px-6 py-8">
         <div className="mb-7">

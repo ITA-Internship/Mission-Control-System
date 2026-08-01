@@ -534,6 +534,42 @@ describe("MyProfilePage", () => {
     ).toBeInTheDocument();
   });
 
+  it("signs out from the account menu", async () => {
+    const user = userEvent.setup();
+    mockJsonResponse(currentUserResponse);
+    mockJsonResponse({
+      detail: "Signed out successfully.",
+    });
+
+    renderPage();
+
+    await screen.findByText(
+      "Major Sarah Chen",
+    );
+    await user.click(
+      screen.getByRole("button", {
+        name: "Open account menu",
+      }),
+    );
+    await user.click(
+      screen.getByRole("button", {
+        name: "Sign Out",
+      }),
+    );
+
+    expect(
+      await screen.findByText("Login page"),
+    ).toBeInTheDocument();
+    expect(
+      vi.mocked(globalThis.fetch)
+        .mock.calls[1]?.[0],
+    ).toBe("/api/accounts/logout/");
+    expect(
+      vi.mocked(globalThis.fetch)
+        .mock.calls[1]?.[1]?.method,
+    ).toBe("POST");
+  });
+
   it("redirects unauthenticated users to login from the protected route", async () => {
     mockJsonResponse(
       {

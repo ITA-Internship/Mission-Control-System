@@ -5,6 +5,7 @@ import {
   ChevronRight,
   Crosshair,
   LayoutDashboard,
+  LogOut,
   Map,
   Navigation2,
   Settings,
@@ -77,6 +78,8 @@ export function ProfileWorkspaceLayout({
   onToggleSidebar,
   onCloseSidebar,
   onToggleUserMenu,
+  onSignOut,
+  signingOut,
   children,
 }: {
   currentUser: CurrentUser;
@@ -87,6 +90,8 @@ export function ProfileWorkspaceLayout({
   onToggleSidebar: () => void;
   onCloseSidebar: () => void;
   onToggleUserMenu: () => void;
+  onSignOut: () => void;
+  signingOut: boolean;
   children: ReactNode;
 }) {
   return (
@@ -425,6 +430,27 @@ export function ProfileWorkspaceLayout({
                         }}
                       />
                       Settings
+                    </button>
+                    <div
+                      className="my-1 border-t"
+                      style={{
+                        borderColor:
+                          "rgba(255,255,255,.07)",
+                      }}
+                    />
+                    <button
+                      type="button"
+                      onClick={onSignOut}
+                      disabled={signingOut}
+                      className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left text-sm transition-all"
+                      style={{
+                        color: "#E5484D",
+                      }}
+                    >
+                      <LogOut size={13} />
+                      {signingOut
+                        ? "Signing Out..."
+                        : "Sign Out"}
                     </button>
                   </div>
                 </div>

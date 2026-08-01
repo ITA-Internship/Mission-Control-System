@@ -42,7 +42,13 @@ export const router = createBrowserRouter([
   },
   {
     path: "/change-password/required",
-    Component: RequiredPasswordChangePage,
+    element: (
+      <RequireSessionAuth requirePasswordChange>
+        {() => (
+          <RequiredPasswordChangePage />
+        )}
+      </RequireSessionAuth>
+    ),
   },
   {
     path: "/my-profile",
