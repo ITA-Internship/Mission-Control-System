@@ -34,6 +34,7 @@ from django_filters import rest_framework as filters
 from drf_spectacular.utils import extend_schema_view
 from rest_framework import generics, permissions, status, viewsets
 from rest_framework.decorators import action
+from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework.throttling import ScopedRateThrottle
@@ -121,10 +122,26 @@ class LoginView(APIView):
 
     def post(self, request):
         """Authenticate the submitted credentials and start a Django session."""
+        raw_identifier = None
+        if hasattr(request, "data") and hasattr(request.data, "get"):
+            raw_identifier = request.data.get("identifier")
+        if isinstance(raw_identifier, str) and not raw_identifier.strip():
+            return Response(
+                {"detail": "Identifier is required."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
         serializer = LoginSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
         identifier = serializer.validated_data["identifier"].strip()
+        if not identifier:
+            return Response(
+                {"detail": "Identifier is required."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        identifier_normalized = identifier.lower()
         password = serializer.validated_data["password"]
 
         username = identifier
@@ -133,7 +150,8 @@ class LoginView(APIView):
         # the generic invalid-credentials response.
         matched_user = (
             User.objects.filter(
-                Q(username__iexact=identifier) | Q(email__iexact=identifier)
+                Q(username__iexact=identifier_normalized)
+                | Q(email__iexact=identifier_normalized)
             )
             .only("username")
             .order_by("id")
@@ -148,7 +166,7 @@ class LoginView(APIView):
             password=password,
         )
 
-        if user is None:
+        if user is None or not getattr(user, "is_active", True):
             return Response(
                 {"detail": "Invalid credentials."},
                 status=status.HTTP_400_BAD_REQUEST,
@@ -442,6 +460,7 @@ class UserMeView(generics.RetrieveUpdateAPIView):
 
     serializer_class = UserMeSerializer
     permission_classes = [HasRBACPermission]
+    parser_classes = [JSONParser, FormParser, MultiPartParser]
 
     def get_permissions(self):
         """Resolve the RBAC permission dynamically for read vs write actions."""

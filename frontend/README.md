@@ -230,31 +230,6 @@ the configured `X-CSRFToken` header.
 
 ---
 
-## CSRF verification checklist
-
-Use this checklist whenever you verify the authenticated flow in Docker Compose /
-Nginx mode:
-
-1. Open `http://127.0.0.1:8000/login`.
-2. Submit the sign-in form once and confirm the browser stores a `csrftoken`
-   cookie for `127.0.0.1`.
-3. In DevTools Network, confirm:
-   - `GET /api/accounts/login/` returns `200 OK`
-   - the response sets the CSRF cookie
-   - `POST /api/accounts/login/` includes `X-CSRFToken`
-   - the login response sets or updates the session cookie
-4. Repeat the same check for an authenticated unsafe request such as
-   `POST /api/accounts/users/me/change-password/`.
-
-If the CSRF cookie is missing in Docker Compose mode, rebuild and restart the
-Nginx image with:
-
-```bash
-docker compose up -d --build
-```
-
----
-
 ## Authentication routes
 
 The frontend provides the following routes:

@@ -10,6 +10,7 @@ from django.contrib.auth.tokens import default_token_generator
 from django.contrib.sessions.models import Session
 from django.core.cache import cache
 from django.core.exceptions import ImproperlyConfigured
+from django.core.files.uploadedfile import SimpleUploadedFile
 from django.core.management import call_command
 from django.core.management.base import CommandError
 from django.test import TestCase, override_settings
@@ -17,6 +18,7 @@ from django.urls import reverse
 from django.utils import timezone
 from django.utils.encoding import force_bytes
 from django.utils.http import urlsafe_base64_encode
+from PIL import Image
 from rest_framework import status
 from rest_framework.test import APIClient, APIRequestFactory, APITestCase
 
@@ -443,6 +445,31 @@ class UserMeRBACTests(APITestCase):
         self.user.refresh_from_db()
         self.assertEqual(self.user.first_name, "Updated")
 
+    def test_user_with_profile_permissions_can_update_own_profile_with_multipart(self):
+        """Ensure self-profile updates accept multipart form data for avatars."""
+        self.client.force_authenticate(self.user)
+        image_buffer = io.BytesIO()
+        Image.new("RGB", (1, 1), color="white").save(image_buffer, format="PNG")
+        upload = SimpleUploadedFile(
+            "avatar.png",
+            image_buffer.getvalue(),
+            content_type="image/png",
+        )
+
+        response = self.client.patch(
+            self.url,
+            {
+                "first_name": "Updated",
+                "profile_picture": upload,
+            },
+            format="multipart",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK, response.data)
+        self.user.refresh_from_db()
+        self.assertEqual(self.user.first_name, "Updated")
+        self.assertTrue(bool(self.user.profile.profile_picture))
+
 
 class LoginViewTests(APITestCase):
     """Test the session login endpoint used by the frontend sign-in form."""
@@ -602,6 +629,49 @@ class LoginViewTests(APITestCase):
             {
                 "identifier": self.user.email,
                 "password": "WrongPassword!",
+            },
+            format="json",
+            HTTP_X_CSRFTOKEN=csrf_token,
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(response.data["detail"], "Invalid credentials.")
+        self.assertNotIn("_auth_user_id", self.client.session)
+
+    def test_login_rejects_whitespace_only_identifier(self):
+        """Verify identifiers containing only whitespace are rejected explicitly."""
+        csrf_token = self._prime_csrf_cookie()
+
+        response = self.client.post(
+            self.url,
+            {
+                "identifier": "   ",
+                "password": self.password,
+            },
+            format="json",
+            HTTP_X_CSRFTOKEN=csrf_token,
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(response.data["detail"], "Identifier is required.")
+        self.assertNotIn("_auth_user_id", self.client.session)
+
+    def test_login_rejects_inactive_user_with_generic_error(self):
+        """Verify inactive accounts are rejected with the generic auth message."""
+        inactive_user = User.objects.create_user(
+            username="inactive.user",
+            email="inactive.user@example.com",
+            password=self.password,
+            role=self.operator_role,
+            is_active=False,
+        )
+        csrf_token = self._prime_csrf_cookie()
+
+        response = self.client.post(
+            self.url,
+            {
+                "identifier": inactive_user.email,
+                "password": self.password,
             },
             format="json",
             HTTP_X_CSRFTOKEN=csrf_token,
