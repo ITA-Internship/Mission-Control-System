@@ -49,6 +49,7 @@ export function isAbortError(
 interface ApiRequestOptions
   extends Omit<RequestInit, "body"> {
   json?: unknown;
+  formData?: FormData;
 }
 
 function getCookie(
@@ -105,6 +106,7 @@ export async function apiRequest<T>(
   path: string,
   {
     json,
+    formData,
     headers: initialHeaders,
     ...options
   }: ApiRequestOptions = {},
@@ -119,6 +121,15 @@ export async function apiRequest<T>(
 
   let body: BodyInit | undefined;
 
+  if (
+    json !== undefined &&
+    formData !== undefined
+  ) {
+    throw new Error(
+      "apiRequest does not support both json and formData in the same request.",
+    );
+  }
+
   if (json !== undefined) {
     headers.set(
       "Content-Type",
@@ -126,6 +137,11 @@ export async function apiRequest<T>(
     );
 
     body = JSON.stringify(json);
+  }
+
+  if (formData !== undefined) {
+    headers.delete("Content-Type");
+    body = formData;
   }
 
   if (!SAFE_METHODS.has(method)) {
