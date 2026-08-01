@@ -10,27 +10,12 @@ import type {
   FormEvent,
 } from "react";
 import {
-  BarChart3,
-  Bell,
-  ChevronDown,
-  ChevronRight,
-  Crosshair,
-  LayoutDashboard,
-  LogOut,
-  Map,
-  Navigation2,
-  Settings,
-  Target,
-  User,
-  Users,
-  Wrench,
-} from "lucide-react";
-import {
   Link,
   useNavigate,
 } from "react-router";
 
 import {
+  ApiError,
   isAbortError,
 } from "../../auth/api/apiClient";
 import {
@@ -47,13 +32,10 @@ import { updateCurrentUserProfile } from "../api/profileApi";
 import { ProfileAvatarCard } from "../components/ProfileAvatarCard";
 import { ProfileDetailsCard } from "../components/ProfileDetailsCard";
 import { ProfilePasswordCard } from "../components/ProfilePasswordCard";
-import {
-  RoleBadge,
-  UnitChip,
-} from "../components/ProfilePrimitives";
 import { ProfileSectionsSidebar } from "../components/ProfileSectionsSidebar";
 import { ProfileSecurityCard } from "../components/ProfileSecurityCard";
 import { ProfileSummaryHero } from "../components/ProfileSummaryHero";
+import { ProfileWorkspaceLayout } from "../components/ProfileWorkspaceLayout";
 import type {
   ActiveSection,
   AvatarState,
@@ -65,52 +47,10 @@ import type {
 import {
   formatDate,
   formatDateTime,
-  getInitials,
   getPasswordRequirements,
   getProfileFormState,
-  getRoleLabel,
   getStrength,
-  getUnitLabel,
 } from "../utils/profileUtils";
-
-const NAV_ITEMS = [
-  {
-    icon: LayoutDashboard,
-    label: "Dashboard",
-  },
-  {
-    icon: Map,
-    label: "Fleet Map",
-  },
-  {
-    icon: Navigation2,
-    label: "Drone Fleet",
-  },
-  {
-    icon: Target,
-    label: "Missions",
-  },
-  {
-    icon: Bell,
-    label: "Alerts",
-  },
-  {
-    icon: Users,
-    label: "Operators",
-  },
-  {
-    icon: Wrench,
-    label: "Maintenance",
-  },
-  {
-    icon: BarChart3,
-    label: "Reports",
-  },
-  {
-    icon: Settings,
-    label: "Settings",
-  },
-];
 
 const SECTIONS: Array<{
   id: ActiveSection;
@@ -134,13 +74,17 @@ const SECTIONS: Array<{
   },
 ];
 
-export function MyProfilePage() {
+export function MyProfilePage({
+  initialUser = null,
+}: {
+  initialUser?: CurrentUser | null;
+}) {
   const navigate = useNavigate();
 
   const [currentUser, setCurrentUser] =
-    useState<CurrentUser | null>(null);
+    useState<CurrentUser | null>(initialUser);
   const [loading, setLoading] =
-    useState(true);
+    useState(initialUser === null);
   const [loadError, setLoadError] =
     useState<string | null>(null);
   const [activeSection, setActiveSection] =
@@ -160,12 +104,16 @@ export function MyProfilePage() {
       "read",
     );
   const [profileForm, setProfileForm] =
-    useState<ProfileFormState>({
-      firstName: "",
-      lastName: "",
-      rank: "",
-      contact: "",
-    });
+    useState<ProfileFormState>(
+      initialUser
+        ? getProfileFormState(initialUser)
+        : {
+            firstName: "",
+            lastName: "",
+            rank: "",
+            contact: "",
+          },
+    );
   const [profileErrors, setProfileErrors] =
     useState<Record<string, string>>({});
   const [profileBanner, setProfileBanner] =
@@ -232,6 +180,10 @@ export function MyProfilePage() {
   }, [userMenuOpen]);
 
   useEffect(() => {
+    if (initialUser) {
+      return undefined;
+    }
+
     const controller =
       new AbortController();
 
@@ -264,6 +216,16 @@ export function MyProfilePage() {
           return;
         }
 
+        if (
+          error instanceof ApiError &&
+          error.status === 401
+        ) {
+          navigate("/login", {
+            replace: true,
+          });
+          return;
+        }
+
         setLoadError(
           getFormError(
             error,
@@ -282,7 +244,7 @@ export function MyProfilePage() {
     return () => {
       controller.abort();
     };
-  }, [navigate]);
+  }, [initialUser, navigate]);
 
   const avatarPreview = useMemo(() => {
     if (!avatarFile) {
@@ -304,7 +266,6 @@ export function MyProfilePage() {
     avatarPreview ??
     currentUser?.profile_picture ??
     null;
-
   const passwordStrength = getStrength(
     passwordForm.newPassword,
   );
@@ -719,528 +680,173 @@ export function MyProfilePage() {
   }
 
   return (
-    <div
-      className="flex h-screen overflow-hidden"
-      style={{
-        background: "#0B0F14",
-        fontFamily:
-          "'Inter', -apple-system, sans-serif",
-      }}
+    <ProfileWorkspaceLayout
+      currentUser={currentUser}
+      avatarDisplay={avatarDisplay}
+      sidebarOpen={sidebarOpen}
+      userMenuOpen={userMenuOpen}
+      menuRef={menuRef}
+      onToggleSidebar={() =>
+        setSidebarOpen((current) => !current)
+      }
+      onCloseSidebar={() =>
+        setSidebarOpen(false)
+      }
+      onToggleUserMenu={() =>
+        setUserMenuOpen((current) => !current)
+      }
     >
-      <aside
-        className={`fixed inset-y-0 left-0 z-40 flex w-60 flex-col border-r transition-transform duration-200 lg:static lg:z-auto lg:translate-x-0 ${
-          sidebarOpen
-            ? "translate-x-0"
-            : "-translate-x-full"
-        }`}
-        style={{
-          background: "#0D1219",
-          borderColor:
-            "rgba(255,255,255,.07)",
-        }}
-      >
-        <div
-          className="flex h-14 flex-shrink-0 items-center gap-3 border-b px-5"
-          style={{
-            borderColor:
-              "rgba(255,255,255,.07)",
-          }}
-        >
-          <div
-            className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded"
+      <div className="mx-auto max-w-240 px-6 py-8">
+        <div className="mb-7">
+          <h1
+            className="text-2xl font-semibold"
             style={{
-              background:
-                "rgba(200,162,74,.13)",
-              border:
-                "1px solid rgba(200,162,74,.28)",
+              color: "#E6EAF0",
             }}
           >
-            <Crosshair
-              size={14}
-              style={{
-                color: "#C8A24A",
-              }}
-            />
-          </div>
-          <div className="leading-none">
-            <div
-              className="text-xs font-bold uppercase tracking-widest"
-              style={{
-                color: "#E6EAF0",
-              }}
-            >
-              Mission
-            </div>
-            <div
-              className="mt-0.5 text-[10px] tracking-widest"
-              style={{
-                color: "#8A94A6",
-              }}
-            >
-              CONTROL SYSTEM
-            </div>
-          </div>
-        </div>
-
-        <nav
-          className="flex-1 overflow-y-auto px-2 py-3"
-          style={{
-            scrollbarWidth: "none",
-          }}
-        >
+            My Profile
+          </h1>
           <p
-            className="mb-2 px-3 text-[10px] font-semibold uppercase tracking-widest"
+            className="mt-1 text-sm"
             style={{
-              color: "#4A5568",
+              color: "#8A94A6",
             }}
           >
-            Navigation
+            Manage your personal information and account security settings.
           </p>
-          {NAV_ITEMS.map((item) => {
-            const Icon = item.icon;
-
-            return (
-              <button
-                key={item.label}
-                className="mb-0.5 flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm transition-all"
-                style={{
-                  color: "#8A94A6",
-                  background: "transparent",
-                }}
-              >
-                <Icon size={15} />
-                {item.label}
-              </button>
-            );
-          })}
-        </nav>
-
-        <div
-          className="border-t px-4 py-4"
-          style={{
-            borderColor:
-              "rgba(255,255,255,.07)",
-          }}
-        >
-          <div className="flex items-center gap-3">
-            <div
-              className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full text-xs font-bold"
-              style={{
-                background:
-                  "rgba(200,162,74,.13)",
-                color: "#C8A24A",
-                border:
-                  "1px solid rgba(200,162,74,.25)",
-              }}
-            >
-              {getInitials(currentUser)}
-            </div>
-            <div className="min-w-0">
-              <div
-                className="truncate text-xs font-semibold"
-                style={{
-                  color: "#E6EAF0",
-                }}
-              >
-                {currentUser.rank
-                  ? `${currentUser.rank} ${currentUser.first_name?.[0]}. ${currentUser.last_name}`
-                  : `${currentUser.first_name} ${currentUser.last_name}`}
-              </div>
-              <div
-                className="truncate text-xs"
-                style={{
-                  color: "#8A94A6",
-                }}
-              >
-                {getUnitLabel(currentUser)}
-              </div>
-            </div>
-          </div>
         </div>
-      </aside>
 
-      {sidebarOpen ? (
-        <div
-          className="fixed inset-0 z-30 bg-black/60 lg:hidden"
-          onClick={() => setSidebarOpen(false)}
+        <ProfileSummaryHero
+          currentUser={currentUser}
+          avatarDisplay={avatarDisplay}
+          onAvatarClick={() =>
+            scrollToSection("avatar")
+          }
         />
-      ) : null}
 
-      <div className="flex min-w-0 flex-1 flex-col">
-        <header
-          className="flex h-14 flex-shrink-0 items-center justify-between border-b px-5"
-          style={{
-            background: "#0D1219",
-            borderColor:
-              "rgba(255,255,255,.07)",
-          }}
-        >
-          <div className="flex items-center gap-3">
-            <button
-              className="lg:hidden"
-              onClick={() =>
-                setSidebarOpen((current) => !current)
+        <div className="flex items-start gap-6">
+          <ProfileSectionsSidebar
+            activeSection={activeSection}
+            sections={SECTIONS}
+            onSelectSection={
+              scrollToSection
+            }
+          />
+
+          <div className="flex min-w-0 flex-1 flex-col gap-6">
+            <ProfileDetailsCard
+              currentUser={currentUser}
+              profileBanner={profileBanner}
+              profileEditing={profileEditing}
+              profileSaving={profileSaving}
+              profileForm={profileForm}
+              profileErrors={profileErrors}
+              firstEditableFieldRef={
+                firstEditableFieldRef
               }
-              style={{
-                color: "#8A94A6",
-              }}
-              aria-label="Toggle navigation"
-            >
-              <LayoutDashboard size={20} />
-            </button>
-            <nav
-              className="flex items-center gap-1.5 text-xs"
-              style={{
-                color: "#8A94A6",
-              }}
-            >
-              <span>Home</span>
-              <ChevronRight size={11} />
-              <span
-                style={{
-                  color: "#E6EAF0",
-                }}
-              >
-                My Profile
-              </span>
-            </nav>
-          </div>
+              onSetProfileField={
+                setProfileField
+              }
+              onDismissBanner={() =>
+                setProfileBanner(null)
+              }
+              onEnterEditMode={
+                enterProfileEditMode
+              }
+              onSave={handleProfileSave}
+              onCancel={cancelProfileEdit}
+            />
 
-          <div className="flex items-center gap-3">
-            <button
-              className="relative"
-              style={{
-                color: "#8A94A6",
-              }}
-              aria-label="Notifications"
-            >
-              <Bell size={17} />
-              <span
-                className="absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full"
-                style={{
-                  background: "#E5484D",
-                }}
-              />
-            </button>
-
-            <div
-              className="relative"
-              ref={menuRef}
-            >
-              <button
-                type="button"
-                onClick={() =>
-                  setUserMenuOpen(
-                    (current) => !current,
-                  )
-                }
-                className="flex items-center gap-2 rounded-lg px-3 py-1.5 transition-all"
-                style={{
-                  background:
-                    "rgba(255,255,255,.04)",
-                  border:
-                    "1px solid rgba(255,255,255,.08)",
-                }}
-                aria-haspopup="menu"
-                aria-expanded={userMenuOpen}
-                aria-label="Open account menu"
-              >
-                <div
-                  className="flex h-6 w-6 items-center justify-center overflow-hidden rounded-full text-xs font-bold"
-                  style={{
-                    background:
-                      "rgba(200,162,74,.13)",
-                    color: "#C8A24A",
-                  }}
-                >
-                  {avatarDisplay ? (
-                    <img
-                      src={avatarDisplay}
-                      alt="Profile avatar"
-                      className="h-full w-full object-cover"
-                    />
-                  ) : (
-                    getInitials(currentUser)
-                  )}
-                </div>
-                <span
-                  className="hidden text-xs font-medium sm:block"
-                  style={{
-                    color: "#E6EAF0",
-                  }}
-                >
-                  {currentUser.rank
-                    ? `${currentUser.rank} ${currentUser.last_name}`
-                    : `${currentUser.first_name} ${currentUser.last_name}`}
-                </span>
-                <ChevronDown
-                  size={12}
-                  style={{
-                    color: "#8A94A6",
-                  }}
-                />
-              </button>
-
-              {userMenuOpen ? (
-                <div
-                  className="absolute right-0 top-full z-50 mt-2 w-56 overflow-hidden rounded-xl border shadow-2xl"
-                  style={{
-                    background: "#161D26",
-                    borderColor:
-                      "rgba(255,255,255,.1)",
-                  }}
-                >
-                  <div
-                    className="border-b px-4 py-3"
-                    style={{
-                      borderColor:
-                        "rgba(255,255,255,.07)",
-                    }}
-                  >
-                    <div
-                      className="text-sm font-semibold"
-                      style={{
-                        color: "#E6EAF0",
-                      }}
-                    >
-                      {currentUser.first_name}{" "}
-                      {currentUser.last_name}
-                    </div>
-                    <div
-                      className="mt-0.5 text-xs font-mono"
-                      style={{
-                        color: "#8A94A6",
-                      }}
-                    >
-                      {currentUser.email}
-                    </div>
-                    <div className="mt-2 flex items-center gap-2">
-                      <RoleBadge
-                        role={getRoleLabel(
-                          currentUser,
-                        )}
-                      />
-                      <UnitChip
-                        unit={getUnitLabel(
-                          currentUser,
-                        )}
-                      />
-                    </div>
-                  </div>
-                  <div className="p-2">
-                    <button
-                      type="button"
-                      className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left text-sm transition-all"
-                      style={{
-                        color: "#E6EAF0",
-                      }}
-                    >
-                      <User
-                        size={13}
-                        style={{
-                          color: "#C8A24A",
-                        }}
-                      />
-                      My Profile
-                    </button>
-                    <button
-                      type="button"
-                      className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left text-sm transition-all"
-                      style={{
-                        color: "#E6EAF0",
-                      }}
-                    >
-                      <Settings
-                        size={13}
-                        style={{
-                          color: "#8A94A6",
-                        }}
-                      />
-                      Settings
-                    </button>
-                    <div
-                      className="my-1 border-t"
-                      style={{
-                        borderColor:
-                          "rgba(255,255,255,.07)",
-                      }}
-                    />
-                    <button
-                      type="button"
-                      className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left text-sm transition-all"
-                      style={{
-                        color: "#E5484D",
-                      }}
-                    >
-                      <LogOut size={13} />
-                      Sign Out
-                    </button>
-                  </div>
-                </div>
-              ) : null}
-            </div>
-          </div>
-        </header>
-
-        <main
-          className="flex-1 overflow-y-auto"
-          style={{
-            scrollbarWidth: "none",
-          }}
-        >
-          <div className="mx-auto max-w-[960px] px-6 py-8">
-            <div className="mb-7">
-              <h1
-                className="text-2xl font-semibold"
-                style={{
-                  color: "#E6EAF0",
-                }}
-              >
-                My Profile
-              </h1>
-              <p
-                className="mt-1 text-sm"
-                style={{
-                  color: "#8A94A6",
-                }}
-              >
-                Manage your personal information and account security settings.
-              </p>
-            </div>
-
-            <ProfileSummaryHero
+            <ProfileAvatarCard
               currentUser={currentUser}
               avatarDisplay={avatarDisplay}
-              onAvatarClick={() =>
-                scrollToSection("avatar")
+              avatarState={avatarState}
+              avatarError={avatarError}
+              profilePictureError={
+                profileErrors.profile_picture
+              }
+              fileInputRef={fileInputRef}
+              onRemoveAvatar={
+                resetAvatarSelection
+              }
+              onAvatarDrop={
+                handleAvatarDrop
+              }
+              onAvatarDragOver={
+                handleAvatarDragOver
+              }
+              onAvatarDragLeave={() =>
+                setAvatarState("idle")
+              }
+              onAvatarInputChange={
+                handleAvatarInputChange
+              }
+              onDismissAvatarError={() => {
+                setAvatarState("idle");
+                setAvatarError("");
+              }}
+              onDismissProfilePictureError={() =>
+                setProfileErrors(
+                  (current) => ({
+                    ...current,
+                    profile_picture: "",
+                  }),
+                )
+              }
+              onOpenFilePicker={() =>
+                fileInputRef.current?.click()
               }
             />
 
-            <div className="flex items-start gap-6">
-              <ProfileSectionsSidebar
-                activeSection={activeSection}
-                sections={SECTIONS}
-                onSelectSection={
-                  scrollToSection
-                }
-              />
+            <ProfilePasswordCard
+              passwordBanner={
+                passwordBanner
+              }
+              passwordForm={passwordForm}
+              passwordErrors={
+                passwordErrors
+              }
+              passwordStatus={
+                passwordStatus
+              }
+              passwordVisibility={
+                passwordVisibility
+              }
+              passwordStrength={
+                passwordStrength
+              }
+              passwordRequirements={
+                passwordRequirements
+              }
+              currentPasswordRef={
+                currentPasswordRef
+              }
+              onDismissBanner={() =>
+                setPasswordBanner(null)
+              }
+              onSubmit={
+                handlePasswordSubmit
+              }
+              onSetPasswordField={
+                setPasswordField
+              }
+              onToggleVisibility={
+                togglePasswordVisibility
+              }
+            />
 
-              <div className="flex min-w-0 flex-1 flex-col gap-6">
-                <ProfileDetailsCard
-                  currentUser={currentUser}
-                  profileBanner={profileBanner}
-                  profileEditing={profileEditing}
-                  profileSaving={profileSaving}
-                  profileForm={profileForm}
-                  profileErrors={profileErrors}
-                  firstEditableFieldRef={
-                    firstEditableFieldRef
-                  }
-                  onSetProfileField={
-                    setProfileField
-                  }
-                  onDismissBanner={() =>
-                    setProfileBanner(null)
-                  }
-                  onEnterEditMode={
-                    enterProfileEditMode
-                  }
-                  onSave={handleProfileSave}
-                  onCancel={cancelProfileEdit}
-                />
-
-                <ProfileAvatarCard
-                  currentUser={currentUser}
-                  avatarDisplay={avatarDisplay}
-                  avatarState={avatarState}
-                  avatarError={avatarError}
-                  profilePictureError={
-                    profileErrors.profile_picture
-                  }
-                  fileInputRef={fileInputRef}
-                  onRemoveAvatar={
-                    resetAvatarSelection
-                  }
-                  onAvatarDrop={
-                    handleAvatarDrop
-                  }
-                  onAvatarDragOver={
-                    handleAvatarDragOver
-                  }
-                  onAvatarDragLeave={() =>
-                    setAvatarState("idle")
-                  }
-                  onAvatarInputChange={
-                    handleAvatarInputChange
-                  }
-                  onDismissAvatarError={() => {
-                    setAvatarState("idle");
-                    setAvatarError("");
-                  }}
-                  onDismissProfilePictureError={() =>
-                    setProfileErrors(
-                      (current) => ({
-                        ...current,
-                        profile_picture: "",
-                      }),
-                    )
-                  }
-                  onOpenFilePicker={() =>
-                    fileInputRef.current?.click()
-                  }
-                />
-
-                <ProfilePasswordCard
-                  passwordBanner={
-                    passwordBanner
-                  }
-                  passwordForm={passwordForm}
-                  passwordErrors={
-                    passwordErrors
-                  }
-                  passwordStatus={
-                    passwordStatus
-                  }
-                  passwordVisibility={
-                    passwordVisibility
-                  }
-                  passwordStrength={
-                    passwordStrength
-                  }
-                  passwordRequirements={
-                    passwordRequirements
-                  }
-                  currentPasswordRef={
-                    currentPasswordRef
-                  }
-                  onDismissBanner={() =>
-                    setPasswordBanner(null)
-                  }
-                  onSubmit={
-                    handlePasswordSubmit
-                  }
-                  onSetPasswordField={
-                    setPasswordField
-                  }
-                  onToggleVisibility={
-                    togglePasswordVisibility
-                  }
-                />
-
-                <ProfileSecurityCard
-                  currentUser={currentUser}
-                  createdAtLabel={
-                    createdAtLabel
-                  }
-                  lastLoginLabel={
-                    lastLoginLabel
-                  }
-                />
-              </div>
-            </div>
+            <ProfileSecurityCard
+              currentUser={currentUser}
+              createdAtLabel={
+                createdAtLabel
+              }
+              lastLoginLabel={
+                lastLoginLabel
+              }
+            />
           </div>
-        </main>
+        </div>
       </div>
-    </div>
+    </ProfileWorkspaceLayout>
   );
 }

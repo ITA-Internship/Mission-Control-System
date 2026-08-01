@@ -17,6 +17,7 @@ import {
   vi,
 } from "vitest";
 
+import { RequireSessionAuth } from "../auth/components/RequireSessionAuth";
 import { MyProfilePage } from "./pages/MyProfilePage";
 
 const currentUserResponse = {
@@ -44,6 +45,44 @@ function renderPage() {
       {
         path: "/my-profile",
         Component: MyProfilePage,
+      },
+      {
+        path: "/login",
+        element: <div>Login page</div>,
+      },
+      {
+        path: "/change-password/required",
+        element: (
+          <div>
+            Password change required
+          </div>
+        ),
+      },
+    ],
+    {
+      initialEntries: ["/my-profile"],
+    },
+  );
+
+  return render(
+    <RouterProvider router={router} />,
+  );
+}
+
+function renderProtectedPage() {
+  const router = createMemoryRouter(
+    [
+      {
+        path: "/my-profile",
+        element: (
+          <RequireSessionAuth>
+            {(currentUser) => (
+              <MyProfilePage
+                initialUser={currentUser}
+              />
+            )}
+          </RequireSessionAuth>
+        ),
       },
       {
         path: "/login",
@@ -212,6 +251,43 @@ describe("MyProfilePage", () => {
     ).not.toHaveLength(0);
   });
 
+  it("shows a save error when profile update fails", async () => {
+    const user = userEvent.setup();
+
+    mockJsonResponse(currentUserResponse);
+    mockJsonResponse(
+      {
+        detail:
+          "Profile update failed.",
+      },
+      500,
+    );
+
+    renderPage();
+
+    await screen.findByText(
+      "Major Sarah Chen",
+    );
+
+    await user.click(
+      screen.getByRole("button", {
+        name: "Edit Profile",
+      }),
+    );
+
+    await user.click(
+      screen.getByRole("button", {
+        name: "Save Changes",
+      }),
+    );
+
+    expect(
+      await screen.findByText(
+        "We could not save your profile changes.",
+      ),
+    ).toBeInTheDocument();
+  });
+
   it("changes password successfully", async () => {
     const user = userEvent.setup();
 
@@ -324,6 +400,21 @@ describe("MyProfilePage", () => {
           .mock.calls.length,
       ).toBe(2);
     });
+  });
+
+  it("redirects unauthenticated users to login from the protected route", async () => {
+    mockJsonResponse(
+      {
+        detail: "Authentication credentials were not provided.",
+      },
+      401,
+    );
+
+    renderProtectedPage();
+
+    expect(
+      await screen.findByText("Login page"),
+    ).toBeInTheDocument();
   });
 });
 
