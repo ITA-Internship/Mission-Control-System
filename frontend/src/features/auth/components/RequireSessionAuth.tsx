@@ -139,4 +139,3 @@ export function RequireSessionAuth({
 
   return <>{children(currentUser)}</>;
 }
-

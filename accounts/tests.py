@@ -56,7 +56,7 @@ THROTTLE_TEST_SETTINGS = {
         "rest_framework.throttling.ScopedRateThrottle",
     ],
     "DEFAULT_THROTTLE_RATES": {
-        "login": "5/minute",
+        "login": "5/min",
         "account_activation": "1/minute",
         "password_reset_request": "1/minute",
         "password_reset_confirm": "1/minute",
