@@ -109,10 +109,11 @@ export function ProfilePasswordCard({
 
         <div className="grid gap-4">
           <div className="flex flex-col gap-1.5">
-            <FieldLabel>
+            <FieldLabel htmlFor="profile-current-password">
               Current Password
             </FieldLabel>
             <FormTextInput
+              id="profile-current-password"
               inputRef={currentPasswordRef}
               value={
                 passwordForm.currentPassword
@@ -149,10 +150,11 @@ export function ProfilePasswordCard({
           </div>
 
           <div className="flex flex-col gap-1.5">
-            <FieldLabel>
+            <FieldLabel htmlFor="profile-new-password">
               New Password
             </FieldLabel>
             <FormTextInput
+              id="profile-new-password"
               value={passwordForm.newPassword}
               onChange={(value) =>
                 onSetPasswordField(
@@ -260,10 +262,11 @@ export function ProfilePasswordCard({
           ) : null}
 
           <div className="flex flex-col gap-1.5">
-            <FieldLabel>
+            <FieldLabel htmlFor="profile-confirm-password">
               Confirm New Password
             </FieldLabel>
             <FormTextInput
+              id="profile-confirm-password"
               value={
                 passwordForm.confirmPassword
               }

@@ -19,7 +19,13 @@ import os
 import posixpath
 
 from django.conf import settings
-from django.contrib.auth import HASH_SESSION_KEY, authenticate, login
+from django.contrib.auth import (
+    HASH_SESSION_KEY,
+    SESSION_KEY,
+    authenticate,
+    login,
+    logout,
+)
 from django.contrib.auth.tokens import default_token_generator
 from django.core.exceptions import ValidationError as DjangoValidationError
 from django.db.models import Q
@@ -179,6 +185,20 @@ class LoginView(APIView):
 
         return Response(
             UserMeSerializer(user).data,
+            status=status.HTTP_200_OK,
+        )
+
+
+class LogoutView(APIView):
+    """End the authenticated user's current Django session."""
+
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request):
+        """Flush the session and emit Django's logout signal."""
+        logout(request)
+        return Response(
+            {"detail": "Signed out successfully."},
             status=status.HTTP_200_OK,
         )
 
@@ -500,35 +520,29 @@ def invalidate_user_sessions(user, exclude_session_key=None):
     from .models import UserSession
 
     tracked = UserSession.objects.filter(user=user)
+    tracked_to_remove = tracked
     if exclude_session_key:
-        sessions_to_remove = tracked.exclude(session_key=exclude_session_key)
-    else:
-        sessions_to_remove = tracked
+        tracked_to_remove = tracked.exclude(session_key=exclude_session_key)
 
-    session_keys = list(sessions_to_remove.values_list("session_key", flat=True))
+    keys_to_delete = set(tracked_to_remove.values_list("session_key", flat=True))
 
-    if tracked.exists():
-        if session_keys:
-            Session.objects.filter(session_key__in=session_keys).delete()
-            sessions_to_remove.delete()
-    else:
-        # Fallback: scan sessions if UserSession tracking wasn't populated yet
-        active_sessions = Session.objects.filter(expire_date__gte=timezone.now())
-        user_pk_str = str(user.pk)
+    # Include legacy or otherwise untracked sessions so password changes always
+    # invalidate every other authenticated session for this account.
+    active_sessions = Session.objects.filter(expire_date__gte=timezone.now())
+    user_pk_str = str(user.pk)
+    for session in active_sessions.iterator(chunk_size=500):
+        if session.session_key == exclude_session_key:
+            continue
+        data = session.get_decoded()
+        if user_pk_str == str(data.get(SESSION_KEY)):
+            keys_to_delete.add(session.session_key)
 
-        keys_to_delete = []
-        for session in active_sessions.iterator(chunk_size=500):
-            data = session.get_decoded()
-            if user_pk_str == str(data.get("_auth_user_id")):
-                keys_to_delete.append(session.session_key)
-
-        if exclude_session_key:
-            keys_to_delete = [
-                key for key in keys_to_delete if key != exclude_session_key
-            ]
-
-        if keys_to_delete:
-            Session.objects.filter(session_key__in=keys_to_delete).delete()
+    if keys_to_delete:
+        Session.objects.filter(session_key__in=keys_to_delete).delete()
+        UserSession.objects.filter(
+            user=user,
+            session_key__in=keys_to_delete,
+        ).delete()
 
 
 @change_password_schema

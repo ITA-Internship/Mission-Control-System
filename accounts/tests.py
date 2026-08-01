@@ -6,7 +6,9 @@ from datetime import timedelta
 from types import SimpleNamespace
 from unittest.mock import patch
 
+from django.contrib.auth import BACKEND_SESSION_KEY, HASH_SESSION_KEY, SESSION_KEY
 from django.contrib.auth.tokens import default_token_generator
+from django.contrib.sessions.backends.db import SessionStore
 from django.contrib.sessions.models import Session
 from django.core.cache import cache
 from django.core.exceptions import ImproperlyConfigured
@@ -316,6 +318,68 @@ class ChangePasswordViewTests(APITestCase):
         )
         self.assertEqual(self.client.session.get("_auth_user_id"), str(self.user.pk))
 
+    def test_change_password_invalidates_untracked_sessions(self):
+        """Verify legacy sessions are removed even without UserSession rows."""
+        legacy_session = SessionStore()
+        legacy_session[SESSION_KEY] = str(self.user.pk)
+        legacy_session[BACKEND_SESSION_KEY] = (
+            "django.contrib.auth.backends.ModelBackend"
+        )
+        legacy_session[HASH_SESSION_KEY] = self.user.get_session_auth_hash()
+        legacy_session.save()
+        legacy_session_key = legacy_session.session_key
+
+        self.assertFalse(
+            UserSession.objects.filter(session_key=legacy_session_key).exists()
+        )
+
+        self.client.force_authenticate(user=self.user)
+        current_session = self.client.session
+        current_session[SESSION_KEY] = str(self.user.pk)
+        current_session.save()
+        UserSession.objects.create(
+            user=self.user,
+            session_key=current_session.session_key,
+        )
+
+        response = self.client.post(
+            self.url,
+            {
+                "old_password": "OldPassword123!",
+                "new_password": "NewPassword123!",
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK, response.data)
+        self.assertFalse(
+            Session.objects.filter(session_key=legacy_session_key).exists()
+        )
+
+    def test_change_password_rejects_current_password_as_new_password(self):
+        """Ensure forced password changes require a genuinely new password."""
+        self.user.must_change_password = True
+        self.user.save(update_fields=["must_change_password"])
+        self.client.force_authenticate(user=self.user)
+
+        response = self.client.post(
+            self.url,
+            {
+                "old_password": "OldPassword123!",
+                "new_password": "OldPassword123!",
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(
+            response.data["new_password"][0],
+            "New password must be different from the current password.",
+        )
+        self.user.refresh_from_db()
+        self.assertTrue(self.user.must_change_password)
+        self.assertTrue(self.user.check_password("OldPassword123!"))
+
     def test_change_password_failure_invalid_data(self):
         """Ensure password change fails and logs failed audit for a wrong password."""
         self.client.force_authenticate(user=self.user)
@@ -469,6 +533,28 @@ class UserMeRBACTests(APITestCase):
         self.user.refresh_from_db()
         self.assertEqual(self.user.first_name, "Updated")
         self.assertTrue(bool(self.user.profile.profile_picture))
+        self.assertEqual(
+            response.data["profile_picture"],
+            reverse(
+                "accounts:user-profile-picture",
+                kwargs={"user_id": self.user.pk},
+            ),
+        )
+
+        remove_response = self.client.patch(
+            self.url,
+            {"profile_picture": None},
+            format="json",
+        )
+
+        self.assertEqual(
+            remove_response.status_code,
+            status.HTTP_200_OK,
+            remove_response.data,
+        )
+        self.user.refresh_from_db()
+        self.assertFalse(bool(self.user.profile.profile_picture))
+        self.assertIsNone(remove_response.data["profile_picture"])
 
 
 class LoginViewTests(APITestCase):
@@ -488,6 +574,7 @@ class LoginViewTests(APITestCase):
         )
         self.client = APIClient(enforce_csrf_checks=True)
         self.url = reverse("accounts:login")
+        self.logout_url = reverse("accounts:logout")
         self.me_url = reverse("accounts:user-me")
 
     def _prime_csrf_cookie(self):
@@ -680,6 +767,45 @@ class LoginViewTests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertEqual(response.data["detail"], "Invalid credentials.")
         self.assertNotIn("_auth_user_id", self.client.session)
+
+    def test_logout_requires_csrf_and_ends_current_session(self):
+        """Verify logout is CSRF protected and removes session tracking."""
+        csrf_token = self._prime_csrf_cookie()
+        login_response = self.client.post(
+            self.url,
+            {
+                "identifier": self.user.email,
+                "password": self.password,
+            },
+            format="json",
+            HTTP_X_CSRFTOKEN=csrf_token,
+        )
+        self.assertEqual(login_response.status_code, status.HTTP_200_OK)
+        session_key = self.client.session.session_key
+        self.assertTrue(
+            UserSession.objects.filter(
+                user=self.user,
+                session_key=session_key,
+            ).exists()
+        )
+
+        missing_csrf_response = self.client.post(self.logout_url, {}, format="json")
+        self.assertEqual(
+            missing_csrf_response.status_code,
+            status.HTTP_403_FORBIDDEN,
+        )
+
+        logout_response = self.client.post(
+            self.logout_url,
+            {},
+            format="json",
+            HTTP_X_CSRFTOKEN=self.client.cookies["csrftoken"].value,
+        )
+
+        self.assertEqual(logout_response.status_code, status.HTTP_200_OK)
+        self.assertFalse(Session.objects.filter(session_key=session_key).exists())
+        self.assertFalse(UserSession.objects.filter(session_key=session_key).exists())
+        self.assertNotIn(SESSION_KEY, self.client.session)
 
 
 class PasswordResetConfirmViewTests(APITestCase):

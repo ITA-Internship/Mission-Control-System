@@ -78,6 +78,8 @@ export function ProfileWorkspaceLayout({
   onToggleSidebar,
   onCloseSidebar,
   onToggleUserMenu,
+  onSignOut,
+  signingOut,
   children,
 }: {
   currentUser: CurrentUser;
@@ -88,6 +90,8 @@ export function ProfileWorkspaceLayout({
   onToggleSidebar: () => void;
   onCloseSidebar: () => void;
   onToggleUserMenu: () => void;
+  onSignOut: () => void;
+  signingOut: boolean;
   children: ReactNode;
 }) {
   return (
@@ -436,13 +440,17 @@ export function ProfileWorkspaceLayout({
                     />
                     <button
                       type="button"
+                      onClick={onSignOut}
+                      disabled={signingOut}
                       className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left text-sm transition-all"
                       style={{
                         color: "#E5484D",
                       }}
                     >
                       <LogOut size={13} />
-                      Sign Out
+                      {signingOut
+                        ? "Signing Out..."
+                        : "Sign Out"}
                     </button>
                   </div>
                 </div>

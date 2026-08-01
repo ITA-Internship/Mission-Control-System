@@ -21,6 +21,7 @@ import {
 import {
   changePassword,
   getCurrentUser,
+  signOut,
 } from "../../auth/api/authApi";
 import { AuthAlert } from "../../auth/components/AuthAlert";
 import {
@@ -99,6 +100,8 @@ export function MyProfilePage({
     useState("");
   const [avatarFile, setAvatarFile] =
     useState<File | null>(null);
+  const [avatarRemoved, setAvatarRemoved] =
+    useState(false);
   const [profileMode, setProfileMode] =
     useState<"read" | "edit" | "saving">(
       "read",
@@ -130,6 +133,8 @@ export function MyProfilePage({
     useState<StatusBanner | null>(null);
   const [passwordStatus, setPasswordStatus] =
     useState<"idle" | "saving">("idle");
+  const [signingOut, setSigningOut] =
+    useState(false);
   const [passwordVisibility, setPasswordVisibility] =
     useState<
       Record<PasswordVisibilityKey, boolean>
@@ -262,10 +267,11 @@ export function MyProfilePage({
     };
   }, [avatarPreview]);
 
-  const avatarDisplay =
-    avatarPreview ??
-    currentUser?.profile_picture ??
-    null;
+  const avatarDisplay = avatarRemoved
+    ? null
+    : avatarPreview ??
+      currentUser?.profile_picture ??
+      null;
   const passwordStrength = getStrength(
     passwordForm.newPassword,
   );
@@ -347,8 +353,42 @@ export function MyProfilePage({
 
   function resetAvatarSelection() {
     setAvatarFile(null);
+    setAvatarRemoved(false);
     setAvatarError("");
     setAvatarState("idle");
+  }
+
+  function handleAvatarRemoval() {
+    if (avatarFile) {
+      resetAvatarSelection();
+      return;
+    }
+
+    if (!currentUser?.profile_picture) {
+      return;
+    }
+
+    setAvatarRemoved(true);
+    setAvatarError("");
+    setAvatarState("success");
+    setProfileMode("edit");
+    setProfileBanner(null);
+  }
+
+  function redirectExpiredSession(
+    error: unknown,
+  ): boolean {
+    if (
+      error instanceof ApiError &&
+      error.status === 401
+    ) {
+      navigate("/login", {
+        replace: true,
+      });
+      return true;
+    }
+
+    return false;
   }
 
   function cancelProfileEdit() {
@@ -412,7 +452,9 @@ export function MyProfilePage({
           rank: profileForm.rank.trim(),
           contact:
             profileForm.contact.trim(),
-          profilePicture: avatarFile,
+          profilePicture: avatarRemoved
+            ? null
+            : avatarFile ?? undefined,
         });
 
       setCurrentUser(updatedUser);
@@ -428,6 +470,10 @@ export function MyProfilePage({
       });
       setProfileMode("read");
     } catch (error) {
+      if (redirectExpiredSession(error)) {
+        return;
+      }
+
       setProfileErrors({
         firstName:
           getApiFieldError(
@@ -531,6 +577,10 @@ export function MyProfilePage({
         confirmPassword: "",
       });
     } catch (error) {
+      if (redirectExpiredSession(error)) {
+        return;
+      }
+
       setPasswordErrors({
         currentPassword:
           getApiFieldError(
@@ -580,12 +630,46 @@ export function MyProfilePage({
     }
 
     setAvatarError("");
+    setAvatarRemoved(false);
     setAvatarState("uploading");
+    setProfileMode("edit");
+    setProfileBanner(null);
 
     window.setTimeout(() => {
       setAvatarFile(file);
       setAvatarState("success");
     }, 250);
+  }
+
+  async function handleSignOut() {
+    if (signingOut) {
+      return;
+    }
+
+    setSigningOut(true);
+    setUserMenuOpen(false);
+
+    try {
+      await signOut();
+      navigate("/login", {
+        replace: true,
+      });
+    } catch (error) {
+      if (redirectExpiredSession(error)) {
+        return;
+      }
+
+      setProfileBanner({
+        type: "error",
+        message: getFormError(
+          error,
+          "We could not sign you out. Please try again.",
+        ),
+      });
+      scrollToSection("profile");
+    } finally {
+      setSigningOut(false);
+    }
   }
 
   function handleAvatarDrop(
@@ -695,6 +779,8 @@ export function MyProfilePage({
       onToggleUserMenu={() =>
         setUserMenuOpen((current) => !current)
       }
+      onSignOut={handleSignOut}
+      signingOut={signingOut}
     >
       <div className="mx-auto max-w-240 px-6 py-8">
         <div className="mb-7">
@@ -767,7 +853,7 @@ export function MyProfilePage({
               }
               fileInputRef={fileInputRef}
               onRemoveAvatar={
-                resetAvatarSelection
+                handleAvatarRemoval
               }
               onAvatarDrop={
                 handleAvatarDrop

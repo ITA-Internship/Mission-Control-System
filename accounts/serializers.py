@@ -24,6 +24,7 @@ Classes:
 from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError as DjangoValidationError
 from django.db import transaction
+from django.urls import reverse
 from rest_framework import serializers
 
 from .models import AuditLog, User, UserProfile
@@ -219,11 +220,41 @@ class UserMeSerializer(serializers.ModelSerializer):
 
         if profile_data is not None:
             profile, created = UserProfile.objects.get_or_create(user=instance)
+            old_picture = profile.profile_picture
+            old_picture_name = old_picture.name if old_picture else ""
+            old_picture_storage = old_picture.storage if old_picture else None
             for attr, value in profile_data.items():
                 setattr(profile, attr, value)
             profile.save()
+            new_picture_name = (
+                profile.profile_picture.name if profile.profile_picture else ""
+            )
+            if (
+                old_picture_storage
+                and old_picture_name
+                and old_picture_name != new_picture_name
+            ):
+                transaction.on_commit(
+                    lambda storage=old_picture_storage, name=old_picture_name: (
+                        storage.delete(name)
+                    )
+                )
+            instance.profile = profile
 
         return instance
+
+    def to_representation(self, instance):
+        """Expose profile pictures only through the protected account endpoint."""
+        data = super().to_representation(instance)
+        profile = getattr(instance, "profile", None)
+        if profile and profile.profile_picture:
+            data["profile_picture"] = reverse(
+                "accounts:user-profile-picture",
+                kwargs={"user_id": instance.pk},
+            )
+        else:
+            data["profile_picture"] = None
+        return data
 
 
 class ChangePasswordSerializer(serializers.Serializer):
@@ -242,6 +273,10 @@ class ChangePasswordSerializer(serializers.Serializer):
     def validate_new_password(self, value):
         """Validate the new password against Django's built-in password validators."""
         user = self.context["request"].user
+        if user.check_password(value):
+            raise serializers.ValidationError(
+                "New password must be different from the current password."
+            )
         try:
             validate_password(value, user)
         except DjangoValidationError as exc:

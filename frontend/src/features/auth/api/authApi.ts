@@ -39,6 +39,18 @@ export function signIn(
   );
 }
 
+export function signOut(
+  signal?: AbortSignal,
+): Promise<DetailResponse> {
+  return apiRequest<DetailResponse>(
+    "/api/accounts/logout/",
+    {
+      method: "POST",
+      signal,
+    },
+  );
+}
+
 export function prepareSignIn(
   signal?: AbortSignal,
 ): Promise<DetailResponse> {

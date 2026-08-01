@@ -74,6 +74,8 @@ export function ProfileDetailsCard({
             profileSaving ? (
               <div className="grid gap-3">
                 <FormTextInput
+                  id="profile-first-name"
+                  ariaLabel="First name"
                   inputRef={
                     firstEditableFieldRef
                   }
@@ -93,6 +95,8 @@ export function ProfileDetailsCard({
                   autoComplete="given-name"
                 />
                 <FormTextInput
+                  id="profile-last-name"
+                  ariaLabel="Last name"
                   value={profileForm.lastName}
                   onChange={(value) =>
                     onSetProfileField(
@@ -121,10 +125,13 @@ export function ProfileDetailsCard({
           </div>
 
           <div className="flex flex-col gap-1.5">
-            <FieldLabel>Rank</FieldLabel>
+            <FieldLabel htmlFor="profile-rank">
+              Rank
+            </FieldLabel>
             {profileEditing ||
             profileSaving ? (
               <FormTextInput
+                id="profile-rank"
                 value={profileForm.rank}
                 onChange={(value) =>
                   onSetProfileField(
@@ -171,12 +178,13 @@ export function ProfileDetailsCard({
           </div>
 
           <div className="flex flex-col gap-1.5">
-            <FieldLabel>
+            <FieldLabel htmlFor="profile-contact">
               Phone / Contact
             </FieldLabel>
             {profileEditing ||
             profileSaving ? (
               <FormTextInput
+                id="profile-contact"
                 value={profileForm.contact}
                 onChange={(value) =>
                   onSetProfileField(

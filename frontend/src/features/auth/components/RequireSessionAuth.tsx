@@ -18,8 +18,10 @@ import { getFormError } from "../utils/authErrors";
 
 export function RequireSessionAuth({
   children,
+  requirePasswordChange = false,
 }: {
   children: (user: CurrentUser) => ReactNode;
+  requirePasswordChange?: boolean;
 }) {
   const navigate = useNavigate();
   const [currentUser, setCurrentUser] =
@@ -43,13 +45,26 @@ export function RequireSessionAuth({
             controller.signal,
           );
 
-        if (user.must_change_password) {
+        if (
+          user.must_change_password &&
+          !requirePasswordChange
+        ) {
           navigate(
             "/change-password/required",
             {
               replace: true,
             },
           );
+          return;
+        }
+
+        if (
+          !user.must_change_password &&
+          requirePasswordChange
+        ) {
+          navigate("/my-profile", {
+            replace: true,
+          });
           return;
         }
 
@@ -87,7 +102,7 @@ export function RequireSessionAuth({
     return () => {
       controller.abort();
     };
-  }, [navigate]);
+  }, [navigate, requirePasswordChange]);
 
   if (loading) {
     return (

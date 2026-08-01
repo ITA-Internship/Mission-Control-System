@@ -6,7 +6,10 @@ import type { FormEvent } from "react";
 import { Shield } from "lucide-react";
 import { useNavigate } from "react-router";
 
-import { isAbortError } from "../api/apiClient";
+import {
+  ApiError,
+  isAbortError,
+} from "../api/apiClient";
 import { changePassword } from "../api/authApi";
 import { AuthAlert } from "../components/AuthAlert";
 import { AuthLayout } from "../components/AuthLayout";
@@ -151,6 +154,16 @@ export function RequiredPasswordChangePage() {
         isAbortError(error) ||
         !isMounted()
       ) {
+        return;
+      }
+
+      if (
+        error instanceof ApiError &&
+        error.status === 401
+      ) {
+        navigate("/login", {
+          replace: true,
+        });
         return;
       }
 

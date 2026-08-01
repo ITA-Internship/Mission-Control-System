@@ -151,6 +151,22 @@ describe("MyProfilePage", () => {
       }),
     );
 
+    expect(
+      screen.getByLabelText("First name"),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByLabelText("Last name"),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByLabelText("Rank"),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByLabelText("Phone / Contact"),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByLabelText("Current Password"),
+    ).toBeInTheDocument();
+
     const rankInput =
       screen.getByPlaceholderText(
         "e.g. Major",
@@ -400,6 +416,158 @@ describe("MyProfilePage", () => {
           .mock.calls.length,
       ).toBe(2);
     });
+  });
+
+  it("removes a saved avatar through a JSON PATCH", async () => {
+    const user = userEvent.setup();
+    mockJsonResponse({
+      ...currentUserResponse,
+      profile_picture:
+        "/api/accounts/users/47/profile-picture/",
+    });
+    mockJsonResponse({
+      ...currentUserResponse,
+      profile_picture: null,
+    });
+
+    renderPage();
+
+    await screen.findByText(
+      "Major Sarah Chen",
+    );
+    await user.click(
+      screen.getByRole("button", {
+        name: "Remove selected avatar",
+      }),
+    );
+    await user.click(
+      screen.getByRole("button", {
+        name: "Save Changes",
+      }),
+    );
+
+    expect(
+      await screen.findByText(
+        "Profile changes saved successfully.",
+      ),
+    ).toBeInTheDocument();
+
+    const requestOptions = vi.mocked(
+      globalThis.fetch,
+    ).mock.calls[1]?.[1];
+    expect(requestOptions?.method).toBe("PATCH");
+    expect(
+      new Headers(
+        requestOptions?.headers,
+      ).get("Content-Type"),
+    ).toBe("application/json");
+    expect(
+      JSON.parse(requestOptions?.body as string)
+        .profile_picture,
+    ).toBeNull();
+  });
+
+  it("redirects to login when profile saving loses the session", async () => {
+    const user = userEvent.setup();
+    mockJsonResponse(currentUserResponse);
+    mockJsonResponse(
+      { detail: "Session expired." },
+      401,
+    );
+
+    renderPage();
+
+    await screen.findByText(
+      "Major Sarah Chen",
+    );
+    await user.click(
+      screen.getByRole("button", {
+        name: "Edit Profile",
+      }),
+    );
+    await user.click(
+      screen.getByRole("button", {
+        name: "Save Changes",
+      }),
+    );
+
+    expect(
+      await screen.findByText("Login page"),
+    ).toBeInTheDocument();
+  });
+
+  it("redirects to login when password change loses the session", async () => {
+    const user = userEvent.setup();
+    mockJsonResponse(currentUserResponse);
+    mockJsonResponse(
+      { detail: "Session expired." },
+      401,
+    );
+
+    renderPage();
+
+    await screen.findByText(
+      "Major Sarah Chen",
+    );
+    await user.type(
+      screen.getByLabelText("Current Password"),
+      "OldPassword123!",
+    );
+    await user.type(
+      screen.getByLabelText("New Password"),
+      "NewPassword123!",
+    );
+    await user.type(
+      screen.getByLabelText(
+        "Confirm New Password",
+      ),
+      "NewPassword123!",
+    );
+    await user.click(
+      screen.getByRole("button", {
+        name: "Update Password",
+      }),
+    );
+
+    expect(
+      await screen.findByText("Login page"),
+    ).toBeInTheDocument();
+  });
+
+  it("signs out from the account menu", async () => {
+    const user = userEvent.setup();
+    mockJsonResponse(currentUserResponse);
+    mockJsonResponse({
+      detail: "Signed out successfully.",
+    });
+
+    renderPage();
+
+    await screen.findByText(
+      "Major Sarah Chen",
+    );
+    await user.click(
+      screen.getByRole("button", {
+        name: "Open account menu",
+      }),
+    );
+    await user.click(
+      screen.getByRole("button", {
+        name: "Sign Out",
+      }),
+    );
+
+    expect(
+      await screen.findByText("Login page"),
+    ).toBeInTheDocument();
+    expect(
+      vi.mocked(globalThis.fetch)
+        .mock.calls[1]?.[0],
+    ).toBe("/api/accounts/logout/");
+    expect(
+      vi.mocked(globalThis.fetch)
+        .mock.calls[1]?.[1]?.method,
+    ).toBe("POST");
   });
 
   it("redirects unauthenticated users to login from the protected route", async () => {

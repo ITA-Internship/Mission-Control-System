@@ -44,6 +44,14 @@ import {
 } from "./pages/LoginPage";
 
 import {
+  RequiredPasswordChangePage,
+} from "./pages/RequiredPasswordChangePage";
+
+import {
+  RequireSessionAuth,
+} from "./components/RequireSessionAuth";
+
+import {
   ResetPasswordPage,
 } from "./pages/ResetPasswordPage";
 
@@ -360,6 +368,166 @@ describe("login", () => {
         "root.admin@example.com",
       password: "Test@1234",
     });
+  });
+});
+
+describe("required password change", () => {
+  function renderRequiredPasswordRoute() {
+    const router = createMemoryRouter(
+      [
+        {
+          path: "/change-password/required",
+          element: (
+            <RequireSessionAuth
+              requirePasswordChange
+            >
+              {() => (
+                <RequiredPasswordChangePage />
+              )}
+            </RequireSessionAuth>
+          ),
+        },
+        {
+          path: "/login",
+          element: <div>Login page</div>,
+        },
+        {
+          path: "/my-profile",
+          element: <div>My Profile page</div>,
+        },
+      ],
+      {
+        initialEntries: [
+          "/change-password/required",
+        ],
+      },
+    );
+
+    return render(
+      <RouterProvider router={router} />,
+    );
+  }
+
+  const requiredUser = {
+    id: 47,
+    username: "root.admin",
+    email: "root.admin@example.com",
+    first_name: "Root",
+    last_name: "Admin",
+    rank: null,
+    contact: null,
+    profile_picture: null,
+    role: 1,
+    unit: null,
+    is_active: true,
+    must_change_password: true,
+  };
+
+  it("redirects users without a session to login", async () => {
+    mockJsonResponse(
+      {
+        detail:
+          "Authentication credentials were not provided.",
+      },
+      401,
+    );
+
+    renderRequiredPasswordRoute();
+
+    expect(
+      await screen.findByText("Login page"),
+    ).toBeInTheDocument();
+  });
+
+  it("redirects users who do not require a password change", async () => {
+    mockJsonResponse({
+      ...requiredUser,
+      must_change_password: false,
+    });
+
+    renderRequiredPasswordRoute();
+
+    expect(
+      await screen.findByText(
+        "My Profile page",
+      ),
+    ).toBeInTheDocument();
+  });
+
+  it("changes the required password and continues", async () => {
+    const user = userEvent.setup();
+    mockJsonResponse(requiredUser);
+    mockJsonResponse({
+      detail:
+        "Password has been successfully changed.",
+    });
+
+    renderRequiredPasswordRoute();
+
+    await user.type(
+      await screen.findByLabelText(
+        "Current password",
+      ),
+      "OldPassword123!",
+    );
+    await user.type(
+      screen.getByLabelText("New password"),
+      "NewPassword123!",
+    );
+    await user.type(
+      screen.getByLabelText(
+        "Confirm new password",
+      ),
+      "NewPassword123!",
+    );
+    await user.click(
+      screen.getByRole("button", {
+        name: "Save and continue",
+      }),
+    );
+
+    expect(
+      await screen.findByText(
+        "My Profile page",
+      ),
+    ).toBeInTheDocument();
+  });
+
+  it("redirects to login when the session expires during submission", async () => {
+    const user = userEvent.setup();
+    mockJsonResponse(requiredUser);
+    mockJsonResponse(
+      { detail: "Session expired." },
+      401,
+    );
+
+    renderRequiredPasswordRoute();
+
+    await user.type(
+      await screen.findByLabelText(
+        "Current password",
+      ),
+      "OldPassword123!",
+    );
+    await user.type(
+      screen.getByLabelText("New password"),
+      "NewPassword123!",
+    );
+    await user.type(
+      screen.getByLabelText(
+        "Confirm new password",
+      ),
+      "NewPassword123!",
+    );
+    await user.click(
+      screen.getByRole("button", {
+        name: "Save and continue",
+      }),
+    );
+
+    expect(
+      await screen.findByText("Login page"),
+    ).toBeInTheDocument();
   });
 });
 

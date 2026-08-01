@@ -14,12 +14,34 @@ export function updateCurrentUserProfile(
   payload: UpdateProfilePayload,
   signal?: AbortSignal,
 ): Promise<CurrentUser> {
+  const fields = {
+    first_name: payload.firstName,
+    last_name: payload.lastName,
+    rank: payload.rank,
+    contact: payload.contact,
+  };
+
+  if (payload.profilePicture === null) {
+    return apiRequest<CurrentUser>(
+      "/api/accounts/users/me/",
+      {
+        method: "PATCH",
+        json: {
+          ...fields,
+          profile_picture: null,
+        },
+        signal,
+      },
+    );
+  }
+
   const formData = new FormData();
 
-  formData.set("first_name", payload.firstName);
-  formData.set("last_name", payload.lastName);
-  formData.set("rank", payload.rank);
-  formData.set("contact", payload.contact);
+  Object.entries(fields).forEach(
+    ([key, value]) => {
+      formData.set(key, value);
+    },
+  );
 
   if (payload.profilePicture instanceof File) {
     formData.set(

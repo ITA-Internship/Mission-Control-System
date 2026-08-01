@@ -55,15 +55,30 @@ export function UnitChip({
 
 export function FieldLabel({
   children,
+  htmlFor,
 }: {
   children: ReactNode;
+  htmlFor?: string;
 }) {
+  const className =
+    "text-xs font-semibold tracking-widest uppercase";
+  const style = {
+    color: "#8A94A6",
+  };
+
+  if (!htmlFor) {
+    return (
+      <span className={className} style={style}>
+        {children}
+      </span>
+    );
+  }
+
   return (
     <label
-      className="text-xs font-semibold tracking-widest uppercase"
-      style={{
-        color: "#8A94A6",
-      }}
+      htmlFor={htmlFor}
+      className={className}
+      style={style}
     >
       {children}
     </label>
@@ -211,6 +226,8 @@ export function SecondaryButton({
 }
 
 export function FormTextInput({
+  id,
+  ariaLabel,
   value,
   onChange,
   placeholder = "",
@@ -221,6 +238,8 @@ export function FormTextInput({
   inputRef,
   autoComplete,
 }: {
+  id: string;
+  ariaLabel?: string;
   value: string;
   onChange: (value: string) => void;
   placeholder?: string;
@@ -238,6 +257,7 @@ export function FormTextInput({
     <div className="flex flex-col gap-1.5">
       <div className="relative">
         <input
+          id={id}
           ref={inputRef}
           type={type}
           value={value}
@@ -273,6 +293,10 @@ export function FormTextInput({
                 : undefined,
           }}
           aria-invalid={Boolean(error)}
+          aria-label={ariaLabel}
+          aria-describedby={
+            error ? `${id}-error` : undefined
+          }
         />
 
         {rightElement ? (
@@ -284,6 +308,7 @@ export function FormTextInput({
 
       {error ? (
         <p
+          id={`${id}-error`}
           className="text-xs"
           style={{
             color: "#E5484D",
