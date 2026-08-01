@@ -14,7 +14,9 @@ import { getInitials } from "../utils/profileUtils";
 import {
   AlertBanner,
   Card,
+  PrimaryButton,
   ProfileAvatarImage,
+  SecondaryButton,
 } from "./ProfilePrimitives";
 
 export function ProfileAvatarCard({
@@ -23,6 +25,7 @@ export function ProfileAvatarCard({
   avatarState,
   avatarError,
   profilePictureError,
+  saving,
   fileInputRef,
   onRemoveAvatar,
   onAvatarDrop,
@@ -32,12 +35,15 @@ export function ProfileAvatarCard({
   onDismissAvatarError,
   onDismissProfilePictureError,
   onOpenFilePicker,
+  onSave,
+  onCancel,
 }: {
   currentUser: CurrentUser;
   avatarDisplay: string | null;
   avatarState: AvatarState;
   avatarError: string;
   profilePictureError?: string;
+  saving: boolean;
   fileInputRef: RefObject<HTMLInputElement | null>;
   onRemoveAvatar: () => void;
   onAvatarDrop: (
@@ -53,6 +59,8 @@ export function ProfileAvatarCard({
   onDismissAvatarError: () => void;
   onDismissProfilePictureError: () => void;
   onOpenFilePicker: () => void;
+  onSave: () => void;
+  onCancel: () => void;
 }) {
   return (
     <Card id="avatar" title="Avatar">
@@ -211,6 +219,33 @@ export function ProfileAvatarCard({
                 onDismissProfilePictureError
               }
             />
+          ) : null}
+
+          {avatarState === "success" ? (
+            <div
+              className="flex flex-wrap gap-3 border-t pt-4"
+              style={{
+                borderColor:
+                  "rgba(255,255,255,.07)",
+              }}
+            >
+              <PrimaryButton
+                onClick={onSave}
+                loading={saving}
+                disabled={saving}
+              >
+                {saving
+                  ? "Saving..."
+                  : "Save all changes"}
+              </PrimaryButton>
+              {!saving ? (
+                <SecondaryButton
+                  onClick={onCancel}
+                >
+                  Cancel avatar change
+                </SecondaryButton>
+              ) : null}
+            </div>
           ) : null}
 
           <p

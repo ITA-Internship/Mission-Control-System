@@ -1,5 +1,6 @@
 """Test suite for user accounts, role management, authentication."""
 
+import base64
 import csv
 import io
 from datetime import timedelta
@@ -25,6 +26,7 @@ from PIL import Image
 from rest_framework import status
 from rest_framework.test import APIClient, APIRequestFactory, APITestCase
 
+from common.authentication import RequiredPasswordChangeBasicAuthentication
 from drones.factories import AdminUserFactory
 from roles.models import ADMIN_CODE, OPERATOR_CODE, Role
 from seed_data.users import seed_users
@@ -48,6 +50,7 @@ from .serializers import delete_storage_file_safely
 from .services import update_user_role
 from .throttles import AccountActivationThrottle, PasswordResetRequestThrottle
 from .tokens import account_activation_token_generator
+from .views import UserMeView
 
 THROTTLE_TEST_SETTINGS = {
     "DEFAULT_AUTHENTICATION_CLASSES": [
@@ -587,6 +590,31 @@ class UserMeRBACTests(APITestCase):
 
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
         self.assertEqual(response.json()["code"], "password_change_required")
+        self.user.refresh_from_db()
+        self.assertNotEqual(self.user.first_name, "Blocked")
+
+    @patch.object(
+        UserMeView,
+        "authentication_classes",
+        [RequiredPasswordChangeBasicAuthentication],
+    )
+    def test_required_password_change_blocks_basic_authentication(self):
+        """Apply the mandatory password policy after DRF Basic authentication."""
+        self.user.must_change_password = True
+        self.user.save(update_fields=["must_change_password"])
+        credentials = base64.b64encode(
+            f"{self.user.username}:StrongPassword123!".encode()
+        ).decode()
+
+        response = self.client.patch(
+            self.url,
+            {"first_name": "Blocked"},
+            format="json",
+            HTTP_AUTHORIZATION=f"Basic {credentials}",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertEqual(response.data["code"], "password_change_required")
         self.user.refresh_from_db()
         self.assertNotEqual(self.user.first_name, "Blocked")
 

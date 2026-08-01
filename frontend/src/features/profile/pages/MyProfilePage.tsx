@@ -150,6 +150,8 @@ export function MyProfilePage({
     useRef<HTMLInputElement>(null);
   const currentPasswordRef =
     useRef<HTMLInputElement>(null);
+  const avatarOpenedProfileEditRef =
+    useRef(false);
 
   useEffect(() => {
     if (!userMenuOpen) {
@@ -354,6 +356,49 @@ export function MyProfilePage({
     clearProfilePictureError();
   }
 
+  function profileFieldsAreUnchanged() {
+    if (!currentUser) {
+      return true;
+    }
+
+    const persistedForm =
+      getProfileFormState(currentUser);
+
+    return (
+      profileForm.firstName ===
+        persistedForm.firstName &&
+      profileForm.lastName ===
+        persistedForm.lastName &&
+      profileForm.rank === persistedForm.rank &&
+      profileForm.contact ===
+        persistedForm.contact
+    );
+  }
+
+  function cancelAvatarChange() {
+    const shouldCloseProfileEdit =
+      avatarOpenedProfileEditRef.current &&
+      profileFieldsAreUnchanged();
+
+    resetAvatarSelection();
+    avatarOpenedProfileEditRef.current = false;
+
+    if (shouldCloseProfileEdit) {
+      setProfileMode("read");
+    }
+  }
+
+  function closeAvatarOwnedEditAfterInvalidFile() {
+    if (
+      avatarOpenedProfileEditRef.current &&
+      profileFieldsAreUnchanged()
+    ) {
+      setProfileMode("read");
+    }
+
+    avatarOpenedProfileEditRef.current = false;
+  }
+
   function clearProfilePictureError() {
     setProfileErrors((current) => ({
       ...current,
@@ -363,7 +408,7 @@ export function MyProfilePage({
 
   function handleAvatarRemoval() {
     if (avatarFile) {
-      resetAvatarSelection();
+      cancelAvatarChange();
       return;
     }
 
@@ -375,6 +420,9 @@ export function MyProfilePage({
     setAvatarError("");
     clearProfilePictureError();
     setAvatarState("success");
+    if (profileMode === "read") {
+      avatarOpenedProfileEditRef.current = true;
+    }
     setProfileMode("edit");
     setProfileBanner(null);
   }
@@ -408,6 +456,7 @@ export function MyProfilePage({
       getProfileFormState(currentUser),
     );
     resetAvatarSelection();
+    avatarOpenedProfileEditRef.current = false;
     setProfileErrors({});
     setProfileBanner(null);
     setProfileMode("read");
@@ -470,6 +519,7 @@ export function MyProfilePage({
         getProfileFormState(updatedUser),
       );
       resetAvatarSelection();
+      avatarOpenedProfileEditRef.current = false;
       setProfileBanner({
         type: "success",
         message:
@@ -628,6 +678,7 @@ export function MyProfilePage({
       setAvatarError(
         "Invalid file type. Accepted: JPG, PNG, WEBP.",
       );
+      closeAvatarOwnedEditAfterInvalidFile();
       return;
     }
 
@@ -639,6 +690,7 @@ export function MyProfilePage({
       setAvatarError(
         "File too large. Maximum size is 5 MB.",
       );
+      closeAvatarOwnedEditAfterInvalidFile();
       return;
     }
 
@@ -647,6 +699,9 @@ export function MyProfilePage({
     setAvatarRemoved(false);
     setAvatarFile(file);
     setAvatarState("success");
+    if (profileMode === "read") {
+      avatarOpenedProfileEditRef.current = true;
+    }
     setProfileMode("edit");
     setProfileBanner(null);
   }
@@ -828,6 +883,7 @@ export function MyProfilePage({
               profilePictureError={
                 profileErrors.profile_picture
               }
+              saving={profileSaving}
               fileInputRef={fileInputRef}
               onRemoveAvatar={
                 handleAvatarRemoval
@@ -859,6 +915,8 @@ export function MyProfilePage({
               onOpenFilePicker={() =>
                 fileInputRef.current?.click()
               }
+              onSave={handleProfileSave}
+              onCancel={cancelAvatarChange}
             />
 
             <ProfilePasswordCard

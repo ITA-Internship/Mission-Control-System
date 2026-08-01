@@ -410,7 +410,7 @@ describe("MyProfilePage", () => {
 
     await user.click(
       screen.getByRole("button", {
-        name: "Save Changes",
+        name: "Save all changes",
       }),
     );
 
@@ -448,7 +448,6 @@ describe("MyProfilePage", () => {
     );
 
     mockJsonResponse(currentUserResponse);
-    mockJsonResponse(currentUserResponse);
 
     renderPage();
 
@@ -471,24 +470,53 @@ describe("MyProfilePage", () => {
       ),
     ).toBeInTheDocument();
 
+    expect(
+      screen.queryByRole("button", {
+        name: "Save all changes",
+      }),
+    ).not.toBeInTheDocument();
+    expect(
+      vi.mocked(globalThis.fetch).mock.calls,
+    ).toHaveLength(1);
+  });
+
+  it("cancels a pending avatar directly from the avatar card", async () => {
+    const user = userEvent.setup();
+    const avatar = new File(
+      ["avatar"],
+      "avatar.png",
+      { type: "image/png" },
+    );
+
+    mockJsonResponse(currentUserResponse);
+    renderPage();
+
+    await screen.findByText(
+      "Major Sarah Chen",
+    );
+    await user.upload(
+      screen.getByLabelText(
+        "Choose profile avatar",
+      ),
+      avatar,
+    );
     await user.click(
       screen.getByRole("button", {
-        name: "Save Changes",
+        name: "Cancel avatar change",
       }),
     );
 
-    await screen.findByText(
-      "Profile changes saved successfully.",
-    );
-    const requestBody = vi.mocked(
-      globalThis.fetch,
-    ).mock.calls[1]?.[1]?.body;
-    expect(requestBody).toBeInstanceOf(FormData);
     expect(
-      (requestBody as FormData).get(
-        "profile_picture",
-      ),
-    ).toBeNull();
+      screen.queryByText("Ready to save"),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", {
+        name: "Save all changes",
+      }),
+    ).not.toBeInTheDocument();
+    expect(
+      vi.mocked(globalThis.fetch).mock.calls,
+    ).toHaveLength(1);
   });
 
   it("falls back to initials when protected avatar images fail to load", async () => {
@@ -556,7 +584,7 @@ describe("MyProfilePage", () => {
     await user.upload(fileInput, firstAvatar);
     await user.click(
       screen.getByRole("button", {
-        name: "Save Changes",
+        name: "Save all changes",
       }),
     );
 
@@ -660,7 +688,7 @@ describe("MyProfilePage", () => {
     );
     await user.click(
       screen.getByRole("button", {
-        name: "Save Changes",
+        name: "Save all changes",
       }),
     );
 

@@ -91,7 +91,6 @@ MIDDLEWARE = [
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
-    "common.middleware.MustChangePasswordMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
 ]
@@ -153,12 +152,12 @@ AUTH_PASSWORD_VALIDATORS = [
 AUTH_USER_MODEL = "accounts.User"
 
 default_authentication_classes = [
-    "rest_framework.authentication.SessionAuthentication",
+    "common.authentication.RequiredPasswordChangeSessionAuthentication",
 ]
 
 if DEBUG:
     default_authentication_classes.append(
-        "rest_framework.authentication.BasicAuthentication"
+        "common.authentication.RequiredPasswordChangeBasicAuthentication"
     )
 
 REST_FRAMEWORK = {
