@@ -928,6 +928,7 @@ export function MyProfilePage() {
               ref={menuRef}
             >
               <button
+                type="button"
                 onClick={() =>
                   setUserMenuOpen(
                     (current) => !current,
@@ -940,6 +941,9 @@ export function MyProfilePage() {
                   border:
                     "1px solid rgba(255,255,255,.08)",
                 }}
+                aria-haspopup="menu"
+                aria-expanded={userMenuOpen}
+                aria-label="Open account menu"
               >
                 <div
                   className="flex h-6 w-6 items-center justify-center overflow-hidden rounded-full text-xs font-bold"
@@ -1025,6 +1029,7 @@ export function MyProfilePage() {
                   </div>
                   <div className="p-2">
                     <button
+                      type="button"
                       className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left text-sm transition-all"
                       style={{
                         color: "#E6EAF0",
@@ -1039,6 +1044,7 @@ export function MyProfilePage() {
                       My Profile
                     </button>
                     <button
+                      type="button"
                       className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left text-sm transition-all"
                       style={{
                         color: "#E6EAF0",
@@ -1060,6 +1066,7 @@ export function MyProfilePage() {
                       }}
                     />
                     <button
+                      type="button"
                       className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left text-sm transition-all"
                       style={{
                         color: "#E5484D",

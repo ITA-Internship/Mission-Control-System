@@ -43,10 +43,12 @@ export function ProfileSummaryHero({
       />
 
       <div className="flex flex-col items-start gap-5 px-6 py-6 sm:flex-row sm:items-center">
-        <div
+        <button
+          type="button"
           className="group relative flex-shrink-0 cursor-pointer"
           onClick={onAvatarClick}
           title="Change avatar"
+          aria-label="Change avatar"
         >
           <div
             className="h-[76px] w-[76px] overflow-hidden rounded-full border-2"
@@ -89,7 +91,7 @@ export function ProfileSummaryHero({
               }}
             />
           </div>
-        </div>
+        </button>
 
         <div className="min-w-0 flex-1">
           <div className="mb-1.5 flex flex-wrap items-center gap-2">

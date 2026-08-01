@@ -85,11 +85,13 @@ export function ProfileAvatarCard({
 
           {avatarDisplay ? (
             <button
+              type="button"
               onClick={onRemoveAvatar}
               className="text-xs transition-colors"
               style={{
                 color: "#E5484D",
               }}
+              aria-label="Remove selected avatar"
             >
               Remove
             </button>
@@ -98,10 +100,21 @@ export function ProfileAvatarCard({
 
         <div className="flex flex-1 flex-col gap-3">
           <div
+            role="button"
+            tabIndex={0}
             onDrop={onAvatarDrop}
             onDragOver={onAvatarDragOver}
             onDragLeave={onAvatarDragLeave}
             onClick={onOpenFilePicker}
+            onKeyDown={(event) => {
+              if (
+                event.key === "Enter" ||
+                event.key === " "
+              ) {
+                event.preventDefault();
+                onOpenFilePicker();
+              }
+            }}
             className="relative flex cursor-pointer flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed p-8 transition-all"
             style={{
               borderColor:
@@ -117,6 +130,7 @@ export function ProfileAvatarCard({
                   ? "rgba(200,162,74,.04)"
                   : "rgba(255,255,255,.015)",
             }}
+            aria-label="Upload profile avatar"
           >
             {avatarState === "uploading" ? (
               <div className="flex flex-col items-center gap-2">

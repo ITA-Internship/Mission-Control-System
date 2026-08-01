@@ -24,7 +24,14 @@ from drones.factories import AdminUserFactory
 from roles.models import ADMIN_CODE, OPERATOR_CODE, Role
 from seed_data.users import seed_users
 
-from .models import AuditLog, User, UserRoleAuditLog, UserSession, UserStatusLog
+from .models import (
+    AuditLog,
+    MilitaryUnit,
+    User,
+    UserRoleAuditLog,
+    UserSession,
+    UserStatusLog,
+)
 from .permissions import user_has_permission
 from .rbac import (
     PERMISSION_PROFILE_RESET_PASSWORD_OWN,
@@ -359,11 +366,17 @@ class UserMeRBACTests(APITestCase):
 
     def setUp(self):
         self.operator_role = Role.objects.get(code=OPERATOR_CODE)
+        self.unit = MilitaryUnit.objects.create(
+            code="UNIT-TST",
+            name="Test Unit",
+            description="Unit used by self-profile tests.",
+        )
         self.user = User.objects.create_user(
             username="profile.owner",
             email="profile.owner@example.com",
             password="StrongPassword123!",
             role=self.operator_role,
+            unit=self.unit,
             is_active=True,
         )
         self.user_without_role = User.objects.create_user(
@@ -409,6 +422,12 @@ class UserMeRBACTests(APITestCase):
         response = self.client.get(self.url)
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["username"], self.user.username)
+        self.assertEqual(response.data["role_name"], self.user.role.name)
+        self.assertEqual(response.data["unit_name"], self.user.unit.name)
+        self.assertIn("created_by_username", response.data)
+        self.assertNotIn("is_staff", response.data)
+        self.assertNotIn("is_superuser", response.data)
 
     def test_user_with_profile_permissions_can_update_own_profile(self):
         """Ensure role-based self-profile updates still work for valid users."""
@@ -430,6 +449,7 @@ class LoginViewTests(APITestCase):
 
     def setUp(self):
         """Create an active user and the endpoint URLs used by the tests."""
+        cache.clear()
         self.password = "Test@1234"
         self.operator_role = Role.objects.get(code=OPERATOR_CODE)
         self.user = User.objects.create_user(
@@ -538,6 +558,40 @@ class LoginViewTests(APITestCase):
             self.client.session.get("_auth_user_id"),
             str(self.user.pk),
         )
+
+    def test_login_matches_username_case_insensitively(self):
+        """Verify mixed-case usernames still resolve to the same account."""
+        csrf_token = self._prime_csrf_cookie()
+
+        response = self.client.post(
+            self.url,
+            {
+                "identifier": "ROOT.ADMIN",
+                "password": self.password,
+            },
+            format="json",
+            HTTP_X_CSRFTOKEN=csrf_token,
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK, response.data)
+        self.assertEqual(response.data["username"], self.user.username)
+
+    def test_login_matches_email_case_insensitively(self):
+        """Verify mixed-case emails still resolve to the same account."""
+        csrf_token = self._prime_csrf_cookie()
+
+        response = self.client.post(
+            self.url,
+            {
+                "identifier": "ROOT.ADMIN@EXAMPLE.COM",
+                "password": self.password,
+            },
+            format="json",
+            HTTP_X_CSRFTOKEN=csrf_token,
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK, response.data)
+        self.assertEqual(response.data["email"], self.user.email)
 
     def test_login_rejects_invalid_credentials(self):
         """Verify the endpoint does not authenticate wrong credentials."""

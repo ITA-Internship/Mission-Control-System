@@ -22,6 +22,7 @@ from django.conf import settings
 from django.contrib.auth import HASH_SESSION_KEY, authenticate, login
 from django.contrib.auth.tokens import default_token_generator
 from django.core.exceptions import ValidationError as DjangoValidationError
+from django.db.models import Q
 from django.http import FileResponse, Http404, HttpResponse, StreamingHttpResponse
 from django.middleware.csrf import get_token
 from django.shortcuts import get_object_or_404
@@ -127,12 +128,19 @@ class LoginView(APIView):
         password = serializer.validated_data["password"]
 
         username = identifier
-        if "@" in identifier:
-            # Email is unique on the custom user model, so a lookup by email
-            # resolves to at most one username without exposing account state.
-            matched_user = User.objects.filter(email__iexact=identifier).first()
-            if matched_user is not None:
-                username = matched_user.username
+        # Resolve either username or email case-insensitively before handing off
+        # to Django auth. This keeps lookup behavior consistent while preserving
+        # the generic invalid-credentials response.
+        matched_user = (
+            User.objects.filter(
+                Q(username__iexact=identifier) | Q(email__iexact=identifier)
+            )
+            .only("username")
+            .order_by("id")
+            .first()
+        )
+        if matched_user is not None:
+            username = matched_user.username
 
         user = authenticate(
             request,
