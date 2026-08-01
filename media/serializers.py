@@ -12,6 +12,7 @@ from rest_framework import serializers
 
 from common.serializers import UserBriefSerializer
 from missions.models import MissionDrone
+from missions.permissions import can_user_view_mission
 
 from .models import (
     MediaAuditLog,
@@ -85,6 +86,13 @@ class VideoUploadSerializer(serializers.ModelSerializer):
     def validate(self, attrs):
         """Validate that the provided drone belongs to the target mission."""
         attrs = super().validate(attrs)
+
+        request = self.context.get("request")
+        if request and not can_user_view_mission(request.user, attrs["mission"]):
+            raise serializers.ValidationError(
+                {"mission": "You do not have access to this mission."}
+            )
+
         if not MissionDrone.objects.filter(
             mission=attrs["mission"],
             drone=attrs["drone"],
