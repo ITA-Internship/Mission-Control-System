@@ -132,38 +132,7 @@ export function ProfileAvatarCard({
             }}
             aria-label="Upload profile avatar"
           >
-            {avatarState === "uploading" ? (
-              <div className="flex flex-col items-center gap-2">
-                <svg
-                  className="h-6 w-6 animate-spin"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                >
-                  <circle
-                    className="opacity-25"
-                    cx="12"
-                    cy="12"
-                    r="10"
-                    stroke="#C8A24A"
-                    strokeWidth="4"
-                  />
-                  <path
-                    className="opacity-75"
-                    fill="#C8A24A"
-                    d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
-                  />
-                </svg>
-                <span
-                  className="text-xs"
-                  style={{
-                    color: "#8A94A6",
-                  }}
-                >
-                  Uploading...
-                </span>
-              </div>
-            ) : avatarState ===
-              "success" ? (
+            {avatarState === "success" ? (
               <div className="flex flex-col items-center gap-2">
                 <CheckCircle
                   size={24}
@@ -220,6 +189,7 @@ export function ProfileAvatarCard({
             <input
               ref={fileInputRef}
               type="file"
+              aria-label="Choose profile avatar"
               accept="image/jpeg,image/png,image/webp"
               className="hidden"
               onChange={onAvatarInputChange}

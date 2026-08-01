@@ -80,6 +80,32 @@ export function getApiDetail(
     : undefined;
 }
 
+export function isSessionAuthenticationError(
+  error: unknown,
+): boolean {
+  if (!(error instanceof ApiError)) {
+    return false;
+  }
+
+  if (error.status === 401) {
+    return true;
+  }
+
+  if (error.status !== 403) {
+    return false;
+  }
+
+  const detail = (
+    getApiDetail(error) ?? ""
+  ).toLowerCase();
+
+  return (
+    detail.includes(
+      "authentication credentials were not provided",
+    ) || detail.includes("not authenticated")
+  );
+}
+
 export function getFormError(
   error: unknown,
   fallback: string,

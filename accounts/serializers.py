@@ -166,6 +166,20 @@ class UserMeSerializer(serializers.ModelSerializer):
         default=None,
     )
 
+    def validate_first_name(self, value):
+        """Require a non-empty normalized first name for self-service updates."""
+        normalized = value.strip()
+        if not normalized:
+            raise serializers.ValidationError("First name is required.")
+        return normalized
+
+    def validate_last_name(self, value):
+        """Require a non-empty normalized last name for self-service updates."""
+        normalized = value.strip()
+        if not normalized:
+            raise serializers.ValidationError("Last name is required.")
+        return normalized
+
     class Meta:
         model = User
         fields = (

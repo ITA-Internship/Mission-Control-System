@@ -6,6 +6,7 @@ from datetime import timedelta
 from types import SimpleNamespace
 from unittest.mock import patch
 
+from django.conf import settings
 from django.contrib.auth import BACKEND_SESSION_KEY, HASH_SESSION_KEY, SESSION_KEY
 from django.contrib.auth.tokens import default_token_generator
 from django.contrib.sessions.backends.db import SessionStore
@@ -313,8 +314,60 @@ class ChangePasswordViewTests(APITestCase):
         )
         self.assertEqual(self.client.session.get("_auth_user_id"), str(self.user.pk))
 
-    def test_change_password_invalidates_untracked_sessions(self):
-        """Verify legacy sessions are removed even without UserSession rows."""
+    def test_change_password_only_invalidates_target_users_sessions(self):
+        """Ensure targeted cleanup leaves another user's session untouched."""
+        other_user = User.objects.create_user(
+            username="other.session.user",
+            email="other.session.user@example.com",
+            password="OtherPassword123!",
+            role=self.operator_role,
+        )
+        own_session = Session.objects.create(
+            session_key="own_tracked_session",
+            session_data="mock_data",
+            expire_date=timezone.now() + timedelta(days=1),
+        )
+        other_session = Session.objects.create(
+            session_key="other_tracked_session",
+            session_data="mock_data",
+            expire_date=timezone.now() + timedelta(days=1),
+        )
+        UserSession.objects.create(
+            user=self.user,
+            session_key=own_session.session_key,
+        )
+        UserSession.objects.create(
+            user=other_user,
+            session_key=other_session.session_key,
+        )
+
+        self.client.force_authenticate(user=self.user)
+
+        response = self.client.post(
+            self.url,
+            {
+                "old_password": "OldPassword123!",
+                "new_password": "NewPassword123!",
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK, response.data)
+        self.assertFalse(
+            Session.objects.filter(session_key=own_session.session_key).exists()
+        )
+        self.assertTrue(
+            Session.objects.filter(session_key=other_session.session_key).exists()
+        )
+        self.assertTrue(
+            UserSession.objects.filter(
+                user=other_user,
+                session_key=other_session.session_key,
+            ).exists()
+        )
+
+    def test_password_hash_rejects_an_untracked_legacy_session(self):
+        """Ensure untracked sessions cannot authenticate after password change."""
         legacy_session = SessionStore()
         legacy_session[SESSION_KEY] = str(self.user.pk)
         legacy_session[BACKEND_SESSION_KEY] = (
@@ -329,14 +382,6 @@ class ChangePasswordViewTests(APITestCase):
         )
 
         self.client.force_authenticate(user=self.user)
-        current_session = self.client.session
-        current_session[SESSION_KEY] = str(self.user.pk)
-        current_session.save()
-        UserSession.objects.create(
-            user=self.user,
-            session_key=current_session.session_key,
-        )
-
         response = self.client.post(
             self.url,
             {
@@ -347,6 +392,13 @@ class ChangePasswordViewTests(APITestCase):
         )
 
         self.assertEqual(response.status_code, status.HTTP_200_OK, response.data)
+        self.assertTrue(Session.objects.filter(session_key=legacy_session_key).exists())
+
+        legacy_client = APIClient()
+        legacy_client.cookies[settings.SESSION_COOKIE_NAME] = legacy_session_key
+        profile_response = legacy_client.get(reverse("accounts:user-me"))
+
+        self.assertEqual(profile_response.status_code, status.HTTP_403_FORBIDDEN)
         self.assertFalse(
             Session.objects.filter(session_key=legacy_session_key).exists()
         )
@@ -503,6 +555,23 @@ class UserMeRBACTests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.user.refresh_from_db()
         self.assertEqual(self.user.first_name, "Updated")
+
+    def test_user_cannot_clear_required_profile_names(self):
+        """Reject whitespace-only first and last names at the API boundary."""
+        self.client.force_authenticate(self.user)
+
+        response = self.client.patch(
+            self.url,
+            {
+                "first_name": "   ",
+                "last_name": "   ",
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(response.data["first_name"][0], "First name is required.")
+        self.assertEqual(response.data["last_name"][0], "Last name is required.")
 
     def test_user_with_profile_permissions_can_update_own_profile_with_multipart(self):
         """Ensure self-profile updates accept multipart form data for avatars."""

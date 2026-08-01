@@ -389,6 +389,7 @@ export function AlertBanner({
 
       {onClose ? (
         <button
+          type="button"
           onClick={onClose}
           style={{
             color: config.color,

@@ -217,6 +217,9 @@ describe("MyProfilePage", () => {
         fetchMock.mock.calls[1]?.[1]?.headers,
       ).get("Content-Type"),
     ).toBeNull();
+    expect(
+      screen.queryByText("Ready to save"),
+    ).not.toBeInTheDocument();
   });
 
   it("shows profile validation errors", async () => {
@@ -358,6 +361,76 @@ describe("MyProfilePage", () => {
     ).toBe(
       "/api/accounts/users/me/change-password/",
     );
+
+    await user.click(
+      screen.getByRole("button", {
+        name: "Dismiss message",
+      }),
+    );
+
+    expect(
+      screen.queryByText(
+        "Password has been successfully changed.",
+      ),
+    ).not.toBeInTheDocument();
+    expect(fetchMock.mock.calls).toHaveLength(2);
+  });
+
+  it("uploads a selected avatar without a delayed state race", async () => {
+    const user = userEvent.setup();
+    const avatar = new File(
+      ["avatar"],
+      "avatar.png",
+      { type: "image/png" },
+    );
+
+    mockJsonResponse(currentUserResponse);
+    mockJsonResponse({
+      ...currentUserResponse,
+      profile_picture:
+        "/api/accounts/users/47/profile-picture/",
+    });
+
+    renderPage();
+
+    await screen.findByText(
+      "Major Sarah Chen",
+    );
+    await user.upload(
+      screen.getByLabelText(
+        "Choose profile avatar",
+      ),
+      avatar,
+    );
+
+    expect(
+      screen.getByText("Ready to save"),
+    ).toBeInTheDocument();
+
+    await user.click(
+      screen.getByRole("button", {
+        name: "Save Changes",
+      }),
+    );
+
+    expect(
+      await screen.findByText(
+        "Profile changes saved successfully.",
+      ),
+    ).toBeInTheDocument();
+
+    const requestBody = vi.mocked(
+      globalThis.fetch,
+    ).mock.calls[1]?.[1]?.body;
+    expect(requestBody).toBeInstanceOf(FormData);
+    expect(
+      (requestBody as FormData).get(
+        "profile_picture",
+      ),
+    ).toBe(avatar);
+    expect(
+      screen.queryByText("Ready to save"),
+    ).not.toBeInTheDocument();
   });
 
   it("shows incorrect current password error", async () => {
@@ -471,8 +544,11 @@ describe("MyProfilePage", () => {
     const user = userEvent.setup();
     mockJsonResponse(currentUserResponse);
     mockJsonResponse(
-      { detail: "Session expired." },
-      401,
+      {
+        detail:
+          "Authentication credentials were not provided.",
+      },
+      403,
     );
 
     renderPage();
@@ -500,8 +576,11 @@ describe("MyProfilePage", () => {
     const user = userEvent.setup();
     mockJsonResponse(currentUserResponse);
     mockJsonResponse(
-      { detail: "Session expired." },
-      401,
+      {
+        detail:
+          "Authentication credentials were not provided.",
+      },
+      403,
     );
 
     renderPage();
@@ -539,7 +618,7 @@ describe("MyProfilePage", () => {
       {
         detail: "Authentication credentials were not provided.",
       },
-      401,
+      403,
     );
 
     renderProtectedPage();

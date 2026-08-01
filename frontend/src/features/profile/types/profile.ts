@@ -1,7 +1,6 @@
 export type AvatarState =
   | "idle"
   | "dragging"
-  | "uploading"
   | "success"
   | "error";
 

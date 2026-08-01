@@ -15,7 +15,6 @@ import {
 } from "react-router";
 
 import {
-  ApiError,
   isAbortError,
 } from "../../auth/api/apiClient";
 import {
@@ -26,6 +25,7 @@ import { AuthAlert } from "../../auth/components/AuthAlert";
 import {
   getApiFieldError,
   getFormError,
+  isSessionAuthenticationError,
 } from "../../auth/utils/authErrors";
 import type { CurrentUser } from "../../auth/types/auth";
 import { updateCurrentUserProfile } from "../api/profileApi";
@@ -218,10 +218,7 @@ export function MyProfilePage({
           return;
         }
 
-        if (
-          error instanceof ApiError &&
-          error.status === 401
-        ) {
+        if (isSessionAuthenticationError(error)) {
           navigate("/login", {
             replace: true,
           });
@@ -375,10 +372,7 @@ export function MyProfilePage({
   function redirectExpiredSession(
     error: unknown,
   ): boolean {
-    if (
-      error instanceof ApiError &&
-      error.status === 401
-    ) {
+    if (isSessionAuthenticationError(error)) {
       navigate("/login", {
         replace: true,
       });
@@ -459,7 +453,6 @@ export function MyProfilePage({
         getProfileFormState(updatedUser),
       );
       resetAvatarSelection();
-      setAvatarState("success");
       setProfileBanner({
         type: "success",
         message:
@@ -628,14 +621,10 @@ export function MyProfilePage({
 
     setAvatarError("");
     setAvatarRemoved(false);
-    setAvatarState("uploading");
+    setAvatarFile(file);
+    setAvatarState("success");
     setProfileMode("edit");
     setProfileBanner(null);
-
-    window.setTimeout(() => {
-      setAvatarFile(file);
-      setAvatarState("success");
-    }, 250);
   }
 
   function handleAvatarDrop(
