@@ -17,7 +17,7 @@ from django.core.exceptions import ImproperlyConfigured
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.core.management import call_command
 from django.core.management.base import CommandError
-from django.test import TestCase, override_settings
+from django.test import RequestFactory, TestCase, override_settings
 from django.urls import reverse
 from django.utils import timezone
 from django.utils.encoding import force_bytes
@@ -47,7 +47,7 @@ from .rbac import (
     PERMISSION_PROFILE_VIEW_OWN,
 )
 from .serializers import delete_storage_file_safely
-from .services import update_user_role
+from .services import create_audit_log, update_user_role
 from .throttles import AccountActivationThrottle, PasswordResetRequestThrottle
 from .tokens import account_activation_token_generator
 from .views import UserMeView
@@ -121,6 +121,57 @@ class UpdateUserRoleTests(TestCase):
                 result=AuditLog.ResultStatus.SUCCESS,
             ).exists()
         )
+
+
+class CreateAuditLogIPResolutionTests(TestCase):
+    """Test that create_audit_log persists the resolved client IP, not raw headers."""
+
+    def setUp(self):
+        """Initialize a request factory and a minimal actor for audit entries."""
+        self.factory = RequestFactory()
+        self.actor = User.objects.create_user(
+            username="audit.actor",
+            email="audit.actor@example.com",
+            password="StrongPassword123!",
+            is_active=True,
+        )
+
+    @override_settings(TRUSTED_PROXY_COUNT=0)
+    def test_audit_log_ignores_spoofed_header_with_no_trusted_proxy(self):
+        """Verify a forged X-Forwarded-For cannot end up in an AuditLog entry."""
+        request = self.factory.get(
+            "/",
+            REMOTE_ADDR="203.0.113.9",
+            HTTP_X_FORWARDED_FOR="6.6.6.6",
+        )
+
+        log = create_audit_log(
+            actor=self.actor,
+            action_type=AuditLog.ActionType.USER_CREATED,
+            result=AuditLog.ResultStatus.SUCCESS,
+            request=request,
+        )
+
+        self.assertEqual(log.ip_address, "203.0.113.9")
+        self.assertNotEqual(log.ip_address, "6.6.6.6")
+
+    @override_settings(TRUSTED_PROXY_COUNT=2)
+    def test_audit_log_records_real_client_ip_behind_trusted_proxies(self):
+        """Verify the real client IP is recorded when proxies are trusted."""
+        request = self.factory.get(
+            "/",
+            REMOTE_ADDR="10.0.0.2",
+            HTTP_X_FORWARDED_FOR="1.2.3.4, 10.0.0.1, 10.0.0.2",
+        )
+
+        log = create_audit_log(
+            actor=self.actor,
+            action_type=AuditLog.ActionType.USER_CREATED,
+            result=AuditLog.ResultStatus.SUCCESS,
+            request=request,
+        )
+
+        self.assertEqual(log.ip_address, "10.0.0.1")
 
 
 class UserStatusUpdateViewTests(APITestCase):

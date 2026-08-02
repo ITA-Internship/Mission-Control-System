@@ -1,12 +1,17 @@
 """Tests for shared application security behavior and export sanitization."""
 
+import json
 import os
+import subprocess
+import sys
 from datetime import datetime
+from unittest.mock import patch
 
 from django.conf import settings
 from django.contrib.auth import get_user_model
+from django.core.exceptions import ImproperlyConfigured
 from django.middleware.csrf import get_token
-from django.test import SimpleTestCase, TestCase, override_settings
+from django.test import RequestFactory, SimpleTestCase, TestCase, override_settings
 from django.urls import path
 from rest_framework import status
 from rest_framework.permissions import AllowAny
@@ -14,6 +19,9 @@ from rest_framework.response import Response
 from rest_framework.test import APIClient, APIRequestFactory
 from rest_framework.views import APIView
 
+from config.settings import env_bool
+
+from .request_utils import get_client_ip
 from .utils import sanitize_cell, sanitize_row
 
 
@@ -63,6 +71,67 @@ class CSVSanitizationTests(TestCase):
         row = [1, "=malicious", "safe", "-100", None]
         expected = [1, "'=malicious", "safe", "'-100", None]
         self.assertEqual(sanitize_row(row), expected)
+
+
+class GetClientIPTests(TestCase):
+    """Test client IP resolution against X-Forwarded-For spoofing."""
+
+    def setUp(self):
+        """Initialize a request factory for building fake requests."""
+        self.factory = RequestFactory()
+
+    def _make_request(self, xff=None, remote_addr="203.0.113.9"):
+        """Build a bare request with an optional X-Forwarded-For header."""
+        extra = {"REMOTE_ADDR": remote_addr}
+        if xff is not None:
+            extra["HTTP_X_FORWARDED_FOR"] = xff
+        return self.factory.get("/", **extra)
+
+    def test_none_request_returns_none(self):
+        """Verify passing no request is handled gracefully."""
+        self.assertIsNone(get_client_ip(None))
+
+    @override_settings(TRUSTED_PROXY_COUNT=0)
+    def test_zero_trusted_proxies_ignores_header(self):
+        """Verify the header is fully ignored when no proxy is trusted."""
+        request = self._make_request(xff="6.6.6.6", remote_addr="203.0.113.9")
+
+        self.assertEqual(get_client_ip(request), "203.0.113.9")
+
+    @override_settings(TRUSTED_PROXY_COUNT=2)
+    def test_strips_exactly_n_trusted_hops(self):
+        """Verify the client IP sits exactly N entries from the right."""
+        request = self._make_request(xff="1.2.3.4, 10.0.0.1, 10.0.0.2")
+
+        self.assertEqual(get_client_ip(request), "10.0.0.1")
+
+    @override_settings(TRUSTED_PROXY_COUNT=2)
+    def test_fewer_than_n_hops_falls_back_to_remote_addr(self):
+        """Ensure a header shorter than the trusted count is rejected, not trusted."""
+        request = self._make_request(xff="10.0.0.1", remote_addr="10.0.0.2")
+
+        self.assertEqual(get_client_ip(request), "10.0.0.2")
+
+    @override_settings(TRUSTED_PROXY_COUNT=1)
+    def test_exactly_n_entries_with_no_attacker_prefix(self):
+        """Single trusted proxy, no forged prefix — standard case."""
+        request = self._make_request(xff="10.0.0.1")
+
+        self.assertEqual(get_client_ip(request), "10.0.0.1")
+
+    @override_settings(TRUSTED_PROXY_COUNT=1)
+    def test_attacker_cannot_forge_ip_via_extra_header_entries(self):
+        """Ensure prepending fake entries to the header does not spoof the client IP."""
+        request = self._make_request(xff="6.6.6.6, 10.0.0.1")
+
+        self.assertEqual(get_client_ip(request), "10.0.0.1")
+
+    @override_settings(TRUSTED_PROXY_COUNT=1)
+    def test_missing_header_falls_back_to_remote_addr(self):
+        """Verify REMOTE_ADDR is used when no X-Forwarded-For header is present."""
+        request = self._make_request(xff=None, remote_addr="203.0.113.9")
+
+        self.assertEqual(get_client_ip(request), "203.0.113.9")
 
 
 class ProtectedByDefaultView(APIView):
@@ -115,6 +184,41 @@ class DefaultPermissionPolicyTests(SimpleTestCase):
         )
 
 
+class EnvironmentBooleanSettingsTests(SimpleTestCase):
+    """Verify strict parsing of boolean environment variables."""
+
+    @patch.dict(os.environ, {"TEST_BOOLEAN_SETTING": "true"})
+    def test_env_bool_accepts_true_value(self):
+        """Ensure supported true values are parsed correctly."""
+        self.assertTrue(env_bool("TEST_BOOLEAN_SETTING"))
+
+    @patch.dict(os.environ, {"TEST_BOOLEAN_SETTING": "False"})
+    def test_env_bool_accepts_false_value(self):
+        """Ensure supported false values are parsed correctly."""
+        self.assertFalse(env_bool("TEST_BOOLEAN_SETTING", default=True))
+
+    @patch.dict(os.environ, {"TEST_BOOLEAN_SETTING": "invalid"})
+    def test_env_bool_rejects_invalid_value(self):
+        """Ensure configuration errors are not silently ignored."""
+        with self.assertRaisesMessage(
+            ImproperlyConfigured,
+            "TEST_BOOLEAN_SETTING must be a boolean value",
+        ):
+            env_bool("TEST_BOOLEAN_SETTING")
+
+    def test_env_bool_uses_default_for_missing_value(self):
+        """Ensure the supplied default is used when the variable is absent."""
+        with patch.dict(os.environ, {}, clear=False):
+            os.environ.pop("TEST_MISSING_BOOLEAN_SETTING", None)
+
+            self.assertTrue(
+                env_bool(
+                    "TEST_MISSING_BOOLEAN_SETTING",
+                    default=True,
+                )
+            )
+
+
 class SecurityCookieSettingsTests(SimpleTestCase):
     """Verify secure defaults for session and CSRF cookies."""
 
@@ -136,23 +240,69 @@ class SecurityCookieSettingsTests(SimpleTestCase):
             "Lax",
         )
 
-    def test_session_cookie_secure_matches_environment(self):
-        """Ensure the session cookie policy matches the startup environment."""
-        debug_from_environment = os.getenv("DEBUG", "False") == "True"
-
-        self.assertEqual(
-            settings.SESSION_COOKIE_SECURE,
-            not debug_from_environment,
+    def test_production_transport_security_values_are_secure(self):
+        """Ensure production settings load concrete secure values."""
+        environment = os.environ.copy()
+        environment.update(
+            {
+                "DJANGO_SETTINGS_MODULE": "config.settings",
+                "DJANGO_SECRET_KEY": "test-secret-key",
+                "DEBUG": "False",
+                "DB_NAME": "test_db",
+                "DB_USER": "test_user",
+                "DB_PASSWORD": "test_password",
+                "DB_HOST": "localhost",
+                "DB_PORT": "5432",
+                "STORAGE_PROVIDER": "local",
+                "USE_LOCAL_CACHE": "true",
+                "SESSION_COOKIE_SECURE": "True",
+                "CSRF_COOKIE_SECURE": "True",
+                "SECURE_SSL_REDIRECT": "True",
+                "SECURE_HSTS_SECONDS": "31536000",
+                "SECURE_HSTS_INCLUDE_SUBDOMAINS": "True",
+                "SECURE_HSTS_PRELOAD": "True",
+            }
         )
 
-    def test_csrf_cookie_secure_matches_environment(self):
-        """Ensure the CSRF cookie policy matches the startup environment."""
-        debug_from_environment = os.getenv("DEBUG", "False") == "True"
-
-        self.assertEqual(
-            settings.CSRF_COOKIE_SECURE,
-            not debug_from_environment,
+        result = subprocess.run(
+            [
+                sys.executable,
+                "-c",
+                (
+                    "import json; "
+                    "from django.conf import settings; "
+                    "print(json.dumps({"
+                    "'debug': settings.DEBUG, "
+                    "'session_cookie_secure': settings.SESSION_COOKIE_SECURE, "
+                    "'csrf_cookie_secure': settings.CSRF_COOKIE_SECURE, "
+                    "'ssl_redirect': settings.SECURE_SSL_REDIRECT, "
+                    "'hsts_seconds': settings.SECURE_HSTS_SECONDS, "
+                    "'hsts_include_subdomains': "
+                    "settings.SECURE_HSTS_INCLUDE_SUBDOMAINS, "
+                    "'hsts_preload': settings.SECURE_HSTS_PRELOAD"
+                    "}))"
+                ),
+            ],
+            check=True,
+            capture_output=True,
+            text=True,
+            env=environment,
         )
+
+        production_settings = json.loads(result.stdout)
+
+        self.assertFalse(production_settings["debug"])
+        self.assertTrue(production_settings["session_cookie_secure"])
+        self.assertTrue(production_settings["csrf_cookie_secure"])
+        self.assertTrue(production_settings["ssl_redirect"])
+        self.assertEqual(
+            production_settings["hsts_seconds"],
+            31536000,
+        )
+        self.assertTrue(
+            production_settings["hsts_include_subdomains"],
+        )
+        self.assertTrue(production_settings["hsts_preload"])
 
 
 TEST_ENDPOINT = "/test/session-protected/"
