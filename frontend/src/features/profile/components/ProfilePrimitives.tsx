@@ -12,6 +12,33 @@ import type {
   RefObject,
 } from "react";
 
+export function ProfileAvatarImage({
+  source,
+  alt,
+  className,
+}: {
+  source: string | null;
+  alt: string;
+  className: string;
+}) {
+  const [failedSource, setFailedSource] =
+    useState<string | null>(null);
+
+  if (!source || failedSource === source) {
+    return null;
+  }
+
+  return (
+    <img
+      src={source}
+      alt={alt}
+      className={className}
+      onLoad={() => setFailedSource(null)}
+      onError={() => setFailedSource(source)}
+    />
+  );
+}
+
 export function RoleBadge({
   role,
 }: {
@@ -204,12 +231,15 @@ export function PrimaryButton({
 export function SecondaryButton({
   children,
   onClick,
+  type = "button",
 }: {
   children: ReactNode;
   onClick?: () => void;
+  type?: "button" | "submit";
 }) {
   return (
     <button
+      type={type}
       onClick={onClick}
       className="inline-flex items-center gap-2 rounded-lg border px-4 py-2 text-sm font-medium transition-all"
       style={{
@@ -237,6 +267,7 @@ export function FormTextInput({
   rightElement,
   inputRef,
   autoComplete,
+  maxLength,
 }: {
   id: string;
   ariaLabel?: string;
@@ -249,6 +280,7 @@ export function FormTextInput({
   rightElement?: ReactNode;
   inputRef?: RefObject<HTMLInputElement | null>;
   autoComplete?: string;
+  maxLength?: number;
 }) {
   const [focused, setFocused] =
     useState(false);
@@ -267,6 +299,7 @@ export function FormTextInput({
           placeholder={placeholder}
           disabled={disabled}
           autoComplete={autoComplete}
+          maxLength={maxLength}
           onFocus={() => setFocused(true)}
           onBlur={() => setFocused(false)}
           className="w-full rounded-lg px-3 py-2.5 text-sm outline-none transition-all"
@@ -389,6 +422,7 @@ export function AlertBanner({
 
       {onClose ? (
         <button
+          type="button"
           onClick={onClose}
           style={{
             color: config.color,

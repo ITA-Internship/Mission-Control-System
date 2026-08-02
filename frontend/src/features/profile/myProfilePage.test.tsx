@@ -1,4 +1,5 @@
 import {
+  fireEvent,
   render,
   screen,
   waitFor,
@@ -217,6 +218,9 @@ describe("MyProfilePage", () => {
         fetchMock.mock.calls[1]?.[1]?.headers,
       ).get("Content-Type"),
     ).toBeNull();
+    expect(
+      screen.queryByText("Ready to save"),
+    ).not.toBeInTheDocument();
   });
 
   it("shows profile validation errors", async () => {
@@ -358,6 +362,248 @@ describe("MyProfilePage", () => {
     ).toBe(
       "/api/accounts/users/me/change-password/",
     );
+
+    await user.click(
+      screen.getByRole("button", {
+        name: "Dismiss message",
+      }),
+    );
+
+    expect(
+      screen.queryByText(
+        "Password has been successfully changed.",
+      ),
+    ).not.toBeInTheDocument();
+    expect(fetchMock.mock.calls).toHaveLength(2);
+  });
+
+  it("uploads a selected avatar without a delayed state race", async () => {
+    const user = userEvent.setup();
+    const avatar = new File(
+      ["avatar"],
+      "avatar.png",
+      { type: "image/png" },
+    );
+
+    mockJsonResponse(currentUserResponse);
+    mockJsonResponse({
+      ...currentUserResponse,
+      profile_picture:
+        "/api/accounts/users/47/profile-picture/",
+    });
+
+    renderPage();
+
+    await screen.findByText(
+      "Major Sarah Chen",
+    );
+    await user.upload(
+      screen.getByLabelText(
+        "Choose profile avatar",
+      ),
+      avatar,
+    );
+
+    expect(
+      screen.getByText("Ready to save"),
+    ).toBeInTheDocument();
+
+    await user.click(
+      screen.getByRole("button", {
+        name: "Save all changes",
+      }),
+    );
+
+    expect(
+      await screen.findByText(
+        "Profile changes saved successfully.",
+      ),
+    ).toBeInTheDocument();
+
+    const requestBody = vi.mocked(
+      globalThis.fetch,
+    ).mock.calls[1]?.[1]?.body;
+    expect(requestBody).toBeInstanceOf(FormData);
+    expect(
+      (requestBody as FormData).get(
+        "profile_picture",
+      ),
+    ).toBe(avatar);
+    expect(
+      screen.queryByText("Ready to save"),
+    ).not.toBeInTheDocument();
+  });
+
+  it("clears a pending avatar when the next selected file is invalid", async () => {
+    const user = userEvent.setup();
+    const validAvatar = new File(
+      ["avatar"],
+      "avatar.png",
+      { type: "image/png" },
+    );
+    const invalidAvatar = new File(
+      ["invalid"],
+      "avatar.gif",
+      { type: "image/gif" },
+    );
+
+    mockJsonResponse(currentUserResponse);
+
+    renderPage();
+
+    await screen.findByText(
+      "Major Sarah Chen",
+    );
+    const fileInput = screen.getByLabelText(
+      "Choose profile avatar",
+    );
+    await user.upload(fileInput, validAvatar);
+    fireEvent.change(fileInput, {
+      target: {
+        files: [invalidAvatar],
+      },
+    });
+
+    expect(
+      screen.getByText(
+        "Invalid file type. Accepted: JPG, PNG, WEBP.",
+      ),
+    ).toBeInTheDocument();
+
+    expect(
+      screen.queryByRole("button", {
+        name: "Save all changes",
+      }),
+    ).not.toBeInTheDocument();
+    expect(
+      vi.mocked(globalThis.fetch).mock.calls,
+    ).toHaveLength(1);
+  });
+
+  it("cancels a pending avatar directly from the avatar card", async () => {
+    const user = userEvent.setup();
+    const avatar = new File(
+      ["avatar"],
+      "avatar.png",
+      { type: "image/png" },
+    );
+
+    mockJsonResponse(currentUserResponse);
+    renderPage();
+
+    await screen.findByText(
+      "Major Sarah Chen",
+    );
+    await user.upload(
+      screen.getByLabelText(
+        "Choose profile avatar",
+      ),
+      avatar,
+    );
+    await user.click(
+      screen.getByRole("button", {
+        name: "Cancel avatar change",
+      }),
+    );
+
+    expect(
+      screen.queryByText("Ready to save"),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", {
+        name: "Save all changes",
+      }),
+    ).not.toBeInTheDocument();
+    expect(
+      vi.mocked(globalThis.fetch).mock.calls,
+    ).toHaveLength(1);
+  });
+
+  it("falls back to initials when protected avatar images fail to load", async () => {
+    mockJsonResponse({
+      ...currentUserResponse,
+      profile_picture:
+        "/api/accounts/users/47/profile-picture/",
+    });
+
+    renderPage();
+
+    await screen.findByText(
+      "Major Sarah Chen",
+    );
+    const avatarImages = screen.getAllByRole(
+      "img",
+    );
+    expect(avatarImages).toHaveLength(3);
+
+    avatarImages.forEach((image) => {
+      fireEvent.error(image);
+    });
+
+    await waitFor(() => {
+      expect(
+        screen.queryAllByRole("img"),
+      ).toHaveLength(0);
+    });
+    expect(
+      screen.getAllByText("SC").length,
+    ).toBeGreaterThan(0);
+  });
+
+  it("clears a stale avatar API error after selecting another file", async () => {
+    const user = userEvent.setup();
+    const firstAvatar = new File(
+      ["first"],
+      "first.png",
+      { type: "image/png" },
+    );
+    const replacementAvatar = new File(
+      ["replacement"],
+      "replacement.png",
+      { type: "image/png" },
+    );
+
+    mockJsonResponse(currentUserResponse);
+    mockJsonResponse(
+      {
+        profile_picture: [
+          "The selected image could not be processed.",
+        ],
+      },
+      400,
+    );
+
+    renderPage();
+
+    await screen.findByText(
+      "Major Sarah Chen",
+    );
+    const fileInput = screen.getByLabelText(
+      "Choose profile avatar",
+    );
+    await user.upload(fileInput, firstAvatar);
+    await user.click(
+      screen.getByRole("button", {
+        name: "Save all changes",
+      }),
+    );
+
+    expect(
+      await screen.findByText(
+        "The selected image could not be processed.",
+      ),
+    ).toBeInTheDocument();
+
+    await user.upload(
+      fileInput,
+      replacementAvatar,
+    );
+
+    expect(
+      screen.queryByText(
+        "The selected image could not be processed.",
+      ),
+    ).not.toBeInTheDocument();
   });
 
   it("shows incorrect current password error", async () => {
@@ -442,7 +688,7 @@ describe("MyProfilePage", () => {
     );
     await user.click(
       screen.getByRole("button", {
-        name: "Save Changes",
+        name: "Save all changes",
       }),
     );
 
@@ -471,8 +717,11 @@ describe("MyProfilePage", () => {
     const user = userEvent.setup();
     mockJsonResponse(currentUserResponse);
     mockJsonResponse(
-      { detail: "Session expired." },
-      401,
+      {
+        detail:
+          "Authentication credentials were not provided.",
+      },
+      403,
     );
 
     renderPage();
@@ -496,12 +745,50 @@ describe("MyProfilePage", () => {
     ).toBeInTheDocument();
   });
 
+  it("redirects to required password change when the backend enforces it", async () => {
+    const user = userEvent.setup();
+    mockJsonResponse(currentUserResponse);
+    mockJsonResponse(
+      {
+        detail:
+          "Password change is required before accessing this resource.",
+        code: "password_change_required",
+      },
+      403,
+    );
+
+    renderPage();
+
+    await screen.findByText(
+      "Major Sarah Chen",
+    );
+    await user.click(
+      screen.getByRole("button", {
+        name: "Edit Profile",
+      }),
+    );
+    await user.click(
+      screen.getByRole("button", {
+        name: "Save Changes",
+      }),
+    );
+
+    expect(
+      await screen.findByText(
+        "Password change required",
+      ),
+    ).toBeInTheDocument();
+  });
+
   it("redirects to login when password change loses the session", async () => {
     const user = userEvent.setup();
     mockJsonResponse(currentUserResponse);
     mockJsonResponse(
-      { detail: "Session expired." },
-      401,
+      {
+        detail:
+          "Authentication credentials were not provided.",
+      },
+      403,
     );
 
     renderPage();
@@ -575,7 +862,7 @@ describe("MyProfilePage", () => {
       {
         detail: "Authentication credentials were not provided.",
       },
-      401,
+      403,
     );
 
     renderProtectedPage();

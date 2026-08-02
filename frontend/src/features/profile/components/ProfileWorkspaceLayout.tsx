@@ -21,6 +21,7 @@ import type {
 
 import type { CurrentUser } from "../../auth/types/auth";
 import {
+  ProfileAvatarImage,
   RoleBadge,
   UnitChip,
 } from "./ProfilePrimitives";
@@ -319,22 +320,21 @@ export function ProfileWorkspaceLayout({
                 aria-label="Open account menu"
               >
                 <div
-                  className="flex h-6 w-6 items-center justify-center overflow-hidden rounded-full text-xs font-bold"
+                  className="relative flex h-6 w-6 items-center justify-center overflow-hidden rounded-full text-xs font-bold"
                   style={{
                     background:
                       "rgba(200,162,74,.13)",
                     color: "#C8A24A",
                   }}
                 >
-                  {avatarDisplay ? (
-                    <img
-                      src={avatarDisplay}
-                      alt="Profile avatar"
-                      className="h-full w-full object-cover"
-                    />
-                  ) : (
-                    getInitials(currentUser)
-                  )}
+                  <span aria-hidden={Boolean(avatarDisplay)}>
+                    {getInitials(currentUser)}
+                  </span>
+                  <ProfileAvatarImage
+                    source={avatarDisplay}
+                    alt="Profile avatar"
+                    className="absolute inset-0 h-full w-full object-cover"
+                  />
                 </div>
                 <span
                   className="hidden text-xs font-medium sm:block"

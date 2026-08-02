@@ -4,6 +4,7 @@ import {
 
 import type { CurrentUser } from "../../auth/types/auth";
 import {
+  ProfileAvatarImage,
   RoleBadge,
   UnitChip,
 } from "./ProfilePrimitives";
@@ -51,7 +52,7 @@ export function ProfileSummaryHero({
           aria-label="Change avatar"
         >
           <div
-            className="h-[76px] w-[76px] overflow-hidden rounded-full border-2"
+            className="relative h-[76px] w-[76px] overflow-hidden rounded-full border-2"
             style={{
               borderColor:
                 "rgba(200,162,74,.35)",
@@ -59,22 +60,20 @@ export function ProfileSummaryHero({
                 "rgba(200,162,74,.08)",
             }}
           >
-            {avatarDisplay ? (
-              <img
-                src={avatarDisplay}
-                alt="Profile"
-                className="h-full w-full object-cover"
-              />
-            ) : (
-              <div
-                className="flex h-full w-full items-center justify-center text-2xl font-bold"
-                style={{
-                  color: "#C8A24A",
-                }}
-              >
-                {getInitials(currentUser)}
-              </div>
-            )}
+            <div
+              className="flex h-full w-full items-center justify-center text-2xl font-bold"
+              style={{
+                color: "#C8A24A",
+              }}
+              aria-hidden={Boolean(avatarDisplay)}
+            >
+              {getInitials(currentUser)}
+            </div>
+            <ProfileAvatarImage
+              source={avatarDisplay}
+              alt="Profile"
+              className="absolute inset-0 h-full w-full object-cover"
+            />
           </div>
 
           <div

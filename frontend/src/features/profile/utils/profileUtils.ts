@@ -28,10 +28,6 @@ export function getRoleLabel(user: CurrentUser): string {
 }
 
 export function getUnitLabel(user: CurrentUser): string {
-  if (user.unit_name && user.unit_code) {
-    return `${user.unit_name}`;
-  }
-
   if (user.unit_name) {
     return user.unit_name;
   }

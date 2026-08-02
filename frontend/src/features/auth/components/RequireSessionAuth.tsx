@@ -8,13 +8,15 @@ import {
 } from "react-router";
 
 import {
-  ApiError,
   isAbortError,
 } from "../api/apiClient";
 import { getCurrentUser } from "../api/authApi";
 import { AuthAlert } from "./AuthAlert";
 import type { CurrentUser } from "../types/auth";
-import { getFormError } from "../utils/authErrors";
+import {
+  getFormError,
+  isSessionAuthenticationError,
+} from "../utils/authErrors";
 
 export function RequireSessionAuth({
   children,
@@ -74,10 +76,7 @@ export function RequireSessionAuth({
           return;
         }
 
-        if (
-          error instanceof ApiError &&
-          error.status === 401
-        ) {
+        if (isSessionAuthenticationError(error)) {
           navigate("/login", {
             replace: true,
           });

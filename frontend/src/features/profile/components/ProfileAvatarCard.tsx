@@ -14,6 +14,9 @@ import { getInitials } from "../utils/profileUtils";
 import {
   AlertBanner,
   Card,
+  PrimaryButton,
+  ProfileAvatarImage,
+  SecondaryButton,
 } from "./ProfilePrimitives";
 
 export function ProfileAvatarCard({
@@ -22,6 +25,7 @@ export function ProfileAvatarCard({
   avatarState,
   avatarError,
   profilePictureError,
+  saving,
   fileInputRef,
   onRemoveAvatar,
   onAvatarDrop,
@@ -31,12 +35,15 @@ export function ProfileAvatarCard({
   onDismissAvatarError,
   onDismissProfilePictureError,
   onOpenFilePicker,
+  onSave,
+  onCancel,
 }: {
   currentUser: CurrentUser;
   avatarDisplay: string | null;
   avatarState: AvatarState;
   avatarError: string;
   profilePictureError?: string;
+  saving: boolean;
   fileInputRef: RefObject<HTMLInputElement | null>;
   onRemoveAvatar: () => void;
   onAvatarDrop: (
@@ -52,35 +59,35 @@ export function ProfileAvatarCard({
   onDismissAvatarError: () => void;
   onDismissProfilePictureError: () => void;
   onOpenFilePicker: () => void;
+  onSave: () => void;
+  onCancel: () => void;
 }) {
   return (
     <Card id="avatar" title="Avatar">
       <div className="flex flex-col items-start gap-6 sm:flex-row">
         <div className="flex flex-shrink-0 flex-col items-center gap-2">
           <div
-            className="flex h-24 w-24 items-center justify-center overflow-hidden rounded-full border-2"
+            className="relative flex h-24 w-24 items-center justify-center overflow-hidden rounded-full border-2"
             style={{
               borderColor:
                 "rgba(200,162,74,.3)",
               background: "#1A2233",
             }}
           >
-            {avatarDisplay ? (
-              <img
-                src={avatarDisplay}
-                alt="Avatar"
-                className="h-full w-full object-cover"
-              />
-            ) : (
-              <span
-                className="text-2xl font-bold"
-                style={{
-                  color: "#C8A24A",
-                }}
-              >
-                {getInitials(currentUser)}
-              </span>
-            )}
+            <span
+              className="text-2xl font-bold"
+              style={{
+                color: "#C8A24A",
+              }}
+              aria-hidden={Boolean(avatarDisplay)}
+            >
+              {getInitials(currentUser)}
+            </span>
+            <ProfileAvatarImage
+              source={avatarDisplay}
+              alt="Avatar"
+              className="absolute inset-0 h-full w-full object-cover"
+            />
           </div>
 
           {avatarDisplay ? (
@@ -132,38 +139,7 @@ export function ProfileAvatarCard({
             }}
             aria-label="Upload profile avatar"
           >
-            {avatarState === "uploading" ? (
-              <div className="flex flex-col items-center gap-2">
-                <svg
-                  className="h-6 w-6 animate-spin"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                >
-                  <circle
-                    className="opacity-25"
-                    cx="12"
-                    cy="12"
-                    r="10"
-                    stroke="#C8A24A"
-                    strokeWidth="4"
-                  />
-                  <path
-                    className="opacity-75"
-                    fill="#C8A24A"
-                    d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
-                  />
-                </svg>
-                <span
-                  className="text-xs"
-                  style={{
-                    color: "#8A94A6",
-                  }}
-                >
-                  Uploading...
-                </span>
-              </div>
-            ) : avatarState ===
-              "success" ? (
+            {avatarState === "success" ? (
               <div className="flex flex-col items-center gap-2">
                 <CheckCircle
                   size={24}
@@ -220,6 +196,7 @@ export function ProfileAvatarCard({
             <input
               ref={fileInputRef}
               type="file"
+              aria-label="Choose profile avatar"
               accept="image/jpeg,image/png,image/webp"
               className="hidden"
               onChange={onAvatarInputChange}
@@ -242,6 +219,33 @@ export function ProfileAvatarCard({
                 onDismissProfilePictureError
               }
             />
+          ) : null}
+
+          {avatarState === "success" ? (
+            <div
+              className="flex flex-wrap gap-3 border-t pt-4"
+              style={{
+                borderColor:
+                  "rgba(255,255,255,.07)",
+              }}
+            >
+              <PrimaryButton
+                onClick={onSave}
+                loading={saving}
+                disabled={saving}
+              >
+                {saving
+                  ? "Saving..."
+                  : "Save all changes"}
+              </PrimaryButton>
+              {!saving ? (
+                <SecondaryButton
+                  onClick={onCancel}
+                >
+                  Cancel avatar change
+                </SecondaryButton>
+              ) : null}
+            </div>
           ) : null}
 
           <p

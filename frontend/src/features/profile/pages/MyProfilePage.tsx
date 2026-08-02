@@ -15,7 +15,6 @@ import {
 } from "react-router";
 
 import {
-  ApiError,
   isAbortError,
 } from "../../auth/api/apiClient";
 import {
@@ -27,6 +26,8 @@ import { AuthAlert } from "../../auth/components/AuthAlert";
 import {
   getApiFieldError,
   getFormError,
+  isPasswordChangeRequiredError,
+  isSessionAuthenticationError,
 } from "../../auth/utils/authErrors";
 import type { CurrentUser } from "../../auth/types/auth";
 import { updateCurrentUserProfile } from "../api/profileApi";
@@ -152,6 +153,8 @@ export function MyProfilePage({
     useRef<HTMLInputElement>(null);
   const currentPasswordRef =
     useRef<HTMLInputElement>(null);
+  const avatarOpenedProfileEditRef =
+    useRef(false);
 
   useEffect(() => {
     if (!userMenuOpen) {
@@ -221,10 +224,7 @@ export function MyProfilePage({
           return;
         }
 
-        if (
-          error instanceof ApiError &&
-          error.status === 401
-        ) {
+        if (isSessionAuthenticationError(error)) {
           navigate("/login", {
             replace: true,
           });
@@ -356,11 +356,62 @@ export function MyProfilePage({
     setAvatarRemoved(false);
     setAvatarError("");
     setAvatarState("idle");
+    clearProfilePictureError();
+  }
+
+  function profileFieldsAreUnchanged() {
+    if (!currentUser) {
+      return true;
+    }
+
+    const persistedForm =
+      getProfileFormState(currentUser);
+
+    return (
+      profileForm.firstName ===
+        persistedForm.firstName &&
+      profileForm.lastName ===
+        persistedForm.lastName &&
+      profileForm.rank === persistedForm.rank &&
+      profileForm.contact ===
+        persistedForm.contact
+    );
+  }
+
+  function cancelAvatarChange() {
+    const shouldCloseProfileEdit =
+      avatarOpenedProfileEditRef.current &&
+      profileFieldsAreUnchanged();
+
+    resetAvatarSelection();
+    avatarOpenedProfileEditRef.current = false;
+
+    if (shouldCloseProfileEdit) {
+      setProfileMode("read");
+    }
+  }
+
+  function closeAvatarOwnedEditAfterInvalidFile() {
+    if (
+      avatarOpenedProfileEditRef.current &&
+      profileFieldsAreUnchanged()
+    ) {
+      setProfileMode("read");
+    }
+
+    avatarOpenedProfileEditRef.current = false;
+  }
+
+  function clearProfilePictureError() {
+    setProfileErrors((current) => ({
+      ...current,
+      profile_picture: "",
+    }));
   }
 
   function handleAvatarRemoval() {
     if (avatarFile) {
-      resetAvatarSelection();
+      cancelAvatarChange();
       return;
     }
 
@@ -370,7 +421,11 @@ export function MyProfilePage({
 
     setAvatarRemoved(true);
     setAvatarError("");
+    clearProfilePictureError();
     setAvatarState("success");
+    if (profileMode === "read") {
+      avatarOpenedProfileEditRef.current = true;
+    }
     setProfileMode("edit");
     setProfileBanner(null);
   }
@@ -378,10 +433,14 @@ export function MyProfilePage({
   function redirectExpiredSession(
     error: unknown,
   ): boolean {
-    if (
-      error instanceof ApiError &&
-      error.status === 401
-    ) {
+    if (isPasswordChangeRequiredError(error)) {
+      navigate("/change-password/required", {
+        replace: true,
+      });
+      return true;
+    }
+
+    if (isSessionAuthenticationError(error)) {
       navigate("/login", {
         replace: true,
       });
@@ -400,6 +459,7 @@ export function MyProfilePage({
       getProfileFormState(currentUser),
     );
     resetAvatarSelection();
+    avatarOpenedProfileEditRef.current = false;
     setProfileErrors({});
     setProfileBanner(null);
     setProfileMode("read");
@@ -462,7 +522,7 @@ export function MyProfilePage({
         getProfileFormState(updatedUser),
       );
       resetAvatarSelection();
-      setAvatarState("success");
+      avatarOpenedProfileEditRef.current = false;
       setProfileBanner({
         type: "success",
         message:
@@ -474,7 +534,7 @@ export function MyProfilePage({
         return;
       }
 
-      setProfileErrors({
+      const nextProfileErrors = {
         firstName:
           getApiFieldError(
             error,
@@ -500,14 +560,23 @@ export function MyProfilePage({
             error,
             "profile_picture",
           ) ?? "",
-      });
-      setProfileBanner({
-        type: "error",
-        message: getFormError(
-          error,
-          "We could not save your profile changes.",
-        ),
-      });
+      };
+      const hasFieldErrors = Object.values(
+        nextProfileErrors,
+      ).some(Boolean);
+
+      setProfileErrors(nextProfileErrors);
+      setProfileBanner(
+        hasFieldErrors
+          ? null
+          : {
+              type: "error",
+              message: getFormError(
+                error,
+                "We could not save your profile changes.",
+              ),
+            },
+      );
       setProfileMode("edit");
     }
   }
@@ -614,31 +683,39 @@ export function MyProfilePage({
     ]);
 
     if (!allowed.has(file.type)) {
+      setAvatarFile(null);
+      setAvatarRemoved(false);
       setAvatarState("error");
+      clearProfilePictureError();
       setAvatarError(
         "Invalid file type. Accepted: JPG, PNG, WEBP.",
       );
+      closeAvatarOwnedEditAfterInvalidFile();
       return;
     }
 
     if (file.size > 5 * 1024 * 1024) {
+      setAvatarFile(null);
+      setAvatarRemoved(false);
       setAvatarState("error");
+      clearProfilePictureError();
       setAvatarError(
         "File too large. Maximum size is 5 MB.",
       );
+      closeAvatarOwnedEditAfterInvalidFile();
       return;
     }
 
     setAvatarError("");
+    clearProfilePictureError();
     setAvatarRemoved(false);
-    setAvatarState("uploading");
+    setAvatarFile(file);
+    setAvatarState("success");
+    if (profileMode === "read") {
+      avatarOpenedProfileEditRef.current = true;
+    }
     setProfileMode("edit");
     setProfileBanner(null);
-
-    window.setTimeout(() => {
-      setAvatarFile(file);
-      setAvatarState("success");
-    }, 250);
   }
 
   async function handleSignOut() {
@@ -851,6 +928,7 @@ export function MyProfilePage({
               profilePictureError={
                 profileErrors.profile_picture
               }
+              saving={profileSaving}
               fileInputRef={fileInputRef}
               onRemoveAvatar={
                 handleAvatarRemoval
@@ -882,6 +960,8 @@ export function MyProfilePage({
               onOpenFilePicker={() =>
                 fileInputRef.current?.click()
               }
+              onSave={handleProfileSave}
+              onCancel={cancelAvatarChange}
             />
 
             <ProfilePasswordCard
