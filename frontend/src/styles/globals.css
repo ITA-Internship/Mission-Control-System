@@ -1,0 +1,91 @@
+@import "tailwindcss";
+
+@theme {
+  --color-mc-bg: #0b0f14;
+  --color-mc-card: #161d26;
+  --color-mc-field: #1e2733;
+  --color-mc-accent: #c8a24a;
+  --color-mc-accent-hover: #d4ad57;
+  --color-mc-accent-active: #b8922a;
+  --color-mc-warning: #f59e0b;
+  --color-mc-text: #e6eaf0;
+  --color-mc-muted: #8a94a6;
+  --color-mc-subtle: #4a5568;
+  --color-mc-error: #e5484d;
+  --color-mc-success: #3fb950;
+}
+
+:root {
+  color-scheme: dark;
+  font-family:
+    Inter,
+    "IBM Plex Sans",
+    system-ui,
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    sans-serif;
+  color: var(--color-mc-text);
+  background-color: var(--color-mc-bg);
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  min-width: 320px;
+  background-color: var(--color-mc-bg);
+}
+
+body {
+  min-width: 320px;
+  min-height: 100vh;
+  margin: 0;
+}
+
+#root {
+  min-height: 100vh;
+}
+
+button,
+input {
+  font: inherit;
+}
+
+input:-webkit-autofill,
+input:-webkit-autofill:hover,
+input:-webkit-autofill:focus {
+  -webkit-text-fill-color: var(--color-mc-text);
+  caret-color: var(--color-mc-text);
+  -webkit-box-shadow:
+    0 0 0 1000px var(--color-mc-field) inset;
+  box-shadow:
+    0 0 0 1000px var(--color-mc-field) inset;
+}
+
+.auth-background {
+  position: absolute;
+  z-index: -1;
+  inset: 0;
+  background-color: var(--color-mc-bg);
+  background-image:
+    radial-gradient(
+      ellipse 80% 60% at 50% 40%,
+      rgb(200 162 74 / 4%) 0%,
+      transparent 70%
+    ),
+    linear-gradient(rgb(200 162 74 / 3.5%) 1px, transparent 1px),
+    linear-gradient(
+      90deg,
+      rgb(200 162 74 / 3.5%) 1px,
+      transparent 1px
+    );
+  background-size:
+    auto,
+    40px 40px,
+    40px 40px;
+  background-position: center;
+}

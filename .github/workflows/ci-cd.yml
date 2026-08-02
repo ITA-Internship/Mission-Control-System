@@ -9,6 +9,7 @@ on:
 jobs:
   linting:
     runs-on: ubuntu-latest
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -66,16 +67,124 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
+          pip install coverage
 
-      - name: Run Tests
+      - name: Run Django deployment security checks
+        env:
+          DEBUG: "False"
+          DJANGO_SECRET_KEY: >-
+            ci-only-deployment-check-key-7f3a91c5e8d24b6fa0472c59bfe8a102
+          ALLOWED_HOSTS: "api.example.com"
+          CSRF_TRUSTED_ORIGINS: "https://api.example.com"
+          SESSION_COOKIE_SECURE: "True"
+          CSRF_COOKIE_SECURE: "True"
+          SECURE_SSL_REDIRECT: "True"
+          SECURE_HSTS_SECONDS: "31536000"
+          SECURE_HSTS_INCLUDE_SUBDOMAINS: "True"
+          SECURE_HSTS_PRELOAD: "True"
+        run: python manage.py check --deploy --tag security --fail-level WARNING
+
+      - name: Run Tests with coverage
         run: |
-          python manage.py test
+          coverage run manage.py test
+          coverage report
+          coverage xml
 
+      - name: Enforce coverage threshold
+        run: coverage report --fail-under=60
+
+      - name: Upload coverage report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: coverage.xml
+
+  security:
+    name: Dependency & SAST Scan
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+          cache: "pip"
+
+      - name: Install scanning tools
+        run: |
+          python -m pip install --upgrade pip
+          pip install pip-audit bandit
+
+      - name: Run pip-audit (dependency CVEs)
+        run: pip-audit -r requirements.txt
+
+      - name: Run bandit (SAST)
+        run: bandit -r . -c pyproject.toml -f screen
+
+  secret-scan:
+    name: Secret Scanning (gitleaks)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install and run Gitleaks
+        run: |
+          wget https://github.com/gitleaks/gitleaks/releases/download/v8.18.2/gitleaks_8.18.2_linux_x64.tar.gz
+          tar -zxvf gitleaks_8.18.2_linux_x64.tar.gz
+          ./gitleaks detect --verbose --redact
+
+  frontend-checks:
+    name: Frontend Verification
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: frontend
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: "npm"
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install frontend dependencies
+        run: npm ci
+
+      - name: Run ESLint
+        run: npm run lint
+
+      - name: Run TypeScript checks
+        run: npm run typecheck
+
+      - name: Run frontend tests
+        run: npm run test
+
+      - name: Build frontend
+        run: npm run build
 
   build-verify:
     name: Build Verification
-    needs: [linting, unit-tests]
+    needs:
+      - linting
+      - unit-tests
+      - frontend-checks
+      - security
+      - secret-scan
     runs-on: ubuntu-latest
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -90,28 +199,36 @@ jobs:
           push: false
           tags: django-app:ci-test
 
+      - name: Test frontend Nginx build
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: deploy/nginx/Dockerfile
+          push: false
+          tags: mission-control-nginx:ci-test
+
   deploy:
     name: Deploy to target Environment
     needs: build-verify
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     runs-on: ubuntu-latest
+
     steps:
-        - name: Checkout code
-          uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-        - name: Environment Validation Check
-          run: |
-            echo "Checking environment requirements before deployment..."
-            # If the server doesn't exist yet, we simply check for the presence of the secret for SSH.
-            if [ -z "${{ secrets.PROD_SSH_KEY }}" ]; then
-              echo "Warning: PROD_SSH_KEY secret is not set. Real deployment is skipped."
-            fi
+      - name: Environment Validation Check
+        run: |
+          echo "Checking environment requirements before deployment..."
+          if [ -z "${{ secrets.PROD_SSH_KEY }}" ]; then
+            echo "Warning: PROD_SSH_KEY secret is not set. Real deployment is skipped."
+          fi
 
-        - name: Deployment Foundation
-          run: |
-            echo "Executing deployment steps for the target environment..."
-            echo "Example script:"
-            echo "ssh user@production-server 'cd /var/www/app && \
-              git pull origin main && \
-              bash deploy/scripts/check_env.sh && \
-              docker-compose up -d --build'"
+      - name: Deployment Foundation
+        run: |
+          echo "Executing deployment steps for the target environment..."
+          echo "Example script:"
+          echo "ssh user@production-server 'cd /var/www/app && \
+            git pull origin main && \
+            bash deploy/scripts/check_env.sh && \
+            docker-compose up -d --build'"

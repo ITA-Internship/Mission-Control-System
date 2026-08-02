@@ -19,6 +19,7 @@ from .factories import (
     CommanderUserFactory,
     DispatcherUserFactory,
     DroneFactory,
+    MilitaryUnitFactory,
     MissionDroneFactory,
     MissionFactory,
     OperatorUserFactory,
@@ -620,6 +621,7 @@ class MissionCreateTests(APITestCase):
         self.operator = OperatorUserFactory()
         self.viewer = ViewerUserFactory()
         self.commander = CommanderUserFactory()
+        self.unit = MilitaryUnitFactory()
 
         self.url = reverse("missions:mission-list-create")
 
@@ -627,6 +629,7 @@ class MissionCreateTests(APITestCase):
             "title": "Recon Sweep",
             "started_at": _future_datetime(2).isoformat(),
             "location_description": "Sector 7",
+            "unit_id": self.unit.id,
         }
 
     def test_dispatcher_can_create_mission(self):
@@ -642,6 +645,7 @@ class MissionCreateTests(APITestCase):
         self.assertEqual(mission.location_description, "Sector 7")
         self.assertEqual(mission.created_by, self.dispatcher)
         self.assertEqual(mission.status, "planned")
+        self.assertEqual(mission.unit, self.unit)
 
     def test_admin_can_create_mission(self):
         self.client.force_authenticate(self.admin)
@@ -659,6 +663,7 @@ class MissionCreateTests(APITestCase):
             "started_at": _future_datetime(2).isoformat(),
             "latitude": "50.450001",
             "longitude": "30.523333",
+            "unit_id": self.unit.id,
         }
 
         response = self.client.post(self.url, payload, format="json")
@@ -667,6 +672,21 @@ class MissionCreateTests(APITestCase):
         mission = Mission.objects.get()
         self.assertEqual(str(mission.latitude), "50.450001")
         self.assertEqual(str(mission.longitude), "30.523333")
+
+    def test_create_response_includes_unit_brief(self):
+        self.client.force_authenticate(self.dispatcher)
+
+        response = self.client.post(self.url, self.valid_payload, format="json")
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(
+            response.data["unit"],
+            {
+                "id": self.unit.id,
+                "name": self.unit.name,
+                "code": self.unit.code,
+            },
+        )
 
     def test_create_with_commander_id(self):
         self.client.force_authenticate(self.dispatcher)
@@ -727,6 +747,18 @@ class MissionCreateTests(APITestCase):
 
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertIn("title", response.data)
+
+    def test_missing_unit_id_rejected(self):
+        self.client.force_authenticate(self.dispatcher)
+
+        payload = {
+            key: val for key, val in self.valid_payload.items() if key != "unit_id"
+        }
+
+        response = self.client.post(self.url, payload, format="json")
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("unit_id", response.data)
 
     def test_blank_title_rejected(self):
         self.client.force_authenticate(self.dispatcher)
@@ -800,8 +832,11 @@ class MissionCreateTests(APITestCase):
 class MissionAssignmentAccessTests(APITestCase):
     def setUp(self):
         self.dispatcher = DispatcherUserFactory()
-        self.viewer = ViewerUserFactory()
-        self.mission = MissionFactory()
+        self.unit = MilitaryUnitFactory()
+        self.other_unit = MilitaryUnitFactory()
+        self.viewer = ViewerUserFactory(unit=self.unit)
+        self.other_viewer = ViewerUserFactory(unit=self.other_unit)
+        self.mission = MissionFactory(unit=self.unit)
         MissionDroneFactory(mission=self.mission)
         self.url = reverse(
             "missions:mission-assignment-list-create",
@@ -826,6 +861,13 @@ class MissionAssignmentAccessTests(APITestCase):
         self.assertEqual(response.data["count"], 1)
         self.assertEqual(len(response.data["results"]), 1)
 
+    def test_viewer_from_other_unit_gets_404(self):
+        self.client.force_authenticate(self.other_viewer)
+
+        response = self.client.get(self.url)
+
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+
 
 class MissionListTests(APITestCase):
     """GET /api/missions/ — list, status filter, pagination."""
@@ -834,7 +876,9 @@ class MissionListTests(APITestCase):
         self.commander = CommanderUserFactory()
         self.dispatcher = DispatcherUserFactory()
         self.operator = OperatorUserFactory()
-        self.viewer = ViewerUserFactory()
+        self.viewer_unit = MilitaryUnitFactory()
+        self.other_unit = MilitaryUnitFactory()
+        self.viewer = ViewerUserFactory(unit=self.viewer_unit)
         self.technician = _create_technician_user()
         self.user_without_role = _create_user_without_role()
 
@@ -884,7 +928,8 @@ class MissionListTests(APITestCase):
         self.assertEqual(response.data["results"][0]["id"], assigned_mission.id)
 
     def test_viewer_can_list_missions(self):
-        MissionFactory()
+        MissionFactory(unit=self.viewer_unit)
+        MissionFactory(unit=self.other_unit)
 
         self.client.force_authenticate(self.viewer)
 
@@ -892,6 +937,18 @@ class MissionListTests(APITestCase):
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.data["count"], 1)
+        self.assertEqual(response.data["results"][0]["unit"]["id"], self.viewer_unit.id)
+
+    def test_viewer_without_unit_cannot_list_missions(self):
+        MissionFactory(unit=self.other_unit)
+        viewer_without_unit = ViewerUserFactory()
+
+        self.client.force_authenticate(viewer_without_unit)
+
+        response = self.client.get(self.url)
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["count"], 0)
 
     def test_filter_by_status(self):
         MissionFactory(status="planned")
@@ -1023,8 +1080,11 @@ class MissionDetailTests(APITestCase):
         self.dispatcher = DispatcherUserFactory()
         self.operator = OperatorUserFactory()
         self.other_operator = OperatorUserFactory()
-        self.viewer = ViewerUserFactory()
-        self.mission = MissionFactory(title="Detail Mission")
+        self.viewer_unit = MilitaryUnitFactory()
+        self.other_unit = MilitaryUnitFactory()
+        self.viewer = ViewerUserFactory(unit=self.viewer_unit)
+        self.other_viewer = ViewerUserFactory(unit=self.other_unit)
+        self.mission = MissionFactory(title="Detail Mission", unit=self.viewer_unit)
         self.technician = _create_technician_user()
         self.user_without_role = _create_user_without_role()
         self.assignment = MissionDroneFactory(
@@ -1074,6 +1134,13 @@ class MissionDetailTests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.data["id"], self.mission.pk)
 
+    def test_viewer_from_other_unit_gets_404(self):
+        self.client.force_authenticate(self.other_viewer)
+
+        response = self.client.get(self.url)
+
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+
     def test_nonexistent_mission_returns_404(self):
         self.client.force_authenticate(self.dispatcher)
 
@@ -1098,9 +1165,10 @@ class MissionAssignmentListCreatePermissionTests(APITestCase):
     def setUp(self):
         self.admin = AdminUserFactory()
         self.dispatcher = DispatcherUserFactory()
-        self.viewer = ViewerUserFactory()
+        self.unit = MilitaryUnitFactory()
+        self.viewer = ViewerUserFactory(unit=self.unit)
         self.operator = OperatorUserFactory()
-        self.mission = MissionFactory()
+        self.mission = MissionFactory(unit=self.unit)
         self.drone = DroneFactory(status=Drone.STATUS_ACTIVE)
 
         self.url = reverse(

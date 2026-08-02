@@ -94,7 +94,7 @@ class DronePermission(BasePermission):
 
 
 class WriteOffHistoryPermission(BasePermission):
-    """Allow read-only write-off history access to staff or authorized users."""
+    """Allow read-only write-off history access to authorized users only."""
 
     message = "You do not have permission to view write-off history."
 
@@ -102,9 +102,6 @@ class WriteOffHistoryPermission(BasePermission):
         """Return whether a user can view write-off history."""
         if not user or not user.is_authenticated:
             return False
-
-        if getattr(user, "is_staff", False):
-            return True
 
         return user_has_permission(user, PERMISSION_WRITEOFF_VIEW)
 

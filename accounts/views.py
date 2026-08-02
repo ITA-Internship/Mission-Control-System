@@ -19,7 +19,7 @@ import os
 import posixpath
 
 from django.conf import settings
-from django.contrib.auth import update_session_auth_hash
+from django.contrib.auth import HASH_SESSION_KEY
 from django.contrib.auth.tokens import default_token_generator
 from django.core.exceptions import ValidationError as DjangoValidationError
 from django.http import FileResponse, Http404, HttpResponse, StreamingHttpResponse
@@ -58,7 +58,10 @@ from .permissions import HasAnyRBACPermission, HasRBACPermission, user_has_permi
 from .rbac import (
     PERMISSION_AUDIT_LOGS_VIEW_ALL,
     PERMISSION_AUDIT_LOGS_VIEW_OWN,
+    PERMISSION_PROFILE_RESET_PASSWORD_OWN,
+    PERMISSION_PROFILE_UPDATE_OWN,
     PERMISSION_PROFILE_VIEW_ANY,
+    PERMISSION_PROFILE_VIEW_OWN,
     PERMISSION_USERS_ACTIVATE_DEACTIVATE,
     PERMISSION_USERS_CREATE,
     PERMISSION_USERS_MANAGE_ROLES,
@@ -371,7 +374,15 @@ class UserMeView(generics.RetrieveUpdateAPIView):
     """Retrieve and update the currently authenticated user's profile."""
 
     serializer_class = UserMeSerializer
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [HasRBACPermission]
+
+    def get_permissions(self):
+        """Resolve the RBAC permission dynamically for read vs write actions."""
+        if self.request.method in permissions.SAFE_METHODS:
+            self.required_permission = PERMISSION_PROFILE_VIEW_OWN
+        else:
+            self.required_permission = PERMISSION_PROFILE_UPDATE_OWN
+        return super().get_permissions()
 
     def get_object(self):
         """Return the currently authenticated user."""
@@ -391,10 +402,11 @@ class UserMeView(generics.RetrieveUpdateAPIView):
         )
 
 
-def invalidate_user_sessions(user):
+def invalidate_user_sessions(user, exclude_session_key=None):
     """Invalidate and delete all active sessions for a given user.
     Args:
         user (User): The user whose sessions should be terminated.
+        exclude_session_key (str): Optional session key to keep (e.g. current request).
     """
     from django.contrib.sessions.models import Session
     from django.utils import timezone
@@ -402,11 +414,17 @@ def invalidate_user_sessions(user):
     from .models import UserSession
 
     tracked = UserSession.objects.filter(user=user)
-    session_keys = list(tracked.values_list("session_key", flat=True))
+    if exclude_session_key:
+        sessions_to_remove = tracked.exclude(session_key=exclude_session_key)
+    else:
+        sessions_to_remove = tracked
 
-    if session_keys:
-        Session.objects.filter(session_key__in=session_keys).delete()
-        tracked.delete()
+    session_keys = list(sessions_to_remove.values_list("session_key", flat=True))
+
+    if tracked.exists():
+        if session_keys:
+            Session.objects.filter(session_key__in=session_keys).delete()
+            sessions_to_remove.delete()
     else:
         # Fallback: scan sessions if UserSession tracking wasn't populated yet
         active_sessions = Session.objects.filter(expire_date__gte=timezone.now())
@@ -418,6 +436,11 @@ def invalidate_user_sessions(user):
             if user_pk_str == str(data.get("_auth_user_id")):
                 keys_to_delete.append(session.session_key)
 
+        if exclude_session_key:
+            keys_to_delete = [
+                key for key in keys_to_delete if key != exclude_session_key
+            ]
+
         if keys_to_delete:
             Session.objects.filter(session_key__in=keys_to_delete).delete()
 
@@ -426,7 +449,8 @@ def invalidate_user_sessions(user):
 class ChangePasswordView(APIView):
     """Handle authenticated password changes."""
 
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [HasRBACPermission]
+    required_permission = PERMISSION_PROFILE_RESET_PASSWORD_OWN
 
     def post(self, request):
         """Verify the old password and set a new password for the user."""
@@ -438,7 +462,10 @@ class ChangePasswordView(APIView):
             user = request.user
             set_user_password(user, serializer.validated_data["new_password"])
 
-            update_session_auth_hash(request, user)
+            current_session_key = request.session.session_key
+            invalidate_user_sessions(user, exclude_session_key=current_session_key)
+            request.session[HASH_SESSION_KEY] = user.get_session_auth_hash()
+            request.session.save()
 
             create_audit_log(
                 actor=user,
@@ -545,6 +572,8 @@ class PasswordResetConfirmView(APIView):
                 recipient_list=[user.email],
             )
 
+            invalidate_user_sessions(user)
+
             create_audit_log(
                 actor=user,
                 action_type=AuditLog.ActionType.PASSWORD_CHANGED,
@@ -579,7 +608,8 @@ class PasswordResetConfirmView(APIView):
 class ProtectedProfilePictureView(APIView):
     """Serve profile picture securely."""
 
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [HasRBACPermission]
+    required_permission = PERMISSION_PROFILE_VIEW_OWN
 
     def get(self, request, user_id):
         """Return the user's profile picture if the requester has permission.

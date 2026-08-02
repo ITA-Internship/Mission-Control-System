@@ -10,7 +10,7 @@ import posixpath
 
 from django.conf import settings
 from django.db import transaction
-from django.db.models import ProtectedError, Q
+from django.db.models import ProtectedError
 from django.http import FileResponse, Http404, HttpResponse, HttpResponseForbidden
 from django.shortcuts import get_object_or_404
 from django.utils.dateparse import parse_date
@@ -28,8 +28,8 @@ from rest_framework.views import APIView
 from accounts.permissions import get_user_role_code
 from common.pagination import StandardResultsSetPagination
 from missions.models import Mission
-from missions.views import restrict_missions_for_user
-from roles.models import ADMIN_CODE
+from missions.permissions import restrict_missions_for_user
+from roles.models import OPERATOR_CODE
 
 from .api_details import (
     artifact_detail_delete_schema,
@@ -71,29 +71,7 @@ from .tasks import extract_video_duration_task
 logger = logging.getLogger(__name__)
 
 
-def scope_video_metadata_for_user(queryset, user):
-    """Restrict a ``VideoMetadata`` queryset to what ``user`` may view.
-
-    Mirrors ``MediaViewPermission._check_object`` for videos: admins see
-    everything; everyone else sees videos they uploaded plus videos captured by
-    a drone belonging to their own unit. Users without a unit only see their own
-    uploads. Applied before any request-supplied filters so listing can never
-    expose videos the caller is not authorized to retrieve.
-
-    A video's unit is reached through its drone (``drone__military_unit``);
-    ``Mission`` itself carries no unit, so it cannot be used for scoping.
-    """
-    if get_user_role_code(user) == ADMIN_CODE:
-        return queryset
-
-    scope = Q(uploader_id=user.id)
-    unit_id = getattr(user, "unit_id", None)
-    if unit_id is not None:
-        scope |= Q(drone__military_unit_id=unit_id)
-    return queryset.filter(scope)
-
-
-def filter_video_metadata_queryset(params, queryset=None, user=None):
+def filter_video_metadata_queryset(params, queryset=None):
     """Apply functional parameter matrices against a VideoMetadata base queryset.
 
     Parses, casts, and sanitizes input data signatures (IDs, enumerations,
@@ -101,16 +79,16 @@ def filter_video_metadata_queryset(params, queryset=None, user=None):
     """
     qs = (
         queryset
-        or VideoMetadata.objects.select_related("mission", "drone", "uploader").all()
+        if queryset is not None
+        else VideoMetadata.objects.select_related(
+            "mission", "drone", "uploaded_by"
+        ).all()
     )
-
-    if user is not None:
-        qs = scope_video_metadata_for_user(qs, user)
 
     for param_names, field in (
         (("mission_id", "mission"), "mission_id"),
         (("drone_id", "drone"), "drone_id"),
-        (("uploader_id", "uploader"), "uploader_id"),
+        (("uploaded_by_id", "uploaded_by"), "uploaded_by_id"),
     ):
         value = None
         for param in param_names:
@@ -153,9 +131,14 @@ class _MissionArtifactMixin:
         """Extract the target mission matching the primary key
         specified in the URL path."""
         if not hasattr(self, "_mission"):
-            queryset = restrict_missions_for_user(
-                Mission.objects.all(), self.request.user
-            )
+            queryset = Mission.objects.all()
+            # Operators get anti-IDOR treatment at the mission boundary:
+            # an unassigned mission should resolve to 404 before media object
+            # permissions are evaluated. Other roles resolve the mission first
+            # and then rely on object-level media visibility checks.
+            if get_user_role_code(self.request.user) == OPERATOR_CODE:
+                queryset = restrict_missions_for_user(queryset, self.request.user)
+
             self._mission = generics.get_object_or_404(
                 queryset, id=self.kwargs["mission_pk"]
             )
@@ -183,8 +166,18 @@ class ArtifactListCreateView(_MissionArtifactMixin, generics.ListCreateAPIView):
         return MissionArtifactUploadSerializer
 
     def get_queryset(self):
-        """Return mission artifacts related to the target mission."""
-        mission = self.get_mission()
+        mission_queryset = Mission.objects.all()
+        if self.request.method in permissions.SAFE_METHODS:
+            # Keep mission-derived artifact listings aligned with mission
+            # visibility so viewers only see media for missions they may read.
+            mission_queryset = restrict_missions_for_user(
+                mission_queryset,
+                self.request.user,
+            )
+        mission = generics.get_object_or_404(
+            mission_queryset,
+            id=self.kwargs["mission_pk"],
+        )
         return MissionArtifact.objects.filter(mission=mission).select_related(
             "uploaded_by"
         )
@@ -269,10 +262,11 @@ class ProtectedMediaView(APIView):
     def get(self, request, mission_pk, artifact_pk):
         """Authorize the download request and return the file
         or Nginx redirect response."""
-        allowed_missions = restrict_missions_for_user(
-            Mission.objects.all(), request.user
-        )
-        get_object_or_404(allowed_missions, pk=mission_pk)
+        if get_user_role_code(request.user) == OPERATOR_CODE:
+            allowed_missions = restrict_missions_for_user(
+                Mission.objects.all(), request.user
+            )
+            get_object_or_404(allowed_missions, pk=mission_pk)
 
         artifact = get_object_or_404(
             MissionArtifact, pk=artifact_pk, mission_id=mission_pk
@@ -358,7 +352,7 @@ class VideoMetadataViewSet(viewsets.ModelViewSet):
     """List, create, update and delete video metadata."""
 
     queryset = VideoMetadata.objects.select_related(
-        "mission", "drone", "uploader"
+        "mission", "drone", "uploaded_by"
     ).all()
     permission_classes = [permissions.IsAuthenticated]
     parser_classes = [parsers.MultiPartParser, parsers.FormParser, parsers.JSONParser]
@@ -372,11 +366,16 @@ class VideoMetadataViewSet(viewsets.ModelViewSet):
         return VideoMetadataSerializer
 
     def get_queryset(self):
-        """Return a filtered list of video metadata entries."""
+        queryset = super().get_queryset()
+        if self.action == "list":
+            visible_missions = restrict_missions_for_user(
+                Mission.objects.all(),
+                self.request.user,
+            ).values("id")
+            queryset = queryset.filter(mission_id__in=visible_missions)
         return filter_video_metadata_queryset(
             self.request.query_params,
-            queryset=super().get_queryset(),
-            user=self.request.user,
+            queryset=queryset,
         )
 
     def get_permissions(self):
@@ -394,7 +393,7 @@ class VideoMetadataViewSet(viewsets.ModelViewSet):
     def perform_create(self, serializer):
         """Extract video duration and save video metadata."""
         instance = serializer.save(
-            uploader=self.request.user,
+            uploaded_by=self.request.user,
             status=VideoMetadata.Status.UPLOADING,
         )
 
@@ -453,9 +452,17 @@ class VideoMetadataBrowserView(TemplateView):
             return context
 
         try:
+            visible_missions = restrict_missions_for_user(
+                Mission.objects.all(),
+                self.request.user,
+            ).values("id")
             context["videos"] = filter_video_metadata_queryset(
                 self.request.GET,
-                user=self.request.user,
+                queryset=VideoMetadata.objects.select_related(
+                    "mission",
+                    "drone",
+                    "uploaded_by",
+                ).filter(mission_id__in=visible_missions),
             ).order_by("-created_at")
         except ValidationError as exc:
             if isinstance(exc.detail, dict):

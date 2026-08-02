@@ -42,7 +42,11 @@ artifact_get_schema = description_schema(
     tags=["media"],
     summary="List all artifacts for a specific mission",
     description=(
-        "Retrieves a paginated list of artifacts associated with a given mission."
+        "Retrieves a paginated list of artifacts associated with a given mission. "
+        "Mission-derived media access is scoped by mission visibility rules: "
+        "viewers may only access artifacts for missions belonging to their own "
+        "unit, and technicians may only access artifacts for missions tied to "
+        "repair or write-off workflow."
     ),
     permission_code="PERMISSION_MEDIA_VIEW",
     parameters=[
@@ -135,7 +139,11 @@ artifact_detail_get_schema = description_schema(
     tags=["media"],
     summary="Retrieve specific artifact details",
     description=(
-        "Retrieves detailed information for a single mission artifact by its ID."
+        "Retrieves detailed information for a single mission artifact by its ID. "
+        "Mission-derived media access is scoped by mission visibility rules: "
+        "viewers may only access artifacts for missions belonging to their own "
+        "unit, and technicians may only access artifacts for missions tied to "
+        "repair or write-off workflow."
     ),
     permission_code="PERMISSION_MEDIA_VIEW",
     parameters=[
@@ -204,9 +212,12 @@ protected_media_get_schema = description_schema(
     description=(
         "Returns the binary file for a mission artifact as an attachment. In "
         "production the file is delivered through a protected `X-Accel-Redirect` "
-        "internal redirect; in debug mode the file is streamed directly. Access is "
-        "restricted to administrators, the uploader, or users belonging to the "
-        "artifact mission's unit.\n\n"
+        "internal redirect; in debug mode the file is streamed directly. Access "
+        "follows mission visibility rules: administrators and uploaders may "
+        "always access the file, while other users must be allowed to view the "
+        "underlying mission resource. For example, viewers are limited to their "
+        "own unit's missions, and technicians are limited to repair- or "
+        "write-off-related missions.\n\n"
         "Returns 404 if the artifact does not exist or the stored file is missing "
         "from the server."
     ),
@@ -361,8 +372,8 @@ video_metadata_example_value = {
     "id": 3,
     "mission": 11,
     "drone": 21,
-    "uploader": 24,
-    "uploader_username": "oleksandr.koval",
+    "uploaded_by": 24,
+    "uploaded_by_username": "oleksandr.koval",
     "file": "http://localhost:8000/media/videos/mission_11/recon.mp4",
     "file_name": "recon.mp4",
     "file_size": 20984320,
@@ -381,7 +392,11 @@ video_metadata_list_schema = description_schema(
     summary="List video metadata records",
     description=(
         "Retrieves a paginated list of video metadata records. Supports filtering "
-        "by mission, drone, uploader, status, and creation/recording date ranges."
+        "by mission, drone, uploader, status, and creation/recording date ranges. "
+        "Mission-derived media access is scoped by mission visibility rules: "
+        "viewers may only access video records for missions belonging to their "
+        "own unit, and technicians may only access video records for missions "
+        "tied to repair or write-off workflow."
     ),
     permission_code="PERMISSION_MEDIA_VIEW",
     parameters=[
@@ -400,10 +415,10 @@ video_metadata_list_schema = description_schema(
             required=False,
         ),
         OpenApiParameter(
-            name="uploader_id",
+            name="uploaded_by_id",
             type=int,
             location=OpenApiParameter.QUERY,
-            description="Filter by uploader user ID (alias: `uploader`).",
+            description="Filter by uploader user ID (alias: `uploaded_by`).",
             required=False,
         ),
         OpenApiParameter(
@@ -534,7 +549,10 @@ video_metadata_retrieve_schema = description_schema(
     summary="Retrieve a video metadata record",
     description=(
         "Retrieves detailed information about a specific video metadata record "
-        "by its ID."
+        "by its ID. Mission-derived media access is scoped by mission visibility "
+        "rules: viewers may only access video records for missions belonging to "
+        "their own unit, and technicians may only access video records for "
+        "missions tied to repair or write-off workflow."
     ),
     permission_code="PERMISSION_MEDIA_VIEW",
     parameters=[

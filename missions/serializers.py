@@ -12,8 +12,9 @@ from django.db.models import Q
 from django.utils import timezone
 from rest_framework import serializers
 
+from accounts.models import MilitaryUnit
 from accounts.permissions import get_user_role_code
-from common.serializers import UserBriefSerializer
+from common.serializers import MilitaryUnitBriefSerializer, UserBriefSerializer
 from drones.models import Drone, DroneStatusHistory
 from roles.models import COMMANDER_CODE, OPERATOR_CODE
 
@@ -111,6 +112,14 @@ class MissionSerializer(serializers.ModelSerializer):
         write_only=True,
     )
     created_by = UserBriefSerializer(read_only=True)
+    unit = MilitaryUnitBriefSerializer(read_only=True)
+    unit_id = serializers.PrimaryKeyRelatedField(
+        source="unit",
+        queryset=MilitaryUnit.objects.all(),
+        required=True,
+        allow_null=False,
+        write_only=True,
+    )
 
     class Meta:
         model = Mission
@@ -119,6 +128,8 @@ class MissionSerializer(serializers.ModelSerializer):
             "title",
             "commander",
             "commander_id",
+            "unit",
+            "unit_id",
             "status",
             "result",
             "location_description",

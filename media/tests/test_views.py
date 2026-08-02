@@ -19,14 +19,29 @@ from missions.factories import (
     AdminUserFactory,
     CommanderUserFactory,
     DispatcherUserFactory,
+    MilitaryUnitFactory,
     MissionDroneFactory,
     MissionFactory,
     OperatorUserFactory,
     ViewerUserFactory,
 )
-from missions.models import Mission, MissionAuditLog
+from missions.models import Condition, Mission, MissionAuditLog
+from roles.models import TECHNICIAN_CODE, Role
 
 User = get_user_model()
+
+
+def _create_technician_user():
+    technician_role, _ = Role.objects.get_or_create(
+        code=TECHNICIAN_CODE,
+        defaults={"name": "Technician"},
+    )
+    return User.objects.create_user(
+        username="technician_media_user",
+        email="technician_media_user@example.com",
+        password="StrongPassword123!",
+        role=technician_role,
+    )
 
 
 class MissionOperatorSetupMixin:
@@ -51,14 +66,19 @@ class VideoMetadataAPITests(APITestCase):
     def setUp(self):
         """Set up a user, missions, drones, military unit
         and video file for testing."""
-        self.user = User.objects.create_user(
+        self.user = OperatorUserFactory(
             username="operator_travis",
             email="travis@example.com",
-            password="securepassword123",
         )
-        self.mission = Mission.objects.create(title="Test Mission Alpha")
-        self.other_mission = Mission.objects.create(title="Test Mission Beta")
         self.military_unit = MilitaryUnit.objects.create(id=1, name="Unit 101")
+        self.mission = Mission.objects.create(
+            title="Test Mission Alpha",
+            unit=self.military_unit,
+        )
+        self.other_mission = Mission.objects.create(
+            title="Test Mission Beta",
+            unit=self.military_unit,
+        )
         self.drone_model = DroneModel.objects.create(
             name="Mavic 3 Pro",
             manufacturer="DJI",
@@ -229,7 +249,7 @@ class VideoMetadataAPITests(APITestCase):
         VideoMetadata.objects.create(
             mission=self.mission,
             drone=self.drone,
-            uploader=self.user,
+            uploaded_by=self.user,
             file=self.video_file,
             file_name="video_1.mp4",
             file_size=100,
@@ -246,7 +266,7 @@ class VideoMetadataAPITests(APITestCase):
         VideoMetadata.objects.create(
             mission=self.mission,
             drone=self.drone,
-            uploader=self.user,
+            uploaded_by=self.user,
             file=self.video_file,
             file_name="video_1.mp4",
             file_size=100,
@@ -254,7 +274,7 @@ class VideoMetadataAPITests(APITestCase):
         VideoMetadata.objects.create(
             mission=self.other_mission,
             drone=self.other_drone,
-            uploader=self.user,
+            uploaded_by=self.user,
             file=self.video_file,
             file_name="video_2.mp4",
             file_size=200,
@@ -271,7 +291,7 @@ class VideoMetadataAPITests(APITestCase):
         VideoMetadata.objects.create(
             mission=self.mission,
             drone=self.drone,
-            uploader=self.user,
+            uploaded_by=self.user,
             file=self.video_file,
             file_name="video_1.mp4",
             file_size=100,
@@ -279,7 +299,7 @@ class VideoMetadataAPITests(APITestCase):
         VideoMetadata.objects.create(
             mission=self.other_mission,
             drone=self.other_drone,
-            uploader=self.user,
+            uploaded_by=self.user,
             file=SimpleUploadedFile(
                 name="flight_video_4.mp4",
                 content=b"fourth_fake_video_content_bytes",
@@ -300,7 +320,7 @@ class VideoMetadataAPITests(APITestCase):
         VideoMetadata.objects.create(
             mission=self.mission,
             drone=self.drone,
-            uploader=self.user,
+            uploaded_by=self.user,
             file=self.video_file,
             file_name="video_1.mp4",
             file_size=100,
@@ -308,7 +328,7 @@ class VideoMetadataAPITests(APITestCase):
         VideoMetadata.objects.create(
             mission=self.other_mission,
             drone=self.other_drone,
-            uploader=self.user,
+            uploaded_by=self.user,
             file=SimpleUploadedFile(
                 name="flight_video_2.mp4",
                 content=b"other_fake_video_content_bytes",
@@ -329,7 +349,7 @@ class VideoMetadataAPITests(APITestCase):
         VideoMetadata.objects.create(
             mission=self.mission,
             drone=self.drone,
-            uploader=self.user,
+            uploaded_by=self.user,
             file=self.video_file,
             file_name="video_1.mp4",
             file_size=100,
@@ -337,7 +357,7 @@ class VideoMetadataAPITests(APITestCase):
         VideoMetadata.objects.create(
             mission=self.other_mission,
             drone=self.other_drone,
-            uploader=self.user,
+            uploaded_by=self.user,
             file=SimpleUploadedFile(
                 name="flight_video_3.mp4",
                 content=b"third_fake_video_content_bytes",
@@ -359,7 +379,7 @@ class VideoMetadataAPITests(APITestCase):
         VideoMetadata.objects.create(
             mission=self.mission,
             drone=self.drone,
-            uploader=self.user,
+            uploaded_by=self.user,
             file=self.video_file,
             file_name="video_1.mp4",
             file_size=100,
@@ -367,7 +387,7 @@ class VideoMetadataAPITests(APITestCase):
         VideoMetadata.objects.create(
             mission=self.other_mission,
             drone=self.other_drone,
-            uploader=self.user,
+            uploaded_by=self.user,
             file=SimpleUploadedFile(
                 name="flight_video_browser.mp4",
                 content=b"browser_fake_video_content_bytes",
@@ -386,12 +406,9 @@ class VideoMetadataAPITests(APITestCase):
 
     @patch("media.permissions.MediaViewPermission.has_permission", return_value=True)
     def test_list_scopes_videos_to_callers_unit(self, mock_perm):
-        # Regression for C3: a non-admin caller with a unit must see only their
-        # own uploads plus videos captured by a drone in their own unit — never
-        # every video system-wide — and the unit-scoped query must resolve (the
-        # video's unit is reached via drone__military_unit, not the mission).
-        self.user.unit = self.military_unit  # Unit 101; owns self.drone
-        self.user.save(update_fields=["unit"])
+        """Verify that video list visibility follows the mission unit rule."""
+        viewer = ViewerUserFactory(unit=self.military_unit)
+        self.client.force_authenticate(user=viewer)
 
         other_unit = MilitaryUnit.objects.create(id=2, name="Unit 202", code="U202")
         foreign_drone = Drone.objects.create(
@@ -407,21 +424,20 @@ class VideoMetadataAPITests(APITestCase):
         )
         someone_else = OperatorUserFactory()
 
-        # Captured by a drone in the caller's unit, uploaded by someone else:
-        # visible via the unit branch, not the uploader branch.
         VideoMetadata.objects.create(
             mission=self.mission,
             drone=self.drone,
-            uploader=someone_else,
+            uploaded_by=someone_else,
             file=SimpleUploadedFile("in_unit.mp4", b"a", content_type="video/mp4"),
             file_name="in_unit.mp4",
             file_size=10,
         )
-        # Captured by a drone in a foreign unit: must be excluded.
+        self.other_mission.unit = other_unit
+        self.other_mission.save(update_fields=["unit"])
         VideoMetadata.objects.create(
             mission=self.other_mission,
             drone=foreign_drone,
-            uploader=someone_else,
+            uploaded_by=someone_else,
             file=SimpleUploadedFile("foreign.mp4", b"b", content_type="video/mp4"),
             file_name="foreign.mp4",
             file_size=20,
@@ -431,6 +447,149 @@ class VideoMetadataAPITests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         names = {video["file_name"] for video in response.data["results"]}
         self.assertEqual(names, {"in_unit.mp4"})
+
+    @patch("media.permissions.MediaViewPermission.has_permission", return_value=True)
+    def test_uploader_can_retrieve_own_video(self, mock_perm):
+        """Verify that the user who uploaded the video can retrieve its details."""
+        video = VideoMetadata.objects.create(
+            mission=self.mission,
+            drone=self.drone,
+            uploaded_by=self.user,
+            file=self.video_file,
+            file_name="video_1.mp4",
+            file_size=100,
+        )
+
+        detail_url = reverse(
+            "video_media:video-metadata-detail", kwargs={"pk": video.id}
+        )
+        response = self.client.get(detail_url)
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["id"], video.id)
+
+    def test_admin_user_can_retrieve_foreign_video(self):
+        """Verify that an admin user can retrieve any video metadata."""
+        admin_user = AdminUserFactory()
+        self.client.force_authenticate(admin_user)
+
+        video = VideoMetadata.objects.create(
+            mission=self.mission,
+            drone=self.other_drone,
+            uploaded_by=self.user,
+            file=self.video_file,
+            file_name="foreign_video.mp4",
+            file_size=100,
+        )
+
+        detail_url = reverse(
+            "video_media:video-metadata-detail", kwargs={"pk": video.id}
+        )
+        response = self.client.get(detail_url)
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        self.assertEqual(response.data["id"], video.id)
+
+    def test_viewer_without_accessible_missions_gets_empty_video_list(self):
+        """Verify an empty scoped queryset is not widened to the global queryset."""
+        viewer_without_unit = ViewerUserFactory()
+        self.client.force_authenticate(user=viewer_without_unit)
+
+        VideoMetadata.objects.create(
+            mission=self.mission,
+            drone=self.drone,
+            uploaded_by=OperatorUserFactory(),
+            file=SimpleUploadedFile("in_unit.mp4", b"a", content_type="video/mp4"),
+            file_name="in_unit.mp4",
+            file_size=10,
+        )
+
+        response = self.client.get(self.list_url)
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["count"], 0)
+        self.assertEqual(response.data["results"], [])
+
+    def test_viewer_cannot_retrieve_video_from_other_unit(self):
+        """Verify object-level mission visibility also protects video retrieve."""
+        viewer = ViewerUserFactory(unit=self.military_unit)
+        other_unit = MilitaryUnit.objects.create(id=2, name="Unit 202", code="U202")
+        self.other_mission.unit = other_unit
+        self.other_mission.save(update_fields=["unit"])
+        foreign_drone = Drone.objects.create(
+            id=3,
+            name="Mavic Gamma",
+            serial_number="SN-MAVIC-003",
+            inventory_number="INV-DRONE-003",
+            drone_model=self.drone_model,
+            classification="RECONNAISSANCE",
+            status="ACTIVE",
+            military_unit=other_unit,
+            acquired_at=timezone.localdate(),
+        )
+        video = VideoMetadata.objects.create(
+            mission=self.other_mission,
+            drone=foreign_drone,
+            uploaded_by=OperatorUserFactory(),
+            file=SimpleUploadedFile("foreign.mp4", b"b", content_type="video/mp4"),
+            file_name="foreign.mp4",
+            file_size=20,
+        )
+        detail_url = reverse(
+            "video_media:video-metadata-detail",
+            kwargs={"pk": video.pk},
+        )
+
+        self.client.force_authenticate(user=viewer)
+        response = self.client.get(detail_url)
+
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+    @patch("media.permissions.MediaViewPermission.has_permission", return_value=True)
+    def test_technician_with_media_view_gets_empty_video_list(self, mock_perm):
+        """Verify technicians do not receive mission-scoped video list access."""
+        technician = _create_technician_user()
+        self.client.force_authenticate(user=technician)
+
+        VideoMetadata.objects.create(
+            mission=self.mission,
+            drone=self.drone,
+            uploaded_by=OperatorUserFactory(),
+            file=SimpleUploadedFile("in_unit.mp4", b"a", content_type="video/mp4"),
+            file_name="in_unit.mp4",
+            file_size=10,
+        )
+
+        response = self.client.get(self.list_url)
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["count"], 0)
+        self.assertEqual(response.data["results"], [])
+
+    @patch("media.permissions.MediaViewPermission.has_permission", return_value=True)
+    def test_technician_can_list_videos_for_repair_related_mission(self, mock_perm):
+        """Verify technicians can list videos for repair/write-off related missions."""
+        technician = _create_technician_user()
+        assignment = self.mission.mission_drones.get(drone=self.drone)
+        assignment.condition_after = Condition.DAMAGED
+        assignment.save(update_fields=["condition_after"])
+        self.client.force_authenticate(user=technician)
+
+        VideoMetadata.objects.create(
+            mission=self.mission,
+            drone=self.drone,
+            uploaded_by=OperatorUserFactory(),
+            file=SimpleUploadedFile("repair.mp4", b"a", content_type="video/mp4"),
+            file_name="repair.mp4",
+            file_size=10,
+        )
+
+        response = self.client.get(self.list_url)
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["count"], 1)
+        self.assertEqual(response.data["results"][0]["file_name"], "repair.mp4")
 
 
 @override_settings(
@@ -449,8 +608,15 @@ class ArtifactListCreateTests(MissionOperatorSetupMixin, APITestCase):
         and a mission for testing."""
         super().setUp()
         self.dispatcher = DispatcherUserFactory()
-        self.viewer = ViewerUserFactory()
+        self.operator = OperatorUserFactory()
+        self.unit = MilitaryUnitFactory()
+        self.other_unit = MilitaryUnitFactory()
+        self.viewer = ViewerUserFactory(unit=self.unit)
+        self.other_viewer = ViewerUserFactory(unit=self.other_unit)
+        self.viewer_without_unit = ViewerUserFactory()
 
+        self.mission = MissionFactory(unit=self.unit)
+        MissionDroneFactory(mission=self.mission, operator=self.operator)
         self.url = reverse(
             "missions:media:artifact-list-create",
             kwargs={"mission_pk": self.mission.pk},
@@ -584,6 +750,49 @@ class ArtifactListCreateTests(MissionOperatorSetupMixin, APITestCase):
         file_types = {item["file_type"] for item in response.data["results"]}
         self.assertEqual(file_types, {"image", "video", "data"})
 
+    def test_viewer_from_other_unit_cannot_list_artifacts(self):
+        self.client.force_authenticate(self.other_viewer)
+
+        response = self.client.get(self.url)
+
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+
+    def test_viewer_without_unit_cannot_list_artifacts(self):
+        self.assertIsNone(self.viewer_without_unit.unit_id)
+        self.client.force_authenticate(self.viewer_without_unit)
+
+        response = self.client.get(self.url)
+
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+
+    def test_technician_with_media_view_cannot_list_artifacts(self):
+        """Verify technicians do not receive mission-scoped artifact list access."""
+        technician = _create_technician_user()
+        self.client.force_authenticate(technician)
+
+        response = self.client.get(self.url)
+
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+
+    def test_technician_can_list_artifacts_for_repair_related_mission(self):
+        """Verify technicians can list artifacts.
+
+        Access is limited to repair/write-off related missions.
+        """
+        technician = _create_technician_user()
+        MissionDroneFactory(
+            mission=self.mission,
+            operator=OperatorUserFactory(),
+            condition_after=Condition.DAMAGED,
+        )
+        MissionArtifactFactory(mission=self.mission, is_image=True)
+        self.client.force_authenticate(technician)
+
+        response = self.client.get(self.url)
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["count"], 1)
+
     def test_unauthenticated_cannot_list(self):
         """Verify that unauthenticated users cannot list artifacts."""
         response = self.client.get(self.url)
@@ -601,9 +810,13 @@ class ArtifactDetailTests(APITestCase):
         self.operator = OperatorUserFactory()
         self.assigned_operator = OperatorUserFactory()
         self.unrelated_operator = OperatorUserFactory()
-        self.viewer = ViewerUserFactory()
+        self.viewer_unit = MilitaryUnitFactory()
+        self.other_unit = MilitaryUnitFactory()
+        self.viewer = ViewerUserFactory(unit=self.viewer_unit)
+        self.other_viewer = ViewerUserFactory(unit=self.other_unit)
+        self.viewer_without_unit = ViewerUserFactory()
 
-        self.mission = MissionFactory()
+        self.mission = MissionFactory(unit=self.viewer_unit)
         MissionDroneFactory(mission=self.mission, operator=self.assigned_operator)
         MissionDroneFactory(mission=self.mission, operator=self.operator)
         self.artifact = MissionArtifactFactory(
@@ -618,10 +831,20 @@ class ArtifactDetailTests(APITestCase):
             kwargs={"mission_pk": self.mission.pk, "artifact_pk": self.artifact.pk},
         )
 
-    def test_viewer_cannot_retrieve(self):
-        """Verify that user with Viewer role
-        cannot retrieve detail records for an artifact."""
+    def test_viewer_from_same_unit_can_retrieve(self):
+        """Verify that a viewer may retrieve artifacts from missions of their unit."""
         self.client.force_authenticate(self.viewer)
+        response = self.client.get(self.url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+    def test_viewer_from_other_unit_cannot_retrieve(self):
+        self.client.force_authenticate(self.other_viewer)
+        response = self.client.get(self.url)
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_viewer_without_unit_cannot_retrieve(self):
+        self.assertIsNone(self.viewer_without_unit.unit_id)
+        self.client.force_authenticate(self.viewer_without_unit)
         response = self.client.get(self.url)
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
 
@@ -970,6 +1193,15 @@ class ProtectedMediaDownloadTests(MissionOperatorSetupMixin, APITestCase):
         """Set up users with admin and operator roles,
         missions, artifacts for testing."""
         super().setUp()
+        self.admin = AdminUserFactory()
+        self.operator = OperatorUserFactory()
+        self.viewer_unit = MilitaryUnitFactory()
+        self.other_unit = MilitaryUnitFactory()
+        self.viewer = ViewerUserFactory(unit=self.viewer_unit)
+        self.other_viewer = ViewerUserFactory(unit=self.other_unit)
+        self.viewer_without_unit = ViewerUserFactory()
+        self.mission = MissionFactory(unit=self.viewer_unit)
+        MissionDroneFactory(mission=self.mission, operator=self.operator)
         self.other_mission = MissionFactory()
         self.artifact = MissionArtifactFactory(
             mission=self.mission, uploaded_by=self.operator, is_image=True
@@ -978,6 +1210,29 @@ class ProtectedMediaDownloadTests(MissionOperatorSetupMixin, APITestCase):
             "missions:media:artifact-download",
             kwargs={"mission_pk": self.mission.pk, "artifact_pk": self.artifact.pk},
         )
+
+    @override_settings(DEBUG=True)
+    def test_same_unit_viewer_can_download(self):
+        self.client.force_authenticate(self.viewer)
+
+        response = self.client.get(self.url)
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+    def test_other_unit_viewer_cannot_download(self):
+        self.client.force_authenticate(self.other_viewer)
+
+        response = self.client.get(self.url)
+
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_viewer_without_unit_cannot_download(self):
+        self.assertIsNone(self.viewer_without_unit.unit_id)
+        self.client.force_authenticate(self.viewer_without_unit)
+
+        response = self.client.get(self.url)
+
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
 
     @override_settings(DEBUG=True)
     def test_download_logs_download_action_with_user_and_ip(self):
