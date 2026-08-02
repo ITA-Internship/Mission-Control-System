@@ -20,10 +20,8 @@ import {
 
 export function RequireSessionAuth({
   children,
-  requirePasswordChange = false,
 }: {
   children: (user: CurrentUser) => ReactNode;
-  requirePasswordChange?: boolean;
 }) {
   const navigate = useNavigate();
   const [currentUser, setCurrentUser] =
@@ -47,26 +45,13 @@ export function RequireSessionAuth({
             controller.signal,
           );
 
-        if (
-          user.must_change_password &&
-          !requirePasswordChange
-        ) {
+        if (user.must_change_password) {
           navigate(
             "/change-password/required",
             {
               replace: true,
             },
           );
-          return;
-        }
-
-        if (
-          !user.must_change_password &&
-          requirePasswordChange
-        ) {
-          navigate("/my-profile", {
-            replace: true,
-          });
           return;
         }
 
@@ -101,7 +86,7 @@ export function RequireSessionAuth({
     return () => {
       controller.abort();
     };
-  }, [navigate, requirePasswordChange]);
+  }, [navigate]);
 
   if (loading) {
     return (

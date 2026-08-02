@@ -231,12 +231,15 @@ export function PrimaryButton({
 export function SecondaryButton({
   children,
   onClick,
+  type = "button",
 }: {
   children: ReactNode;
   onClick?: () => void;
+  type?: "button" | "submit";
 }) {
   return (
     <button
+      type={type}
       onClick={onClick}
       className="inline-flex items-center gap-2 rounded-lg border px-4 py-2 text-sm font-medium transition-all"
       style={{

@@ -92,6 +92,7 @@ export function ProfileDetailsCard({
                   error={
                     profileErrors.firstName
                   }
+                  disabled={profileSaving}
                   autoComplete="given-name"
                   maxLength={150}
                 />
@@ -109,6 +110,7 @@ export function ProfileDetailsCard({
                   error={
                     profileErrors.lastName
                   }
+                  disabled={profileSaving}
                   autoComplete="family-name"
                   maxLength={150}
                 />
@@ -143,6 +145,7 @@ export function ProfileDetailsCard({
                 }
                 placeholder="e.g. Major"
                 error={profileErrors.rank}
+                disabled={profileSaving}
                 maxLength={100}
               />
             ) : (
@@ -198,6 +201,7 @@ export function ProfileDetailsCard({
                 type="tel"
                 placeholder="+1 (000) 000-0000"
                 error={profileErrors.contact}
+                disabled={profileSaving}
                 maxLength={255}
                 autoComplete="tel"
               />

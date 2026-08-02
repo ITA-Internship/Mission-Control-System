@@ -7,7 +7,6 @@ import { RequireSessionAuth } from "../features/auth/components/RequireSessionAu
 import { ActivateAccountPage } from "../features/auth/pages/ActivateAccountPage";
 import { ForgotPasswordPage } from "../features/auth/pages/ForgotPasswordPage";
 import { LoginPage } from "../features/auth/pages/LoginPage";
-import { RequiredPasswordChangePage } from "../features/auth/pages/RequiredPasswordChangePage";
 import { ResetPasswordPage } from "../features/auth/pages/ResetPasswordPage";
 import { MyProfilePage } from "../features/profile/pages/MyProfilePage";
 
@@ -39,10 +38,6 @@ export const router = createBrowserRouter([
   {
     path: "/activate/*",
     Component: ActivateAccountPage,
-  },
-  {
-    path: "/change-password/required",
-    Component: RequiredPasswordChangePage,
   },
   {
     path: "/my-profile",
