@@ -724,6 +724,11 @@
 - Merge branch 'develop' into fix/cross-mission-idor-artifact-list-upload (by **Maksym**)
 - Merge pull request #178 from ITA-Internship/fix/cross-mission-idor-artifact-list-upload (by **Maksym Korchynskyi**)
 - Merge branch 'develop' of https://github.com/ITA-Internship/Mission-Control-System into develop (by **mehalyna**)
+- Change functionality in services.py (by **Yevhen Yedynets**)
+- Add tests (by **Yevhen Yedynets**)
+- Add shared function and tests to common (by **Yevhen Yedynets**)
+- Delete function and tests (by **Yevhen Yedynets**)
+- Delete function and refactor code (by **Yevhen Yedynets**)
 - Added gitleaks and dependency scan (by **travis**)
 - Added new configs (by **travis**)
 - Added coverage (by **travis**)
@@ -770,6 +775,9 @@
 - Corrected linting (by **yana-donda**)
 - Merge pull request #198 from ITA-Internship/140-transport-security-hardening (by **Yana**)
 - Fix transport security and secure cookies (by **Yana**)
+- Resolve merge conflicts (by **Yevhen Yedynets**)
+- Merge pull request #197 from ITA-Internship/bugfix#143-audit-log-ip-spoofing (by **Yevhen Yedynets**)
+- Bugfix#143 audit log ip spoofing (by **Yevhen Yedynets**)
 
 ### Refactor
 
@@ -841,6 +849,7 @@
 - *(changelog)* Update CHANGELOG.md [skip ci] (by **github-actions[bot]**)
 - *(changelog)* Update CHANGELOG.md [skip ci] (by **github-actions[bot]**)
 - *(auth)* Add frontend runtime, SPA deployment and tests (#200) (by **yana-donda**)
+- *(changelog)* Update CHANGELOG.md [skip ci] (by **github-actions[bot]**)
 - *(changelog)* Update CHANGELOG.md [skip ci] (by **github-actions[bot]**)
 - *(changelog)* Update CHANGELOG.md [skip ci] (by **github-actions[bot]**)
 - *(changelog)* Update CHANGELOG.md [skip ci] (by **github-actions[bot]**)
