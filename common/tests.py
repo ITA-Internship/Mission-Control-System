@@ -11,7 +11,7 @@ from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.core.exceptions import ImproperlyConfigured
 from django.middleware.csrf import get_token
-from django.test import SimpleTestCase, TestCase, override_settings
+from django.test import RequestFactory, SimpleTestCase, TestCase, override_settings
 from django.urls import path
 from rest_framework import status
 from rest_framework.permissions import AllowAny
@@ -21,6 +21,7 @@ from rest_framework.views import APIView
 
 from config.settings import env_bool
 
+from .request_utils import get_client_ip
 from .utils import sanitize_cell, sanitize_row
 
 
@@ -70,6 +71,67 @@ class CSVSanitizationTests(TestCase):
         row = [1, "=malicious", "safe", "-100", None]
         expected = [1, "'=malicious", "safe", "'-100", None]
         self.assertEqual(sanitize_row(row), expected)
+
+
+class GetClientIPTests(TestCase):
+    """Test client IP resolution against X-Forwarded-For spoofing."""
+
+    def setUp(self):
+        """Initialize a request factory for building fake requests."""
+        self.factory = RequestFactory()
+
+    def _make_request(self, xff=None, remote_addr="203.0.113.9"):
+        """Build a bare request with an optional X-Forwarded-For header."""
+        extra = {"REMOTE_ADDR": remote_addr}
+        if xff is not None:
+            extra["HTTP_X_FORWARDED_FOR"] = xff
+        return self.factory.get("/", **extra)
+
+    def test_none_request_returns_none(self):
+        """Verify passing no request is handled gracefully."""
+        self.assertIsNone(get_client_ip(None))
+
+    @override_settings(TRUSTED_PROXY_COUNT=0)
+    def test_zero_trusted_proxies_ignores_header(self):
+        """Verify the header is fully ignored when no proxy is trusted."""
+        request = self._make_request(xff="6.6.6.6", remote_addr="203.0.113.9")
+
+        self.assertEqual(get_client_ip(request), "203.0.113.9")
+
+    @override_settings(TRUSTED_PROXY_COUNT=2)
+    def test_strips_exactly_n_trusted_hops(self):
+        """Verify the client IP sits exactly N entries from the right."""
+        request = self._make_request(xff="1.2.3.4, 10.0.0.1, 10.0.0.2")
+
+        self.assertEqual(get_client_ip(request), "10.0.0.1")
+
+    @override_settings(TRUSTED_PROXY_COUNT=2)
+    def test_fewer_than_n_hops_falls_back_to_remote_addr(self):
+        """Ensure a header shorter than the trusted count is rejected, not trusted."""
+        request = self._make_request(xff="10.0.0.1", remote_addr="10.0.0.2")
+
+        self.assertEqual(get_client_ip(request), "10.0.0.2")
+
+    @override_settings(TRUSTED_PROXY_COUNT=1)
+    def test_exactly_n_entries_with_no_attacker_prefix(self):
+        """Single trusted proxy, no forged prefix — standard case."""
+        request = self._make_request(xff="10.0.0.1")
+
+        self.assertEqual(get_client_ip(request), "10.0.0.1")
+
+    @override_settings(TRUSTED_PROXY_COUNT=1)
+    def test_attacker_cannot_forge_ip_via_extra_header_entries(self):
+        """Ensure prepending fake entries to the header does not spoof the client IP."""
+        request = self._make_request(xff="6.6.6.6, 10.0.0.1")
+
+        self.assertEqual(get_client_ip(request), "10.0.0.1")
+
+    @override_settings(TRUSTED_PROXY_COUNT=1)
+    def test_missing_header_falls_back_to_remote_addr(self):
+        """Verify REMOTE_ADDR is used when no X-Forwarded-For header is present."""
+        request = self._make_request(xff=None, remote_addr="203.0.113.9")
+
+        self.assertEqual(get_client_ip(request), "203.0.113.9")
 
 
 class ProtectedByDefaultView(APIView):
