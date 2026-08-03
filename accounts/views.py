@@ -218,7 +218,10 @@ class AuditLogViewSet(viewsets.ReadOnlyModelViewSet):
     filterset_class = AuditLogFilter
 
     throttle_classes = [ScopedRateThrottle]
-    throttle_scope = "audit_export"
+    # Paginated viewing (list/retrieve) gets its own, generous scope so routine
+    # dashboard reads never drain the tight bulk-export budget. The `export`
+    # action overrides this back to `audit_export` (see below).
+    throttle_scope = "audit_view"
 
     def get_queryset(self):
         """Return a queryset of audit logs base on RBAC permissions."""
@@ -246,6 +249,7 @@ class AuditLogViewSet(viewsets.ReadOnlyModelViewSet):
         detail=False,
         methods=["get"],
         throttle_classes=[ScopedRateThrottle],
+        throttle_scope="audit_export",
     )
     def export(self, request):
         """Export the filtered audit logs as a downloadable CSV file."""

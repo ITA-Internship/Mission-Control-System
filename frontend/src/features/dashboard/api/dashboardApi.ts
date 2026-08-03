@@ -1,6 +1,7 @@
 import {
   ApiError,
   apiRequest,
+  isAbortError,
 } from "../../../shared/api/apiClient";
 import type {
   AuditLogItem,
@@ -65,7 +66,16 @@ export async function fetchFleetBreakdown(
 ): Promise<FleetStatusSlice[]> {
   const counts = await Promise.all(
     FLEET_STATUS_META.map((meta) =>
-      fetchDroneStatusCount(meta.status, signal),
+      /* Degrade a single failed status count to 0 rather than letting
+       * Promise.all reject and blank the entire breakdown — one bad request
+       * should cost one slice, not the whole panel. Abort still propagates so
+       * the caller can cancel cleanly. */
+      fetchDroneStatusCount(meta.status, signal).catch((error) => {
+        if (isAbortError(error)) {
+          throw error;
+        }
+        return 0;
+      }),
     ),
   );
 
@@ -75,13 +85,21 @@ export async function fetchFleetBreakdown(
   }));
 }
 
+/* A defect is "open" until it has been fixed and verified; FIXED/VERIFIED are
+ * resolved. The dashboard's Open Defects tile and panel count/show only these
+ * states, sent as a comma-separated `status__in` filter. */
+export const OPEN_DEFECT_STATUSES = "REPORTED,IN_PROGRESS";
+
 export function fetchDefectsCount(
   severity: "CRITICAL" | "HIGH" | null,
   signal?: AbortSignal,
 ): Promise<number> {
-  const params: Record<string, string> = severity
-    ? { severity }
-    : {};
+  const params: Record<string, string> = {
+    status__in: OPEN_DEFECT_STATUSES,
+  };
+  if (severity) {
+    params.severity = severity;
+  }
   return fetchCount("/api/repairs/defects/", params, signal);
 }
 
@@ -127,8 +145,13 @@ export async function fetchOpenDefects(
   signal?: AbortSignal,
   pageSize = 6,
 ): Promise<DefectListItem[]> {
+  const query = new URLSearchParams({
+    page_size: String(pageSize),
+    ordering: "-created_at",
+    status__in: OPEN_DEFECT_STATUSES,
+  }).toString();
   const data = await apiRequest<Paginated<DefectListItem>>(
-    `/api/repairs/defects/?page_size=${pageSize}&ordering=-created_at`,
+    `/api/repairs/defects/?${query}`,
     { signal },
   );
   return data.results;
