@@ -9,8 +9,17 @@ import django_filters
 from .models import ComponentReplacement, DefectReport, RepairOrder
 
 
+class CharInFilter(django_filters.BaseInFilter, django_filters.CharFilter):
+    """Match a field against a comma-separated list (``?field__in=A,B``)."""
+
+
 class DefectFilter(django_filters.FilterSet):
     """Filter specifications for the DefectReport list API."""
+
+    # `status__in` lets callers request several lifecycle states at once — the
+    # dashboard uses it to count/list only *open* defects (REPORTED,IN_PROGRESS)
+    # rather than every defect ever reported.
+    status__in = CharInFilter(field_name="status", lookup_expr="in")
 
     class Meta:
         model = DefectReport
@@ -19,6 +28,7 @@ class DefectFilter(django_filters.FilterSet):
             "severity": ["exact"],
             "defect_type": ["exact"],
             "reporter": ["exact"],
+            "status": ["exact"],
         }
 
 

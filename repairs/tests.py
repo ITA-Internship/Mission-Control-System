@@ -407,6 +407,37 @@ class DefectReportListTests(APITestCase):
         ids = [item["id"] for item in response.data["results"]]
         self.assertIn(self.defect_a.id, ids)
 
+    def test_filter_by_status(self):
+        """Verify that defects can be filtered by a single lifecycle status."""
+        self.defect_a.status = RepairStatus.VERIFIED
+        self.defect_a.save(update_fields=["status"])
+
+        response = self.client.get(self.url, {"status": RepairStatus.VERIFIED})
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        ids = [item["id"] for item in response.data["results"]]
+        self.assertEqual(ids, [self.defect_a.id])
+
+    def test_filter_by_status_in(self):
+        """Verify that `status__in` matches any of several comma-separated states.
+
+        This backs the dashboard's "open defects" query, which counts only the
+        REPORTED/IN_PROGRESS states and must exclude resolved ones.
+        """
+        self.defect_a.status = RepairStatus.REPORTED
+        self.defect_a.save(update_fields=["status"])
+        self.defect_b.status = RepairStatus.VERIFIED
+        self.defect_b.save(update_fields=["status"])
+
+        response = self.client.get(
+            self.url,
+            {"status__in": f"{RepairStatus.REPORTED},{RepairStatus.IN_PROGRESS}"},
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        ids = [item["id"] for item in response.data["results"]]
+        self.assertEqual(ids, [self.defect_a.id])
+
     def test_ordering_by_detected_at(self):
         """Verify that defects can be ordered explicitly by detection time."""
         response = self.client.get(self.url, {"ordering": "detected_at"})
