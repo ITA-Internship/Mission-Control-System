@@ -111,6 +111,8 @@
 - *(drones)* Add status state machine and row-level locking (#146) (by **Maksym**)
 - Address PR review — single source of truth for transition check, error handling, tests (by **Maksym**)
 - *(drones)* Add status state machine and row-level locking (by **Maksym Korchynskyi**)
+- Use valid png payload in media upload tests (by **Maksym**)
+- Use valid png payload in media upload tests (by **Maksym Korchynskyi**)
 
 ### Other
 
@@ -799,6 +801,7 @@
 - Fix IDOR in video upload and unify mission scoping (by **Maksym**)
 - Merge pull request #220 from ITA-Internship/bugfix#185-remaining-idor-fixes (by **Maksym Korchynskyi**)
 - Fix IDOR in video upload and unify mission scoping (by **Maksym Korchynskyi**)
+- Merge pull request #221 from ITA-Internship/fix/media-upload-tests (by **Maksym Korchynskyi**)
 
 ### Refactor
 
@@ -870,6 +873,7 @@
 - *(changelog)* Update CHANGELOG.md [skip ci] (by **github-actions[bot]**)
 - *(changelog)* Update CHANGELOG.md [skip ci] (by **github-actions[bot]**)
 - *(auth)* Add frontend runtime, SPA deployment and tests (#200) (by **yana-donda**)
+- *(changelog)* Update CHANGELOG.md [skip ci] (by **github-actions[bot]**)
 - *(changelog)* Update CHANGELOG.md [skip ci] (by **github-actions[bot]**)
 - *(changelog)* Update CHANGELOG.md [skip ci] (by **github-actions[bot]**)
 - *(changelog)* Update CHANGELOG.md [skip ci] (by **github-actions[bot]**)
