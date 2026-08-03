@@ -106,6 +106,8 @@
 - *(security)* Address review comments (by **yana-donda**)
 - Fixed comments (by **Olena Kshyk**)
 - Fixed failing test (by **Olena Kshyk**)
+- Fix business logic gaps in repairs (by **torii044**)
+- Fix DroneRepairHistoryPageView, old_serial_number and order_by (by **torii044**)
 
 ### Other
 
@@ -787,6 +789,8 @@
 - Merge branch 'develop' of https://github.com/ITA-Internship/Mission-Control-System into fix/task#147-file-type-validation (by **Olena Kshyk**)
 - Merge pull request #191 from ITA-Internship/fix/task#147-file-type-validation (by **Olena Kshyk**)
 - Fix/task#147 file type validation (by **Olena Kshyk**)
+- Merge pull request #201 from ITA-Internship/task#152-fix-repairs-business-logic-gaps (by **Viktoriia Kovalchuk**)
+- Task#152 fix business logic gaps in repairs (by **Viktoriia Kovalchuk**)
 
 ### Refactor
 
@@ -858,6 +862,7 @@
 - *(changelog)* Update CHANGELOG.md [skip ci] (by **github-actions[bot]**)
 - *(changelog)* Update CHANGELOG.md [skip ci] (by **github-actions[bot]**)
 - *(auth)* Add frontend runtime, SPA deployment and tests (#200) (by **yana-donda**)
+- *(changelog)* Update CHANGELOG.md [skip ci] (by **github-actions[bot]**)
 - *(changelog)* Update CHANGELOG.md [skip ci] (by **github-actions[bot]**)
 - *(changelog)* Update CHANGELOG.md [skip ci] (by **github-actions[bot]**)
 - *(changelog)* Update CHANGELOG.md [skip ci] (by **github-actions[bot]**)
