@@ -19,14 +19,7 @@ import os
 import posixpath
 
 from django.conf import settings
-from django.contrib.auth import (
-    HASH_SESSION_KEY,
-    SESSION_KEY,
-    authenticate,
-    login,
-    logout,
-    update_session_auth_hash,
-)
+from django.contrib.auth import authenticate, login, logout, update_session_auth_hash
 from django.contrib.auth.tokens import default_token_generator
 from django.core.exceptions import ValidationError as DjangoValidationError
 from django.db.models import Q
