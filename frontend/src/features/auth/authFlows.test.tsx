@@ -529,6 +529,46 @@ describe("required password change", () => {
       await screen.findByText("Login page"),
     ).toBeInTheDocument();
   });
+
+  it("redirects to login when DRF returns not_authenticated during submission", async () => {
+    const user = userEvent.setup();
+    mockJsonResponse(requiredUser);
+    mockJsonResponse(
+      {
+        detail:
+          "Authentication credentials were not provided.",
+      },
+      403,
+    );
+
+    renderRequiredPasswordRoute();
+
+    await user.type(
+      await screen.findByLabelText(
+        "Current password",
+      ),
+      "OldPassword123!",
+    );
+    await user.type(
+      screen.getByLabelText("New password"),
+      "NewPassword123!",
+    );
+    await user.type(
+      screen.getByLabelText(
+        "Confirm new password",
+      ),
+      "NewPassword123!",
+    );
+    await user.click(
+      screen.getByRole("button", {
+        name: "Save and continue",
+      }),
+    );
+
+    expect(
+      await screen.findByText("Login page"),
+    ).toBeInTheDocument();
+  });
 });
 
 describe("reset password", () => {

@@ -155,6 +155,10 @@ export function MyProfilePage({
     useRef<HTMLInputElement>(null);
   const avatarOpenedProfileEditRef =
     useRef(false);
+  const avatarStateBeforeDragRef =
+    useRef<Exclude<AvatarState, "dragging">>(
+      "idle",
+    );
 
   useEffect(() => {
     if (!userMenuOpen) {
@@ -337,10 +341,20 @@ export function MyProfilePage({
     setSidebarOpen(false);
     document
       .getElementById(section)
-      ?.scrollIntoView({
+      ?.scrollIntoView?.({
         behavior: "smooth",
         block: "start",
       });
+  }
+
+  function openProfileSection() {
+    setUserMenuOpen(false);
+    scrollToSection("profile");
+  }
+
+  function openSettingsSection() {
+    setUserMenuOpen(false);
+    scrollToSection("security");
   }
 
   function enterProfileEditMode() {
@@ -650,7 +664,7 @@ export function MyProfilePage({
         return;
       }
 
-      setPasswordErrors({
+      const nextPasswordErrors = {
         currentPassword:
           getApiFieldError(
             error,
@@ -662,14 +676,23 @@ export function MyProfilePage({
             "new_password",
           ) ?? "",
         confirmPassword: "",
-      });
-      setPasswordBanner({
-        type: "error",
-        message: getFormError(
-          error,
-          "We could not update your password.",
-        ),
-      });
+      };
+      setPasswordErrors(nextPasswordErrors);
+
+      const hasFieldErrors = Object.values(
+        nextPasswordErrors,
+      ).some(Boolean);
+      setPasswordBanner(
+        hasFieldErrors
+          ? null
+          : {
+              type: "error",
+              message: getFormError(
+                error,
+                "We could not update your password.",
+              ),
+            },
+      );
     } finally {
       setPasswordStatus("idle");
     }
@@ -753,20 +776,36 @@ export function MyProfilePage({
     event: DragEvent<HTMLDivElement>,
   ) {
     event.preventDefault();
-    setAvatarState("idle");
     const file =
       event.dataTransfer.files?.[0];
 
     if (file) {
       handleAvatarFile(file);
+      return;
     }
+
+    setAvatarState(
+      avatarStateBeforeDragRef.current,
+    );
   }
 
   function handleAvatarDragOver(
     event: DragEvent<HTMLDivElement>,
   ) {
     event.preventDefault();
-    setAvatarState("dragging");
+    setAvatarState((current) => {
+      if (current !== "dragging") {
+        avatarStateBeforeDragRef.current =
+          current;
+      }
+      return "dragging";
+    });
+  }
+
+  function handleAvatarDragLeave() {
+    setAvatarState(
+      avatarStateBeforeDragRef.current,
+    );
   }
 
   function handleAvatarInputChange(
@@ -856,6 +895,8 @@ export function MyProfilePage({
       onToggleUserMenu={() =>
         setUserMenuOpen((current) => !current)
       }
+      onOpenProfile={openProfileSection}
+      onOpenSettings={openSettingsSection}
       onSignOut={handleSignOut}
       signingOut={signingOut}
     >
@@ -939,8 +980,8 @@ export function MyProfilePage({
               onAvatarDragOver={
                 handleAvatarDragOver
               }
-              onAvatarDragLeave={() =>
-                setAvatarState("idle")
+              onAvatarDragLeave={
+                handleAvatarDragLeave
               }
               onAvatarInputChange={
                 handleAvatarInputChange

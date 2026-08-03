@@ -7,7 +7,6 @@ import { Shield } from "lucide-react";
 import { useNavigate } from "react-router";
 
 import {
-  ApiError,
   isAbortError,
 } from "../api/apiClient";
 import { changePassword } from "../api/authApi";
@@ -21,6 +20,7 @@ import { useAbortableRequest } from "../hooks/useAbortableRequest";
 import {
   getApiFieldError,
   getFormError,
+  isSessionAuthenticationError,
 } from "../utils/authErrors";
 import {
   validatePasswordConfirmation,
@@ -157,10 +157,7 @@ export function RequiredPasswordChangePage() {
         return;
       }
 
-      if (
-        error instanceof ApiError &&
-        error.status === 401
-      ) {
+      if (isSessionAuthenticationError(error)) {
         navigate("/login", {
           replace: true,
         });

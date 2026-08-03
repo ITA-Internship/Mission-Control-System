@@ -1264,6 +1264,25 @@ class PasswordResetConfirmViewTests(APITestCase):
         )
         self.assertNotIn("new_password", response.data)
 
+    def test_invalid_reset_token_takes_precedence_over_password_validation(self):
+        """Return a stable invalid-link response before validating the password."""
+        invalid_url = reverse(
+            "accounts:password-reset-confirm",
+            kwargs={"uidb64": self.uidb64, "token": "invalid-token"},
+        )
+
+        response = self.client.post(
+            invalid_url,
+            {"new_password": "weak"},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(
+            response.data,
+            {"detail": "The reset link is invalid or has expired."},
+        )
+
     def test_password_reset_invalid_uidb64(self):
         """Ensure that an invalid base64 encoded user ID rejects the request."""
         invalid_url = reverse(

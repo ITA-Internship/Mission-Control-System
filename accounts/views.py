@@ -659,49 +659,51 @@ class PasswordResetConfirmView(APIView):
 
         token_is_valid = bool(user and default_token_generator.check_token(user, token))
 
+        if not token_is_valid:
+            if user:
+                create_audit_log(
+                    actor=None,
+                    action_type=AuditLog.ActionType.PASSWORD_CHANGED,
+                    result=AuditLog.ResultStatus.FAILED,
+                    target_user=user,
+                    description=(
+                        "Failed attempt to reset password (invalid/expired token)."
+                    ),
+                    request=request,
+                )
+
+            return Response(
+                {"detail": "The reset link is invalid or has expired."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
         serializer = PasswordResetConfirmSerializer(
             data=request.data,
-            context={"user": user if token_is_valid else None},
+            context={"user": user},
         )
         serializer.is_valid(raise_exception=True)
 
-        if token_is_valid:
-            set_user_password(user, serializer.validated_data["new_password"])
-            invalidate_user_sessions(user)
+        set_user_password(user, serializer.validated_data["new_password"])
+        invalidate_user_sessions(user)
 
-            send_email_task.delay(
-                subject="Password Successfully Reset",
-                message="Your password has been reset successfully.",
-                recipient_list=[user.email],
-            )
+        send_email_task.delay(
+            subject="Password Successfully Reset",
+            message="Your password has been reset successfully.",
+            recipient_list=[user.email],
+        )
 
-            create_audit_log(
-                actor=user,
-                action_type=AuditLog.ActionType.PASSWORD_CHANGED,
-                result=AuditLog.ResultStatus.SUCCESS,
-                target_user=user,
-                description="Password reset completed via emailed link.",
-                request=request,
-            )
-
-            return Response(
-                {"detail": "Password has been reset successfully."},
-                status=status.HTTP_200_OK,
-            )
-
-        if user:
-            create_audit_log(
-                actor=None,
-                action_type=AuditLog.ActionType.PASSWORD_CHANGED,
-                result=AuditLog.ResultStatus.FAILED,
-                target_user=user,
-                description="Failed attempt to reset password (invalid/expired token).",
-                request=request,
-            )
+        create_audit_log(
+            actor=user,
+            action_type=AuditLog.ActionType.PASSWORD_CHANGED,
+            result=AuditLog.ResultStatus.SUCCESS,
+            target_user=user,
+            description="Password reset completed via emailed link.",
+            request=request,
+        )
 
         return Response(
-            {"detail": "The reset link is invalid or has expired."},
-            status=status.HTTP_400_BAD_REQUEST,
+            {"detail": "Password has been reset successfully."},
+            status=status.HTTP_200_OK,
         )
 
 
