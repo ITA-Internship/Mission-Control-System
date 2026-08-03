@@ -1,17 +1,18 @@
 import { ArrowRight } from "lucide-react";
 import { Link } from "react-router";
 
-import type { MissionListItem, SectionState } from "../types/dashboard";
-import {
-  formatUtcTime,
-} from "../utils/format";
-import { Panel } from "./Panel";
-import { MissionStatusPill } from "./StatusPill";
+import { Panel } from "../../../shared/components/Panel";
 import {
   EmptyState,
   ErrorState,
   SkeletonRows,
-} from "./states";
+} from "../../../shared/components/states";
+import { MissionStatusPill } from "../../../shared/components/StatusPill";
+import type { SectionState } from "../../../shared/types/api";
+import type { MissionListItem } from "../../../shared/types/missions";
+import {
+  formatUtcTime,
+} from "../../../shared/utils/format";
 
 function commanderName(mission: MissionListItem): string {
   const commander = mission.commander;

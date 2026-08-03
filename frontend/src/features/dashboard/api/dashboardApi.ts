@@ -3,16 +3,16 @@ import {
   apiRequest,
   isAbortError,
 } from "../../../shared/api/apiClient";
+import type { AuditLogItem } from "../../../shared/types/accounts";
+import type { Paginated } from "../../../shared/types/api";
+import type { DroneStatus } from "../../../shared/types/drones";
 import type {
-  AuditLogItem,
-  DefectListItem,
-  DroneStatus,
-  FleetStatusSlice,
   HealthResponse,
   HealthState,
-  MissionListItem,
-  Paginated,
-} from "../types/dashboard";
+} from "../../../shared/types/health";
+import type { MissionListItem } from "../../../shared/types/missions";
+import type { DefectListItem } from "../../../shared/types/repairs";
+import type { FleetStatusSlice } from "../types/dashboard";
 
 /* Drone statuses shown in the fleet breakdown, with their display metadata.
  * Colors reference the CSS tokens added in globals.css (see dashboard.md). */

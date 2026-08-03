@@ -18,25 +18,21 @@ import {
   vi,
 } from "vitest";
 
-import type { CurrentUser } from "../auth/types/auth";
-import { DefectsPanel } from "./components/DefectsPanel";
-import { KpiTiles } from "./components/KpiTiles";
-import { TopBar } from "./components/TopBar";
-import { useDashboardData } from "./hooks/useDashboardData";
-import {
-  KPI_ROLES,
-  visibleNavItems,
-} from "./rbac";
-import type {
-  DashboardSummary,
-  DefectListItem,
-  SectionState,
-} from "./types/dashboard";
+import { visibleNavItems } from "../../shared/layout/navigation";
+import { TopBar } from "../../shared/layout/TopBar";
+import type { CurrentUser } from "../../shared/types/accounts";
+import type { SectionState } from "../../shared/types/api";
+import type { DefectListItem } from "../../shared/types/repairs";
 import {
   formatShortDate,
   formatUtcTime,
   humanizeEnum,
-} from "./utils/format";
+} from "../../shared/utils/format";
+import { DefectsPanel } from "./components/DefectsPanel";
+import { KpiTiles } from "./components/KpiTiles";
+import { useDashboardData } from "./hooks/useDashboardData";
+import { KPI_ROLES } from "./rbac";
+import type { DashboardSummary } from "./types/dashboard";
 
 /* ---------- fixtures ---------- */
 

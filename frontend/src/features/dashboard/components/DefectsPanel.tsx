@@ -1,15 +1,16 @@
 import { useMemo } from "react";
 
-import type { DefectListItem, SectionState } from "../types/dashboard";
-import { formatShortDate, humanizeEnum } from "../utils/format";
-import { Panel } from "./Panel";
-import { SeverityPill } from "./StatusPill";
+import { Panel } from "../../../shared/components/Panel";
 import {
   EmptyState,
   ErrorState,
   RestrictedState,
   SkeletonRows,
-} from "./states";
+} from "../../../shared/components/states";
+import { SeverityPill } from "../../../shared/components/StatusPill";
+import type { SectionState } from "../../../shared/types/api";
+import type { DefectListItem } from "../../../shared/types/repairs";
+import { formatShortDate, humanizeEnum } from "../../../shared/utils/format";
 
 /* Critical items first, then by most recently reported. */
 function sortDefects(defects: DefectListItem[]): DefectListItem[] {

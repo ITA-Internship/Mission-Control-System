@@ -23,13 +23,13 @@ import {
 } from "../rbac";
 import type {
   AuditLogItem,
-  DashboardSummary,
-  DefectListItem,
-  HealthState,
-  MissionListItem,
   RoleCode,
-  SectionState,
-} from "../types/dashboard";
+} from "../../../shared/types/accounts";
+import type { SectionState } from "../../../shared/types/api";
+import type { HealthState } from "../../../shared/types/health";
+import type { MissionListItem } from "../../../shared/types/missions";
+import type { DefectListItem } from "../../../shared/types/repairs";
+import type { DashboardSummary } from "../types/dashboard";
 
 const loading = <T,>(): SectionState<T> => ({
   status: "loading",

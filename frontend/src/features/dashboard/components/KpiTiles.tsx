@@ -7,16 +7,16 @@ import {
   Wrench,
 } from "lucide-react";
 
+import { Skeleton } from "../../../shared/components/states";
+import type { RoleCode } from "../../../shared/types/accounts";
+import type { SectionState } from "../../../shared/types/api";
+import type { HealthState } from "../../../shared/types/health";
 import { cn } from "../../../shared/utils/cn";
 import { KPI_ROLES } from "../rbac";
 import type {
   DashboardSummary,
-  HealthState,
   KpiTileId,
-  RoleCode,
-  SectionState,
 } from "../types/dashboard";
-import { Skeleton } from "./states";
 
 interface TileConfig {
   id: KpiTileId;

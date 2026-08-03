@@ -1,21 +1,14 @@
 import { useState } from "react";
 import { Outlet, useLocation } from "react-router";
 
-import { cn } from "../../../shared/utils/cn";
-import type { CurrentUser } from "../../auth/types/auth";
-import { NAV_ITEMS } from "../rbac";
-import { contentOffsetClass } from "../shellLayout";
-import { toRoleCode } from "../shellContext";
-import type { ShellContext } from "../shellContext";
+import type { CurrentUser } from "../types/accounts";
+import { cn } from "../utils/cn";
+import { navTitleFor } from "./navigation";
+import { contentOffsetClass } from "./shellLayout";
+import { toRoleCode } from "./shellContext";
+import type { ShellContext } from "./shellContext";
 import { Sidebar } from "./Sidebar";
 import { TopBar } from "./TopBar";
-
-function pageTitleFor(pathname: string): string {
-  const match = NAV_ITEMS.find((item) =>
-    pathname.startsWith(item.path),
-  );
-  return match?.label ?? "Mission Control";
-}
 
 export function AppShell({ user }: { user: CurrentUser }) {
   const location = useLocation();
@@ -35,7 +28,7 @@ export function AppShell({ user }: { user: CurrentUser }) {
         onMobileClose={() => setMobileOpen(false)}
       />
       <TopBar
-        pageTitle={pageTitleFor(location.pathname)}
+        pageTitle={navTitleFor(location.pathname)}
         collapsed={collapsed}
         user={user}
         onMobileMenu={() => setMobileOpen(true)}

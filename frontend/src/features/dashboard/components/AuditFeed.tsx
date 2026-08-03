@@ -1,13 +1,14 @@
-import { cn } from "../../../shared/utils/cn";
-import type { AuditLogItem, SectionState } from "../types/dashboard";
-import { formatRelative, humanizeEnum } from "../utils/format";
-import { Panel } from "./Panel";
+import { Panel } from "../../../shared/components/Panel";
 import {
   EmptyState,
   ErrorState,
   RestrictedState,
   SkeletonRows,
-} from "./states";
+} from "../../../shared/components/states";
+import type { AuditLogItem } from "../../../shared/types/accounts";
+import type { SectionState } from "../../../shared/types/api";
+import { cn } from "../../../shared/utils/cn";
+import { formatRelative, humanizeEnum } from "../../../shared/utils/format";
 
 function resultColor(result: string): string {
   const normalized = result.toUpperCase();

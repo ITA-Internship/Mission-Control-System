@@ -1,10 +1,12 @@
+import { Panel } from "../../../shared/components/Panel";
+import { RestrictedState } from "../../../shared/components/states";
+import { toRoleCode } from "../../../shared/layout/shellContext";
+import { useShellContext } from "../../../shared/layout/shellContext";
 import { AuditFeed } from "../components/AuditFeed";
 import { DefectsPanel } from "../components/DefectsPanel";
 import { FleetStatusChart } from "../components/FleetStatusChart";
 import { KpiTiles } from "../components/KpiTiles";
 import { MissionsList } from "../components/MissionsList";
-import { Panel } from "../components/Panel";
-import { RestrictedState } from "../components/states";
 import { useDashboardData } from "../hooks/useDashboardData";
 import {
   CAN_SEE_AUDIT,
@@ -12,8 +14,6 @@ import {
   CAN_SEE_FLEET_CHART,
   CAN_SEE_MISSIONS,
 } from "../rbac";
-import { toRoleCode } from "../shellContext";
-import { useShellContext } from "../shellContext";
 
 export function DashboardPage() {
   const { user } = useShellContext();

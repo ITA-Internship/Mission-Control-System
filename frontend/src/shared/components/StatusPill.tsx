@@ -1,8 +1,6 @@
-import { cn } from "../../../shared/utils/cn";
-import type {
-  DefectSeverity,
-  MissionStatus,
-} from "../types/dashboard";
+import type { MissionStatus } from "../types/missions";
+import type { DefectSeverity } from "../types/repairs";
+import { cn } from "../utils/cn";
 
 interface PillStyle {
   label: string;

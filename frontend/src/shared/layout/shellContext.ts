@@ -1,8 +1,7 @@
 import { useOutletContext } from "react-router";
 
-import type { CurrentUser } from "../auth/types/auth";
-import type { RoleCode } from "./types/dashboard";
-import { ROLE_CODES } from "./types/dashboard";
+import type { CurrentUser, RoleCode } from "../types/accounts";
+import { ROLE_CODES } from "../types/accounts";
 
 export interface ShellContext {
   user: CurrentUser;

@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 
-import { cn } from "../../../shared/utils/cn";
+import { cn } from "../utils/cn";
 
 interface PanelProps {
   title?: string;
@@ -10,7 +10,7 @@ interface PanelProps {
   bodyClassName?: string;
 }
 
-/* Shared card container for dashboard panels: rounded surface, subtle border,
+/* Shared card container for page panels: rounded surface, subtle border,
  * optional header row with a title and a trailing action. */
 export function Panel({
   title,

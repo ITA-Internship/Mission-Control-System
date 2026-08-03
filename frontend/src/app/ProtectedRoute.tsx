@@ -6,8 +6,8 @@ import {
   isAbortError,
 } from "../shared/api/apiClient";
 import { getCurrentUser } from "../features/auth/api/authApi";
-import { AppShell } from "../features/dashboard/components/AppShell";
-import type { CurrentUser } from "../features/auth/types/auth";
+import { AppShell } from "../shared/layout/AppShell";
+import type { CurrentUser } from "../shared/types/accounts";
 
 type AuthState =
   | { status: "loading" }

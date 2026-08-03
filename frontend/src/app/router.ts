@@ -9,7 +9,7 @@ import { LoginPage } from "../features/auth/pages/LoginPage";
 import { RequiredPasswordChangePage } from "../features/auth/pages/RequiredPasswordChangePage";
 import { ResetPasswordPage } from "../features/auth/pages/ResetPasswordPage";
 import { DashboardPage } from "../features/dashboard/pages/DashboardPage";
-import { PlaceholderPage } from "../features/dashboard/pages/PlaceholderPage";
+import { PlaceholderPage } from "../shared/pages/PlaceholderPage";
 import { ProtectedRoute } from "./ProtectedRoute";
 
 export const router = createBrowserRouter([

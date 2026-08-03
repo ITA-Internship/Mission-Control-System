@@ -11,14 +11,14 @@ import {
   YAxis,
 } from "recharts";
 
-import { cn } from "../../../shared/utils/cn";
-import type { FleetStatusSlice } from "../types/dashboard";
-import { Panel } from "./Panel";
+import { Panel } from "../../../shared/components/Panel";
 import {
   EmptyState,
   ErrorState,
   Skeleton,
-} from "./states";
+} from "../../../shared/components/states";
+import { cn } from "../../../shared/utils/cn";
+import type { FleetStatusSlice } from "../types/dashboard";
 
 type ChartView = "donut" | "bar";
 

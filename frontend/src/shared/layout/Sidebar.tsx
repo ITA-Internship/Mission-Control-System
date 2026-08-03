@@ -5,11 +5,11 @@ import {
 } from "lucide-react";
 import { NavLink } from "react-router";
 
-import { cn } from "../../../shared/utils/cn";
-import { MissionControlLogo } from "../../auth/components/MissionControlLogo";
-import { visibleNavItems } from "../rbac";
-import { sidebarWidthClass } from "../shellLayout";
-import type { RoleCode } from "../types/dashboard";
+import { MissionControlLogo } from "../components/MissionControlLogo";
+import type { RoleCode } from "../types/accounts";
+import { cn } from "../utils/cn";
+import { visibleNavItems } from "./navigation";
+import { sidebarWidthClass } from "./shellLayout";
 
 interface SidebarProps {
   role: RoleCode | null;

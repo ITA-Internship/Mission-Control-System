@@ -8,15 +8,14 @@ import {
 } from "lucide-react";
 import { useNavigate } from "react-router";
 
-import { cn } from "../../../shared/utils/cn";
-import type { CurrentUser } from "../../auth/types/auth";
+import type { CurrentUser, RoleCode } from "../types/accounts";
+import { cn } from "../utils/cn";
 import {
   displayName,
   initials,
   toRoleCode,
-} from "../shellContext";
-import { topBarOffsetClass } from "../shellLayout";
-import type { RoleCode } from "../types/dashboard";
+} from "./shellContext";
+import { topBarOffsetClass } from "./shellLayout";
 
 const ROLE_BADGE: Record<RoleCode, string> = {
   ADMIN: "text-mc-error bg-mc-error/15",

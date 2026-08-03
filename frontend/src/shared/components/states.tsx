@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 import { Inbox, ShieldAlert, TriangleAlert } from "lucide-react";
 
-import { cn } from "../../../shared/utils/cn";
+import { cn } from "../utils/cn";
 
 /* Generic skeleton block. */
 export function Skeleton({ className }: { className?: string }) {

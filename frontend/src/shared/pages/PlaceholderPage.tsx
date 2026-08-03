@@ -1,18 +1,11 @@
 import { Construction } from "lucide-react";
 import { useLocation } from "react-router";
 
-import { NAV_ITEMS } from "../rbac";
-
-function titleFor(pathname: string): string {
-  const match = NAV_ITEMS.find((item) =>
-    pathname.startsWith(item.path),
-  );
-  return match?.label ?? "Mission Control";
-}
+import { navTitleFor } from "../layout/navigation";
 
 export function PlaceholderPage({ title }: { title?: string }) {
   const location = useLocation();
-  const heading = title ?? titleFor(location.pathname);
+  const heading = title ?? navTitleFor(location.pathname);
 
   return (
     <div className="flex min-h-[60vh] flex-col items-center justify-center gap-4">
