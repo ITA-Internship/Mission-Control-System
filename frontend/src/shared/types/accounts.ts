@@ -32,8 +32,14 @@ export interface CurrentUser {
   role_code: string | null;
   role_name: string | null;
   unit: number | null;
+  unit_name?: string | null;
+  unit_code?: string | null;
   is_active: boolean;
   must_change_password: boolean;
+  /* Only returned by the profile detail representation. */
+  last_login?: string | null;
+  created_at?: string | null;
+  created_by_username?: string | null;
 }
 
 /* Nested user representation embedded in other payloads (e.g. a mission

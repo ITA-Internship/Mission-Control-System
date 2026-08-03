@@ -16,6 +16,7 @@
 - *(client)* Add auth application shell and routes (#200) (by **yana-donda**)
 - *(auth)* Add reusable form controls and auth page forms (#200) (by **yana-donda**)
 - *(auth)* Integrate password recovery and activation APIs (#200) (by **yana-donda**)
+- *(profile)* Implement authenticated self-service profile (by **Anastasiia**)
 
 ### Bug Fixes
 
@@ -113,6 +114,12 @@
 - *(drones)* Add status state machine and row-level locking (by **Maksym Korchynskyi**)
 - Use valid png payload in media upload tests (by **Maksym**)
 - Use valid png payload in media upload tests (by **Maksym Korchynskyi**)
+- *(profile)* Harden session handling and profile updates (by **Anastasiia**)
+- *(tests)* Update session data encoding in ChangePasswordViewTests and PasswordResetConfirmViewTests (by **Anastasiia**)
+- *(profile)* Harden password sessions and profile validation (by **Anastasiia**)
+- *(auth)* Enforce required password change on backend (by **Anastasiia**)
+- *(profile)* Add avatar save and cancel actions (by **Anastasiia**)
+- *(profile)* Improve error handling for profile updates (by **Anastasiia**)
 
 ### Other
 
@@ -802,6 +809,10 @@
 - Merge pull request #220 from ITA-Internship/bugfix#185-remaining-idor-fixes (by **Maksym Korchynskyi**)
 - Fix IDOR in video upload and unify mission scoping (by **Maksym Korchynskyi**)
 - Merge pull request #221 from ITA-Internship/fix/media-upload-tests (by **Maksym Korchynskyi**)
+- Merge branch 'develop' of https://github.com/ITA-Internship/Mission-Control-System into task#206-frontend-my-profile (by **Anastasiia**)
+- Merge remote-tracking branch 'origin/fix/media-upload-tests' into task#206-frontend-my-profile (by **Anastasiia**)
+- Merge pull request #219 from ITA-Internship/task#206-frontend-my-profile (by **Anastasiia Humeniuk**)
+- Task#206 frontend My profile page (by **Anastasiia Humeniuk**)
 
 ### Refactor
 
@@ -814,6 +825,8 @@
 - Update API documentation for pagination and examples (by **Anastasiia**)
 - *(entrypoint)* Remove database migration step from entrypoint script (by **Anastasiia**)
 - *(tests, api_details, views)* Improve docstring formatting and code readability (by **Anastasiia**)
+- *(profile)* Streamline profile components and remove unnecessary password change logic (by **Anastasiia**)
+- *(profile)* Remove unused icons and notification button from profile layout (by **Anastasiia**)
 
 ### Documentation
 
@@ -873,6 +886,7 @@
 - *(changelog)* Update CHANGELOG.md [skip ci] (by **github-actions[bot]**)
 - *(changelog)* Update CHANGELOG.md [skip ci] (by **github-actions[bot]**)
 - *(auth)* Add frontend runtime, SPA deployment and tests (#200) (by **yana-donda**)
+- *(changelog)* Update CHANGELOG.md [skip ci] (by **github-actions[bot]**)
 - *(changelog)* Update CHANGELOG.md [skip ci] (by **github-actions[bot]**)
 - *(changelog)* Update CHANGELOG.md [skip ci] (by **github-actions[bot]**)
 - *(changelog)* Update CHANGELOG.md [skip ci] (by **github-actions[bot]**)
