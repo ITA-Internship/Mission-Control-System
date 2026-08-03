@@ -1,4 +1,4 @@
-import type { CurrentUser } from "../../auth/types/auth";
+import type { CurrentUser } from "../../../shared/types/accounts";
 import type {
   PasswordRequirement,
   PasswordStrength,

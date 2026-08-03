@@ -8,7 +8,7 @@ import type {
   RefObject,
 } from "react";
 
-import type { CurrentUser } from "../../auth/types/auth";
+import type { CurrentUser } from "../../../shared/types/accounts";
 import type { AvatarState } from "../types/profile";
 import { getInitials } from "../utils/profileUtils";
 import {

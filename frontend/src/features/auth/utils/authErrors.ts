@@ -1,7 +1,7 @@
 import {
   ApiError,
   NetworkError,
-} from "../api/apiClient";
+} from "../../../shared/api/apiClient";
 
 function isRecord(
   value: unknown,

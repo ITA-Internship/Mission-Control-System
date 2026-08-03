@@ -1437,6 +1437,59 @@ class AuditLogExportTests(TestCase):
         self.assertEqual(data_row[-1], f"'{malicious_description}")
 
 
+# The audit viewset uses DRF's stock ScopedRateThrottle, which reads its rates
+# from the THROTTLE_RATES dict captured at import time — so `override_settings`
+# can't reach it (unlike the project's custom throttles). Patch that live dict
+# instead to exercise the split scopes at controlled, tight rates.
+_STOCK_THROTTLE_RATES = "rest_framework.throttling.SimpleRateThrottle.THROTTLE_RATES"
+
+
+class AuditLogThrottleScopeTests(APITestCase):
+    """Verify audit-log viewing and export use independent throttle buckets."""
+
+    def setUp(self):
+        """Authenticate an admin and reset any carried-over throttle counters."""
+        cache.clear()
+        self.admin_user = AdminUserFactory()
+        self.client.force_authenticate(self.admin_user)
+
+    def tearDown(self):
+        """Clear throttle state so later tests start from a clean bucket."""
+        cache.clear()
+
+    @patch.dict(
+        _STOCK_THROTTLE_RATES,
+        {"audit_view": "5/min", "audit_export": "1/min"},
+    )
+    def test_view_and_export_throttle_independently(self):
+        """List and export must not share a throttle bucket.
+
+        Regression guard: the viewset once applied a single `audit_export` scope
+        to every action, so routine dashboard reads could 429 real CSV exports
+        (and vice versa). Viewing now has its own, separate `audit_view` scope.
+        """
+        list_url = reverse("accounts:audit-log-list")
+        export_url = reverse("accounts:audit-log-export")
+
+        # Export budget is tight (1/min): first succeeds, second is throttled.
+        self.assertEqual(self.client.get(export_url).status_code, 200)
+        self.assertEqual(
+            self.client.get(export_url).status_code,
+            status.HTTP_429_TOO_MANY_REQUESTS,
+        )
+
+        # The exhausted export budget must NOT block viewing — separate scope.
+        for _ in range(5):
+            self.assertEqual(self.client.get(list_url).status_code, 200)
+
+        # ...and the 6th view crosses the *view* budget (5/min), proving reads
+        # throttle on audit_view rather than the export bucket.
+        self.assertEqual(
+            self.client.get(list_url).status_code,
+            status.HTTP_429_TOO_MANY_REQUESTS,
+        )
+
+
 class ProtectedProfilePictureRBACTests(APITestCase):
     """Test centralized RBAC access to protected profile pictures."""
 

@@ -9,10 +9,10 @@ import {
 
 import {
   isAbortError,
-} from "../api/apiClient";
+} from "../../../shared/api/apiClient";
 import { getCurrentUser } from "../api/authApi";
 import { AuthAlert } from "./AuthAlert";
-import type { CurrentUser } from "../types/auth";
+import type { CurrentUser } from "../../../shared/types/accounts";
 import {
   getFormError,
   isSessionAuthenticationError,

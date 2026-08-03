@@ -241,6 +241,14 @@ class UserMeSerializer(serializers.ModelSerializer):
             "created_by",
         )
 
+    def get_role_code(self, obj) -> str | None:
+        """Return the code of the user's role (e.g. ``ADMIN``), if any."""
+        return obj.role.code if obj.role else None
+
+    def get_role_name(self, obj) -> str | None:
+        """Return the human-readable name of the user's role, if any."""
+        return obj.role.name if obj.role else None
+
     @transaction.atomic
     def update(self, instance, validated_data):
         """Update the user instance and their associated profile data."""

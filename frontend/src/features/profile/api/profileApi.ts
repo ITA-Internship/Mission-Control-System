@@ -1,6 +1,6 @@
-import { apiRequest } from "../../auth/api/apiClient";
+import { apiRequest } from "../../../shared/api/apiClient";
 
-import type { CurrentUser } from "../../auth/types/auth";
+import type { CurrentUser } from "../../../shared/types/accounts";
 
 export interface UpdateProfilePayload {
   firstName: string;

@@ -4,7 +4,7 @@ import {
   Lock,
 } from "lucide-react";
 
-import type { CurrentUser } from "../../auth/types/auth";
+import type { CurrentUser } from "../../../shared/types/accounts";
 import { getUserIdentifier } from "../utils/profileUtils";
 import {
   Card,
