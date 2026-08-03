@@ -16,6 +16,7 @@ from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.db import transaction
 
+from common.request_utils import get_client_ip
 from roles.models import ADMIN_CODE, Role
 
 from .models import AuditLog, User, UserProfile, UserRoleAuditLog
@@ -224,12 +225,7 @@ def create_audit_log(
 
     if request:
         user_agent = request.META.get("HTTP_USER_AGENT", "")
-
-        x_forwarded_for = request.META.get("HTTP_X_FORWARDED_FOR")
-        if x_forwarded_for:
-            ip_address = x_forwarded_for.split(",")[-1].strip()
-        else:
-            ip_address = request.META.get("REMOTE_ADDR")
+        ip_address = get_client_ip(request)
 
     return AuditLog.objects.create(
         actor=actor if actor and actor.is_authenticated else None,

@@ -8,7 +8,7 @@ paths:
     post:
       operationId: accounts_activate_create
       description: |-
-        Validates the activation token provided via the URL parameters. If the token is valid, it sets the user's new password and creates an audit log entry.
+        Validates the activation token provided via the URL parameters. If the token is valid and the account is still pending activation, it validates the submitted password against the password-strength policy, sets it as the user's password, activates the account, and creates an audit log entry.
 
         Required permission: `AllowAny`.
       summary: Activate user account
@@ -27,6 +27,18 @@ paths:
         required: true
       tags:
       - accounts
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AccountActivation'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/AccountActivation'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/AccountActivation'
+        required: true
       security:
       - cookieAuth: []
       - basicAuth: []
@@ -45,10 +57,20 @@ paths:
                   value:
                     detail: Invalid or expired activation link.
                   summary: Activation link error
+                AccountAlreadyActivated:
+                  value:
+                    detail: This account has already been activated.
+                  summary: Account already activated
                 MissingRequiredField:
                   value:
-                    password: This field is required.
+                    password:
+                    - This field is required.
                   summary: Missing required field
+                PasswordTooWeak:
+                  value:
+                    password:
+                    - This password is too short. It must contain at least 8 characters.
+                  summary: Password too weak
           description: Bad Request
         '404':
           description: Not Found.
@@ -342,10 +364,11 @@ paths:
       description: "Returns the profile picture image file of the specified user,
         served inline. In production the file is delivered through a protected `X-Accel-Redirect`
         internal redirect; in debug mode the file is streamed directly.\n\nAccess
-        rules: \n- Any authenticated user may retrieve their own profile picture.
-        \n- Only staff users may retrieve another user's profile picture. \n- Returns
-        404 if the target user has no profile picture, or if the stored file is missing
-        from the server.\n\nRequired permission: `IsAuthenticated`."
+        rules: \n- Users need `PERMISSION_PROFILE_VIEW_OWN` to retrieve their own
+        profile picture. \n- Retrieving another user's profile picture also requires
+        `PERMISSION_PROFILE_VIEW_ANY`. \n- Returns 404 if the target user has no profile
+        picture, or if the stored file is missing from the server.\n\nRequired permission:
+        `PERMISSION_PROFILE_VIEW_OWN`."
       summary: Retrieve a user's profile picture
       parameters:
       - in: path
@@ -2260,10 +2283,10 @@ paths:
           type: string
         description: Filter by status (`uploading`, `ready`, `failed`).
       - in: query
-        name: uploader_id
+        name: uploaded_by_id
         schema:
           type: integer
-        description: 'Filter by uploader user ID (alias: `uploader`).'
+        description: 'Filter by uploader user ID (alias: `uploaded_by`).'
       tags:
       - media
       security:
@@ -2285,8 +2308,8 @@ paths:
                     - id: 3
                       mission: 11
                       drone: 21
-                      uploader: 24
-                      uploader_username: oleksandr.koval
+                      uploaded_by: 24
+                      uploaded_by_username: oleksandr.koval
                       file: http://localhost:8000/media/videos/mission_11/recon.mp4
                       file_name: recon.mp4
                       file_size: 20984320
@@ -2321,7 +2344,7 @@ paths:
     post:
       operationId: media_videos_create
       description: "Uploads a new video file and creates its metadata record. The
-        uploader is set to the authenticated user and the record starts in the `uploading`
+        uploaded_by is set to the authenticated user and the record starts in the `uploading`
         status while the duration is extracted asynchronously.\n\nValidation: \n-
         The selected drone must be assigned to the selected mission.\n\nRequired permission:
         `PERMISSION_MEDIA_UPLOAD`."
@@ -2415,8 +2438,8 @@ paths:
                     id: 3
                     mission: 11
                     drone: 21
-                    uploader: 24
-                    uploader_username: oleksandr.koval
+                    uploaded_by: 24
+                    uploaded_by_username: oleksandr.koval
                     file: http://localhost:8000/media/videos/mission_11/recon.mp4
                     file_name: recon.mp4
                     file_size: 20984320
@@ -2487,8 +2510,8 @@ paths:
                     id: 3
                     mission: 11
                     drone: 21
-                    uploader: 24
-                    uploader_username: oleksandr.koval
+                    uploaded_by: 24
+                    uploaded_by_username: oleksandr.koval
                     file: http://localhost:8000/media/videos/mission_11/recon.mp4
                     file_name: recon.mp4
                     file_size: 20984320
@@ -2557,8 +2580,8 @@ paths:
                     id: 3
                     mission: 11
                     drone: 21
-                    uploader: 24
-                    uploader_username: oleksandr.koval
+                    uploaded_by: 24
+                    uploaded_by_username: oleksandr.koval
                     file: http://localhost:8000/media/videos/mission_11/recon.mp4
                     file_name: recon.mp4
                     file_size: 20984320
@@ -4696,6 +4719,15 @@ paths:
           description: Forbidden. User does not have permission to perform this action.
 components:
   schemas:
+    AccountActivation:
+      type: object
+      description: Serialize account activation requests that set the initial password.
+      properties:
+        password:
+          type: string
+          writeOnly: true
+      required:
+      - password
     ActionEnum:
       enum:
       - view
@@ -5008,6 +5040,39 @@ components:
         id:
           type: integer
           readOnly: true
+        serial_number:
+          type: string
+          maxLength: 100
+        inventory_number:
+          type: string
+          maxLength: 100
+        name:
+          type: string
+          maxLength: 100
+        drone_model:
+          type: integer
+          description: Drone Model
+        classification:
+          $ref: '#/components/schemas/ClassificationEnum'
+        status:
+          allOf:
+          - $ref: '#/components/schemas/DroneStatus'
+          readOnly: true
+        military_unit:
+          type: integer
+        acquired_at:
+          type: string
+          format: date
+        notes:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
         spec:
           $ref: '#/components/schemas/DroneSpecDetail'
         writeoff_record:
@@ -5023,37 +5088,6 @@ components:
         status_category:
           type: string
           readOnly: true
-        serial_number:
-          type: string
-          maxLength: 100
-        inventory_number:
-          type: string
-          maxLength: 100
-        name:
-          type: string
-          maxLength: 100
-        classification:
-          $ref: '#/components/schemas/ClassificationEnum'
-        status:
-          $ref: '#/components/schemas/DroneStatus'
-        acquired_at:
-          type: string
-          format: date
-        notes:
-          type: string
-        created_at:
-          type: string
-          format: date-time
-          readOnly: true
-        updated_at:
-          type: string
-          format: date-time
-          readOnly: true
-        drone_model:
-          type: integer
-          description: Drone Model
-        military_unit:
-          type: integer
       required:
       - acquired_at
       - classification
@@ -5065,6 +5099,7 @@ components:
       - name
       - serial_number
       - spec
+      - status
       - status_category
       - status_indicator
       - status_label
@@ -5521,6 +5556,7 @@ components:
       type: string
     MediaAuditLog:
       type: object
+      description: Serialize read-only media audit log data for list responses.
       properties:
         id:
           type: integer
@@ -5649,6 +5685,7 @@ components:
       - updated_at
     MissionArtifact:
       type: object
+      description: Serialize artifact data for list responses.
       properties:
         id:
           type: integer
@@ -5705,6 +5742,7 @@ components:
       - uploaded_by
     MissionArtifactUpload:
       type: object
+      description: Serialize mission artifact record.
       properties:
         file:
           type: string
@@ -6425,6 +6463,7 @@ components:
           maxLength: 255
     PatchedVideoMetadata:
       type: object
+      description: Serialize video metadata record for listing and updating.
       properties:
         id:
           type: integer
@@ -6435,12 +6474,12 @@ components:
         drone:
           type: integer
           description: Drone used to capture this video
-        uploader:
+        uploaded_by:
           type: integer
           readOnly: true
           nullable: true
           description: User who uploaded the file
-        uploader_username:
+        uploaded_by_username:
           type: string
           readOnly: true
         file:
@@ -6485,6 +6524,7 @@ components:
           readOnly: true
         url:
           type: string
+          description: Return video file URL.
           readOnly: true
     RepairEvent:
       type: object
@@ -6872,6 +6912,7 @@ components:
       - username
     VideoMetadata:
       type: object
+      description: Serialize video metadata record for listing and updating.
       properties:
         id:
           type: integer
@@ -6882,12 +6923,12 @@ components:
         drone:
           type: integer
           description: Drone used to capture this video
-        uploader:
+        uploaded_by:
           type: integer
           readOnly: true
           nullable: true
           description: User who uploaded the file
-        uploader_username:
+        uploaded_by_username:
           type: string
           readOnly: true
         file:
@@ -6932,6 +6973,7 @@ components:
           readOnly: true
         url:
           type: string
+          description: Return video file URL.
           readOnly: true
       required:
       - content_type
@@ -6945,8 +6987,8 @@ components:
       - mission
       - status
       - updated_at
-      - uploader
-      - uploader_username
+      - uploaded_by
+      - uploaded_by_username
       - url
     VideoMetadataStatusEnum:
       enum:
@@ -6956,6 +6998,10 @@ components:
       type: string
     VideoUpload:
       type: object
+      description: |-
+        Serialize video metadata record.
+
+        Validates that the provided drone is actively assigned to the target mission.
       properties:
         id:
           type: integer

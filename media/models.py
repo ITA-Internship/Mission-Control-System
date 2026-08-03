@@ -64,10 +64,20 @@ def _validate_file_size(file):
 
 def video_upload_path(instance, filename):
     """Generate a destination path for video artifact uploads."""
+    # Never interpolate the raw client filename into the storage path: it may
+    # contain path-traversal sequences (``../``) or other hostile characters.
+    # A UUID plus the (separator-free) extension makes the stored name fully
+    # server-controlled, which is this callable's only security responsibility.
+    #
+    # Extension allow-listing is enforced upstream — by
+    # VideoUploadSerializer.validate_file (API -> HTTP 400) and by the field's
+    # FileExtensionValidator (forms / full_clean). It is deliberately NOT
+    # re-checked here: this runs inside Storage.save(), too late to raise a
+    # user-facing ValidationError (DRF would not convert it, yielding a 500).
+    ext = os.path.splitext(filename)[1].lower()
+    safe_name = f"{uuid.uuid4().hex}{ext}"
     return (
-        f"missions/{instance.mission_id}/"
-        f"drones/{instance.drone_id}/"
-        f"{uuid.uuid4()}_{filename}"
+        f"missions/{instance.mission_id}/" f"drones/{instance.drone_id}/" f"{safe_name}"
     )
 
 
@@ -302,7 +312,7 @@ class VideoMetadata(models.Model):
         help_text="Drone used to capture this video",
     )
 
-    uploader = models.ForeignKey(
+    uploaded_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.SET_NULL,
         null=True,
@@ -360,7 +370,7 @@ class VideoMetadata(models.Model):
 
         indexes = [
             models.Index(fields=["mission", "drone"]),
-            models.Index(fields=["uploader"]),
+            models.Index(fields=["uploaded_by"]),
             models.Index(fields=["created_at"]),
         ]
 

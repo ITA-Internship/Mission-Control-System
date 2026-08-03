@@ -30,6 +30,18 @@ from roles.models import TECHNICIAN_CODE, Role
 
 User = get_user_model()
 
+# Uploads are content-validated with libmagic, so fixtures must carry a genuine
+# file signature rather than arbitrary bytes. These are a minimal real 1x1 PNG
+# and a minimal MP4 (ftyp/isom) header — enough for libmagic to identify the
+# type without shipping large binaries.
+VALID_PNG_BYTES = bytes.fromhex(
+    "89504e470d0a1a0a0000000d49484452000000010000000108060000001f15c489"
+    "0000000b49444154789c63f80f040009fb03fdfb5e6b2b0000000049454e44ae426082"
+)
+VALID_MP4_BYTES = bytes.fromhex(
+    "000000206674797069736f6d0000020069736f6d69736f32617663316d703431"
+)
+
 
 def _create_technician_user():
     technician_role, _ = Role.objects.get_or_create(
@@ -119,7 +131,7 @@ class VideoMetadataAPITests(APITestCase):
 
         self.video_file = SimpleUploadedFile(
             name="flight_video.mp4",
-            content=b"fake_video_content_bytes",
+            content=VALID_MP4_BYTES,
             content_type="video/mp4",
         )
         self.list_url = reverse("video_media:video-metadata-list")
@@ -175,6 +187,52 @@ class VideoMetadataAPITests(APITestCase):
         video_from_db = VideoMetadata.objects.get(id=response.data["id"])
         self.assertEqual(video_from_db.status, VideoMetadata.Status.UPLOADING)
         mock_delay.assert_called_once_with(video_from_db.id)
+
+    @patch("media.permissions.MediaUploadPermission.has_permission", return_value=True)
+    def test_upload_video_rejects_non_video_content(self, mock_perm):
+        """Verify bytes named .mp4 with a spoofed content_type are rejected."""
+        # Arbitrary bytes named .mp4 (with a spoofed video/mp4 content_type) must
+        # be rejected: the real content is sniffed, the client header ignored.
+        data = {
+            "mission": self.mission.id,
+            "drone": self.drone.id,
+            "file": SimpleUploadedFile(
+                "fake.mp4", b"not a video at all", content_type="video/mp4"
+            ),
+        }
+        response = self.client.post(self.list_url, data, format="multipart")
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("file", response.data)
+        self.assertEqual(VideoMetadata.objects.count(), 0)
+
+    @patch("media.views.extract_video_duration_task.delay")
+    @patch("media.permissions.MediaUploadPermission.has_permission", return_value=True)
+    @patch("subprocess.run")
+    def test_upload_video_records_server_detected_content_type(
+        self, mock_subproc, mock_perm, mock_delay
+    ):
+        """Verify the stored content_type comes from libmagic, not the client."""
+
+        class MockResult:
+            stdout = '{"format": {"duration": "10.0"}}'
+            stderr = ""
+
+        mock_subproc.return_value = MockResult()
+
+        # Client lies about the content_type; the stored value must come from
+        # libmagic detection of the real bytes, not the request header.
+        data = {
+            "mission": self.mission.id,
+            "drone": self.drone.id,
+            "file": SimpleUploadedFile(
+                "clip.mp4", VALID_MP4_BYTES, content_type="text/plain"
+            ),
+        }
+        response = self.client.post(self.list_url, data, format="multipart")
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+
+        video = VideoMetadata.objects.get(id=response.data["id"])
+        self.assertEqual(video.content_type, "video/mp4")
 
     @patch("media.permissions.MediaUploadPermission.has_permission", return_value=True)
     def test_upload_video_metadata_requires_mission(self, mock_perm):
@@ -249,7 +307,7 @@ class VideoMetadataAPITests(APITestCase):
         VideoMetadata.objects.create(
             mission=self.mission,
             drone=self.drone,
-            uploader=self.user,
+            uploaded_by=self.user,
             file=self.video_file,
             file_name="video_1.mp4",
             file_size=100,
@@ -266,7 +324,7 @@ class VideoMetadataAPITests(APITestCase):
         VideoMetadata.objects.create(
             mission=self.mission,
             drone=self.drone,
-            uploader=self.user,
+            uploaded_by=self.user,
             file=self.video_file,
             file_name="video_1.mp4",
             file_size=100,
@@ -274,7 +332,7 @@ class VideoMetadataAPITests(APITestCase):
         VideoMetadata.objects.create(
             mission=self.other_mission,
             drone=self.other_drone,
-            uploader=self.user,
+            uploaded_by=self.user,
             file=self.video_file,
             file_name="video_2.mp4",
             file_size=200,
@@ -291,7 +349,7 @@ class VideoMetadataAPITests(APITestCase):
         VideoMetadata.objects.create(
             mission=self.mission,
             drone=self.drone,
-            uploader=self.user,
+            uploaded_by=self.user,
             file=self.video_file,
             file_name="video_1.mp4",
             file_size=100,
@@ -299,7 +357,7 @@ class VideoMetadataAPITests(APITestCase):
         VideoMetadata.objects.create(
             mission=self.other_mission,
             drone=self.other_drone,
-            uploader=self.user,
+            uploaded_by=self.user,
             file=SimpleUploadedFile(
                 name="flight_video_4.mp4",
                 content=b"fourth_fake_video_content_bytes",
@@ -320,7 +378,7 @@ class VideoMetadataAPITests(APITestCase):
         VideoMetadata.objects.create(
             mission=self.mission,
             drone=self.drone,
-            uploader=self.user,
+            uploaded_by=self.user,
             file=self.video_file,
             file_name="video_1.mp4",
             file_size=100,
@@ -328,7 +386,7 @@ class VideoMetadataAPITests(APITestCase):
         VideoMetadata.objects.create(
             mission=self.other_mission,
             drone=self.other_drone,
-            uploader=self.user,
+            uploaded_by=self.user,
             file=SimpleUploadedFile(
                 name="flight_video_2.mp4",
                 content=b"other_fake_video_content_bytes",
@@ -349,7 +407,7 @@ class VideoMetadataAPITests(APITestCase):
         VideoMetadata.objects.create(
             mission=self.mission,
             drone=self.drone,
-            uploader=self.user,
+            uploaded_by=self.user,
             file=self.video_file,
             file_name="video_1.mp4",
             file_size=100,
@@ -357,7 +415,7 @@ class VideoMetadataAPITests(APITestCase):
         VideoMetadata.objects.create(
             mission=self.other_mission,
             drone=self.other_drone,
-            uploader=self.user,
+            uploaded_by=self.user,
             file=SimpleUploadedFile(
                 name="flight_video_3.mp4",
                 content=b"third_fake_video_content_bytes",
@@ -379,7 +437,7 @@ class VideoMetadataAPITests(APITestCase):
         VideoMetadata.objects.create(
             mission=self.mission,
             drone=self.drone,
-            uploader=self.user,
+            uploaded_by=self.user,
             file=self.video_file,
             file_name="video_1.mp4",
             file_size=100,
@@ -387,7 +445,7 @@ class VideoMetadataAPITests(APITestCase):
         VideoMetadata.objects.create(
             mission=self.other_mission,
             drone=self.other_drone,
-            uploader=self.user,
+            uploaded_by=self.user,
             file=SimpleUploadedFile(
                 name="flight_video_browser.mp4",
                 content=b"browser_fake_video_content_bytes",
@@ -427,7 +485,7 @@ class VideoMetadataAPITests(APITestCase):
         VideoMetadata.objects.create(
             mission=self.mission,
             drone=self.drone,
-            uploader=someone_else,
+            uploaded_by=someone_else,
             file=SimpleUploadedFile("in_unit.mp4", b"a", content_type="video/mp4"),
             file_name="in_unit.mp4",
             file_size=10,
@@ -437,7 +495,7 @@ class VideoMetadataAPITests(APITestCase):
         VideoMetadata.objects.create(
             mission=self.other_mission,
             drone=foreign_drone,
-            uploader=someone_else,
+            uploaded_by=someone_else,
             file=SimpleUploadedFile("foreign.mp4", b"b", content_type="video/mp4"),
             file_name="foreign.mp4",
             file_size=20,
@@ -449,7 +507,49 @@ class VideoMetadataAPITests(APITestCase):
         self.assertEqual(names, {"in_unit.mp4"})
 
     @patch("media.permissions.MediaViewPermission.has_permission", return_value=True)
-    def test_viewer_without_accessible_missions_gets_empty_video_list(self, mock_perm):
+    def test_uploader_can_retrieve_own_video(self, mock_perm):
+        """Verify that the user who uploaded the video can retrieve its details."""
+        video = VideoMetadata.objects.create(
+            mission=self.mission,
+            drone=self.drone,
+            uploaded_by=self.user,
+            file=self.video_file,
+            file_name="video_1.mp4",
+            file_size=100,
+        )
+
+        detail_url = reverse(
+            "video_media:video-metadata-detail", kwargs={"pk": video.id}
+        )
+        response = self.client.get(detail_url)
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["id"], video.id)
+
+    def test_admin_user_can_retrieve_foreign_video(self):
+        """Verify that an admin user can retrieve any video metadata."""
+        admin_user = AdminUserFactory()
+        self.client.force_authenticate(admin_user)
+
+        video = VideoMetadata.objects.create(
+            mission=self.mission,
+            drone=self.other_drone,
+            uploaded_by=self.user,
+            file=self.video_file,
+            file_name="foreign_video.mp4",
+            file_size=100,
+        )
+
+        detail_url = reverse(
+            "video_media:video-metadata-detail", kwargs={"pk": video.id}
+        )
+        response = self.client.get(detail_url)
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        self.assertEqual(response.data["id"], video.id)
+
+    def test_viewer_without_accessible_missions_gets_empty_video_list(self):
         """Verify an empty scoped queryset is not widened to the global queryset."""
         viewer_without_unit = ViewerUserFactory()
         self.client.force_authenticate(user=viewer_without_unit)
@@ -457,7 +557,7 @@ class VideoMetadataAPITests(APITestCase):
         VideoMetadata.objects.create(
             mission=self.mission,
             drone=self.drone,
-            uploader=OperatorUserFactory(),
+            uploaded_by=OperatorUserFactory(),
             file=SimpleUploadedFile("in_unit.mp4", b"a", content_type="video/mp4"),
             file_name="in_unit.mp4",
             file_size=10,
@@ -489,7 +589,7 @@ class VideoMetadataAPITests(APITestCase):
         video = VideoMetadata.objects.create(
             mission=self.other_mission,
             drone=foreign_drone,
-            uploader=OperatorUserFactory(),
+            uploaded_by=OperatorUserFactory(),
             file=SimpleUploadedFile("foreign.mp4", b"b", content_type="video/mp4"),
             file_name="foreign.mp4",
             file_size=20,
@@ -513,7 +613,7 @@ class VideoMetadataAPITests(APITestCase):
         VideoMetadata.objects.create(
             mission=self.mission,
             drone=self.drone,
-            uploader=OperatorUserFactory(),
+            uploaded_by=OperatorUserFactory(),
             file=SimpleUploadedFile("in_unit.mp4", b"a", content_type="video/mp4"),
             file_name="in_unit.mp4",
             file_size=10,
@@ -537,7 +637,7 @@ class VideoMetadataAPITests(APITestCase):
         VideoMetadata.objects.create(
             mission=self.mission,
             drone=self.drone,
-            uploader=OperatorUserFactory(),
+            uploaded_by=OperatorUserFactory(),
             file=SimpleUploadedFile("repair.mp4", b"a", content_type="video/mp4"),
             file_name="repair.mp4",
             file_size=10,
@@ -581,10 +681,9 @@ class ArtifactListCreateTests(MissionOperatorSetupMixin, APITestCase):
         )
 
     def get_valid_payload(self):
-        """Returning a valid upload payload with dummy image bytes."""
-        file_content = b"test image content"
+        """Return a valid upload payload backed by real PNG signature bytes."""
         upload_file = SimpleUploadedFile(
-            "test.jpg", file_content, content_type="image/jpeg"
+            "test.png", VALID_PNG_BYTES, content_type="image/png"
         )
         return {
             "title": "Test Artifact",
@@ -682,6 +781,20 @@ class ArtifactListCreateTests(MissionOperatorSetupMixin, APITestCase):
         response = self.client.post(self.url, payload, format="multipart")
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertIn("file", response.data)
+
+    def test_content_not_matching_extension_rejected(self):
+        """Verify bytes renamed to an allowed extension are rejected."""
+        # H7: arbitrary bytes renamed to an allowed extension must be rejected
+        # by content sniffing, regardless of the client-supplied content_type.
+        self.client.force_authenticate(self.operator)
+        payload = self.get_valid_payload()
+        payload["file"] = SimpleUploadedFile(
+            "notreally.png", b"this is plain text, not a png", content_type="image/png"
+        )
+        response = self.client.post(self.url, payload, format="multipart")
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("file", response.data)
+        self.assertEqual(MissionArtifact.objects.count(), 0)
 
     @override_settings(ARTIFACT_MAX_FILE_SIZE_MB=0)
     def test_file_too_large_rejected(self):
@@ -947,7 +1060,7 @@ class MediaAuditLoggingTests(MissionOperatorSetupMixin, APITestCase):
     def get_valid_payload(self):
         """Return a valid file payload for upload testing."""
         upload_file = SimpleUploadedFile(
-            "clip.jpg", b"image bytes", content_type="image/jpeg"
+            "clip.png", VALID_PNG_BYTES, content_type="image/png"
         )
         return {"title": "Mission Clip", "file": upload_file}
 
@@ -1385,7 +1498,7 @@ class CrossMissionIDORTests(APITestCase):
         payload = {
             "title": "Legit upload",
             "file": SimpleUploadedFile(
-                "legit.jpg", b"img bytes", content_type="image/jpeg"
+                "legit.png", VALID_PNG_BYTES, content_type="image/png"
             ),
         }
         response = self.client.post(url_a, payload, format="multipart")

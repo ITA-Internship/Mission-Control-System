@@ -9,6 +9,7 @@ on:
 jobs:
   linting:
     runs-on: ubuntu-latest
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -62,15 +63,91 @@ jobs:
           python-version: "3.10"
           cache: "pip"
 
+      - name: Install system dependencies
+        # libmagic is loaded via ctypes when `magic` is imported (media uploads
+        # are content-validated with it). Declare it explicitly rather than
+        # relying on it being pre-installed on the runner image.
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends libmagic1
+
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
+          pip install coverage
 
-      - name: Run Tests
+      - name: Run Django deployment security checks
+        env:
+          DEBUG: "False"
+          DJANGO_SECRET_KEY: >-
+            ci-only-deployment-check-key-7f3a91c5e8d24b6fa0472c59bfe8a102
+          ALLOWED_HOSTS: "api.example.com"
+          CSRF_TRUSTED_ORIGINS: "https://api.example.com"
+          SESSION_COOKIE_SECURE: "True"
+          CSRF_COOKIE_SECURE: "True"
+          SECURE_SSL_REDIRECT: "True"
+          SECURE_HSTS_SECONDS: "31536000"
+          SECURE_HSTS_INCLUDE_SUBDOMAINS: "True"
+          SECURE_HSTS_PRELOAD: "True"
+        run: python manage.py check --deploy --tag security --fail-level WARNING
+
+      - name: Run Tests with coverage
         run: |
-          python manage.py test
+          coverage run manage.py test
+          coverage report
+          coverage xml
 
+      - name: Enforce coverage threshold
+        run: coverage report --fail-under=60
+
+      - name: Upload coverage report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: coverage.xml
+
+  security:
+    name: Dependency & SAST Scan
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+          cache: "pip"
+
+      - name: Install scanning tools
+        run: |
+          python -m pip install --upgrade pip
+          pip install pip-audit bandit
+
+      - name: Run pip-audit (dependency CVEs)
+        run: pip-audit -r requirements.txt
+
+      - name: Run bandit (SAST)
+        run: bandit -r . -c pyproject.toml -f screen
+
+  secret-scan:
+    name: Secret Scanning (gitleaks)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install and run Gitleaks
+        run: |
+          wget https://github.com/gitleaks/gitleaks/releases/download/v8.18.2/gitleaks_8.18.2_linux_x64.tar.gz
+          tar -zxvf gitleaks_8.18.2_linux_x64.tar.gz
+          ./gitleaks detect --verbose --redact
 
   frontend-checks:
     name: Frontend Verification
@@ -106,13 +183,14 @@ jobs:
       - name: Build frontend
         run: npm run build
 
-
   build-verify:
     name: Build Verification
     needs:
       - linting
       - unit-tests
       - frontend-checks
+      - security
+      - secret-scan
     runs-on: ubuntu-latest
 
     steps:

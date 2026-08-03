@@ -481,12 +481,14 @@ profile_picture_get_schema = description_schema(
         "`X-Accel-Redirect` internal redirect; in debug mode the file is "
         "streamed directly.\n\n"
         "Access rules: \n"
-        "- Any authenticated user may retrieve their own profile picture. \n"
-        "- Only staff users may retrieve another user's profile picture. \n"
+        "- Users need `PERMISSION_PROFILE_VIEW_OWN` to retrieve their own "
+        "profile picture. \n"
+        "- Retrieving another user's profile picture also requires "
+        "`PERMISSION_PROFILE_VIEW_ANY`. \n"
         "- Returns 404 if the target user has no profile picture, or if the "
         "stored file is missing from the server."
     ),
-    permission_code="IsAuthenticated",
+    permission_code="PERMISSION_PROFILE_VIEW_OWN",
     parameters=[
         OpenApiParameter(
             name="user_id",
@@ -566,41 +568,4 @@ password_reset_confirm_schema = description_schema(
         ),
     },
     error_statuses=[status.HTTP_400_BAD_REQUEST],
-)
-
-profile_picture_get_schema = description_schema(
-    summary="Retrieve a user's profile picture",
-    description=(
-        "Returns the profile picture image file of the specified user, served "
-        "inline. In production the file is delivered through a protected "
-        "`X-Accel-Redirect` internal redirect; in debug mode the file is "
-        "streamed directly.\n\n"
-        "Access rules: \n"
-        "- Any authenticated user may retrieve their own profile picture. \n"
-        "- Only staff users may retrieve another user's profile picture. \n"
-        "- Returns 404 if the target user has no profile picture, or if the "
-        "stored file is missing from the server."
-    ),
-    permission_code="IsAuthenticated",
-    parameters=[
-        OpenApiParameter(
-            name="user_id",
-            type=int,
-            location=OpenApiParameter.PATH,
-            description="ID of the user whose profile picture is being retrieved.",
-            required=True,
-        ),
-    ],
-    request=None,
-    responses={
-        status.HTTP_200_OK: OpenApiResponse(
-            response=OpenApiTypes.BINARY,
-            description=(
-                "The profile picture image file is returned inline "
-                "with the appropriate content type."
-            ),
-        ),
-        status.HTTP_403_FORBIDDEN: OpenApiResponse(description="Forbidden"),
-        status.HTTP_404_NOT_FOUND: OpenApiResponse(description="Not Found"),
-    },
 )
