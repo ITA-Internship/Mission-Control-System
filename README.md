@@ -93,6 +93,23 @@ source venv/Scripts/activate
 ```bash
 pip install -r requirements.txt
 ```
+
+> **Native dependency — libmagic.** Media uploads are content-validated with
+> `python-magic`, which needs the native **libmagic** library at runtime.
+> Without it, `python manage.py test` (and any upload) fails with
+> `ImportError: failed to find libmagic`.
+>
+> - **Docker** (recommended for local runs): already included in the image — no
+>   action needed.
+> - **Linux/macOS:** install the system library, e.g. `apt-get install libmagic1`
+>   or `brew install libmagic`.
+> - **Windows:** `python-magic` does **not** bundle the DLLs. Either run through
+>   Docker, or additionally `pip install python-magic-bin` to get the native
+>   binaries.
+>
+> (Video duration extraction similarly needs `ffmpeg` on the `PATH`; it is in
+> the Docker image.)
+
 Copy environment variables and make sure the database settings in .env are correct.
 
 3. Database & Admin Setup:

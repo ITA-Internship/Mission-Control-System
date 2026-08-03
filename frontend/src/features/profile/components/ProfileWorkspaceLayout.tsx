@@ -1,12 +1,9 @@
 import {
-  BarChart3,
-  Bell,
   ChevronDown,
   ChevronRight,
   Crosshair,
   LayoutDashboard,
   LogOut,
-  Map,
   Navigation2,
   Settings,
   Target,
@@ -37,10 +34,6 @@ const NAV_ITEMS = [
     label: "Dashboard",
   },
   {
-    icon: Map,
-    label: "Fleet Map",
-  },
-  {
     icon: Navigation2,
     label: "Drone Fleet",
   },
@@ -49,20 +42,12 @@ const NAV_ITEMS = [
     label: "Missions",
   },
   {
-    icon: Bell,
-    label: "Alerts",
-  },
-  {
     icon: Users,
     label: "Operators",
   },
   {
     icon: Wrench,
     label: "Maintenance",
-  },
-  {
-    icon: BarChart3,
-    label: "Reports",
   },
   {
     icon: Settings,
@@ -284,23 +269,6 @@ export function ProfileWorkspaceLayout({
           </div>
 
           <div className="flex items-center gap-3">
-            <button
-              type="button"
-              className="relative"
-              style={{
-                color: "#8A94A6",
-              }}
-              aria-label="Notifications"
-            >
-              <Bell size={17} />
-              <span
-                className="absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full"
-                style={{
-                  background: "#E5484D",
-                }}
-              />
-            </button>
-
             <div
               className="relative"
               ref={menuRef}

@@ -15,6 +15,7 @@ from django.views.generic import DetailView, TemplateView
 from django_filters.rest_framework import DjangoFilterBackend
 from drf_spectacular.utils import extend_schema_view
 from rest_framework import filters, generics, status
+from rest_framework.exceptions import ValidationError
 from rest_framework.response import Response
 from rest_framework.throttling import ScopedRateThrottle
 from rest_framework.views import APIView
@@ -44,7 +45,13 @@ from .api_details import (
     repair_order_replacement_post_schema,
 )
 from .filters import ComponentReplacementFilter, DefectFilter, RepairOrderFilter
-from .models import ComponentReplacement, DefectReport, RepairEvent, RepairOrder
+from .models import (
+    ComponentReplacement,
+    DefectReport,
+    RepairEvent,
+    RepairOrder,
+    RepairOrderStatus,
+)
 from .permissions import (
     RepairHistoryExportPermission,
     RepairManagePermission,
@@ -68,6 +75,8 @@ from .serializers import (
 from .services import (
     generate_repair_history_csv,
     get_drone_repair_history,
+    hydrate_timeline_page,
+    iter_hydrated_timeline,
     update_defect_status,
 )
 
@@ -342,7 +351,20 @@ class RepairOrderReplacementView(generics.CreateAPIView):
 
     def perform_create(self, serializer):
         """Inject the parent order into the serializer prior to creation."""
-        serializer.save(repair_order=self.get_repair_order())
+        repair_order = self.get_repair_order()
+
+        if repair_order.status in [
+            RepairOrderStatus.COMPLETED,
+            RepairOrderStatus.CANCELLED,
+        ]:
+            raise ValidationError(
+                {
+                    "repair_order": "Cannot add a replacement "
+                    "to a repair order with COMPLETED or CANCELED status."
+                }
+            )
+
+        serializer.save(repair_order=repair_order)
 
 
 @extend_schema_view(get=drone_repair_history_get_schema)
@@ -378,7 +400,8 @@ class DroneRepairHistoryView(generics.GenericAPIView):
 
         paginator = self.pagination_class()
         page = paginator.paginate_queryset(timeline, request)
-        serializer = RepairHistoryTimelineSerializer(page, many=True)
+        hydrated_page = hydrate_timeline_page(page)
+        serializer = RepairHistoryTimelineSerializer(hydrated_page, many=True)
         return paginator.get_paginated_response(serializer.data)
 
 
@@ -411,10 +434,11 @@ class DroneRepairHistoryExportView(generics.GenericAPIView):
             date_to=date_to,
             event_types=event_types,
         )
+        hydrated_iterator = iter_hydrated_timeline(timeline, chunk_size=1000)
 
         filename = f"repair_history_drone_{drone.serial_number}.csv"
         response = StreamingHttpResponse(
-            generate_repair_history_csv(timeline),
+            generate_repair_history_csv(hydrated_iterator),
             content_type="text/csv",
         )
         response["Content-Disposition"] = f'attachment; filename="{filename}"'
@@ -455,10 +479,11 @@ class DroneRepairHistoryPageView(LoginRequiredMixin, UserPassesTestMixin, Templa
             "date_to": self.request.GET.get("date_to", ""),
             "event_type": event_type or "",
         }
-        context["timeline"] = get_drone_repair_history(
+        timeline = get_drone_repair_history(
             drone_id,
             date_from=date_from,
             date_to=date_to,
             event_types=event_types,
         )
+        context["timeline"] = hydrate_timeline_page(list(timeline))
         return context

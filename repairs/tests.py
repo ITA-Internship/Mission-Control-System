@@ -1705,7 +1705,7 @@ class RepairHistoryServiceTests(APITestCase):
     def test_empty_history(self):
         """Verify that fetching history for a pristine drone returns an empty list."""
         result = get_drone_repair_history(self.drone.id)
-        self.assertEqual(result, [])
+        self.assertEqual(list(result), [])
 
     def test_aggregation_includes_all_types(self):
         """
@@ -1830,7 +1830,7 @@ class DefectStatusUpdateTests(APITestCase):
         reporter.
         """
         payload = {
-            "status": RepairStatus.FIXED,
+            "status": RepairStatus.IN_PROGRESS,
             "action_taken": "Replaced the broken part.",
         }
         self.client.post(self.url, payload, format="json")
@@ -1838,7 +1838,7 @@ class DefectStatusUpdateTests(APITestCase):
         self.assertEqual(len(mail.outbox), 1)
         self.assertEqual(mail.outbox[0].to, [self.reporter.email])
         self.assertIn("Status Update", mail.outbox[0].subject)
-        self.assertIn(RepairStatus.FIXED, mail.outbox[0].body)
+        self.assertIn(RepairStatus.IN_PROGRESS, mail.outbox[0].body)
         self.assertIn("Replaced the broken part.", mail.outbox[0].body)
 
     def test_same_status_update_is_rejected(self):
@@ -1857,6 +1857,17 @@ class DefectStatusUpdateTests(APITestCase):
         response = self.client.post(self.url, payload, format="json")
 
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_cannot_transition_from_reported_to_fixed(self):
+        """Ensure that status transition directly from REPORTED to FIXED is rejected."""
+        payload = {
+            "status": RepairStatus.FIXED,
+            "action_taken": "Skipping to fixed.",
+        }
+        response = self.client.post(self.url, payload, format="json")
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("status", response.data)
 
 
 class DefectStatusUpdateRBACTests(APITestCase):
@@ -1938,3 +1949,51 @@ class DefectStatusUpdateRBACTests(APITestCase):
         }
         response = self.client.post(self.url, payload, format="json")
         self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+
+class RepairOrderReplacementCreateTests(APITestCase):
+    """Test creation of replacements for repair orders with different statuses."""
+
+    def setUp(self):
+        """Prepare an authenticated user and an existing repair order."""
+        self.user = AdminUserFactory()
+        self.client.force_authenticate(self.user)
+        self.drone = DroneFactory()
+        self.payload = _replacement_payload(self.drone)
+
+    def _post_replacement(self, repair_order):
+        """Helper method to send POST request for a specific order."""
+        detail_url = reverse(
+            "repairs:repair-order-replacement", kwargs={"pk": repair_order.pk}
+        )
+        return self.client.post(detail_url, self.payload, format="json")
+
+    def test_replacement_can_be_added_to_pending_order(self):
+        """Verify that replacement can be added to order with PENDING status."""
+        order = RepairOrderFactory()
+        response = self._post_replacement(order)
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+
+    def test_replacement_can_be_added_to_in_progress_order(self):
+        """Verify that replacement can be added to order with IN_PROGRESS status."""
+        order = RepairOrderFactory(status=RepairOrderStatus.IN_PROGRESS)
+        response = self._post_replacement(order)
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+
+    def test_replacement_cannot_be_added_to_completed_order(self):
+        """Ensure that replacement cannot be added to order with COMPLETED status."""
+        order = RepairOrderFactory(status=RepairOrderStatus.COMPLETED)
+        response = self._post_replacement(order)
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("repair_order", response.data)
+
+    def test_replacement_cannot_be_added_to_canceled_order(self):
+        """Ensure that replacement cannot be added to order with CANCELLED status."""
+        order = RepairOrderFactory(status=RepairOrderStatus.CANCELLED)
+        response = self._post_replacement(order)
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("repair_order", response.data)

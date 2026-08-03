@@ -8,17 +8,21 @@ import logging
 import os
 
 from django.conf import settings
+from django.core.exceptions import ValidationError as DjangoValidationError
 from rest_framework import serializers
 
 from common.serializers import UserBriefSerializer
 from missions.models import MissionDrone
+from missions.permissions import can_user_view_mission
 
 from .models import (
+    VIDEO_ALLOWED_EXTENSIONS,
     MediaAuditLog,
     MissionArtifact,
     VideoMetadata,
     _get_all_allowed_extensions,
 )
+from .validators import validate_file_content
 
 logger = logging.getLogger(__name__)
 
@@ -82,9 +86,41 @@ class VideoUploadSerializer(serializers.ModelSerializer):
         fields = ["id", "mission", "drone", "file", "recorded_at", "checksum"]
         read_only_fields = ["id"]
 
+    def validate_file(self, file):
+        """Validate the video file's real content, extension and size."""
+        if file.size is None or file.size == 0:
+            raise serializers.ValidationError(
+                "File is empty or its size cannot be determined."
+            )
+
+        max_bytes = settings.VIDEO_MAX_FILE_SIZE_MB * 1024 * 1024
+        if file.size > max_bytes:
+            raise serializers.ValidationError(
+                f"File size exceeds the limit of {settings.VIDEO_MAX_FILE_SIZE_MB}MB."
+            )
+
+        # Verify the real content matches the claimed video extension instead
+        # of trusting the client-supplied content_type. The detected MIME type
+        # is stashed for create() so it, too, never relies on client input.
+        allowed = [f".{ext}" for ext in VIDEO_ALLOWED_EXTENSIONS]
+        try:
+            _, detected = validate_file_content(file, allowed)
+        except DjangoValidationError as exc:
+            raise serializers.ValidationError(exc.messages)
+        self._detected_content_type = detected
+
+        return file
+
     def validate(self, attrs):
         """Validate that the provided drone belongs to the target mission."""
         attrs = super().validate(attrs)
+
+        request = self.context.get("request")
+        if request and not can_user_view_mission(request.user, attrs["mission"]):
+            raise serializers.ValidationError(
+                {"mission": "You do not have access to this mission."}
+            )
+
         if not MissionDrone.objects.filter(
             mission=attrs["mission"],
             drone=attrs["drone"],
@@ -104,17 +140,22 @@ class VideoUploadSerializer(serializers.ModelSerializer):
 
         file_obj = validated_data["file"]
 
-        validated_data["file_name"] = file_obj.name
+        validated_data["file_name"] = os.path.basename(file_obj.name)
         validated_data["file_size"] = file_obj.size
-        content_type = getattr(file_obj, "content_type", "") or ""
-        validated_data["content_type"] = content_type
+        # Server-detected content type (set in validate_file); never the
+        # client-supplied header.
+        validated_data["content_type"] = (
+            getattr(self, "_detected_content_type", "") or ""
+        )
 
         validated_data["uploaded_by"] = self.context["request"].user
         validated_data.setdefault("status", VideoMetadata.Status.UPLOADING)
 
-        if not content_type.startswith("video/"):
-            validated_data["duration_seconds"] = None
-
+        # duration_seconds is left unset here (defaults to NULL) and populated by
+        # extract_video_duration_task, which the view enqueues for every upload.
+        # It is deliberately NOT gated on the detected MIME prefix: a valid
+        # video can sniff as application/mp4 or application/x-matroska (not
+        # video/*), and every file reaching here is an already-validated video.
         return super().create(validated_data)
 
 
@@ -187,18 +228,10 @@ class MissionArtifactUploadSerializer(serializers.Serializer):
         return stripped
 
     def validate_file(self, file):
-        """Validate extension matching and size of artifact file."""
+        """Validate the artifact file's real content, extension and size."""
         if file.size is None or file.size == 0:
             raise serializers.ValidationError(
                 "File is empty or its size cannot be determined."
-            )
-
-        ext = os.path.splitext(file.name)[1].lower()
-        all_allowed = _get_all_allowed_extensions()
-        if ext not in all_allowed:
-            raise serializers.ValidationError(
-                f"Unsupported file type '{ext}'. "
-                f"Allowed: {', '.join(sorted(all_allowed))}."
             )
 
         max_bytes = settings.ARTIFACT_MAX_FILE_SIZE_MB * 1024 * 1024
@@ -207,5 +240,13 @@ class MissionArtifactUploadSerializer(serializers.Serializer):
                 f"File size {file.size} bytes exceeds the "
                 f"{settings.ARTIFACT_MAX_FILE_SIZE_MB} MB limit."
             )
+
+        # Validate the file's real content against its extension. The extension
+        # allow-list alone is spoofable (arbitrary bytes named ``x.png``); this
+        # sniffs the actual bytes with libmagic.
+        try:
+            validate_file_content(file, _get_all_allowed_extensions())
+        except DjangoValidationError as exc:
+            raise serializers.ValidationError(exc.messages)
 
         return file
