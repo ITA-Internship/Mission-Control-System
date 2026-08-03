@@ -3,6 +3,8 @@
 @theme {
   --color-mc-bg: #0b0f14;
   --color-mc-card: #161d26;
+  --color-mc-panel: #0e1420;
+  --color-mc-elevated: #1c2533;
   --color-mc-field: #1e2733;
   --color-mc-accent: #c8a24a;
   --color-mc-accent-hover: #d4ad57;
@@ -13,6 +15,17 @@
   --color-mc-subtle: #4a5568;
   --color-mc-error: #e5484d;
   --color-mc-success: #3fb950;
+  --color-mc-info: #4c8dff;
+  --color-mc-teal: #2dd4bf;
+  --color-mc-orange: #f0883e;
+
+  --font-mono:
+    "IBM Plex Mono",
+    ui-monospace,
+    SFMono-Regular,
+    "Cascadia Mono",
+    Menlo,
+    monospace;
 }
 
 :root {
@@ -51,8 +64,31 @@ body {
 }
 
 button,
-input {
+input,
+select,
+textarea {
   font: inherit;
+}
+
+.mc-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: rgb(255 255 255 / 12%) transparent;
+}
+
+.mc-scroll::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+.mc-scroll::-webkit-scrollbar-thumb {
+  border: 3px solid transparent;
+  border-radius: 999px;
+  background-clip: content-box;
+  background-color: rgb(255 255 255 / 12%);
+}
+
+.mc-scroll::-webkit-scrollbar-thumb:hover {
+  background-color: rgb(255 255 255 / 20%);
 }
 
 input:-webkit-autofill,

@@ -14,7 +14,7 @@ import {
 
 import {
   isAbortError,
-} from "../api/apiClient";
+} from "../../../shared/api/apiClient";
 import {
   confirmPasswordReset,
 } from "../api/authApi";
@@ -47,10 +47,12 @@ import {
 } from "../components/SubmitButton";
 import {
   useAbortableRequest,
-} from "../hooks/useAbortableRequest";
+} from "../../../shared/hooks/useAbortableRequest";
 import {
   getApiFieldError,
   getFormError,
+} from "../../../shared/utils/apiErrors";
+import {
   isInvalidResetLinkError,
 } from "../utils/authErrors";
 import {

@@ -1,6 +1,4 @@
-export interface DetailResponse {
-  detail: string;
-}
+export type { DetailResponse } from "../../../shared/types/api";
 
 export interface CurrentUser {
   id: number;

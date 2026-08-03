@@ -257,6 +257,41 @@ http://127.0.0.1:8000/change-password/required
 
 ---
 
+## Administration console
+
+The administration console is served inside the application shell
+(sidebar navigation and top bar):
+
+```text
+/administration?tab=users
+/administration?tab=units
+/administration?tab=audit
+```
+
+The active tab is stored in the `tab` query parameter, so a tab is
+linkable and survives a reload.
+
+### Backend endpoints used
+
+| Console area | Endpoint | Available in the API |
+|--------------|----------|----------------------|
+| Audit log table | `GET /api/accounts/audit-log/` | yes |
+| Audit log CSV export | `GET /api/accounts/audit-log/export/` | yes |
+| Create user | `POST /api/accounts/users/` | yes |
+| Activate / deactivate user | `PATCH /api/accounts/users/<pk>/status/` | yes |
+| Change user role | `PATCH /api/accounts/users/<user_id>/role/` | yes |
+| Users table | `GET /api/accounts/users/` | not yet |
+| Military units table and forms | `/api/accounts/military-units/` | not yet |
+| Role selects and filters | `GET /api/roles/` | not yet |
+
+The three endpoints marked "not yet" are part of the administration
+contract in `docs/design/administration.md` but are not exposed by the
+backend. Until they exist, the affected tables render an explicit
+"endpoint unavailable" state, and role or unit selects are disabled
+instead of showing empty data.
+
+---
+
 ## Available commands
 
 Start the Vite development server:

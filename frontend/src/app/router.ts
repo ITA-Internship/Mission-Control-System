@@ -3,6 +3,7 @@ import {
   redirect,
 } from "react-router";
 
+import { AdministrationPage } from "../features/admin/pages/AdministrationPage";
 import { ActivateAccountPage } from "../features/auth/pages/ActivateAccountPage";
 import { ForgotPasswordPage } from "../features/auth/pages/ForgotPasswordPage";
 import { LoginPage } from "../features/auth/pages/LoginPage";
@@ -41,6 +42,10 @@ export const router = createBrowserRouter([
   {
     path: "/change-password/required",
     Component: RequiredPasswordChangePage,
+  },
+  {
+    path: "/administration",
+    Component: AdministrationPage,
   },
   {
     path: "*",

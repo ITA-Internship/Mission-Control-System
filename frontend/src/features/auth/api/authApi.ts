@@ -1,4 +1,4 @@
-import { apiRequest } from "./apiClient";
+import { apiRequest } from "../../../shared/api/apiClient";
 
 import type {
   CurrentUser,
