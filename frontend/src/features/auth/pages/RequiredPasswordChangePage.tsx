@@ -8,7 +8,7 @@ import { useNavigate } from "react-router";
 
 import {
   isAbortError,
-} from "../api/apiClient";
+} from "../../../shared/api/apiClient";
 import { changePassword } from "../api/authApi";
 import { AuthAlert } from "../components/AuthAlert";
 import { AuthLayout } from "../components/AuthLayout";
@@ -16,7 +16,7 @@ import { AuthPageContent } from "../components/AuthPageContent";
 import { PasswordInput } from "../components/PasswordInput";
 import { PasswordStrength } from "../components/PasswordStrength";
 import { SubmitButton } from "../components/SubmitButton";
-import { useAbortableRequest } from "../hooks/useAbortableRequest";
+import { useAbortableRequest } from "../../../shared/hooks/useAbortableRequest";
 import {
   getApiFieldError,
   getFormError,

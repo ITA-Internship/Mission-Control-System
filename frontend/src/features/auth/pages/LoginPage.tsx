@@ -6,7 +6,7 @@ import type { FormEvent } from "react";
 import { Mail } from "lucide-react";
 import { useNavigate } from "react-router";
 
-import { isAbortError } from "../api/apiClient";
+import { isAbortError } from "../../../shared/api/apiClient";
 import {
   prepareSignIn,
   signIn,
@@ -18,7 +18,7 @@ import { AuthTextLink } from "../components/AuthTextLink";
 import { PasswordInput } from "../components/PasswordInput";
 import { SubmitButton } from "../components/SubmitButton";
 import { TextInput } from "../components/TextInput";
-import { useAbortableRequest } from "../hooks/useAbortableRequest";
+import { useAbortableRequest } from "../../../shared/hooks/useAbortableRequest";
 import { getFormError } from "../utils/authErrors";
 import { validateRequiredPassword } from "../validation/authValidation";
 

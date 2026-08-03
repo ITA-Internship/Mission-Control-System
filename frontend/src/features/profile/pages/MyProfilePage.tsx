@@ -16,7 +16,7 @@ import {
 
 import {
   isAbortError,
-} from "../../auth/api/apiClient";
+} from "../../../shared/api/apiClient";
 import {
   changePassword,
   getCurrentUser,
@@ -29,7 +29,7 @@ import {
   isPasswordChangeRequiredError,
   isSessionAuthenticationError,
 } from "../../auth/utils/authErrors";
-import type { CurrentUser } from "../../auth/types/auth";
+import type { CurrentUser } from "../../../shared/types/accounts";
 import { updateCurrentUserProfile } from "../api/profileApi";
 import { ProfileAvatarCard } from "../components/ProfileAvatarCard";
 import { ProfileDetailsCard } from "../components/ProfileDetailsCard";

@@ -16,7 +16,7 @@ import type {
   RefObject,
 } from "react";
 
-import type { CurrentUser } from "../../auth/types/auth";
+import type { CurrentUser } from "../../../shared/types/accounts";
 import {
   ProfileAvatarImage,
   RoleBadge,
