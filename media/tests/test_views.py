@@ -1557,7 +1557,9 @@ class CrossMissionIDORTests(APITestCase):
         self.client.force_authenticate(dispatcher)
         payload = {
             "title": "Dispatcher upload",
-            "file": SimpleUploadedFile("d.jpg", b"img", content_type="image/jpeg"),
+            "file": SimpleUploadedFile(
+                "d.png", VALID_PNG_BYTES, content_type="image/png"
+            ),
         }
         response = self.client.post(self.list_url_b, payload, format="multipart")
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
@@ -1567,7 +1569,9 @@ class CrossMissionIDORTests(APITestCase):
         self.client.force_authenticate(self.commander)
         payload = {
             "title": "Cmd upload",
-            "file": SimpleUploadedFile("c.jpg", b"img", content_type="image/jpeg"),
+            "file": SimpleUploadedFile(
+                "c.png", VALID_PNG_BYTES, content_type="image/png"
+            ),
         }
         response = self.client.post(self.list_url_b, payload, format="multipart")
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
@@ -1578,7 +1582,9 @@ class CrossMissionIDORTests(APITestCase):
         self.client.force_authenticate(viewer)
         payload = {
             "title": "Viewer upload",
-            "file": SimpleUploadedFile("v.jpg", b"img", content_type="image/jpeg"),
+            "file": SimpleUploadedFile(
+                "v.png", VALID_PNG_BYTES, content_type="image/png"
+            ),
         }
         response = self.client.post(self.list_url_b, payload, format="multipart")
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
