@@ -108,6 +108,11 @@
 - Fixed failing test (by **Olena Kshyk**)
 - Fix business logic gaps in repairs (by **torii044**)
 - Fix DroneRepairHistoryPageView, old_serial_number and order_by (by **torii044**)
+- *(drones)* Add status state machine and row-level locking (#146) (by **Maksym**)
+- Address PR review — single source of truth for transition check, error handling, tests (by **Maksym**)
+- *(drones)* Add status state machine and row-level locking (by **Maksym Korchynskyi**)
+- Use valid png payload in media upload tests (by **Maksym**)
+- Use valid png payload in media upload tests (by **Maksym Korchynskyi**)
 
 ### Other
 
@@ -791,6 +796,12 @@
 - Fix/task#147 file type validation (by **Olena Kshyk**)
 - Merge pull request #201 from ITA-Internship/task#152-fix-repairs-business-logic-gaps (by **Viktoriia Kovalchuk**)
 - Task#152 fix business logic gaps in repairs (by **Viktoriia Kovalchuk**)
+- Merge remote-tracking branch 'origin/develop' into 146-drone-status-fixes (by **Maksym**)
+- Merge pull request #202 from ITA-Internship/146-drone-status-fixes (by **Maksym Korchynskyi**)
+- Fix IDOR in video upload and unify mission scoping (by **Maksym**)
+- Merge pull request #220 from ITA-Internship/bugfix#185-remaining-idor-fixes (by **Maksym Korchynskyi**)
+- Fix IDOR in video upload and unify mission scoping (by **Maksym Korchynskyi**)
+- Merge pull request #221 from ITA-Internship/fix/media-upload-tests (by **Maksym Korchynskyi**)
 
 ### Refactor
 
@@ -862,6 +873,9 @@
 - *(changelog)* Update CHANGELOG.md [skip ci] (by **github-actions[bot]**)
 - *(changelog)* Update CHANGELOG.md [skip ci] (by **github-actions[bot]**)
 - *(auth)* Add frontend runtime, SPA deployment and tests (#200) (by **yana-donda**)
+- *(changelog)* Update CHANGELOG.md [skip ci] (by **github-actions[bot]**)
+- *(changelog)* Update CHANGELOG.md [skip ci] (by **github-actions[bot]**)
+- *(changelog)* Update CHANGELOG.md [skip ci] (by **github-actions[bot]**)
 - *(changelog)* Update CHANGELOG.md [skip ci] (by **github-actions[bot]**)
 - *(changelog)* Update CHANGELOG.md [skip ci] (by **github-actions[bot]**)
 - *(changelog)* Update CHANGELOG.md [skip ci] (by **github-actions[bot]**)

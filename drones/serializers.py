@@ -410,14 +410,17 @@ class DroneUpdateSerializer(serializers.ModelSerializer):
         }
 
     def validate(self, attrs):
-        """
-        Validate classification compatibility and require write-off metadata for
-        inactive status transitions.
+        """Validate classification compatibility and require write-off metadata
+        for inactive status transitions.
+
+        State-machine transition rules are enforced exclusively by the service
+        layer (``_validate_status_transition``), which runs under the row lock.
+        Duplicating the check here would create a second source of truth that
+        diverges over time. The ``update`` method already maps any
+        ``ValidationError`` raised by the service into a serializer error.
         """
         requested_status = attrs.get("status")
 
-        # Terminal inventory states require write-off metadata before the service
-        # creates immutable audit records
         if requested_status not in Drone.INACTIVE_STATUSES:
             return attrs
 
@@ -729,8 +732,12 @@ class WriteOffRecordCreateSerializer(serializers.ModelSerializer):
     def create(self, validated_data):
         """
         Create the write-off through the service layer so status history is
-        recorded.
+        recorded.  Map domain ``ValidationError`` to a serializer error so
+        any transition-check failure surfaces as a 400 instead of a 500.
         """
         user = self.context["request"].user
 
-        return create_writeoff_record(user=user, **validated_data)
+        try:
+            return create_writeoff_record(user=user, **validated_data)
+        except ValidationError as exc:
+            raise serializers.ValidationError(as_serializer_error(exc))
