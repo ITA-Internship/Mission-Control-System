@@ -26,12 +26,7 @@ export interface FilterBarProps {
 function FilterChip({ chip, onRemove }: { chip: Chip; onRemove: () => void }) {
   return (
     <span
-      className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[9px] font-mono"
-      style={{
-        background: "rgba(200,162,74,0.12)",
-        color: "#C8A24A",
-        border: "1px solid rgba(200,162,74,0.25)",
-      }}
+      className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[9px] font-mono bg-[#C8A24A]/[0.12] text-[#C8A24A] border border-[#C8A24A]/25"
     >
       {chip.label}
       <button
@@ -56,12 +51,7 @@ export function FilterBar({
   const [cmdOpen, setCmdOpen] = useState(false);
   const [resultOpen, setResultOpen] = useState(false);
 
-  const dropdownClass = "absolute top-full left-0 mt-1 min-w-[160px] rounded-lg border py-1 z-50";
-  const dropdownStyle = {
-    background: "#1E2733",
-    borderColor: "rgba(255,255,255,0.1)",
-    boxShadow: "0 8px 32px rgba(0,0,0,0.5)",
-  };
+  const dropdownClass = "absolute top-full left-0 mt-1 min-w-[160px] rounded-lg border py-1 z-50 bg-[#1E2733] border-white/10 shadow-[0_8px_32px_rgba(0,0,0,0.5)]";
   const optClass = "flex items-center gap-2 w-full text-left px-2.5 py-1.5 text-[9px] font-mono text-[#E6EAF0] hover:bg-white/5 transition-colors";
 
   return (
@@ -75,8 +65,7 @@ export function FilterBar({
             placeholder="Search title or location…"
             value={filters.search}
             onChange={e => setFilters({ ...filters, search: e.target.value })}
-            className="w-full pl-7 pr-2.5 py-1.5 rounded-lg text-[9px] font-mono text-[#E6EAF0] placeholder-[#8A94A6] outline-none focus:ring-1 focus:ring-[#C8A24A]/40 transition-all"
-            style={{ background: "#161D26", border: "1px solid rgba(255,255,255,0.08)" }}
+            className="w-full pl-7 pr-2.5 py-1.5 rounded-lg text-[9px] font-mono text-[#E6EAF0] placeholder-[#8A94A6] outline-none focus:ring-1 focus:ring-[#C8A24A]/40 transition-all bg-[#161D26] border border-white/[0.08]"
           />
         </div>
 
@@ -84,15 +73,14 @@ export function FilterBar({
         <div className="relative">
           <button
             onClick={() => { setStatusOpen(o => !o); setCmdOpen(false); setResultOpen(false); }}
-            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[9px] font-mono text-[#8A94A6] hover:text-[#E6EAF0] transition-colors"
-            style={{ background: "#161D26", border: "1px solid rgba(255,255,255,0.08)" }}
+            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[9px] font-mono text-[#8A94A6] hover:text-[#E6EAF0] transition-colors bg-[#161D26] border border-white/[0.08]"
           >
             Status {filters.status && <span className="text-[#C8A24A]">·</span>}
             {filters.status || "All"}
             <ChevronDown size={11} />
           </button>
           {statusOpen && (
-            <div className={dropdownClass} style={dropdownStyle}>
+            <div className={dropdownClass}>
               {(["", "Planned", "Active", "Completed", "Aborted"] as const).map(s => (
                 <button
                   key={s || "all"}
@@ -111,15 +99,14 @@ export function FilterBar({
         <div className="relative">
           <button
             onClick={() => { setCmdOpen(o => !o); setStatusOpen(false); setResultOpen(false); }}
-            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[9px] font-mono text-[#8A94A6] hover:text-[#E6EAF0] transition-colors"
-            style={{ background: "#161D26", border: "1px solid rgba(255,255,255,0.08)" }}
+            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[9px] font-mono text-[#8A94A6] hover:text-[#E6EAF0] transition-colors bg-[#161D26] border border-white/[0.08]"
           >
             Commander {filters.commander && <span className="text-[#C8A24A]">·</span>}
             {filters.commander ? filters.commander.split(" ").slice(-1)[0] : "All"}
             <ChevronDown size={11} />
           </button>
           {cmdOpen && (
-            <div className={dropdownClass} style={dropdownStyle}>
+            <div className={dropdownClass}>
               <button className={optClass} onClick={() => { setFilters({ ...filters, commander: "" }); setCmdOpen(false); }}>
                 All Commanders
               </button>
@@ -136,15 +123,14 @@ export function FilterBar({
         <div className="relative">
           <button
             onClick={() => { setResultOpen(o => !o); setStatusOpen(false); setCmdOpen(false); }}
-            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[9px] font-mono text-[#8A94A6] hover:text-[#E6EAF0] transition-colors"
-            style={{ background: "#161D26", border: "1px solid rgba(255,255,255,0.08)" }}
+            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[9px] font-mono text-[#8A94A6] hover:text-[#E6EAF0] transition-colors bg-[#161D26] border border-white/[0.08]"
           >
             Result {filters.result && <span className="text-[#C8A24A]">·</span>}
             {filters.result || "All"}
             <ChevronDown size={11} />
           </button>
           {resultOpen && (
-            <div className={dropdownClass} style={dropdownStyle}>
+            <div className={dropdownClass}>
               {(["", "Success", "Failure"] as const).map(r => (
                 <button
                   key={r || "all"}

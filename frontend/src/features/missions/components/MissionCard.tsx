@@ -1,12 +1,11 @@
 import { Clock, MapPin, Navigation, Users } from "lucide-react";
 import type { Mission } from "../types";
 import { ResultPill, StatusPill } from "./Pills";
-import { useState } from "react";
+
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 
 export function MissionCard({ mission, onClick, isOverlay }: { mission: Mission; onClick?: () => void; isOverlay?: boolean }) {
-  const [hovered, setHovered] = useState(false);
   const {
     attributes,
     listeners,
@@ -19,16 +18,11 @@ export function MissionCard({ mission, onClick, isOverlay }: { mission: Mission;
   const style = {
     transform: CSS.Translate.toString(transform),
     transition,
-    background: isOverlay ? "#1A222C" : hovered && !isDragging ? "#1E2733" : "#161D26",
-    border: `1px solid ${isOverlay ? "rgba(200,162,74,0.3)" : hovered && !isDragging ? "rgba(200,162,74,0.25)" : "rgba(255,255,255,0.07)"}`,
-    boxShadow: isOverlay
-      ? "0 12px 32px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(200,162,74,0.3)"
-      : hovered && !isDragging
-        ? "0 0 0 1px rgba(200,162,74,0.1)"
-        : "none",
-    opacity: isDragging ? 0.3 : 1,
-    zIndex: isOverlay ? 999 : "auto",
   };
+
+  const dynamicClasses = isOverlay
+    ? "bg-[#1A222C] border-[#C8A24A]/30 shadow-[0_12px_32px_rgba(0,0,0,0.4),0_0_0_1px_rgba(200,162,74,0.3)] z-[999]"
+    : `border-white/[0.07] ${isDragging ? "bg-[#161D26] opacity-30" : "bg-[#161D26] hover:bg-[#1E2733] hover:border-[#C8A24A]/25 hover:shadow-[0_0_0_1px_rgba(200,162,74,0.1)] opacity-100"}`;
 
   return (
     <div
@@ -37,9 +31,7 @@ export function MissionCard({ mission, onClick, isOverlay }: { mission: Mission;
       {...attributes}
       {...listeners}
       onClick={onClick}
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
-      className="rounded-xl p-3.5 cursor-grab active:cursor-grabbing transition-colors duration-150 select-none"
+      className={`rounded-xl p-3.5 border cursor-grab active:cursor-grabbing transition-colors duration-150 select-none ${dynamicClasses}`}
     >
       {/* Header */}
       <div className="flex items-start justify-between gap-2 mb-2.5 pointer-events-none">
@@ -71,7 +63,7 @@ export function MissionCard({ mission, onClick, isOverlay }: { mission: Mission;
       </div>
 
       {/* Footer */}
-      <div className="flex items-center justify-between pt-2.5 border-t" style={{ borderColor: "rgba(255,255,255,0.06)" }}>
+      <div className="flex items-center justify-between pt-2.5 border-t border-white/[0.06]">
         <div className="flex items-center gap-3">
           <span className="flex items-center gap-1 text-[11px] font-mono text-[#8A94A6]">
             <Navigation size={10} />

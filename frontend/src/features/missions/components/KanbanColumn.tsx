@@ -24,20 +24,10 @@ export function KanbanColumn({
   return (
     <div
       ref={setNodeRef}
-      className={`flex flex-col rounded-xl min-w-[280px] flex-1 transition-all duration-300 ease-in-out ${isOver ? 'ring-2' : ''}`}
-      style={{
-        background: isOver ? "rgba(200,162,74,0.05)" : "rgba(11,15,20,0.6)",
-        border: `1px solid ${isOver ? "rgba(200,162,74,0.3)" : "rgba(255,255,255,0.06)"}`,
-        boxShadow: isOver ? "inset 0 0 20px rgba(200,162,74,0.05)" : "none",
-        borderColor: isOver ? "rgba(200,162,74,0.4)" : "rgba(255,255,255,0.06)",
-        "--tw-ring-color": isOver ? "rgba(200,162,74,0.2)" : "transparent",
-      } as React.CSSProperties}
+      className={`flex flex-col rounded-xl min-w-[280px] flex-1 transition-all duration-300 ease-in-out bg-[#0B0F14]/60 border border-white/[0.06] ${isOver ? 'ring-2 ring-[#C8A24A]/20 bg-[#C8A24A]/5 border-[#C8A24A]/40 shadow-[inset_0_0_20px_rgba(200,162,74,0.05)]' : ''}`}
     >
       {/* Column header */}
-      <div
-        className="flex items-center justify-between px-4 py-3 rounded-t-xl border-b"
-        style={{ borderColor: "rgba(255,255,255,0.06)" }}
-      >
+      <div className="px-3 py-3 border-b border-white/[0.04] flex items-center justify-between">
         <div className="flex items-center gap-2">
           <span className="w-2 h-2 rounded-full" style={{ background: m.color }} />
           <span className="text-[12px] font-mono font-medium tracking-widest" style={{ color: m.color }}>
@@ -53,12 +43,11 @@ export function KanbanColumn({
       </div>
 
       {/* Cards */}
-      <div className="flex-1 flex flex-col gap-2.5 p-3 overflow-y-auto" style={{ maxHeight: "calc(100vh - 280px)" }}>
+      <div className="flex-1 flex flex-col gap-2.5 p-3 overflow-y-auto max-h-[calc(100vh-280px)]">
         {missions.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-10 gap-2">
             <div
-              className="w-8 h-8 rounded-lg flex items-center justify-center"
-              style={{ background: "rgba(255,255,255,0.04)" }}
+              className="w-8 h-8 rounded-lg flex items-center justify-center bg-white/[0.04]"
             >
               <Target size={14} color="#8A94A6" />
             </div>

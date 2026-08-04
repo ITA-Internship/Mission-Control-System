@@ -1,16 +1,16 @@
 import type { Status, Result } from "../types";
 
 // eslint-disable-next-line react-refresh/only-export-components
-export const STATUS_META: Record<Status, { color: string; bg: string; label: string }> = {
-  Planned: { color: "#8A94A6", bg: "rgba(138,148,166,0.15)", label: "PLANNED" },
-  Active: { color: "#3FB950", bg: "rgba(63,185,80,0.15)", label: "ACTIVE" },
-  Completed: { color: "#4C8DFF", bg: "rgba(76,141,255,0.15)", label: "COMPLETED" },
-  Aborted: { color: "#E5484D", bg: "rgba(229,72,77,0.15)", label: "ABORTED" },
+export const STATUS_META: Record<Status, { color: string; bg: string; border: string; label: string }> = {
+  Planned: { color: "var(--color-mc-muted)", bg: "color-mix(in srgb, var(--color-mc-muted) 15%, transparent)", border: "color-mix(in srgb, var(--color-mc-muted) 30%, transparent)", label: "PLANNED" },
+  Active: { color: "var(--color-status-active)", bg: "color-mix(in srgb, var(--color-status-active) 15%, transparent)", border: "color-mix(in srgb, var(--color-status-active) 30%, transparent)", label: "ACTIVE" },
+  Completed: { color: "var(--color-status-mission)", bg: "color-mix(in srgb, var(--color-status-mission) 15%, transparent)", border: "color-mix(in srgb, var(--color-status-mission) 30%, transparent)", label: "COMPLETED" },
+  Aborted: { color: "var(--color-status-damaged)", bg: "color-mix(in srgb, var(--color-status-damaged) 15%, transparent)", border: "color-mix(in srgb, var(--color-status-damaged) 30%, transparent)", label: "ABORTED" },
 };
 
-const RESULT_META: Record<NonNullable<Result>, { color: string; bg: string }> = {
-  Success: { color: "#3FB950", bg: "rgba(63,185,80,0.15)" },
-  Failure: { color: "#E5484D", bg: "rgba(229,72,77,0.15)" },
+const RESULT_META: Record<NonNullable<Result>, { color: string; bg: string; border: string }> = {
+  Success: { color: "var(--color-status-active)", bg: "color-mix(in srgb, var(--color-status-active) 15%, transparent)", border: "color-mix(in srgb, var(--color-status-active) 30%, transparent)" },
+  Failure: { color: "var(--color-status-damaged)", bg: "color-mix(in srgb, var(--color-status-damaged) 15%, transparent)", border: "color-mix(in srgb, var(--color-status-damaged) 30%, transparent)" },
 };
 
 export function StatusPill({ status }: { status: Status }) {
@@ -18,7 +18,7 @@ export function StatusPill({ status }: { status: Status }) {
   return (
     <span
       className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-mono font-medium tracking-widest whitespace-nowrap w-max"
-      style={{ color: m.color, background: m.bg, border: `1px solid ${m.color}30` }}
+      style={{ color: m.color, background: m.bg, border: `1px solid ${m.border}` }}
     >
       <span className="w-1.5 h-1.5 rounded-full inline-block" style={{ background: m.color }} />
       {m.label}
@@ -32,7 +32,7 @@ export function ResultPill({ result }: { result: Result }) {
   return (
     <span
       className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-mono font-medium tracking-widest whitespace-nowrap w-max"
-      style={{ color: m.color, background: m.bg, border: `1px solid ${m.color}30` }}
+      style={{ color: m.color, background: m.bg, border: `1px solid ${m.border}` }}
     >
       {result === "Success" ? "✓" : "✗"} {result.toUpperCase()}
     </span>

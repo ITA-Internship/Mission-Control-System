@@ -57,13 +57,12 @@ export function DataTable({
   return (
     <div className="flex flex-col gap-3">
       <div
-        className="rounded-xl overflow-hidden"
-        style={{ border: "1px solid rgba(255,255,255,0.07)" }}
+        className="rounded-xl overflow-hidden border border-white/[0.07]"
       >
         <div className="overflow-x-auto">
           <table className="w-full min-w-[900px]">
             <thead>
-              <tr style={{ background: "#0F1621", borderBottom: "1px solid rgba(255,255,255,0.07)" }}>
+              <tr className="bg-[#0F1621] border-b border-white/[0.07]">
                 <th className={thClass} onClick={() => handleSort("title")}>
                   <div className="flex items-center gap-1.5">MISSION {renderSortIcon("title")}</div>
                 </th>
@@ -102,27 +101,17 @@ export function DataTable({
                   </td>
                 </tr>
               ) : (
-                pageData.map((mission, i) => {
+                pageData.map((mission) => {
                   const isSelected = selected === mission.id;
                   return (
                     <tr
                       key={mission.id}
                       onClick={() => setSelected(isSelected ? null : mission.id)}
-                      className="cursor-pointer transition-colors duration-100"
-                      style={{
-                        background: isSelected
-                          ? "rgba(200,162,74,0.08)"
-                          : i % 2 === 0
-                          ? "#161D26"
-                          : "#131920",
-                        borderBottom: "1px solid rgba(255,255,255,0.04)",
-                      }}
-                      onMouseEnter={e => {
-                        if (!isSelected) (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.03)";
-                      }}
-                      onMouseLeave={e => {
-                        if (!isSelected) (e.currentTarget as HTMLElement).style.background = i % 2 === 0 ? "#161D26" : "#131920";
-                      }}
+                      className={`cursor-pointer transition-colors duration-100 border-b border-white/[0.04] ${
+                        isSelected
+                          ? "bg-[#C8A24A]/[0.08]"
+                          : "even:bg-[#161D26] odd:bg-[#131920] hover:bg-white/[0.03]"
+                      }`}
                     >
                       <td className="px-4 py-3">
                         <div>

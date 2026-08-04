@@ -13,22 +13,16 @@ export function MissionDetailDrawer({ mission, onClose, onEdit }: MissionDetailD
 
   return (
     <div
-      className="fixed inset-0 z-40 flex"
+      className="fixed inset-0 z-40 flex bg-black/50"
       onClick={e => { if (e.target === e.currentTarget) onClose(); }}
-      style={{ background: "rgba(0,0,0,0.5)" }}
     >
       <div
-        className="ml-auto h-full w-full max-w-md flex flex-col animate-in slide-in-from-right duration-200"
-        style={{
-          background: "var(--color-mcs-bg)",
-          borderLeft: "1px solid rgba(255,255,255,0.09)",
-          boxShadow: "-16px 0 48px rgba(0,0,0,0.5)",
-        }}
+        className="ml-auto h-full w-full max-w-md flex flex-col animate-in slide-in-from-right duration-200 bg-[var(--color-mcs-bg)] border-l border-white/[0.09] shadow-[-16px_0_48px_rgba(0,0,0,0.5)]"
       >
         {/* Header */}
         <div
-          className="px-6 py-5 border-b"
-          style={{ borderColor: "rgba(255,255,255,0.07)", borderLeft: `3px solid ${statusM.color}` }}
+          className="px-6 py-5 border-b border-white/[0.07]"
+          style={{ borderLeft: `3px solid ${statusM.color}` }}
         >
           <div className="flex items-start justify-between gap-3">
             <div>
@@ -38,8 +32,7 @@ export function MissionDetailDrawer({ mission, onClose, onEdit }: MissionDetailD
             <div className="flex items-center gap-2 mt-1">
               <button
                 onClick={onEdit}
-                className="px-3 py-1.5 rounded-lg text-[11px] font-mono hover:bg-[rgba(200,162,74,0.1)] transition-all"
-                style={{ color: "var(--color-mcs-accent)", border: "1px solid rgba(200,162,74,0.3)" }}
+                className="px-3 py-1.5 rounded-lg text-[11px] font-mono transition-all text-[var(--color-mcs-accent)] border border-[#C8A24A]/30 hover:bg-[#C8A24A]/10"
               >
                 Edit
               </button>
@@ -79,20 +72,18 @@ export function MissionDetailDrawer({ mission, onClose, onEdit }: MissionDetailD
             <div className="text-[9px] font-mono tracking-widest text-[#8A94A6] mb-2">ASSETS</div>
             <div className="flex gap-3">
               <div
-                className="flex-1 rounded-lg px-3 py-3 flex items-center gap-2"
-                style={{ background: "#1A2230", border: "1px solid rgba(255,255,255,0.06)" }}
+                className="flex-1 rounded-lg px-3 py-3 flex items-center gap-2 bg-[#1A2230] border border-white/[0.06]"
               >
-                <Navigation size={14} style={{ color: "var(--color-mcs-accent)" }} />
+                <Navigation size={14} className="text-[var(--color-mcs-accent)]" />
                 <div>
                   <div className="text-[18px] font-bold text-[#E6EAF0]">{mission.droneCount}</div>
                   <div className="text-[9px] font-mono text-[#8A94A6] tracking-widest">DRONES</div>
                 </div>
               </div>
               <div
-                className="flex-1 rounded-lg px-3 py-3 flex items-center gap-2"
-                style={{ background: "#1A2230", border: "1px solid rgba(255,255,255,0.06)" }}
+                className="flex-1 rounded-lg px-3 py-3 flex items-center gap-2 bg-[#1A2230] border border-white/[0.06]"
               >
-                <Users size={14} style={{ color: "var(--color-mcs-accent)" }} />
+                <Users size={14} className="text-[var(--color-mcs-accent)]" />
                 <div>
                   <div className="text-[18px] font-bold text-[#E6EAF0]">{mission.operatorCount}</div>
                   <div className="text-[9px] font-mono text-[#8A94A6] tracking-widest">OPERATORS</div>
@@ -106,8 +97,7 @@ export function MissionDetailDrawer({ mission, onClose, onEdit }: MissionDetailD
             <div>
               <div className="text-[9px] font-mono tracking-widest text-[#8A94A6] mb-2">OPERATIONAL NOTES</div>
               <div
-                className="rounded-lg px-4 py-3 text-[13px] font-mono text-[#8A94A6] leading-relaxed whitespace-pre-wrap"
-                style={{ background: "#1A2230", border: "1px solid rgba(255,255,255,0.06)" }}
+                className="rounded-lg px-4 py-3 text-[13px] font-mono text-[#8A94A6] leading-relaxed whitespace-pre-wrap bg-[#1A2230] border border-white/[0.06]"
               >
                 {mission.notes}
               </div>
