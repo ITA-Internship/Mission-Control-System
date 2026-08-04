@@ -400,6 +400,12 @@ export function UsersTab({
         }
       />
 
+      <p className="text-[11px] leading-4 text-mc-subtle">
+        Search and filters are applied by the
+        API. Column sorting applies to the page
+        shown below.
+      </p>
+
       <TablePanel
         label="Users"
         footer={

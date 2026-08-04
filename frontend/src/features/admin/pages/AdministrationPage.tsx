@@ -1,5 +1,6 @@
 import {
   useCallback,
+  useRef,
   useState,
 } from "react";
 import {
@@ -103,6 +104,10 @@ function AdministrationConsole() {
 
   const catalog = useAdminCatalog();
 
+  const tabRefs = useRef<
+    Array<HTMLButtonElement | null>
+  >([]);
+
   const handleNetworkStateChange =
     useCallback((offline: boolean) => {
       setIsOffline(offline);
@@ -127,23 +132,35 @@ function AdministrationConsole() {
     event: React.KeyboardEvent,
     index: number,
   ) {
-    if (
-      event.key !== "ArrowRight" &&
-      event.key !== "ArrowLeft"
-    ) {
-      return;
+    let nextIndex: number;
+
+    switch (event.key) {
+      case "ArrowRight":
+        nextIndex =
+          (index + 1) % TABS.length;
+        break;
+      case "ArrowLeft":
+        nextIndex =
+          (index - 1 + TABS.length) %
+          TABS.length;
+        break;
+      case "Home":
+        nextIndex = 0;
+        break;
+      case "End":
+        nextIndex = TABS.length - 1;
+        break;
+      default:
+        return;
     }
 
     event.preventDefault();
 
-    const offset =
-      event.key === "ArrowRight" ? 1 : -1;
-
-    const nextIndex =
-      (index + offset + TABS.length) %
-      TABS.length;
-
     selectTab(TABS[nextIndex].id);
+
+    // Roving tabindex: move DOM focus to the newly selected tab so keyboard
+    // traversal actually lands on it rather than being stranded on the old one.
+    tabRefs.current[nextIndex]?.focus();
   }
 
   function handleRefresh() {
@@ -220,6 +237,10 @@ function AdministrationConsole() {
               key={tab.id}
               type="button"
               role="tab"
+              ref={(element) => {
+                tabRefs.current[index] =
+                  element;
+              }}
               id={`admin-tab-${tab.id}`}
               aria-selected={isActive}
               aria-controls={`admin-panel-${tab.id}`}

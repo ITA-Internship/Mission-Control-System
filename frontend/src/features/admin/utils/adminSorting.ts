@@ -27,21 +27,16 @@ export function toggleSort<
 
 type SortValue = string | number | null;
 
+function isEmpty(value: SortValue): boolean {
+  return value === null || value === "";
+}
+
 function compareValues(
   left: SortValue,
   right: SortValue,
 ): number {
   if (left === right) {
     return 0;
-  }
-
-  // Empty cells always sort last, regardless of direction.
-  if (left === null || left === "") {
-    return 1;
-  }
-
-  if (right === null || right === "") {
-    return -1;
   }
 
   if (
@@ -65,9 +60,25 @@ export function sortRows<TRow>(
   direction: SortDirection,
 ): TRow[] {
   return [...rows].sort((left, right) => {
+    const leftValue = select(left);
+    const rightValue = select(right);
+
+    // Empty cells always sort last, regardless of direction. Resolve them
+    // before the direction flip below so the sentinel is never negated.
+    const leftEmpty = isEmpty(leftValue);
+    const rightEmpty = isEmpty(rightValue);
+
+    if (leftEmpty || rightEmpty) {
+      if (leftEmpty === rightEmpty) {
+        return 0;
+      }
+
+      return leftEmpty ? 1 : -1;
+    }
+
     const result = compareValues(
-      select(left),
-      select(right),
+      leftValue,
+      rightValue,
     );
 
     return direction === "asc"

@@ -1,6 +1,11 @@
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-const USERNAME_PATTERN = /^[\w.@+-]+$/;
+// Mirrors Django's `UnicodeUsernameValidator` (Unicode `\w`): Unicode letters,
+// digits and underscore, plus @ . + -. A plain JS `\w` is ASCII-only and would
+// reject valid non-ASCII usernames the backend accepts, so match the Unicode
+// letter/number classes explicitly.
+const USERNAME_PATTERN =
+  /^[\p{L}\p{N}_.@+-]+$/u;
 
 export function validateRequired(
   value: string,

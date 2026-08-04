@@ -42,10 +42,29 @@ export function RowActionsMenu({
   const containerRef =
     useRef<HTMLDivElement>(null);
 
+  const triggerRef =
+    useRef<HTMLButtonElement>(null);
+
+  const itemRefs = useRef<
+    Array<HTMLButtonElement | null>
+  >([]);
+
+  function closeMenu(restoreFocus: boolean) {
+    setIsOpen(false);
+
+    if (restoreFocus) {
+      triggerRef.current?.focus();
+    }
+  }
+
   useEffect(() => {
     if (!isOpen) {
       return;
     }
+
+    // Move focus into the menu on open so keyboard/SR users land on the first
+    // action rather than being left on the (now-expanded) trigger.
+    itemRefs.current[0]?.focus();
 
     function handlePointerDown(
       event: MouseEvent,
@@ -55,6 +74,8 @@ export function RowActionsMenu({
           event.target as Node,
         )
       ) {
+        // Pointer dismissal: don't yank focus back to the trigger — it belongs
+        // wherever the user clicked.
         setIsOpen(false);
       }
     }
@@ -63,7 +84,7 @@ export function RowActionsMenu({
       event: KeyboardEvent,
     ) {
       if (event.key === "Escape") {
-        setIsOpen(false);
+        closeMenu(true);
       }
     }
 
@@ -90,12 +111,59 @@ export function RowActionsMenu({
     };
   }, [isOpen]);
 
+  function handleMenuKeyDown(
+    event: React.KeyboardEvent,
+  ) {
+    const items =
+      itemRefs.current.filter(
+        (item): item is HTMLButtonElement =>
+          item !== null,
+      );
+
+    if (items.length === 0) {
+      return;
+    }
+
+    const current = items.indexOf(
+      document.activeElement as HTMLButtonElement,
+    );
+
+    switch (event.key) {
+      case "ArrowDown":
+        event.preventDefault();
+        items[
+          current < 0
+            ? 0
+            : (current + 1) % items.length
+        ].focus();
+        break;
+      case "ArrowUp":
+        event.preventDefault();
+        items[
+          current < 0
+            ? items.length - 1
+            : (current - 1 + items.length) %
+              items.length
+        ].focus();
+        break;
+      case "Home":
+        event.preventDefault();
+        items[0].focus();
+        break;
+      case "End":
+        event.preventDefault();
+        items[items.length - 1].focus();
+        break;
+    }
+  }
+
   return (
     <div
       ref={containerRef}
       className="relative inline-block text-left"
     >
       <button
+        ref={triggerRef}
         type="button"
         onClick={() =>
           setIsOpen((open) => !open)
@@ -118,15 +186,21 @@ export function RowActionsMenu({
         <div
           role="menu"
           aria-label={label}
+          onKeyDown={handleMenuKeyDown}
           className="absolute right-0 z-20 mt-1 w-46 rounded-lg border border-white/10 bg-mc-elevated py-1 shadow-xl"
         >
-          {actions.map((action) => (
+          {actions.map((action, index) => (
             <button
               key={action.key}
+              ref={(element) => {
+                itemRefs.current[index] =
+                  element;
+              }}
               type="button"
               role="menuitem"
+              tabIndex={index === 0 ? 0 : -1}
               onClick={() => {
-                setIsOpen(false);
+                closeMenu(true);
                 action.onSelect();
               }}
               className={[

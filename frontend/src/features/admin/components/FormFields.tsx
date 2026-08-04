@@ -21,6 +21,27 @@ function stateClasses(
     : "border-white/10 focus:border-mc-accent/60 focus:ring-mc-accent/15";
 }
 
+/**
+ * Point `aria-describedby` at whichever supporting text is actually rendered.
+ * The error message replaces the hint (see FieldShell), so the two ids are
+ * mutually exclusive.
+ */
+function describedBy(
+  id: string,
+  error: string | undefined,
+  hint: string | undefined,
+): string | undefined {
+  if (error) {
+    return `${id}-error`;
+  }
+
+  if (hint) {
+    return `${id}-hint`;
+  }
+
+  return undefined;
+}
+
 interface FieldShellProps {
   id: string;
   label: string;
@@ -48,7 +69,10 @@ function FieldShell({
       {children}
 
       {hint && !error ? (
-        <p className="text-[11px] leading-4 text-mc-subtle">
+        <p
+          id={`${id}-hint`}
+          className="text-[11px] leading-4 text-mc-subtle"
+        >
           {hint}
         </p>
       ) : null}
@@ -116,9 +140,11 @@ export function TextField({
         aria-invalid={
           error ? true : undefined
         }
-        aria-describedby={
-          error ? `${id}-error` : undefined
-        }
+        aria-describedby={describedBy(
+          id,
+          error,
+          hint,
+        )}
         autoComplete="off"
         spellCheck={false}
         className={[
@@ -172,9 +198,11 @@ export function SelectField({
         aria-invalid={
           error ? true : undefined
         }
-        aria-describedby={
-          error ? `${id}-error` : undefined
-        }
+        aria-describedby={describedBy(
+          id,
+          error,
+          hint,
+        )}
         className={[
           controlClasses,
           stateClasses(Boolean(error)),
@@ -242,9 +270,11 @@ export function TextAreaField({
         aria-invalid={
           error ? true : undefined
         }
-        aria-describedby={
-          error ? `${id}-error` : undefined
-        }
+        aria-describedby={describedBy(
+          id,
+          error,
+          hint,
+        )}
         className={[
           controlClasses,
           stateClasses(Boolean(error)),
