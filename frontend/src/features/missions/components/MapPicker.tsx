@@ -3,14 +3,7 @@ import { MapContainer, TileLayer, Marker, useMapEvents, useMap } from "react-lea
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 
-// Fix Leaflet's default icon path issues in React
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-delete (L.Icon.Default.prototype as any)._getIconUrl;
-L.Icon.Default.mergeOptions({
-  iconRetinaUrl: "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon-2x.png",
-  iconUrl: "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon.png",
-  shadowUrl: "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png",
-});
+// Removed default icon override as it is unnecessary
 
 const customIcon = new L.DivIcon({
   className: "bg-transparent",
@@ -79,21 +72,7 @@ export function MapPicker({ lat, lng, onChange }: MapPickerProps) {
         border: "1px solid rgba(255,255,255,0.08)",
       }}
     >
-      <style>{`
-        .leaflet-bar a, .leaflet-bar a:hover {
-          background-color: #1A2230 !important;
-          color: #E6EAF0 !important;
-          border-bottom: 1px solid rgba(255,255,255,0.1) !important;
-        }
-        .leaflet-bar {
-          border: 1px solid rgba(255,255,255,0.1) !important;
-          box-shadow: 0 4px 12px rgba(0,0,0,0.5) !important;
-        }
-        .leaflet-bar a.leaflet-disabled {
-          color: #4B5563 !important;
-          background-color: #1A2230 !important;
-        }
-      `}</style>
+
       <MapContainer
         center={position ? [position.lat, position.lng] : defaultCenter}
         zoom={5}
