@@ -100,10 +100,25 @@ from .tokens import account_activation_token_generator
 class UserListCreateView(generics.ListCreateAPIView):
     """List users or register a new user account."""
 
-    queryset = User.objects.all().order_by("id")
     filter_backends = [filters.DjangoFilterBackend]
-    filterset_fields = ["role", "is_active"]
+    filterset_fields = ["role", "role__code", "is_active"]
     pagination_class = AuditLogPagination  # using standard pagination
+
+    def get_queryset(self):
+        """Return a queryset of users based on RBAC permissions."""
+        if getattr(self, "swagger_fake_view", False):
+            return User.objects.none()
+
+        user = self.request.user
+        qs = User.objects.all().order_by("id")
+
+        if user_has_permission(user, PERMISSION_USERS_MANAGE_ROLES):
+            return qs
+
+        if user.unit_id:
+            return qs.filter(unit_id=user.unit_id)
+
+        return User.objects.none()
 
     def get_serializer_class(self):
         if self.request.method == "POST":
