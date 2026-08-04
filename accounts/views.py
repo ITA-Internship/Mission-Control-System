@@ -27,7 +27,7 @@ from django.shortcuts import get_object_or_404
 from django.utils.encoding import escape_uri_path, force_bytes, force_str
 from django.utils.http import urlsafe_base64_decode, urlsafe_base64_encode
 from django_filters import rest_framework as filters
-from drf_spectacular.utils import extend_schema_view
+from drf_spectacular.utils import extend_schema, extend_schema_view
 from rest_framework import generics, permissions, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
@@ -73,6 +73,7 @@ from .serializers import (
     ChangePasswordSerializer,
     PasswordResetConfirmSerializer,
     PasswordResetRequestSerializer,
+    UserListSerializer,
     UserMeSerializer,
     UserRegistrationSerializer,
     UserRoleUpdateResponseSerializer,
@@ -89,14 +90,36 @@ from .throttles import (
 from .tokens import account_activation_token_generator
 
 
-@user_registration_schema
-class UserRegistrationView(generics.CreateAPIView):
-    """Register a new user account."""
+@extend_schema_view(
+    post=user_registration_schema,
+    get=extend_schema(
+        summary="List users",
+        description="List users with optional filtering by role and status.",
+    ),
+)
+class UserListCreateView(generics.ListCreateAPIView):
+    """List users or register a new user account."""
 
-    queryset = User.objects.all()
-    serializer_class = UserRegistrationSerializer
-    permission_classes = [HasRBACPermission]
-    required_permission = PERMISSION_USERS_CREATE
+    queryset = User.objects.all().order_by("id")
+    filter_backends = [filters.DjangoFilterBackend]
+    filterset_fields = ["role", "is_active"]
+    pagination_class = AuditLogPagination  # using standard pagination
+
+    def get_serializer_class(self):
+        if self.request.method == "POST":
+            return UserRegistrationSerializer
+        return UserListSerializer
+
+    def get_permissions(self):
+        if self.request.method == "POST":
+            return [HasRBACPermission()]
+        return [permissions.IsAuthenticated()]
+
+    @property
+    def required_permission(self):
+        if self.request.method == "POST":
+            return PERMISSION_USERS_CREATE
+        return None
 
 
 @user_role_update_schema

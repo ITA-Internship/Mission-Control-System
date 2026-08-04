@@ -44,6 +44,14 @@ def delete_storage_file_safely(storage, name):
         logger.exception("Failed to delete replaced profile picture %s.", name)
 
 
+class UserListSerializer(serializers.ModelSerializer):
+    """Serialize basic user data for dropdowns and lists."""
+
+    class Meta:
+        model = User
+        fields = ["id", "username", "first_name", "last_name"]
+
+
 class UserRegistrationSerializer(serializers.ModelSerializer):
     """Provide serialization and validation for user registration requests."""
 
