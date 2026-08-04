@@ -50,6 +50,20 @@ class RepairStatus(models.TextChoices):
     VERIFIED = "VERIFIED", "Verified"
 
 
+REPAIR_STATUS_TRANSITIONS = {
+    RepairStatus.REPORTED: [
+        RepairStatus.IN_PROGRESS,
+    ],
+    RepairStatus.IN_PROGRESS: [
+        RepairStatus.FIXED,
+    ],
+    RepairStatus.FIXED: [
+        RepairStatus.VERIFIED,
+    ],
+    RepairStatus.VERIFIED: [],
+}
+
+
 class RepairOrderStatus(models.TextChoices):
     """Lifecycle states of a RepairOrder.
 

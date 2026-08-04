@@ -78,6 +78,9 @@ artifact_post_schema = description_schema(
     summary="Upload a new artifact to a mission",
     description=(
         "Uploads a media file or document as an artifact for a specific mission. \n\n"
+        "Mission access is enforced: users may only upload artifacts to missions "
+        "they are authorized to access. Returns 404 if the mission does not exist "
+        "or is not accessible to the current user.\n\n"
         "Validation: \n"
         f"- File must have one of the following formats:\n{formatted_extensions}\n"
         f"- File size cannot be empty or exceed {ARTIFACT_MAX_FILE_SIZE_MB}MB."
@@ -495,7 +498,10 @@ video_metadata_create_schema = description_schema(
         "Uploads a new video file and creates its metadata record. The uploader is "
         "set to the authenticated user and the record starts in the `uploading` "
         "status while the duration is extracted asynchronously.\n\n"
+        "Mission access is enforced: the user must be authorized to access the "
+        "target mission. Returns 400 if the user does not have mission access.\n\n"
         "Validation: \n"
+        "- The user must have access to the target mission.\n"
         "- The selected drone must be assigned to the selected mission."
     ),
     permission_code="PERMISSION_MEDIA_UPLOAD",

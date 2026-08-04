@@ -148,6 +148,46 @@ class Drone(models.Model):
         STATUS_MAINTENANCE,
     )
 
+    ALLOWED_TRANSITIONS = {
+        STATUS_ACTIVE: {
+            STATUS_IN_MISSION,
+            STATUS_DAMAGED,
+            STATUS_LOST,
+            STATUS_MAINTENANCE,
+            STATUS_DECOMMISSIONED,
+            STATUS_SOLD,
+            STATUS_TRANSFERRED,
+            STATUS_WRITTEN_OFF,
+        },
+        STATUS_IN_MISSION: {
+            STATUS_ACTIVE,
+            STATUS_DAMAGED,
+            STATUS_LOST,
+            STATUS_MAINTENANCE,
+            STATUS_WRITTEN_OFF,
+        },
+        STATUS_DAMAGED: {
+            STATUS_ACTIVE,
+            STATUS_MAINTENANCE,
+            STATUS_DECOMMISSIONED,
+            STATUS_WRITTEN_OFF,
+        },
+        STATUS_LOST: {
+            STATUS_WRITTEN_OFF,
+            STATUS_ACTIVE,
+        },
+        STATUS_MAINTENANCE: {
+            STATUS_ACTIVE,
+            STATUS_DAMAGED,
+            STATUS_DECOMMISSIONED,
+            STATUS_WRITTEN_OFF,
+        },
+        STATUS_DECOMMISSIONED: set(),
+        STATUS_SOLD: set(),
+        STATUS_TRANSFERRED: set(),
+        STATUS_WRITTEN_OFF: set(),
+    }
+
     STATUS_UI = {
         STATUS_ACTIVE: {
             "label": "Active",

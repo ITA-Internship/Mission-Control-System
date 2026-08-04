@@ -12,7 +12,7 @@ import {
 
 import {
   isAbortError,
-} from "../api/apiClient";
+} from "../../../shared/api/apiClient";
 import {
   requestPasswordReset,
 } from "../api/authApi";
@@ -39,7 +39,7 @@ import {
 } from "../components/TextInput";
 import {
   useAbortableRequest,
-} from "../hooks/useAbortableRequest";
+} from "../../../shared/hooks/useAbortableRequest";
 import {
   getApiFieldError,
   getFormError,

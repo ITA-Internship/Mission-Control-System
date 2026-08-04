@@ -25,11 +25,9 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from accounts.permissions import get_user_role_code
 from common.pagination import StandardResultsSetPagination
 from missions.models import Mission
 from missions.permissions import restrict_missions_for_user
-from roles.models import OPERATOR_CODE
 
 from .api_details import (
     artifact_detail_delete_schema,
@@ -125,22 +123,22 @@ def filter_video_metadata_queryset(params, queryset=None):
 
 
 class _MissionArtifactMixin:
-    """Internal structural Mixin resolving the target mission."""
+    """Internal mixin resolving the target mission with access scoping.
+
+    Applies ``restrict_missions_for_user`` unconditionally so that every
+    role is scoped to its authorized missions. Admin, Commander, and
+    Dispatcher see all missions; Operator sees only assigned; Viewer
+    sees only same-unit; Technician sees only repair/write-off related.
+    """
 
     def get_mission(self):
-        """Extract the target mission matching the primary key
-        specified in the URL path."""
+        """Resolve the mission from the URL, scoped to the requester's
+        authorized missions. Returns 404 for inaccessible or
+        non-existent missions."""
         if not hasattr(self, "_mission"):
-            queryset = Mission.objects.all()
-            # Operators get anti-IDOR treatment at the mission boundary:
-            # an unassigned mission should resolve to 404 before media object
-            # permissions are evaluated. Other roles resolve the mission first
-            # and then rely on object-level media visibility checks.
-            if get_user_role_code(self.request.user) == OPERATOR_CODE:
-                queryset = restrict_missions_for_user(queryset, self.request.user)
-
             self._mission = generics.get_object_or_404(
-                queryset, id=self.kwargs["mission_pk"]
+                restrict_missions_for_user(Mission.objects.all(), self.request.user),
+                id=self.kwargs["mission_pk"],
             )
         return self._mission
 
@@ -262,11 +260,10 @@ class ProtectedMediaView(APIView):
     def get(self, request, mission_pk, artifact_pk):
         """Authorize the download request and return the file
         or Nginx redirect response."""
-        if get_user_role_code(request.user) == OPERATOR_CODE:
-            allowed_missions = restrict_missions_for_user(
-                Mission.objects.all(), request.user
-            )
-            get_object_or_404(allowed_missions, pk=mission_pk)
+        get_object_or_404(
+            restrict_missions_for_user(Mission.objects.all(), request.user),
+            pk=mission_pk,
+        )
 
         artifact = get_object_or_404(
             MissionArtifact, pk=artifact_pk, mission_id=mission_pk

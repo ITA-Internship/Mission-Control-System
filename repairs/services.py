@@ -7,10 +7,10 @@ remains consistent.
 """
 
 import csv
-from operator import itemgetter
 
 from django.conf import settings
 from django.db import transaction
+from django.db.models import CharField, F, Value
 from django.utils import timezone
 from rest_framework.exceptions import PermissionDenied, ValidationError
 
@@ -21,6 +21,7 @@ from common.utils import EchoBuffer, sanitize_row
 
 from .models import (
     REPAIR_ORDER_TRANSITIONS,
+    REPAIR_STATUS_TRANSITIONS,
     ComponentReplacement,
     DefectReport,
     RepairEvent,
@@ -85,6 +86,15 @@ def update_defect_status(*, defect_id: int, new_status: str, action_taken: str, 
 
     if old_status == new_status:
         raise ValidationError({"status": "The defect is already in this status."})
+
+    allowed = REPAIR_STATUS_TRANSITIONS.get(old_status, [])
+    if new_status not in allowed:
+        raise ValidationError(
+            {
+                "status": f"Cannot transition from {old_status} to {new_status}. "
+                f"Allowed: {[s.value for s in allowed]}"
+            }
+        )
 
     if new_status == RepairStatus.VERIFIED and old_status != RepairStatus.FIXED:
         raise ValidationError(
@@ -268,119 +278,205 @@ def get_drone_repair_history(
     here than creating a complex polymorphic query. Allows filtering by
     date range and event types.
     """
-    timeline = []
 
     allowed_types = set(event_types) if event_types else None
+    querysets = []
 
     if not allowed_types or "defect" in allowed_types:
-        defects_qs = DefectReport.objects.filter(drone_id=drone_id)
+        qs = DefectReport.objects.filter(drone_id=drone_id)
         if date_from:
-            defects_qs = defects_qs.filter(detected_at__gte=date_from)
+            qs = qs.filter(detected_at__gte=date_from)
         if date_to:
-            defects_qs = defects_qs.filter(detected_at__lte=date_to)
+            qs = qs.filter(detected_at__lte=date_to)
 
-        for d in defects_qs.select_related("reporter"):
-            timeline.append(
-                {
-                    "event_type": "defect",
-                    "timestamp": d.detected_at,
-                    "summary": (
-                        f"{d.get_severity_display()} "
-                        f"{d.get_defect_type_display()} defect detected"
-                    ),
-                    "details": {
-                        "id": d.id,
-                        "defect_type": d.defect_type,
-                        "severity": d.severity,
-                        "status": d.status,
-                        "description": d.description,
-                        "reporter": d.reporter_id,
-                    },
-                }
-            )
+        qs = qs.annotate(
+            event_type=Value("defect", output_field=CharField()),
+            timestamp=F("detected_at"),
+            entity_id=F("id"),
+        ).values("event_type", "timestamp", "entity_id")
+        querysets.append(qs)
 
     if not allowed_types or "status_change" in allowed_types:
-        events_qs = RepairEvent.objects.filter(defect_report__drone_id=drone_id)
+        qs = RepairEvent.objects.filter(defect_report__drone_id=drone_id)
         if date_from:
-            events_qs = events_qs.filter(created_at__gte=date_from)
+            qs = qs.filter(created_at__gte=date_from)
         if date_to:
-            events_qs = events_qs.filter(created_at__lte=date_to)
+            qs = qs.filter(created_at__lte=date_to)
 
-        for e in events_qs.select_related("technician", "defect_report"):
-            timeline.append(
-                {
-                    "event_type": "status_change",
-                    "timestamp": e.created_at,
-                    "summary": (
-                        f"Defect #{e.defect_report_id}: "
-                        f"{e.from_status} -> {e.to_status}"
-                    ),
-                    "details": {
-                        "id": e.id,
-                        "defect_report_id": e.defect_report_id,
-                        "from_status": e.from_status,
-                        "to_status": e.to_status,
-                        "action_taken": e.action_taken,
-                        "technician": e.technician_id,
-                    },
-                }
-            )
+        qs = qs.annotate(
+            event_type=Value("status_change", output_field=CharField()),
+            timestamp=F("created_at"),
+            entity_id=F("id"),
+        ).values("event_type", "timestamp", "entity_id")
+        querysets.append(qs)
 
     if not allowed_types or "repair" in allowed_types:
-        repairs_qs = RepairOrder.objects.filter(drone_id=drone_id)
+        qs = RepairOrder.objects.filter(drone_id=drone_id)
         if date_from:
-            repairs_qs = repairs_qs.filter(created_at__gte=date_from)
+            qs = qs.filter(created_at__gte=date_from)
         if date_to:
-            repairs_qs = repairs_qs.filter(created_at__lte=date_to)
+            qs = qs.filter(created_at__lte=date_to)
 
-        for r in repairs_qs.select_related("assigned_to", "created_by"):
-            timeline.append(
-                {
-                    "event_type": "repair",
-                    "timestamp": r.created_at,
-                    "summary": (f"Repair order #{r.pk} — " f"{r.get_status_display()}"),
-                    "details": {
-                        "id": r.id,
-                        "status": r.status,
-                        "description": r.description,
-                        "assigned_to": r.assigned_to_id,
-                        "defect_report_id": r.defect_report_id,
-                    },
-                }
-            )
+        qs = qs.annotate(
+            event_type=Value("repair", output_field=CharField()),
+            timestamp=F("created_at"),
+            entity_id=F("id"),
+        ).values("event_type", "timestamp", "entity_id")
+        querysets.append(qs)
 
     if not allowed_types or "replacement" in allowed_types:
-        replacements_qs = ComponentReplacement.objects.filter(
-            drone_id=drone_id,
-        )
+        qs = ComponentReplacement.objects.filter(drone_id=drone_id)
         if date_from:
-            replacements_qs = replacements_qs.filter(replaced_at__gte=date_from)
+            qs = qs.filter(replaced_at__gte=date_from)
         if date_to:
-            replacements_qs = replacements_qs.filter(replaced_at__lte=date_to)
+            qs = qs.filter(replaced_at__lte=date_to)
 
-        for c in replacements_qs.select_related("replaced_by"):
-            old = c.old_serial_number or "N/A"
-            timeline.append(
+        qs = qs.annotate(
+            event_type=Value("replacement", output_field=CharField()),
+            timestamp=F("replaced_at"),
+            entity_id=F("id"),
+        ).values("event_type", "timestamp", "entity_id")
+        querysets.append(qs)
+
+    if not querysets:
+        return DefectReport.objects.none()
+
+    return (
+        querysets[0]
+        .union(*querysets[1:])
+        .order_by("-timestamp", "event_type", "entity_id")
+    )
+
+
+def hydrate_timeline_page(page_items):
+    """Fetch full database records for a batch of timeline events and format them."""
+    ids_by_type = {"defect": [], "status_change": [], "repair": [], "replacement": []}
+
+    for item in page_items:
+        ids_by_type[item["event_type"]].append(item["entity_id"])
+
+    details_map = {}
+
+    if ids_by_type["defect"]:
+        for d in DefectReport.objects.filter(
+            id__in=ids_by_type["defect"]
+        ).select_related("reporter"):
+            details_map[("defect", d.id)] = d
+
+    if ids_by_type["status_change"]:
+        for e in RepairEvent.objects.filter(
+            id__in=ids_by_type["status_change"]
+        ).select_related("technician"):
+            details_map[("status_change", e.id)] = e
+
+    if ids_by_type["repair"]:
+        for r in RepairOrder.objects.filter(id__in=ids_by_type["repair"]):
+            details_map[("repair", r.id)] = r
+
+    if ids_by_type["replacement"]:
+        for c in ComponentReplacement.objects.filter(id__in=ids_by_type["replacement"]):
+            details_map[("replacement", c.id)] = c
+
+    hydrated_data = []
+    for item in page_items:
+        obj = details_map.get((item["event_type"], item["entity_id"]))
+        if not obj:
+            continue
+
+        if item["event_type"] == "defect":
+            hydrated_data.append(
                 {
-                    "event_type": "replacement",
-                    "timestamp": c.replaced_at,
+                    "event_type": "defect",
+                    "timestamp": item["timestamp"],
                     "summary": (
-                        f"{c.get_component_type_display()} replaced: "
-                        f"{old} -> {c.new_serial_number}"
+                        f"{obj.get_severity_display()} "
+                        f"{obj.get_defect_type_display()} defect detected"
                     ),
                     "details": {
-                        "id": c.id,
-                        "component_type": c.component_type,
-                        "old_serial_number": c.old_serial_number,
-                        "new_serial_number": c.new_serial_number,
-                        "reason": c.reason,
-                        "repair_order_id": c.repair_order_id,
+                        "id": obj.id,
+                        "defect_type": obj.defect_type,
+                        "severity": obj.severity,
+                        "status": obj.status,
+                        "description": obj.description,
+                        "reporter": obj.reporter_id,
+                    },
+                }
+            )
+        if item["event_type"] == "status_change":
+            hydrated_data.append(
+                {
+                    "event_type": "status_change",
+                    "timestamp": item["timestamp"],
+                    "summary": (
+                        f"Defect #{obj.defect_report_id}: "
+                        f"{obj.from_status} -> {obj.to_status}"
+                    ),
+                    "details": {
+                        "id": obj.id,
+                        "defect_report_id": obj.defect_report_id,
+                        "from_status": obj.from_status,
+                        "to_status": obj.to_status,
+                        "action_taken": obj.action_taken,
+                        "technician": obj.technician_id,
+                    },
+                }
+            )
+        if item["event_type"] == "repair":
+            hydrated_data.append(
+                {
+                    "event_type": "repair",
+                    "timestamp": item["timestamp"],
+                    "summary": (
+                        f"Repair order #{obj.pk} — " f"{obj.get_status_display()}"
+                    ),
+                    "details": {
+                        "id": obj.id,
+                        "status": obj.status,
+                        "description": obj.description,
+                        "assigned_to": obj.assigned_to_id,
+                        "defect_report_id": obj.defect_report_id,
+                    },
+                }
+            )
+        if item["event_type"] == "replacement":
+            old_sn = obj.old_serial_number or "N/A"
+            hydrated_data.append(
+                {
+                    "event_type": "replacement",
+                    "timestamp": item["timestamp"],
+                    "summary": (
+                        f"{obj.get_component_type_display()} replaced: "
+                        f"{old_sn} -> {obj.new_serial_number}"
+                    ),
+                    "details": {
+                        "id": obj.id,
+                        "component_type": obj.component_type,
+                        "old_serial_number": old_sn,
+                        "new_serial_number": obj.new_serial_number,
+                        "reason": obj.reason,
+                        "repair_order_id": obj.repair_order_id,
                     },
                 }
             )
 
-    timeline.sort(key=itemgetter("timestamp"), reverse=True)
-    return timeline
+    return hydrated_data
+
+
+def iter_hydrated_timeline(queryset, chunk_size=1000):
+    """Iterate over a timeline queryset, yielding fully hydrated events in chunks."""
+    offset = 0
+    while True:
+        batch = list(queryset[offset : offset + chunk_size])
+
+        if not batch:
+            break
+
+        hydrated_batch = hydrate_timeline_page(batch)
+
+        for item in hydrated_batch:
+            yield item
+
+        offset += chunk_size
 
 
 def generate_repair_history_csv(timeline_data):

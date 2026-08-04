@@ -13,6 +13,25 @@
   --color-mc-subtle: #4a5568;
   --color-mc-error: #e5484d;
   --color-mc-success: #3fb950;
+
+  /* Card / surface tokens for the app shell */
+  --color-mc-sidebar: #0e141b;
+  --color-mc-border: rgb(255 255 255 / 7%);
+  --color-mc-popover: #1c2530;
+
+  /* Drone status palette (reused across the app) */
+  --color-status-active: #3fb950;
+  --color-status-mission: #4c8dff;
+  --color-status-maintenance: #c8a24a;
+  --color-status-damaged: #e5484d;
+  --color-status-lost: #8a94a6;
+  --color-status-decommissioned: #4a5568;
+
+  /* Defect severity palette */
+  --color-severity-low: #8a94a6;
+  --color-severity-medium: #c8a24a;
+  --color-severity-high: #f0883e;
+  --color-severity-critical: #e5484d;
 }
 
 :root {
@@ -64,6 +83,13 @@ input:-webkit-autofill:focus {
     0 0 0 1000px var(--color-mc-field) inset;
   box-shadow:
     0 0 0 1000px var(--color-mc-field) inset;
+}
+
+.font-mono {
+  font-family:
+    "JetBrains Mono", "Fira Code", ui-monospace,
+    SFMono-Regular, "SF Mono", Menlo, Consolas,
+    "Liberation Mono", monospace;
 }
 
 .auth-background {
