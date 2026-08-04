@@ -1462,6 +1462,16 @@ class PublicAuthThrottleTests(APITestCase):
 
         self.assertNotIn("identifier:", cache_key)
 
+    def test_password_reset_throttle_ignores_non_mapping_request_data(self):
+        """Verify password reset throttling safely handles non-mapping payloads."""
+        view = SimpleNamespace(kwargs={})
+        request = self.request_factory.post("/password-reset/")
+        request.data = "invalid-payload"
+
+        cache_key = PasswordResetRequestThrottle().get_cache_key(request, view)
+
+        self.assertNotIn("email:", cache_key)
+
     def test_password_reset_request_endpoint_is_throttled(self):
         """Verify that repeated password reset generation requests are rate-limited."""
         url = reverse("accounts:password-reset-request")
