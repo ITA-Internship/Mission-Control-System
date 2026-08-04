@@ -260,7 +260,13 @@ class DroneListCreateView(generics.ListCreateAPIView):
         "drone_model__name",
     ]
     pagination_class = StandardResultsSetPagination
-    ordering_fields = ["created_at", "status", "name", "classification", "serial_number"]
+    ordering_fields = [
+        "created_at",
+        "status",
+        "name",
+        "classification",
+        "serial_number",
+    ]
 
     def get_queryset(self):
         """Return drones with related data needed by list and create responses."""

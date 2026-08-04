@@ -522,14 +522,20 @@ class DroneListSerializer(serializers.ModelSerializer):
     military_unit_name = serializers.CharField(
         source="military_unit.name", read_only=True
     )
-    drone_model_name = serializers.CharField(
-        source="drone_model.name", read_only=True
-    )
+    drone_model_name = serializers.CharField(source="drone_model.name", read_only=True)
     max_speed_kmh = serializers.DecimalField(
-        source="spec.max_speed_kmh", read_only=True, max_digits=6, decimal_places=2, allow_null=True
+        source="spec.max_speed_kmh",
+        read_only=True,
+        max_digits=6,
+        decimal_places=2,
+        allow_null=True,
     )
     max_range_km = serializers.DecimalField(
-        source="spec.max_range_km", read_only=True, max_digits=6, decimal_places=2, allow_null=True
+        source="spec.max_range_km",
+        read_only=True,
+        max_digits=6,
+        decimal_places=2,
+        allow_null=True,
     )
     payload_capacity_g = serializers.IntegerField(
         source="spec.payload_capacity_g", read_only=True, allow_null=True

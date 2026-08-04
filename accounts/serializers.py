@@ -29,7 +29,7 @@ from django.db import transaction
 from django.urls import reverse
 from rest_framework import serializers
 
-from .models import AuditLog, User, UserProfile, MilitaryUnit
+from .models import AuditLog, MilitaryUnit, User, UserProfile
 from .services import create_user_account
 from .validators import validate_image_extension, validate_image_size
 

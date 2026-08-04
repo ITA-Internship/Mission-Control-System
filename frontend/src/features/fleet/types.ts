@@ -1,9 +1,9 @@
-export type DroneStatus = 
-  | "ACTIVE" | "IN_MISSION" | "DAMAGED" | "LOST" 
-  | "MAINTENANCE" | "DECOMMISSIONED" | "SOLD" 
+export type DroneStatus =
+  | "ACTIVE" | "IN_MISSION" | "DAMAGED" | "LOST"
+  | "MAINTENANCE" | "DECOMMISSIONED" | "SOLD"
   | "TRANSFERRED" | "WRITTEN_OFF";
 
-export type Classification = 
+export type Classification =
   | "RECONNAISSANCE" | "COMBAT" | "TRANSPORT" | "SURVEILLANCE";
 
 export type DrawerMode = "add" | "edit";

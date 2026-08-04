@@ -8,6 +8,7 @@ from .views import (
     ActivateAccountAPIView,
     AuditLogViewSet,
     ChangePasswordView,
+    MilitaryUnitListView,
     PasswordResetConfirmView,
     PasswordResetRequestView,
     ProtectedProfilePictureView,
@@ -15,7 +16,6 @@ from .views import (
     UserRegistrationView,
     UserRoleUpdateAPIView,
     UserStatusUpdateView,
-    MilitaryUnitListView,
 )
 
 app_name = "accounts"
