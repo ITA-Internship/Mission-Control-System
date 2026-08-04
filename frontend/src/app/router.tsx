@@ -14,6 +14,7 @@ import { DashboardPage } from "../features/dashboard/pages/DashboardPage";
 import { MyProfilePage } from "../features/profile/pages/MyProfilePage";
 import { PlaceholderPage } from "../shared/pages/PlaceholderPage";
 import { ProtectedRoute } from "./ProtectedRoute";
+import { MissionsBoardPage } from "../features/missions/pages/MissionsBoardPage";
 
 export const router = createBrowserRouter([
   {
@@ -33,6 +34,10 @@ export const router = createBrowserRouter([
       },
       {
         path: "/missions",
+        Component: MissionsBoardPage,
+      },
+      {
+        path: "/missions/:id",
         Component: PlaceholderPage,
       },
       {

@@ -17,11 +17,7 @@ import {
 function commanderName(mission: MissionListItem): string {
   const commander = mission.commander;
   if (!commander) return "Unassigned";
-  const full = [commander.first_name, commander.last_name]
-    .filter(Boolean)
-    .join(" ")
-    .trim();
-  return full || commander.username;
+  return commander.username;
 }
 
 function MissionRow({ mission }: { mission: MissionListItem }) {
