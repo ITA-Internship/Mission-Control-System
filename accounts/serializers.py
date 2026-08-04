@@ -26,7 +26,7 @@ from django.core.exceptions import ValidationError as DjangoValidationError
 from django.db import transaction
 from rest_framework import serializers
 
-from .models import AuditLog, User, UserProfile
+from .models import AuditLog, User, UserProfile, MilitaryUnit
 from .services import create_user_account
 from .validators import validate_image_extension, validate_image_size
 
@@ -259,3 +259,22 @@ class PasswordResetConfirmSerializer(serializers.Serializer):
         except DjangoValidationError as exc:
             raise serializers.ValidationError(list(exc.messages))
         return value
+
+
+class MilitaryUnitSerializer(serializers.ModelSerializer):
+    """Serialize military unit catalog entries."""
+
+    class Meta:
+        """Configure MilitaryUnit fields exposed by the API."""
+
+        model = MilitaryUnit
+        fields = (
+            "id",
+            "name",
+            "code",
+            "description",
+            "is_active",
+            "created_at",
+            "updated_at",
+        )
+        read_only_fields = ("created_at", "updated_at")

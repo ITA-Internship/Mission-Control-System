@@ -53,7 +53,7 @@ from .api_details import (
     user_role_update_schema,
     user_status_update_schema,
 )
-from .models import AuditLog, User, UserStatusLog
+from .models import AuditLog, User, UserStatusLog, MilitaryUnit
 from .permissions import HasAnyRBACPermission, HasRBACPermission, user_has_permission
 from .rbac import (
     PERMISSION_AUDIT_LOGS_VIEW_ALL,
@@ -77,6 +77,7 @@ from .serializers import (
     UserRoleUpdateResponseSerializer,
     UserRoleUpdateSerializer,
     UserStatusUpdateSerializer,
+    MilitaryUnitSerializer,
 )
 from .services import create_audit_log, set_user_password, update_user_role
 from .tasks import send_email_task
@@ -665,3 +666,12 @@ class ProtectedProfilePictureView(APIView):
             f"inline; filename*=UTF-8''{escape_uri_path(filename)}"
         )
         return response
+
+
+class MilitaryUnitListView(generics.ListAPIView):
+    """List military units for dropdown selection."""
+
+    queryset = MilitaryUnit.objects.filter(is_active=True).order_by("name")
+    serializer_class = MilitaryUnitSerializer
+    permission_classes = [permissions.AllowAny]
+    pagination_class = None

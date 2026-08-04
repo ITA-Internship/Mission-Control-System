@@ -15,6 +15,7 @@ from .views import (
     UserRegistrationView,
     UserRoleUpdateAPIView,
     UserStatusUpdateView,
+    MilitaryUnitListView,
 )
 
 app_name = "accounts"
@@ -64,5 +65,10 @@ urlpatterns = [
         "users/<int:user_id>/profile-picture/",
         ProtectedProfilePictureView.as_view(),
         name="user-profile-picture",
+    ),
+    path(
+        "military-units/",
+        MilitaryUnitListView.as_view(),
+        name="military-unit-list",
     ),
 ]
