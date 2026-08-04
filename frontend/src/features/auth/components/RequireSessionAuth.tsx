@@ -1,5 +1,15 @@
 import type { ReactNode } from "react";
-import { Navigate } from "react-router";
+import {
+  Navigate,
+  useLocation,
+} from "react-router";
+
+import {
+  buildLoginPath,
+  buildRequiredPasswordChangePath,
+  DEFAULT_AUTHENTICATED_ROUTE,
+  getSafeReturnTo,
+} from "../utils/returnTo";
 
 import type {
   CurrentUser,
@@ -23,6 +33,29 @@ export function RequireSessionAuth({
     currentUser,
     error,
   } = useAuth();
+
+  const location = useLocation();
+
+  const returnToFromQuery =
+    getSafeReturnTo(
+      new URLSearchParams(
+        location.search,
+      ).get("returnTo"),
+    );
+
+  const currentRoute =
+    getSafeReturnTo(
+      [
+        location.pathname,
+        location.search,
+        location.hash,
+      ].join(""),
+    );
+
+  const requestedReturnTo =
+    requirePasswordChange
+      ? returnToFromQuery
+      : currentRoute;
 
   if (status === "loading") {
     return (
@@ -48,7 +81,9 @@ export function RequireSessionAuth({
   ) {
     return (
       <Navigate
-        to="/login"
+        to={buildLoginPath(
+          requestedReturnTo,
+        )}
         replace
       />
     );
@@ -60,7 +95,9 @@ export function RequireSessionAuth({
   ) {
     return (
       <Navigate
-        to="/change-password/required"
+        to={buildRequiredPasswordChangePath(
+          requestedReturnTo,
+        )}
         replace
       />
     );
@@ -72,7 +109,10 @@ export function RequireSessionAuth({
   ) {
     return (
       <Navigate
-        to="/my-profile"
+        to={
+          returnToFromQuery ??
+          DEFAULT_AUTHENTICATED_ROUTE
+        }
         replace
       />
     );

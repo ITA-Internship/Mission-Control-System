@@ -4,7 +4,15 @@ import {
 } from "react";
 import type { FormEvent } from "react";
 import { Shield } from "lucide-react";
-import { useNavigate } from "react-router";
+import {
+  useLocation,
+  useNavigate,
+} from "react-router";
+import {
+  buildLoginPath,
+  DEFAULT_AUTHENTICATED_ROUTE,
+  getSafeReturnTo,
+} from "../utils/returnTo";
 
 import {
   isAbortError,
@@ -75,7 +83,22 @@ export function RequiredPasswordChangePage() {
     isMounted,
   } = useAbortableRequest();
 
-  const { refreshCurrentUser } = useAuth();
+  const {
+    refreshCurrentUser,
+    clearAuthentication,
+  } = useAuth();
+
+  const location = useLocation();
+
+  const safeReturnTo = getSafeReturnTo(
+    new URLSearchParams(
+      location.search,
+    ).get("returnTo"),
+  );
+
+  const destination =
+    safeReturnTo ??
+    DEFAULT_AUTHENTICATED_ROUTE;
 
   function focusAlert() {
     requestAnimationFrame(() => {
@@ -156,9 +179,13 @@ export function RequiredPasswordChangePage() {
       }
 
       if (!refreshedUser) {
-        navigate("/login", {
-          replace: true,
-        });
+        navigate(
+          buildLoginPath(safeReturnTo),
+          {
+            replace: true,
+          },
+        );
+
         return;
       }
 
@@ -169,7 +196,7 @@ export function RequiredPasswordChangePage() {
         return;
       }
 
-      navigate("/my-profile", {
+      navigate(destination, {
         replace: true,
       });
     } catch (error) {
@@ -181,9 +208,15 @@ export function RequiredPasswordChangePage() {
       }
 
       if (isSessionAuthenticationError(error)) {
-        navigate("/login", {
-          replace: true,
-        });
+        clearAuthentication();
+
+        navigate(
+          buildLoginPath(safeReturnTo),
+          {
+            replace: true,
+          },
+        );
+
         return;
       }
 

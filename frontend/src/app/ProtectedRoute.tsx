@@ -1,4 +1,12 @@
-import { Navigate } from "react-router";
+import {
+  Navigate,
+  useLocation,
+} from "react-router";
+
+import {
+  buildLoginPath,
+  buildRequiredPasswordChangePath,
+} from "../features/auth/utils/returnTo";
 
 import {
   useAuth,
@@ -11,6 +19,14 @@ export function ProtectedRoute() {
     currentUser,
     error,
   } = useAuth();
+
+  const location = useLocation();
+
+  const requestedRoute = [
+    location.pathname,
+    location.search,
+    location.hash,
+  ].join("");
 
   if (status === "loading") {
     return (
@@ -34,7 +50,9 @@ export function ProtectedRoute() {
   ) {
     return (
       <Navigate
-        to="/login"
+        to={buildLoginPath(
+          requestedRoute,
+        )}
         replace
       />
     );
@@ -43,7 +61,9 @@ export function ProtectedRoute() {
   if (currentUser.must_change_password) {
     return (
       <Navigate
-        to="/change-password/required"
+        to={buildRequiredPasswordChangePath(
+          requestedRoute,
+        )}
         replace
       />
     );

@@ -12,6 +12,7 @@ import userEvent from "@testing-library/user-event";
 import {
   createMemoryRouter,
   RouterProvider,
+  useLocation,
 } from "react-router";
 
 import {
@@ -102,6 +103,20 @@ function mockJsonResponse(
         },
       },
     ),
+  );
+}
+
+function LocationProbe() {
+  const location = useLocation();
+
+  return (
+    <div data-testid="current-location">
+      {[
+        location.pathname,
+        location.search,
+        location.hash,
+      ].join("")}
+    </div>
   );
 }
 
@@ -400,8 +415,157 @@ describe("login", () => {
   });
 });
 
+describe("safe return navigation", () => {
+  it("preserves the requested protected route", async () => {
+    mockJsonResponse(
+      {
+        detail:
+          "Authentication credentials were not provided.",
+      },
+      401,
+    );
+
+    const router = createMemoryRouter(
+      [
+        {
+          path: "/missions/42",
+          element: (
+            <RequireSessionAuth>
+              {() => (
+                <div>Mission details</div>
+              )}
+            </RequireSessionAuth>
+          ),
+        },
+        {
+          path: "/login",
+          element: <LocationProbe />,
+        },
+      ],
+      {
+        initialEntries: [
+          "/missions/42?tab=activity#latest",
+        ],
+      },
+    );
+
+    render(
+      <AuthProvider>
+        <RouterProvider router={router} />
+      </AuthProvider>,
+    );
+
+    expect(
+      await screen.findByTestId(
+        "current-location",
+      ),
+    ).toHaveTextContent(
+      "/login?returnTo=%2Fmissions%2F42%3Ftab%3Dactivity%23latest",
+    );
+  });
+
+  it("redirects to a valid return destination after login", async () => {
+    const user = userEvent.setup();
+
+    mockJsonResponse(
+      {
+        detail:
+          "Authentication credentials were not provided.",
+      },
+      401,
+    );
+
+    mockJsonResponse({
+      detail: "CSRF cookie set.",
+    });
+
+    mockJsonResponse({
+      id: 47,
+      username: "root.admin",
+      email: "root.admin@example.com",
+      first_name: "Root",
+      last_name: "Admin",
+      rank: null,
+      contact: null,
+      profile_picture: null,
+      role: 1,
+      role_name: "Administrator",
+      role_code: "ADMIN",
+      unit: null,
+      is_active: true,
+      must_change_password: false,
+    });
+
+    const router = createMemoryRouter(
+      [
+        {
+          path: "/login",
+          Component: LoginPage,
+        },
+        {
+          path: "/missions/42",
+          element: <LocationProbe />,
+        },
+        {
+          path:
+            "/change-password/required",
+          element: (
+            <div>
+              Password change required
+            </div>
+          ),
+        },
+        {
+          path: "/my-profile",
+          element: <div>My Profile</div>,
+        },
+      ],
+      {
+        initialEntries: [
+          "/login?returnTo=%2Fmissions%2F42%3Ftab%3Dactivity%23latest",
+        ],
+      },
+    );
+
+    render(
+      <AuthProvider>
+        <RouterProvider router={router} />
+      </AuthProvider>,
+    );
+
+    await user.type(
+      screen.getByLabelText(
+        "Email or Username",
+      ),
+      "root.admin@example.com",
+    );
+
+    await user.type(
+      screen.getByLabelText("Password"),
+      "Test@1234",
+    );
+
+    await user.click(
+      screen.getByRole("button", {
+        name: "Sign in",
+      }),
+    );
+
+    expect(
+      await screen.findByTestId(
+        "current-location",
+      ),
+    ).toHaveTextContent(
+      "/missions/42?tab=activity#latest",
+    );
+  });
+});
+
 describe("required password change", () => {
-  function renderRequiredPasswordRoute() {
+  function renderRequiredPasswordRoute(
+    initialEntry =
+      "/change-password/required",
+  ) {
     const router = createMemoryRouter(
       [
         {
@@ -424,11 +588,13 @@ describe("required password change", () => {
           path: "/my-profile",
           element: <div>My Profile page</div>,
         },
+        {
+          path: "/missions/42",
+          element: <div>Mission details</div>,
+        },
       ],
       {
-        initialEntries: [
-          "/change-password/required",
-        ],
+        initialEntries: [initialEntry],
       },
     );
 
@@ -488,22 +654,24 @@ describe("required password change", () => {
   it("changes the required password and continues", async () => {
     const user = userEvent.setup();
 
-    // 1. Initial session restoration.
+    // Initial AuthProvider session restoration.
     mockJsonResponse(requiredUser);
 
-    // 2. Password-change response.
+    // Password-change request.
     mockJsonResponse({
       detail:
         "Password has been successfully changed.",
     });
 
-    // 3. Refreshed current user after password change.
+    // refreshCurrentUser() after password change.
     mockJsonResponse({
       ...requiredUser,
       must_change_password: false,
     });
 
-    renderRequiredPasswordRoute();
+    renderRequiredPasswordRoute(
+      "/change-password/required?returnTo=%2Fmissions%2F42",
+    );
 
     await user.type(
       await screen.findByLabelText(
@@ -532,7 +700,7 @@ describe("required password change", () => {
 
     expect(
       await screen.findByText(
-        "My Profile page",
+        "Mission details",
       ),
     ).toBeInTheDocument();
 
@@ -542,13 +710,9 @@ describe("required password change", () => {
 
     expect(fetchMock).toHaveBeenCalledTimes(3);
 
-    const [
-      refreshedUserRequestUrl,
-    ] = fetchMock.mock.calls[2];
-
-    expect(refreshedUserRequestUrl).toBe(
-      "/api/accounts/users/me/",
-    );
+    expect(
+      fetchMock.mock.calls[2]?.[0],
+    ).toBe("/api/accounts/users/me/");
   });
 
   it("redirects to login when the session expires during submission", async () => {

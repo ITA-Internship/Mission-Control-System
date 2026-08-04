@@ -4,7 +4,15 @@ import {
 } from "react";
 import type { FormEvent } from "react";
 import { Mail } from "lucide-react";
-import { useNavigate } from "react-router";
+import {
+  useLocation,
+  useNavigate,
+} from "react-router";
+import {
+  buildRequiredPasswordChangePath,
+  DEFAULT_AUTHENTICATED_ROUTE,
+  getSafeReturnTo,
+} from "../utils/returnTo";
 
 import { isAbortError } from "../../../shared/api/apiClient";
 import {
@@ -50,6 +58,19 @@ export function LoginPage() {
   const {
     setAuthenticatedUser,
   } = useAuth();
+
+  const location = useLocation();
+
+  const safeReturnTo =
+    getSafeReturnTo(
+      new URLSearchParams(
+        location.search,
+      ).get("returnTo"),
+    );
+
+  const destination =
+    safeReturnTo ??
+    DEFAULT_AUTHENTICATED_ROUTE;
 
   function focusAlert() {
     requestAnimationFrame(() => {
@@ -116,12 +137,22 @@ export function LoginPage() {
 
       setAuthenticatedUser(user);
 
-      navigate(
-        user.must_change_password
-          ? "/change-password/required"
-          : "/my-profile",
-        { replace: true },
-      );
+      if (user.must_change_password) {
+        navigate(
+          buildRequiredPasswordChangePath(
+            safeReturnTo,
+          ),
+          {
+            replace: true,
+          },
+        );
+
+        return;
+      }
+
+      navigate(destination, {
+        replace: true,
+      });
     } catch (error) {
       if (
         isAbortError(error) ||
