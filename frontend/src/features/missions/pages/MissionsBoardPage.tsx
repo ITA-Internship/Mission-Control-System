@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect, useCallback } from "react";
-import { useNavigate } from "react-router";
+import { useNavigate, useOutletContext } from "react-router";
 import { LayoutGrid, List, Plus } from "lucide-react";
-import { fetchMissions, createMission, updateMission, fetchCommanders, updateMissionStatus } from "../api/missionsApi";
+import { fetchMissions, createMission, updateMission, fetchCommanders } from "../api/missionsApi";
 import type { CommanderOption } from "../api/missionsApi";
 import type { Mission, Status, View, MissionCreateDTO, MissionUpdateDTO } from "../types";
 import { KanbanColumn } from "../components/KanbanColumn";
@@ -9,9 +9,9 @@ import { DataTable } from "../components/DataTable";
 import { FilterBar } from "../components/FilterBar";
 
 import type { Filters, Chip } from "../components/FilterBar";
+import type { ShellContext } from "../../../shared/layout/shellContext";
 import { MissionModal } from "../components/MissionModal";
-import { getCurrentUser } from "../../auth/api/authApi";
-import type { CurrentUser } from "../../../shared/types/accounts";
+import { useAsyncData } from "../../../shared/hooks/useAsyncData";
 
 const STATUSES: Status[] = ["Planned", "Active", "Completed", "Aborted"];
 
@@ -32,35 +32,22 @@ function Skeleton() {
   );
 }
 
-import { DndContext, DragOverlay, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors } from "@dnd-kit/core";
-import type { DragStartEvent, DragOverEvent, DragEndEvent } from "@dnd-kit/core";
-import { sortableKeyboardCoordinates, arrayMove } from "@dnd-kit/sortable";
+import { DndContext, DragOverlay, closestCenter } from "@dnd-kit/core";
 import { MissionCard } from "../components/MissionCard";
+import { useMissionDnD } from "../hooks/useMissionDnD";
 
 export function MissionsBoardPage() {
+  const { user: currentUser } = useOutletContext<ShellContext>();
   const [view, setView] = useState<View>("board");
   const [filters, setFilters] = useState<Filters>({ search: "", status: "", commander: "", result: "" });
   const [missions, setMissions] = useState<Mission[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null);
 
   const navigate = useNavigate();
   const handleMissionClick = (m: Mission) => navigate("/missions/" + m.id);
   const [editingMission, setEditingMission] = useState<Mission | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
 
-  const [activeMission, setActiveMission] = useState<Mission | null>(null);
-
-  const sensors = useSensors(
-    useSensor(PointerSensor, {
-      activationConstraint: {
-        distance: 5,
-      },
-    }),
-    useSensor(KeyboardSensor, {
-      coordinateGetter: sortableKeyboardCoordinates,
-    })
-  );
+  const { sensors, activeMission, handleDragStart, handleDragOver, handleDragEnd } = useMissionDnD(missions, setMissions);
 
   // Derive active filter chips
   const chips: Chip[] = useMemo(() => {
@@ -76,46 +63,33 @@ export function MissionsBoardPage() {
     setFilters(f => ({ ...f, [key]: "" }));
   }
 
-  useEffect(() => {
-    let active = true;
-    async function load() {
-      try {
-        const [data, user] = await Promise.all([fetchMissions(), getCurrentUser()]);
-        // To maintain order across sessions without backend support, we could use localStorage here.
-        // For now we will just use the backend order and allow local reordering.
-        const localOrder = localStorage.getItem("mc_mission_order");
-        let sortedData = data;
-        if (localOrder) {
-          try {
-            const orderList = JSON.parse(localOrder) as string[];
-            sortedData = [...data].sort((a, b) => {
-              const idxA = orderList.indexOf(a.id);
-              const idxB = orderList.indexOf(b.id);
-              if (idxA === -1 && idxB === -1) return 0;
-              if (idxA === -1) return 1;
-              if (idxB === -1) return -1;
-              return idxA - idxB;
-            });
-          } catch {
-            // Suppress generic update errors silently since we might refresh anyway
-          }
-        }
+  const loadData = useCallback(async (signal: AbortSignal) => {
+    const fetchedMissions = await fetchMissions(signal);
 
-        if (active) {
-          setMissions(sortedData);
-          setCurrentUser(user);
-          setLoading(false);
-        }
-      } catch (err) {
-        if (active) {
-          console.error("Failed to fetch initial data", err);
-          setLoading(false);
-        }
+    const sortedData = [...fetchedMissions].sort((a, b) => {
+      if (a.status !== b.status) return 0;
+
+      const timeA = (a.status === "Completed" || a.status === "Aborted") ? (a.endedAt || a.startedAt || "") : (a.startedAt || "");
+      const timeB = (b.status === "Completed" || b.status === "Aborted") ? (b.endedAt || b.startedAt || "") : (b.startedAt || "");
+
+      if (a.status === "Planned") {
+        return timeA.localeCompare(timeB);
+      } else {
+        return timeB.localeCompare(timeA);
       }
-    }
-    load();
-    return () => { active = false; };
+    });
+
+    return sortedData;
   }, []);
+
+  const { data, isLoading: loading, error, reload } = useAsyncData(loadData);
+
+  useEffect(() => {
+    if (data) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setMissions(data);
+    }
+  }, [data]);
 
   const filtered = useMemo(() => {
     return missions.filter(m => {
@@ -175,94 +149,6 @@ export function MissionsBoardPage() {
     setIsModalOpen(true);
   }
 
-  function saveOrderToLocal(newMissions: Mission[]) {
-    localStorage.setItem("mc_mission_order", JSON.stringify(newMissions.map(m => m.id)));
-  }
-
-  function handleDragStart(event: DragStartEvent) {
-    const { active } = event;
-    const mission = missions.find(m => m.id === active.id);
-    if (mission) setActiveMission(mission);
-  }
-
-  function handleDragOver(event: DragOverEvent) {
-    const { active, over } = event;
-    if (!over) return;
-
-    const activeId = active.id;
-    const overId = over.id;
-
-    if (activeId === overId) return;
-
-    const isActiveAMission = active.data.current?.type === "Mission";
-    const isOverAMission = over.data.current?.type === "Mission";
-    const isOverAColumn = over.data.current?.type === "Column";
-
-    if (!isActiveAMission) return;
-
-    setMissions((prev) => {
-      const activeIndex = prev.findIndex((m) => m.id === activeId);
-      if (activeIndex === -1) return prev;
-      const activeMissionItem = prev[activeIndex];
-
-      if (isOverAMission) {
-        const overIndex = prev.findIndex((m) => m.id === overId);
-        if (overIndex === -1) return prev;
-        const overMission = prev[overIndex];
-
-        if (activeMissionItem.status !== overMission.status) {
-          // Moving to a new column
-          const newMissions = prev.filter((m) => m.id !== activeId);
-          const newOverIndex = newMissions.findIndex((m) => m.id === overId);
-          newMissions.splice(newOverIndex, 0, { ...activeMissionItem, status: overMission.status });
-          return newMissions;
-        } else {
-          // Same column, check if index actually changed to prevent re-renders
-          if (activeIndex === overIndex) return prev;
-          return arrayMove(prev, activeIndex, overIndex);
-        }
-      }
-
-      if (isOverAColumn) {
-        const status = over.data.current?.status;
-        if (status && activeMissionItem.status !== status) {
-          // Move to the end of the new column by pushing to the end of the global array
-          const newMissions = prev.filter((m) => m.id !== activeId);
-          newMissions.push({ ...activeMissionItem, status });
-          return newMissions;
-        }
-      }
-
-      return prev;
-    });
-  }
-
-  async function handleDragEnd(event: DragEndEvent) {
-    const originalActiveMission = activeMission;
-    setActiveMission(null);
-    const { active, over } = event;
-    if (!over) return;
-
-    setMissions(currentMissions => {
-      saveOrderToLocal(currentMissions);
-      return currentMissions;
-    });
-
-    const currentMission = missions.find(m => m.id === active.id);
-    if (currentMission && originalActiveMission && currentMission.status !== originalActiveMission.status) {
-      try {
-        await updateMissionStatus(currentMission.rawId, currentMission.status);
-      } catch (err) {
-        console.error("Failed to update status", err);
-        setMissions(prev => {
-          const reverted = prev.map(m => m.id === active.id ? { ...m, status: originalActiveMission.status } : m);
-          saveOrderToLocal(reverted);
-          return reverted;
-        });
-      }
-    }
-  }
-
   return (
     <div className="flex flex-col h-full font-[Inter,sans-serif]" style={{ color: "#E6EAF0" }}>
       {/* Page header */}
@@ -280,10 +166,7 @@ export function MissionsBoardPage() {
 
         <div className="flex items-center gap-3">
           {/* View toggle */}
-          <div
-            className="flex items-center rounded-lg p-0.5"
-            style={{ background: "#161D26", border: "1px solid rgba(255,255,255,0.08)" }}
-          >
+          <div className="flex items-center rounded-lg p-0.5 bg-[#161D26] border border-white/10">
             {(["board", "list"] as const).map(v => (
               <button
                 key={v}
@@ -302,10 +185,7 @@ export function MissionsBoardPage() {
 
           {/* New Mission */}
           <button
-            className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[9px] font-mono font-semibold transition-all"
-            style={{ background: "#C8A24A", color: "#0B0F14" }}
-            onMouseEnter={e => ((e.currentTarget as HTMLElement).style.background = "#d4af5e")}
-            onMouseLeave={e => ((e.currentTarget as HTMLElement).style.background = "#C8A24A")}
+            className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[9px] font-mono font-semibold transition-all bg-[#C8A24A] text-[#0B0F14] hover:bg-[#d4af5e]"
             onClick={openNewModal}
           >
             <Plus size={12} strokeWidth={2.5} />
@@ -319,7 +199,14 @@ export function MissionsBoardPage() {
       </div>
 
       {/* Content */}
-      {loading ? (
+      {error ? (
+        <div className="flex flex-col items-center justify-center py-20 text-[#8A94A6]">
+          <div className="text-[13px] font-mono mb-3 text-[#E5484D]">Failed to load missions.</div>
+          <button onClick={reload} className="px-4 py-2 rounded-lg bg-white/5 hover:bg-white/10 text-[11px] font-mono transition-colors">
+            Try Again
+          </button>
+        </div>
+      ) : loading ? (
         <div className="grid grid-cols-4 gap-4">
           {STATUSES.map(s => <Skeleton key={s} />)}
         </div>
