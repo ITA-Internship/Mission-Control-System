@@ -50,3 +50,13 @@ export function humanizeEnum(
   const spaced = value.replace(/_/g, " ").toLowerCase();
   return spaced.charAt(0).toUpperCase() + spaced.slice(1);
 }
+
+export function formatCommanderName(
+  commander: { first_name?: string; last_name?: string; username: string } | null | undefined
+): string {
+  if (!commander) return "Unknown";
+  if (commander.first_name && commander.last_name) {
+    return `${commander.first_name} ${commander.last_name}`;
+  }
+  return commander.username;
+}

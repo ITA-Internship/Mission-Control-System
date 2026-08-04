@@ -12,16 +12,11 @@ import type { SectionState } from "../../../shared/types/api";
 import type { MissionListItem } from "../../../shared/types/missions";
 import {
   formatUtcTime,
+  formatCommanderName,
 } from "../../../shared/utils/format";
 
 function commanderName(mission: MissionListItem): string {
-  const commander = mission.commander;
-  if (!commander) return "Unassigned";
-  const full = [commander.first_name, commander.last_name]
-    .filter(Boolean)
-    .join(" ")
-    .trim();
-  return full || commander.username;
+  return formatCommanderName(mission.commander);
 }
 
 function MissionRow({ mission }: { mission: MissionListItem }) {

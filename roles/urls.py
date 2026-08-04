@@ -1,5 +1,9 @@
+from django.urls import path
+
+from .views import RoleListView
+
 app_name = "roles"
 
 urlpatterns = [
-    # Now is empty
+    path("", RoleListView.as_view(), name="role-list"),
 ]

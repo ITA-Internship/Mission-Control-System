@@ -6,4 +6,6 @@ exclude =
     __pycache__,
     venv,
     .venv,
-    */migrations/*
+    */migrations/*,
+    node_modules,
+    frontend/node_modules

@@ -1,0 +1,97 @@
+import { useEffect, useMemo } from "react";
+import { MapContainer, TileLayer, Marker, useMapEvents, useMap } from "react-leaflet";
+import L from "leaflet";
+import "leaflet/dist/leaflet.css";
+
+// Removed default icon override as it is unnecessary
+
+const customIcon = new L.DivIcon({
+  className: "bg-transparent",
+  html: `
+    <div class="relative flex items-center justify-center w-6 h-6 -ml-3 -mt-3">
+      <div class="absolute inset-0 rounded-full bg-[#C8A24A] opacity-20 animate-ping"></div>
+      <div class="w-3 h-3 rounded-full bg-[#C8A24A] shadow-[0_0_12px_rgba(200,162,74,0.8)] border border-[#0B0F14]"></div>
+    </div>
+  `,
+  iconSize: [24, 24],
+  iconAnchor: [12, 12],
+});
+
+interface MapPickerProps {
+  lat: string;
+  lng: string;
+  onChange: (lat: string, lng: string) => void;
+}
+
+function LocationMarker({ position, setPosition }: { position: L.LatLng | null; setPosition: (pos: L.LatLng) => void }) {
+  useMapEvents({
+    click(e) {
+      setPosition(e.latlng);
+    },
+  });
+
+  return position === null ? null : <Marker position={position} icon={customIcon}></Marker>;
+}
+
+function MapUpdater({ position }: { position: L.LatLng | null }) {
+  const map = useMap();
+  useEffect(() => {
+    if (position) {
+      map.setView(position, map.getZoom(), { animate: true });
+    }
+  }, [position, map]);
+  return null;
+}
+
+export function MapPicker({ lat, lng, onChange }: MapPickerProps) {
+  const position = useMemo(() => {
+    const parsedLat = parseFloat(lat);
+    const parsedLng = parseFloat(lng);
+    if (!isNaN(parsedLat) && !isNaN(parsedLng)) {
+      return new L.LatLng(parsedLat, parsedLng);
+    }
+    return null;
+  }, [lat, lng]);
+
+  function handlePositionChange(pos: L.LatLng) {
+    onChange(pos.lat.toFixed(6), pos.lng.toFixed(6));
+  }
+
+  const defaultCenter: [number, number] = [
+    !isNaN(parseFloat(lat)) ? parseFloat(lat) : 48.3794,
+    !isNaN(parseFloat(lng)) ? parseFloat(lng) : 31.1656,
+  ]; // Ukraine center if empty
+
+  return (
+    <div
+      className="relative rounded-xl overflow-hidden group"
+      style={{
+        height: "200px",
+        background: "#0F1621",
+        border: "1px solid rgba(255,255,255,0.08)",
+      }}
+    >
+
+      <MapContainer
+        center={position ? [position.lat, position.lng] : defaultCenter}
+        zoom={5}
+        style={{ height: "100%", width: "100%", zIndex: 0 }}
+        attributionControl={false}
+      >
+        <TileLayer
+          url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
+        />
+        <LocationMarker position={position} setPosition={handlePositionChange} />
+        <MapUpdater position={position} />
+      </MapContainer>
+      <div className="absolute top-3 right-3 text-[10px] font-mono px-2 py-1 rounded bg-black/60 text-[#8A94A6] pointer-events-none z-10 transition-opacity opacity-70 group-hover:opacity-100">
+        Click to set position
+      </div>
+      {position && (
+        <div className="absolute bottom-3 left-3 text-[10px] font-mono px-2 py-1 rounded bg-black/80 text-[#C8A24A] pointer-events-none z-10 shadow-lg border border-white/5">
+          {position.lat.toFixed(4)}° N · {position.lng.toFixed(4)}° E
+        </div>
+      )}
+    </div>
+  );
+}

@@ -148,3 +148,20 @@ input:-webkit-autofill:focus {
     40px 40px;
   background-position: center;
 }
+/* FORCE CACHE BUST */
+.cache-bust-12345 { color: red; }
+
+/* MapPicker Leaflet overrides */
+.leaflet-bar a, .leaflet-bar a:hover {
+  background-color: #1A2230 !important;
+  color: #E6EAF0 !important;
+  border-bottom: 1px solid rgba(255,255,255,0.1) !important;
+}
+.leaflet-bar {
+  border: 1px solid rgba(255,255,255,0.1) !important;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.5) !important;
+}
+.leaflet-bar a.leaflet-disabled {
+  color: #4B5563 !important;
+  background-color: #1A2230 !important;
+}

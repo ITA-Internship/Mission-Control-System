@@ -19,6 +19,7 @@ export interface AsyncData<T> {
   error: unknown;
   isLoading: boolean;
   reload: () => void;
+  mutate: (data: T | ((prev: T | null) => T)) => void;
 }
 
 /**
@@ -56,6 +57,13 @@ export function useAsyncData<T>(
     setReloadToken(
       (token) => token + 1,
     );
+  }, []);
+
+  const mutate = useCallback((updater: T | ((prev: T | null) => T)) => {
+    setResult((prev) => {
+      const nextData = typeof updater === "function" ? (updater as (prev: T | null) => T)(prev.data) : updater;
+      return { ...prev, data: nextData };
+    });
   }, []);
 
   useEffect(() => {
@@ -103,5 +111,6 @@ export function useAsyncData<T>(
     isLoading:
       result.requestKey !== requestKey,
     reload,
+    mutate,
   };
 }

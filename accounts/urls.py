@@ -11,8 +11,8 @@ from .views import (
     PasswordResetConfirmView,
     PasswordResetRequestView,
     ProtectedProfilePictureView,
+    UserListCreateView,
     UserMeView,
-    UserRegistrationView,
     UserRoleUpdateAPIView,
     UserStatusUpdateView,
 )
@@ -23,7 +23,7 @@ router = DefaultRouter()
 router.register(r"audit-log", AuditLogViewSet, basename="audit-log")
 
 urlpatterns = [
-    path("users/", UserRegistrationView.as_view(), name="user-create"),
+    path("users/", UserListCreateView.as_view(), name="user-create"),
     path(
         "users/me/",
         UserMeView.as_view(),
