@@ -5,10 +5,12 @@ Authorization model
 Artifact endpoints are protected by **two complementary layers**:
 
 1. **Queryset scoping** (authoritative for mission access):
-   ``restrict_missions_for_user`` in ``_MissionArtifactMixin.get_mission`` is
-   the single source of truth that decides whether a user can reach a given
-   mission at all.  Operators are limited to missions they are assigned to;
-   all other roles see every mission.
+   ``restrict_missions_for_user`` is applied unconditionally in
+   ``_MissionArtifactMixin.get_mission`` and ``ArtifactListCreateView.get_queryset``.
+   It is the single source of truth for mission reachability: operators see
+   only assigned missions, viewers see only their unit's missions, technicians
+   see only repair/write-off missions, and admin/commander/dispatcher roles
+   see all missions.
 
 2. **Object-level RBAC** (authoritative for artifact-level actions):
    ``MediaViewPermission`` / ``MediaDeletePermission`` decide what a user can
@@ -16,8 +18,8 @@ Artifact endpoints are protected by **two complementary layers**:
    ``_check_object`` checks ownership (``uploaded_by``), admin role, or
    matching ``unit_id`` for view access.
 
-Layer 1 runs first (via ``get_mission`` → 404 if denied).  Layer 2 runs
-second (via ``check_object_permissions`` → 403 if denied).  Any change to
+Layer 1 runs first (via ``get_mission`` / ``get_queryset`` → 404 if denied).
+Layer 2 runs second (via ``check_object_permissions`` → 403 if denied). Any change to
 ``restrict_missions_for_user`` automatically propagates to all media
 endpoints; object-level rules can be tightened independently without
 affecting mission scoping.

@@ -199,12 +199,12 @@ AUTH_PASSWORD_VALIDATORS = [
 AUTH_USER_MODEL = "accounts.User"
 
 default_authentication_classes = [
-    "rest_framework.authentication.SessionAuthentication",
+    "common.authentication.RequiredPasswordChangeSessionAuthentication",
 ]
 
 if DEBUG:
     default_authentication_classes.append(
-        "rest_framework.authentication.BasicAuthentication"
+        "common.authentication.RequiredPasswordChangeBasicAuthentication"
     )
 
 REST_FRAMEWORK = {
@@ -225,6 +225,7 @@ REST_FRAMEWORK = {
             "THROTTLE_PASSWORD_RESET_CONFIRM",
             "5/hour",
         ),
+        "audit_view": os.getenv("THROTTLE_AUDIT_VIEW", "60/min"),
         "audit_export": os.getenv("THROTTLE_AUDIT_EXPORT", "5/min"),
         "drone_export": os.getenv("THROTTLE_DRONE_EXPORT", "10/hour"),
         "component_replacement_export": os.getenv(

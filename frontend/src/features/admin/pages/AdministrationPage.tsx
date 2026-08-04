@@ -4,6 +4,7 @@ import {
 } from "react";
 import {
   Building2,
+  RefreshCw,
   ScrollText,
   Shield,
   Users,
@@ -11,7 +12,7 @@ import {
 import { useSearchParams } from "react-router";
 import type { LucideIcon } from "lucide-react";
 
-import { AppShell } from "../../shell/components/AppShell";
+import { Button } from "../components/Button";
 import { AuditLogTab } from "../tabs/AuditLogTab";
 import { UnitsTab } from "../tabs/UnitsTab";
 import { UsersTab } from "../tabs/UsersTab";
@@ -120,24 +121,46 @@ export function AdministrationPage() {
   }
 
   return (
-    <AppShell
-      breadcrumb="Administration"
-      isOffline={isOffline}
-      isRefreshing={catalog.isLoading}
-      onRefresh={handleRefresh}
-    >
-      <div className="mx-auto flex w-full max-w-[1400px] flex-col">
-        <div className="mb-5 flex flex-wrap items-start justify-between gap-3">
-          <div>
-            <h1 className="text-2xl font-semibold tracking-tight text-mc-text">
-              Administration
-            </h1>
+    <div className="flex w-full flex-col">
+      <div className="mb-5 flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-semibold tracking-tight text-mc-text">
+            Administration
+          </h1>
 
-            <p className="mt-0.5 font-mono text-xs text-mc-muted">
-              Restricted — Admin &amp;
-              Commander roles
+          <p className="mt-0.5 font-mono text-xs text-mc-muted">
+            Restricted — Admin &amp;
+            Commander roles
+          </p>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-2">
+          {isOffline ? (
+            <p
+              className="flex items-center gap-1.5 rounded px-2.5 py-1 font-mono text-[11px] tracking-wider text-mc-error"
+              role="status"
+            >
+              <span
+                className="size-1.5 rounded-full bg-current"
+                aria-hidden="true"
+              />
+              LINK DEGRADED
             </p>
-          </div>
+          ) : null}
+
+          <Button
+            variant="secondary"
+            icon={
+              <RefreshCw
+                size={14}
+                aria-hidden="true"
+              />
+            }
+            isLoading={catalog.isLoading}
+            onClick={handleRefresh}
+          >
+            Refresh
+          </Button>
 
           <p className="flex items-center gap-2 rounded-lg border border-mc-error/20 bg-mc-error/8 px-3 py-1.5 text-xs font-medium tracking-wide text-mc-error uppercase">
             <Shield
@@ -147,97 +170,97 @@ export function AdministrationPage() {
             Restricted access
           </p>
         </div>
+      </div>
 
-        <div
-          className="mc-scroll mb-5 flex items-center overflow-x-auto border-b border-white/7"
-          role="tablist"
-          aria-label="Administration sections"
-        >
-          {TABS.map((tab, index) => {
-            const Icon = tab.icon;
-            const isActive =
-              tab.id === activeTab;
+      <div
+        className="mc-scroll mb-5 flex items-center overflow-x-auto border-b border-white/7"
+        role="tablist"
+        aria-label="Administration sections"
+      >
+        {TABS.map((tab, index) => {
+          const Icon = tab.icon;
+          const isActive =
+            tab.id === activeTab;
 
-            return (
-              <button
-                key={tab.id}
-                type="button"
-                role="tab"
-                id={`admin-tab-${tab.id}`}
-                aria-selected={isActive}
-                aria-controls={`admin-panel-${tab.id}`}
-                tabIndex={isActive ? 0 : -1}
-                onClick={() =>
-                  selectTab(tab.id)
-                }
-                onKeyDown={(event) =>
-                  handleTabKeyDown(
-                    event,
-                    index,
-                  )
-                }
-                className={[
-                  "relative inline-flex items-center gap-2 px-4 py-3 sm:px-5",
-                  "text-sm font-medium whitespace-nowrap transition-colors",
-                  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-mc-accent/40",
-                  isActive
-                    ? "text-mc-accent"
-                    : "text-mc-muted hover:text-mc-text",
-                ].join(" ")}
-              >
-                <Icon
-                  size={14}
+          return (
+            <button
+              key={tab.id}
+              type="button"
+              role="tab"
+              id={`admin-tab-${tab.id}`}
+              aria-selected={isActive}
+              aria-controls={`admin-panel-${tab.id}`}
+              tabIndex={isActive ? 0 : -1}
+              onClick={() =>
+                selectTab(tab.id)
+              }
+              onKeyDown={(event) =>
+                handleTabKeyDown(
+                  event,
+                  index,
+                )
+              }
+              className={[
+                "relative inline-flex items-center gap-2 px-4 py-3 sm:px-5",
+                "text-sm font-medium whitespace-nowrap transition-colors",
+                "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-mc-accent/40",
+                isActive
+                  ? "text-mc-accent"
+                  : "text-mc-muted hover:text-mc-text",
+              ].join(" ")}
+            >
+              <Icon
+                size={14}
+                aria-hidden="true"
+              />
+
+              {tab.label}
+
+              {isActive ? (
+                <span
+                  className="absolute inset-x-0 bottom-0 h-0.5 rounded-t bg-mc-accent"
                   aria-hidden="true"
                 />
-
-                {tab.label}
-
-                {isActive ? (
-                  <span
-                    className="absolute inset-x-0 bottom-0 h-0.5 rounded-t bg-mc-accent"
-                    aria-hidden="true"
-                  />
-                ) : null}
-              </button>
-            );
-          })}
-        </div>
-
-        <div
-          role="tabpanel"
-          id={`admin-panel-${activeTab}`}
-          aria-labelledby={`admin-tab-${activeTab}`}
-        >
-          {activeTab === "users" ? (
-            <UsersTab
-              catalog={catalog}
-              reloadSignal={reloadSignal}
-              onNetworkStateChange={
-                handleNetworkStateChange
-              }
-            />
-          ) : null}
-
-          {activeTab === "units" ? (
-            <UnitsTab
-              reloadSignal={reloadSignal}
-              onNetworkStateChange={
-                handleNetworkStateChange
-              }
-              onUnitsChanged={catalog.reload}
-            />
-          ) : null}
-
-          {activeTab === "audit" ? (
-            <AuditLogTab
-              reloadSignal={reloadSignal}
-              onNetworkStateChange={
-                handleNetworkStateChange
-              }
-            />
-          ) : null}
-        </div>
+              ) : null}
+            </button>
+          );
+        })}
       </div>
-    </AppShell>
+
+      <div
+        role="tabpanel"
+        id={`admin-panel-${activeTab}`}
+        aria-labelledby={`admin-tab-${activeTab}`}
+      >
+        {activeTab === "users" ? (
+          <UsersTab
+            catalog={catalog}
+            reloadSignal={reloadSignal}
+            onNetworkStateChange={
+              handleNetworkStateChange
+            }
+          />
+        ) : null}
+
+        {activeTab === "units" ? (
+          <UnitsTab
+            reloadSignal={reloadSignal}
+            onNetworkStateChange={
+              handleNetworkStateChange
+            }
+            onUnitsChanged={catalog.reload}
+          />
+        ) : null}
+
+        {activeTab === "audit" ? (
+          <AuditLogTab
+            reloadSignal={reloadSignal}
+            onNetworkStateChange={
+              handleNetworkStateChange
+            }
+          />
+        ) : null}
+      </div>
+    </div>
   );
 }

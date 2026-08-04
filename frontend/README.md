@@ -259,8 +259,9 @@ http://127.0.0.1:8000/change-password/required
 
 ## Administration console
 
-The administration console is served inside the application shell
-(sidebar navigation and top bar):
+The administration console renders inside the shared application shell
+(`src/shared/layout/AppShell.tsx`), behind the session guard in
+`src/app/ProtectedRoute.tsx`:
 
 ```text
 /administration?tab=users

@@ -1,4 +1,4 @@
-import { MissionControlLogo } from "./MissionControlLogo";
+import { MissionControlLogo } from "../../../shared/components/MissionControlLogo";
 
 export function AuthHeader() {
   return (

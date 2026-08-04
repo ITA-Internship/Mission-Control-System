@@ -301,6 +301,53 @@ class VideoMetadataAPITests(APITestCase):
             "Drone must be assigned to the selected mission.",
         )
 
+    @patch("media.views.extract_video_duration_task.delay")
+    @patch("media.permissions.MediaUploadPermission.has_permission", return_value=True)
+    def test_operator_cannot_upload_video_to_unassigned_mission(
+        self, mock_perm, mock_delay
+    ):
+        """Operator cannot create video metadata for a mission
+        they are not assigned to."""
+        other_unit = MilitaryUnit.objects.create(
+            id=99, name="Foreign Unit", code="FU99"
+        )
+        unassigned_mission = Mission.objects.create(
+            title="Foreign Mission", unit=other_unit
+        )
+        data = {
+            "mission": unassigned_mission.id,
+            "drone": self.drone.id,
+            "file": self.video_file,
+            "checksum": "sha256_mock",
+        }
+        response = self.client.post(self.list_url, data, format="multipart")
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("mission", response.data)
+
+    def test_viewer_cannot_upload_video(self):
+        """Viewer has media.view but not media.upload — blocked by RBAC."""
+        viewer = ViewerUserFactory(unit=self.military_unit)
+        self.client.force_authenticate(viewer)
+        data = {
+            "mission": self.mission.id,
+            "drone": self.drone.id,
+            "file": self.video_file,
+        }
+        response = self.client.post(self.list_url, data, format="multipart")
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_technician_cannot_upload_video(self):
+        """Technician does not have media.upload — blocked by RBAC."""
+        technician = _create_technician_user()
+        self.client.force_authenticate(technician)
+        data = {
+            "mission": self.mission.id,
+            "drone": self.drone.id,
+            "file": self.video_file,
+        }
+        response = self.client.post(self.list_url, data, format="multipart")
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
     @patch("media.permissions.MediaViewPermission.has_permission", return_value=True)
     def test_get_video_metadata_list_with_pagination(self, mock_perm):
         """Verify that a GET list endpoint responds with standard paginated response."""
@@ -911,13 +958,13 @@ class ArtifactDetailTests(APITestCase):
     def test_viewer_from_other_unit_cannot_retrieve(self):
         self.client.force_authenticate(self.other_viewer)
         response = self.client.get(self.url)
-        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
 
     def test_viewer_without_unit_cannot_retrieve(self):
         self.assertIsNone(self.viewer_without_unit.unit_id)
         self.client.force_authenticate(self.viewer_without_unit)
         response = self.client.get(self.url)
-        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
 
     def test_uploaded_by_can_retrieve(self):
         """Verify that user who uploaded the artifact can retrieve its details."""
@@ -1295,7 +1342,7 @@ class ProtectedMediaDownloadTests(MissionOperatorSetupMixin, APITestCase):
 
         response = self.client.get(self.url)
 
-        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
 
     def test_viewer_without_unit_cannot_download(self):
         self.assertIsNone(self.viewer_without_unit.unit_id)
@@ -1303,7 +1350,7 @@ class ProtectedMediaDownloadTests(MissionOperatorSetupMixin, APITestCase):
 
         response = self.client.get(self.url)
 
-        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
 
     @override_settings(DEBUG=True)
     def test_download_logs_download_action_with_user_and_ip(self):
@@ -1503,6 +1550,44 @@ class CrossMissionIDORTests(APITestCase):
         }
         response = self.client.post(url_a, payload, format="multipart")
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+
+    def test_dispatcher_can_upload_to_any_mission(self):
+        """Dispatchers have full mission access by design."""
+        dispatcher = DispatcherUserFactory()
+        self.client.force_authenticate(dispatcher)
+        payload = {
+            "title": "Dispatcher upload",
+            "file": SimpleUploadedFile(
+                "d.png", VALID_PNG_BYTES, content_type="image/png"
+            ),
+        }
+        response = self.client.post(self.list_url_b, payload, format="multipart")
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+
+    def test_commander_cannot_upload_artifact(self):
+        """Commander does NOT have media.upload RBAC permission."""
+        self.client.force_authenticate(self.commander)
+        payload = {
+            "title": "Cmd upload",
+            "file": SimpleUploadedFile(
+                "c.png", VALID_PNG_BYTES, content_type="image/png"
+            ),
+        }
+        response = self.client.post(self.list_url_b, payload, format="multipart")
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_viewer_cannot_upload_to_any_mission(self):
+        """Viewer does NOT have media.upload RBAC permission."""
+        viewer = ViewerUserFactory(unit=MilitaryUnitFactory())
+        self.client.force_authenticate(viewer)
+        payload = {
+            "title": "Viewer upload",
+            "file": SimpleUploadedFile(
+                "v.png", VALID_PNG_BYTES, content_type="image/png"
+            ),
+        }
+        response = self.client.post(self.list_url_b, payload, format="multipart")
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
 
     def test_operator_cannot_retrieve_artifact_of_unassigned_mission(self):
         self.client.force_authenticate(self.operator)

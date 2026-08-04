@@ -49,6 +49,7 @@ export function isAbortError(
 interface ApiRequestOptions
   extends Omit<RequestInit, "body"> {
   json?: unknown;
+  formData?: FormData;
 }
 
 export interface DownloadedFile {
@@ -227,6 +228,7 @@ export async function apiRequest<T>(
   path: string,
   {
     json,
+    formData,
     headers: initialHeaders,
     ...options
   }: ApiRequestOptions = {},
@@ -235,6 +237,15 @@ export async function apiRequest<T>(
     options.method ?? "GET"
   ).toUpperCase();
 
+  if (
+    json !== undefined &&
+    formData !== undefined
+  ) {
+    throw new Error(
+      "apiRequest does not support both json and formData in the same request.",
+    );
+  }
+
   const headers = buildRequestHeaders(
     method,
     initialHeaders,
@@ -242,10 +253,17 @@ export async function apiRequest<T>(
     json !== undefined,
   );
 
-  const body =
-    json === undefined
-      ? undefined
-      : JSON.stringify(json);
+  let body: BodyInit | undefined;
+
+  if (json !== undefined) {
+    body = JSON.stringify(json);
+  }
+
+  if (formData !== undefined) {
+    // Let the browser set the multipart boundary.
+    headers.delete("Content-Type");
+    body = formData;
+  }
 
   const response = await sendRequest(
     path,
@@ -276,7 +294,7 @@ export async function apiDownload(
   path: string,
   { headers: initialHeaders, ...options }: Omit<
     ApiRequestOptions,
-    "json"
+    "json" | "formData"
   > = {},
 ): Promise<DownloadedFile> {
   const method = (

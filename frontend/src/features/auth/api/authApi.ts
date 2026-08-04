@@ -1,9 +1,7 @@
 import { apiRequest } from "../../../shared/api/apiClient";
 
-import type {
-  CurrentUser,
-  DetailResponse,
-} from "../types/auth";
+import type { DetailResponse } from "../../../shared/types/api";
+import type { CurrentUser } from "../../../shared/types/accounts";
 
 export function requestPasswordReset(
   email: string,
