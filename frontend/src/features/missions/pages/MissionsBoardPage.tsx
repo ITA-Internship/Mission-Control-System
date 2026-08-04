@@ -188,7 +188,7 @@ export function MissionsBoardPage() {
   function handleDragOver(event: DragOverEvent) {
     const { active, over } = event;
     if (!over) return;
-    
+
     const activeId = active.id;
     const overId = over.id;
 
@@ -209,7 +209,7 @@ export function MissionsBoardPage() {
         const overIndex = prev.findIndex((m) => m.id === overId);
         if (overIndex === -1) return prev;
         const overMission = prev[overIndex];
-        
+
         if (activeMissionItem.status !== overMission.status) {
           // Moving to a new column
           const newMissions = prev.filter((m) => m.id !== activeId);
@@ -242,7 +242,7 @@ export function MissionsBoardPage() {
     setActiveMission(null);
     const { active, over } = event;
     if (!over) return;
-    
+
     setMissions(currentMissions => {
       saveOrderToLocal(currentMissions);
       return currentMissions;

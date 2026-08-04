@@ -15,7 +15,7 @@ export function KanbanColumn({
   onCardClick: (m: Mission) => void;
 }) {
   const m = STATUS_META[status];
-  
+
   const { setNodeRef, isOver } = useDroppable({
     id: status,
     data: { type: "Column", status },

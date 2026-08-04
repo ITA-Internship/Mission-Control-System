@@ -74,7 +74,7 @@ export function MissionModal({
 
     const hasLat = form.lat.trim().length > 0;
     const hasLng = form.lng.trim().length > 0;
-    
+
     if (!hasLat || !hasLng) {
       errs.lat = "Coordinates are required.";
     } else {

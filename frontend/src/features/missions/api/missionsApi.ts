@@ -7,10 +7,10 @@ function mapMissionDtoToUi(dto: MissionDTO): Mission {
     rawId: dto.id,
     title: dto.title,
     status: (dto.status.charAt(0).toUpperCase() + dto.status.slice(1)) as Status,
-    commander: dto.commander 
-      ? (dto.commander.first_name && dto.commander.last_name 
-          ? `${dto.commander.first_name} ${dto.commander.last_name}` 
-          : dto.commander.username) 
+    commander: dto.commander
+      ? (dto.commander.first_name && dto.commander.last_name
+          ? `${dto.commander.first_name} ${dto.commander.last_name}`
+          : dto.commander.username)
       : "Unknown",
     commanderId: dto.commander ? dto.commander.id : null,
     location: dto.location_description || "Unknown Location",

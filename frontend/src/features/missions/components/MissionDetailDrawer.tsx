@@ -10,7 +10,7 @@ interface MissionDetailDrawerProps {
 
 export function MissionDetailDrawer({ mission, onClose, onEdit }: MissionDetailDrawerProps) {
   const statusM = STATUS_META[mission.status];
-  
+
   return (
     <div
       className="fixed inset-0 z-40 flex"
