@@ -54,7 +54,7 @@ function SkeletonRow() {
 export function InventoryPage() {
   const [drones, setDrones] = useState<Drone[]>([]);
   const [totalCount, setTotalCount] = useState(0);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState<boolean>(true);
   const [selected, setSelected] = useState<Set<string | number>>(new Set());
 
   const {
@@ -127,7 +127,6 @@ export function InventoryPage() {
 
   useEffect(() => {
     let isMounted = true;
-    setLoading(true);
 
     const delayDebounceFn = setTimeout(() => {
       let ordering = "";
@@ -148,14 +147,15 @@ export function InventoryPage() {
         classification: classParam,
         ordering,
       })
-        .then((data: any) => {
+        .then((data: unknown) => {
           if (isMounted) {
-            const fetchedDrones = Array.isArray(data?.results)
-              ? data.results
+            const responseData = data as { results?: Drone[]; count?: number };
+            const fetchedDrones = Array.isArray(responseData?.results)
+              ? responseData.results
               : (Array.isArray(data) ? data : []);
 
             setDrones(fetchedDrones);
-            setTotalCount(data?.count || fetchedDrones.length);
+            setTotalCount(responseData?.count || fetchedDrones.length);
             setLoading(false);
           }
         })
