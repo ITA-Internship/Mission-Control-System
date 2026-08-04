@@ -1,8 +1,7 @@
-import { useState, useMemo, useEffect, useCallback } from "react";
+import { useState, useMemo, useCallback } from "react";
 import { useNavigate, useOutletContext } from "react-router";
 import { LayoutGrid, List, Plus } from "lucide-react";
 import { fetchMissions, createMission, updateMission, fetchCommanders } from "../api/missionsApi";
-import type { CommanderOption } from "../api/missionsApi";
 import type { Mission, Status, View, MissionCreateDTO, MissionUpdateDTO } from "../types";
 import { KanbanColumn } from "../components/KanbanColumn";
 import { DataTable } from "../components/DataTable";
@@ -14,6 +13,7 @@ import { MissionModal } from "../components/MissionModal";
 import { useAsyncData } from "../../../shared/hooks/useAsyncData";
 
 const STATUSES: Status[] = ["Planned", "Active", "Completed", "Aborted"];
+const EMPTY_MISSIONS: Mission[] = [];
 
 function Skeleton() {
   return (
@@ -40,7 +40,27 @@ export function MissionsBoardPage() {
   const { user: currentUser } = useOutletContext<ShellContext>();
   const [view, setView] = useState<View>("board");
   const [filters, setFilters] = useState<Filters>({ search: "", status: "", commander: "", result: "" });
-  const [missions, setMissions] = useState<Mission[]>([]);
+  const loadData = useCallback(async (signal: AbortSignal) => {
+    const fetchedMissions = await fetchMissions(signal);
+
+    const sortedData = [...fetchedMissions].sort((a, b) => {
+      if (a.status !== b.status) return 0;
+
+      const timeA = (a.status === "Completed" || a.status === "Aborted") ? (a.endedAt || a.startedAt || "") : (a.startedAt || "");
+      const timeB = (b.status === "Completed" || b.status === "Aborted") ? (b.endedAt || b.startedAt || "") : (b.startedAt || "");
+
+      if (a.status === "Planned") {
+        return timeA.localeCompare(timeB);
+      } else {
+        return timeB.localeCompare(timeA);
+      }
+    });
+
+    return sortedData;
+  }, []);
+
+  const { data, isLoading: loading, error, reload, mutate: setMissions } = useAsyncData(loadData);
+  const missions = data || EMPTY_MISSIONS;
 
   const navigate = useNavigate();
   const handleMissionClick = (m: Mission) => navigate("/missions/" + m.id);
@@ -63,34 +83,6 @@ export function MissionsBoardPage() {
     setFilters(f => ({ ...f, [key]: "" }));
   }
 
-  const loadData = useCallback(async (signal: AbortSignal) => {
-    const fetchedMissions = await fetchMissions(signal);
-
-    const sortedData = [...fetchedMissions].sort((a, b) => {
-      if (a.status !== b.status) return 0;
-
-      const timeA = (a.status === "Completed" || a.status === "Aborted") ? (a.endedAt || a.startedAt || "") : (a.startedAt || "");
-      const timeB = (b.status === "Completed" || b.status === "Aborted") ? (b.endedAt || b.startedAt || "") : (b.startedAt || "");
-
-      if (a.status === "Planned") {
-        return timeA.localeCompare(timeB);
-      } else {
-        return timeB.localeCompare(timeA);
-      }
-    });
-
-    return sortedData;
-  }, []);
-
-  const { data, isLoading: loading, error, reload } = useAsyncData(loadData);
-
-  useEffect(() => {
-    if (data) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      setMissions(data);
-    }
-  }, [data]);
-
   const filtered = useMemo(() => {
     return missions.filter(m => {
       const q = filters.search.toLowerCase();
@@ -109,28 +101,25 @@ export function MissionsBoardPage() {
     return Array.from(cmds).sort();
   }, [missions]);
 
-  const [modalCommanders, setModalCommanders] = useState<CommanderOption[]>([]);
-
   // Load commanders: try the admin API
-  const loadCommanders = useCallback(async () => {
+  const fetchCmdrs = useCallback(async (signal: AbortSignal) => {
     try {
-      const cmds = await fetchCommanders();
-      setModalCommanders(cmds);
+      return await fetchCommanders(signal);
     } catch (e) {
       console.error("Failed to fetch commanders", e);
-      setModalCommanders([]);
+      return [];
     }
   }, []);
-
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    loadCommanders();
-  }, [loadCommanders]);
+  const { data: modalCommandersData } = useAsyncData(fetchCmdrs);
+  const modalCommanders = modalCommandersData || [];
 
   async function handleSaveMission(data: MissionCreateDTO | MissionUpdateDTO) {
     if (editingMission) {
       const updated = await updateMission(editingMission.rawId, data);
-      setMissions(prev => prev.map(m => (m.id === updated.id ? updated : m)));
+      setMissions(prevOrNull => {
+        const prev = prevOrNull || [];
+        return prev.map(m => (m.id === updated.id ? updated : m));
+      });
     } else {
       if (!currentUser?.unit) {
         alert("You must be assigned to a military unit to create a mission.");
@@ -138,7 +127,10 @@ export function MissionsBoardPage() {
       }
       const payload = { ...data, unit_id: currentUser.unit };
       const created = await createMission(payload as MissionCreateDTO);
-      setMissions(prev => [created, ...prev]);
+      setMissions(prevOrNull => {
+        const prev = prevOrNull || [];
+        return [created, ...prev];
+      });
     }
     setIsModalOpen(false);
     setEditingMission(null);

@@ -32,8 +32,8 @@ export function MissionModal({
     title: mission?.title ?? "",
     commander_id: mission?.commanderId ?? "",
     location: mission?.location === "Unknown Location" ? "" : mission?.location ?? "",
-    lat: "",
-    lng: "",
+    lat: mission?.lat ?? "",
+    lng: mission?.lng ?? "",
     startedAt: mission?.startedAt ? mission.startedAt.replace(" ", "T") : "",
     notes: mission?.notes ?? "",
   });

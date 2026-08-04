@@ -12,7 +12,7 @@ import type { Mission } from "../types";
 
 export function useMissionDnD(
   missions: Mission[],
-  setMissions: React.Dispatch<React.SetStateAction<Mission[]>>
+  mutateMissions: (updater: Mission[] | ((prev: Mission[] | null) => Mission[])) => void
 ) {
   const [activeMission, setActiveMission] = useState<Mission | null>(null);
 
@@ -50,7 +50,8 @@ export function useMissionDnD(
 
     if (!isActiveAMission) return;
 
-    setMissions((prev) => {
+    mutateMissions((prevOrNull) => {
+      const prev = prevOrNull || [];
       const activeIndex = prev.findIndex((m) => m.id === activeId);
       if (activeIndex === -1) return prev;
       const activeMissionItem = prev[activeIndex];
@@ -106,7 +107,8 @@ export function useMissionDnD(
         await updateMissionStatus(currentMission.rawId, currentMission.status);
       } catch (err) {
         console.error("Failed to update status", err);
-        setMissions((prev) => {
+        mutateMissions((prevOrNull) => {
+          const prev = prevOrNull || [];
           const reverted = prev.map((m) =>
             m.id === active.id ? { ...m, status: originalActiveMission.status } : m
           );

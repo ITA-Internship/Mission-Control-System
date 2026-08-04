@@ -16,6 +16,8 @@ export interface Mission {
   droneCount: number;
   operatorCount: number;
   notes: string;
+  lat?: string | null;
+  lng?: string | null;
 }
 
 export interface MissionDTO {

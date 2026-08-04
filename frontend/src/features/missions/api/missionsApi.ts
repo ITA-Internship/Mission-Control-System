@@ -17,6 +17,8 @@ function mapMissionDtoToUi(dto: MissionDTO): Mission {
     droneCount: dto.drones ? dto.drones.length : 0,
     operatorCount: dto.drones ? new Set(dto.drones.map(d => d.operator_id).filter(Boolean)).size : 0,
     notes: dto.notes || "",
+    lat: dto.latitude,
+    lng: dto.longitude,
   };
 }
 

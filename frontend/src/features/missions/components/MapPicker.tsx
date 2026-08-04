@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo } from "react";
 import { MapContainer, TileLayer, Marker, useMapEvents, useMap } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
@@ -44,24 +44,23 @@ function MapUpdater({ position }: { position: L.LatLng | null }) {
 }
 
 export function MapPicker({ lat, lng, onChange }: MapPickerProps) {
-  const [position, setPosition] = useState<L.LatLng | null>(null);
-
-  // Initialize position from props
-  useEffect(() => {
+  const position = useMemo(() => {
     const parsedLat = parseFloat(lat);
     const parsedLng = parseFloat(lng);
     if (!isNaN(parsedLat) && !isNaN(parsedLng)) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      setPosition(new L.LatLng(parsedLat, parsedLng));
+      return new L.LatLng(parsedLat, parsedLng);
     }
+    return null;
   }, [lat, lng]);
 
   function handlePositionChange(pos: L.LatLng) {
-    setPosition(pos);
     onChange(pos.lat.toFixed(6), pos.lng.toFixed(6));
   }
 
-  const defaultCenter: [number, number] = [parseFloat(lat) || 48.3794, parseFloat(lng) || 31.1656]; // Ukraine center if empty
+  const defaultCenter: [number, number] = [
+    !isNaN(parseFloat(lat)) ? parseFloat(lat) : 48.3794,
+    !isNaN(parseFloat(lng)) ? parseFloat(lng) : 31.1656,
+  ]; // Ukraine center if empty
 
   return (
     <div
