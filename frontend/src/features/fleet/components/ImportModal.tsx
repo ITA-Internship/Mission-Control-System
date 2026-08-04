@@ -48,8 +48,9 @@ export function ImportModal({ onClose, onSuccess }: ImportModalProps) {
       if (data.added_count > 0 && onSuccess) {
         onSuccess();
       }
-    } catch (err: any) {
-      setGlobalError(err.message || "An error occurred during import.");
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : "An error occurred during import.";
+      setGlobalError(errorMessage);
     } finally {
       setIsUploading(false);
     }

@@ -108,7 +108,7 @@ export function DroneRow({
       </td>
 
       <td className="px-3 py-[11px]">
-        <StatusBadge status={drone.status as any} />
+        <StatusBadge status={drone.status as React.ComponentProps<typeof StatusBadge>["status"]} />
       </td>
 
       <td className="px-3 py-[11px]">

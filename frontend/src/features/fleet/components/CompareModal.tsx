@@ -9,14 +9,14 @@ interface CompareModalProps {
 }
 
 export function CompareModal({ drones, onClose }: CompareModalProps) {
-  const fields: { label: string; key: keyof Drone; formatter?: (val: any) => string }[] = [
+  const fields: { label: string; key: keyof Drone; formatter?: (val: unknown) => string }[] = [
     { label: "Status", key: "status" },
     { label: "Classification", key: "classification" },
     { label: "Model", key: "drone_model_name" },
     { label: "Military Unit", key: "military_unit_name" },
-    { label: "Max Speed (km/h)", key: "max_speed_kmh", formatter: (val) => val ? val.toString() : "–" },
-    { label: "Max Range (km)", key: "max_range_km", formatter: (val) => val ? val.toString() : "–" },
-    { label: "Payload (g)", key: "payload_capacity_g", formatter: (val) => val ? val.toString() : "–" },
+    { label: "Max Speed (km/h)", key: "max_speed_kmh", formatter: (val) => val ? String(val) : "–" },
+    { label: "Max Range (km)", key: "max_range_km", formatter: (val) => val ? String(val) : "–" },
+    { label: "Payload (g)", key: "payload_capacity_g", formatter: (val) => val ? String(val) : "–" },
     { label: "Acquired", key: "acquired_at" },
     { label: "Notes", key: "notes" },
   ];

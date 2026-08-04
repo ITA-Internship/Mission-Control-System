@@ -54,7 +54,10 @@ export async function importDronesCSV(file: File) {
   const formData = new FormData();
   formData.append("file", file);
 
-  return apiRequest<{ added_count: number; errors: any[] }>("drones/import/", {
+  return apiRequest<{
+    added_count: number;
+    errors: Array<{ row: number | string; error: string }>
+  }>("drones/import/", {
     method: "POST",
     formData,
   });
