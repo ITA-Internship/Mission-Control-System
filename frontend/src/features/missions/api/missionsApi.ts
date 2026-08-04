@@ -1,4 +1,5 @@
 import { apiRequest, withQuery } from "../../../shared/api/apiClient";
+import { formatCommanderName } from "../../../shared/utils/format";
 import type { Mission, MissionDTO, MissionCreateDTO, MissionUpdateDTO, Status, Result } from "../types";
 
 function mapMissionDtoToUi(dto: MissionDTO): Mission {
@@ -7,11 +8,7 @@ function mapMissionDtoToUi(dto: MissionDTO): Mission {
     rawId: dto.id,
     title: dto.title,
     status: (dto.status.charAt(0).toUpperCase() + dto.status.slice(1)) as Status,
-    commander: dto.commander
-      ? (dto.commander.first_name && dto.commander.last_name
-          ? `${dto.commander.first_name} ${dto.commander.last_name}`
-          : dto.commander.username)
-      : "Unknown",
+    commander: formatCommanderName(dto.commander),
     commanderId: dto.commander ? dto.commander.id : null,
     location: dto.location_description || "Unknown Location",
     startedAt: dto.started_at ? new Date(dto.started_at).toISOString().replace("T", " ").slice(0, 16) : null,
@@ -23,8 +20,8 @@ function mapMissionDtoToUi(dto: MissionDTO): Mission {
   };
 }
 
-export async function fetchMissions(): Promise<Mission[]> {
-  const data = await apiRequest<{ results: MissionDTO[] }>("/api/missions/");
+export async function fetchMissions(signal?: AbortSignal): Promise<Mission[]> {
+  const data = await apiRequest<{ results: MissionDTO[] }>("/api/missions/", { signal });
   return data.results.map(mapMissionDtoToUi);
 }
 
@@ -60,24 +57,8 @@ export interface CommanderOption {
 
 /**
  * Fetch available commanders.
- *
- * Tries the admin user list endpoint first (filtering by the COMMANDER role).
- * If that endpoint is not available yet (404), falls back to extracting unique
- * commanders from the currently loaded missions list.
  */
-export async function fetchCommanders(): Promise<CommanderOption[]> {
-  // Try the admin user-list endpoint with role filter for commanders.
-  // The role id for COMMANDER may vary; we fetch roles first to find it.
-  const rolesData = await apiRequest<{ results: { id: number; code: string; name: string }[] }>(
-    withQuery("/api/roles/", { page_size: 50 }),
-  );
-  const commanderRole = rolesData.results.find(
-    (r) => r.code === "COMMANDER" || r.name === "Commander",
-  );
-  if (!commanderRole) {
-    throw new Error("Commander role not found");
-  }
-
+export async function fetchCommanders(signal?: AbortSignal): Promise<CommanderOption[]> {
   const usersData = await apiRequest<{
     results: {
       id: number;
@@ -88,18 +69,16 @@ export async function fetchCommanders(): Promise<CommanderOption[]> {
   }>(
     withQuery("/api/accounts/users/", {
       page_size: 100,
-      role: commanderRole.id,
+      role__code: "COMMANDER",
       is_active: true,
     }),
+    { signal }
   );
 
   return usersData.results
     .map((u) => ({
       id: u.id,
-      name:
-        u.first_name && u.last_name
-          ? `${u.first_name} ${u.last_name}`
-          : u.username,
+      name: formatCommanderName(u),
     }))
     .sort((a, b) => a.name.localeCompare(b.name));
 }

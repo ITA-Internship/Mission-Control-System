@@ -1,6 +1,10 @@
 from django.test import SimpleTestCase
+from django.urls import reverse
+from rest_framework import status
+from rest_framework.test import APITestCase
 
 from accounts import rbac
+from accounts.models import MilitaryUnit, User
 from roles.models import (
     ADMIN_CODE,
     COMMANDER_CODE,
@@ -202,3 +206,29 @@ class RolePermissionMatrixTests(SimpleTestCase):
         }
 
         self.assertEqual(viewer_perms, expected_permissions)
+
+
+class RoleListViewTests(APITestCase):
+    """Tests for the role listing API."""
+
+    def setUp(self):
+        self.unit = MilitaryUnit.objects.create(
+            name="Test Unit", code="TU-1", description="Test Unit"
+        )
+        self.user = User.objects.create_user(
+            username="testuser", password="password123", unit=self.unit
+        )
+        self.url = reverse("roles:role-list")
+
+    def test_list_roles_unauthenticated(self):
+        """Ensure unauthenticated users cannot list roles."""
+        response = self.client.get(self.url)
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_list_roles_authenticated(self):
+        """Ensure authenticated users can list roles."""
+        self.client.force_authenticate(user=self.user)
+        response = self.client.get(self.url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertIn("results", response.data)
+        self.assertTrue(len(response.data["results"]) > 0)
