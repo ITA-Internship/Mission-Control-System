@@ -4,7 +4,6 @@ import { importDronesCSV } from "../api/dronesApi";
 
 interface ImportModalProps {
   onClose: () => void;
-  // Можна додати колбек, щоб оновити таблицю після успішного імпорту
   onSuccess?: () => void;
 }
 

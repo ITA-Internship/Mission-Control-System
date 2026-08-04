@@ -1,5 +1,5 @@
 import { X, AlertCircle, Loader } from "lucide-react";
-import { useState} from "react";
+import { useState } from "react";
 
 import type { Classification, DrawerMode, Drone } from "../types";
 import { CLASS_COLORS, CLASSIFICATIONS } from "../utils/constants";
@@ -76,10 +76,32 @@ export function DroneDrawer({ mode, drone, onClose, onSave }: DroneDrawerProps) 
 
       onSave?.(result);
       onClose();
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : "An error occurred";
-      setError(errorMessage);
+    } catch (err: any) {
       console.error(err);
+
+      let errorMessage = "An error occurred during save.";
+
+      // Перевіряємо, чи це наша кастомна помилка з бекенду (з apiClient)
+      if (err.name === "ApiError" && err.body) {
+        if (typeof err.body === "object") {
+          // Розбираємо об'єкт помилок від Django (напр. {"name": ["Обов'язкове поле"]})
+          const errorDetails = Object.entries(err.body)
+            .map(([field, messages]) => {
+              const msgText = Array.isArray(messages) ? messages.join(", ") : String(messages);
+              // Робимо красивий формат: "Поле: текст помилки"
+              return `• ${field.toUpperCase()}: ${msgText}`;
+            })
+            .join("\n");
+
+          errorMessage = errorDetails || "Invalid data submitted.";
+        } else {
+          errorMessage = String(err.body);
+        }
+      } else if (err instanceof Error) {
+        errorMessage = err.message;
+      }
+
+      setError(errorMessage);
     } finally {
       setSaving(false);
     }
@@ -114,7 +136,8 @@ export function DroneDrawer({ mode, drone, onClose, onSave }: DroneDrawerProps) 
           {error && (
             <div className="flex items-start gap-3 rounded-lg border border-[#E5484D]/50 bg-[#E5484D]/8 p-3">
               <AlertCircle size={14} className="mt-0.5 shrink-0 text-[#E5484D]" />
-              <p className="text-[12px] text-[#E5484D]">{error}</p>
+              {/* Додали whitespace-pre-wrap, щоб перенесення рядків працювало */}
+              <p className="text-[12px] text-[#E5484D] whitespace-pre-wrap leading-relaxed">{error}</p>
             </div>
           )}
 

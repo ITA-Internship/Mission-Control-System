@@ -1,5 +1,6 @@
 import type { DroneStatus } from "../types";
 import { STATUS_UI } from "../utils/constants";
+import { StatusDot } from "../../../shared/components/StatusPill";
 
 interface StatusBadgeProps {
   status: DroneStatus;
@@ -8,9 +9,12 @@ interface StatusBadgeProps {
 export function StatusBadge({ status }: StatusBadgeProps) {
   const s = STATUS_UI[status] || STATUS_UI["LOST"];
 
+  const hexMatch = s.color.match(/\[(.*?)\]/);
+  const hexColor = hexMatch ? hexMatch[1] : "currentColor";
+
   return (
     <span className={`inline-flex items-center gap-1.5 text-[11px] font-medium ${s.color}`}>
-      <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${s.dot}`} />
+      <StatusDot color={hexColor} />
       {s.label}
     </span>
   );

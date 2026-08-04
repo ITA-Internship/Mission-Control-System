@@ -9,6 +9,7 @@ import { ForgotPasswordPage } from "../features/auth/pages/ForgotPasswordPage";
 import { LoginPage } from "../features/auth/pages/LoginPage";
 import { RequiredPasswordChangePage } from "../features/auth/pages/RequiredPasswordChangePage";
 import { ResetPasswordPage } from "../features/auth/pages/ResetPasswordPage";
+import { InventoryPage } from "../features/fleet/pages/InventoryPage";
 import { DashboardPage } from "../features/dashboard/pages/DashboardPage";
 import { MyProfilePage } from "../features/profile/pages/MyProfilePage";
 import { PlaceholderPage } from "../shared/pages/PlaceholderPage";
@@ -17,7 +18,7 @@ import { ProtectedRoute } from "./ProtectedRoute";
 export const router = createBrowserRouter([
   {
     path: "/",
-    loader: () => redirect("/fleet/inventory"),
+    loader: () => redirect("/dashboard"),
   },
   {
     Component: ProtectedRoute,

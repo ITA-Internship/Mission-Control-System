@@ -9,7 +9,6 @@ import {
   GitCompare,
   Minus,
   Plus,
-  Search,
   Square,
   Upload,
   Download,
@@ -23,6 +22,7 @@ import { FilterSection } from "../components/FilterSection";
 import { DroneRow } from "../components/DroneRow";
 import { useInventoryFilters } from "../hooks/useInventoryFilters";
 import { STATUS_UI } from "../utils/constants";
+import { EmptyState, Skeleton } from "../../../shared/components/states";
 
 import { fetchDrones } from "../api/dronesApi";
 
@@ -41,10 +41,10 @@ function SortIcon({ dir }: { dir: SortDir }) {
 
 function SkeletonRow() {
   return (
-    <tr className="animate-pulse border-b border-white/5">
+    <tr className="border-b border-white/5">
       {[...Array(9)].map((_, index) => (
         <td key={index} className="px-3 py-[11px]">
-          <div className="h-3 w-full rounded bg-white/8" style={{ opacity: 0.4 }} />
+          <Skeleton className="h-3 w-full opacity-40" />
         </td>
       ))}
     </tr>
@@ -85,38 +85,31 @@ export function InventoryPage() {
     try {
       const queryParams = new URLSearchParams();
 
-      // Додаємо пошук, якщо є
       if (filters.search) queryParams.append("search", filters.search);
 
-      // Додаємо фільтри статусів
       if (filters.statusFilter.length > 0) {
         filters.statusFilter.forEach(s => queryParams.append("status", s));
       }
 
-      // Додаємо фільтри класифікацій
       if (filters.classFilter.length > 0) {
         filters.classFilter.forEach(c => queryParams.append("classification", c));
       }
 
-      // Додаємо сортування
       if (filters.sortDir && filters.sortKey) {
         const ordering = filters.sortDir === "desc" ? `-${filters.sortKey}` : filters.sortKey;
         queryParams.append("ordering", ordering);
       }
 
-      // Формуємо URL (ПЕРЕВІР, чи в тебе саме такий шлях в urls.py)
       const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8000/api";
       const exportUrl = `${API_URL}/drones/export/?${queryParams.toString()}`;
 
-      // Робимо запит за файлом
       const response = await fetch(exportUrl, {
         method: "GET",
-        credentials: "include", // Щоб передалися куки (session/csrf)
+        credentials: "include",
       });
 
       if (!response.ok) throw new Error("Failed to export data");
 
-      // Створюємо "невидиме" посилання для завантаження файлу
       const blob = await response.blob();
       const downloadUrl = window.URL.createObjectURL(blob);
       const a = document.createElement("a");
@@ -155,10 +148,14 @@ export function InventoryPage() {
         classification: classParam,
         ordering,
       })
-        .then((data) => {
+        .then((data: any) => {
           if (isMounted) {
-            setDrones(data.results);
-            setTotalCount(data.count);
+            const fetchedDrones = Array.isArray(data?.results)
+              ? data.results
+              : (Array.isArray(data) ? data : []);
+
+            setDrones(fetchedDrones);
+            setTotalCount(data?.count || fetchedDrones.length);
             setLoading(false);
           }
         })
@@ -179,7 +176,7 @@ export function InventoryPage() {
   const totalPages = Math.ceil(totalCount / filters.pageSize);
   const pageStart = (filters.page - 1) * filters.pageSize;
 
-  const statusCounts = drones.reduce((acc, drone) => {
+  const statusCounts = (drones || []).reduce((acc, drone) => {
     acc[drone.status] = (acc[drone.status] || 0) + 1;
     return acc;
   }, {} as Record<string, number>);
@@ -316,22 +313,15 @@ export function InventoryPage() {
                     [...Array(filters.pageSize)].map((_, index) => <SkeletonRow key={index} />)
                   ) : drones.length === 0 ? (
                     <tr>
-                      <td colSpan={7} className="px-6 py-16 text-center">
-                        <div className="flex flex-col items-center gap-3">
-                          <div className="flex h-12 w-12 items-center justify-center rounded-full bg-white/4">
-                            <Search size={20} className="text-[#8A94A6]" />
-                          </div>
-                          <div>
-                            <p className="text-[14px] font-medium text-[#E6EAF0]">
-                              No drones match these filters
-                            </p>
-                            <p className="mt-1 text-[12px] text-[#8A94A6]">
-                              Try adjusting your search or filters
-                            </p>
-                          </div>
+                      <td colSpan={7} className="px-6 py-16">
+                        <div className="flex flex-col items-center">
+                          <EmptyState
+                            title="No drones match these filters"
+                            description="Try adjusting your search or filters"
+                          />
                           <button
                             onClick={clearAll}
-                            className="text-[12px] text-[#C8A24A] hover:underline"
+                            className="mt-2 text-[12px] text-[#C8A24A] hover:underline"
                           >
                             Clear all filters
                           </button>
