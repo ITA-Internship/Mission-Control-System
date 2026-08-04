@@ -21,6 +21,7 @@ import { TextInput } from "../components/TextInput";
 import { useAbortableRequest } from "../../../shared/hooks/useAbortableRequest";
 import { getFormError } from "../utils/authErrors";
 import { validateRequiredPassword } from "../validation/authValidation";
+import { useAuth } from "../hooks/useAuth";
 
 export function LoginPage() {
   const navigate = useNavigate();
@@ -45,6 +46,10 @@ export function LoginPage() {
     run,
     isMounted,
   } = useAbortableRequest();
+
+  const {
+    setAuthenticatedUser,
+  } = useAuth();
 
   function focusAlert() {
     requestAnimationFrame(() => {
@@ -108,6 +113,8 @@ export function LoginPage() {
       if (!isMounted()) {
         return;
       }
+
+      setAuthenticatedUser(user);
 
       navigate(
         user.must_change_password

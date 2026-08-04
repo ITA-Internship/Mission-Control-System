@@ -1,49 +1,18 @@
-import { useEffect, useState } from "react";
 import { Navigate } from "react-router";
 
 import {
-  ApiError,
-  isAbortError,
-} from "../shared/api/apiClient";
-import { getCurrentUser } from "../features/auth/api/authApi";
+  useAuth,
+} from "../features/auth/hooks/useAuth";
 import { AppShell } from "../shared/layout/AppShell";
-import type { CurrentUser } from "../shared/types/accounts";
 
-type AuthState =
-  | { status: "loading" }
-  | { status: "authed"; user: CurrentUser }
-  | { status: "unauthed" };
-
-/* Route guard for authenticated pages. Resolves the current user from the
- * session cookie; unauthenticated visitors are redirected to sign in. The
- * backend session is the source of truth — this only reflects it. */
 export function ProtectedRoute() {
-  const [state, setState] = useState<AuthState>({
-    status: "loading",
-  });
+  const {
+    status,
+    currentUser,
+    error,
+  } = useAuth();
 
-  useEffect(() => {
-    const controller = new AbortController();
-
-    getCurrentUser(controller.signal)
-      .then((user) => setState({ status: "authed", user }))
-      .catch((error) => {
-        if (isAbortError(error)) return;
-        if (
-          error instanceof ApiError &&
-          (error.status === 401 || error.status === 403)
-        ) {
-          setState({ status: "unauthed" });
-          return;
-        }
-        // Network or unexpected error: fail closed to the login screen.
-        setState({ status: "unauthed" });
-      });
-
-    return () => controller.abort();
-  }, []);
-
-  if (state.status === "loading") {
+  if (status === "loading") {
     return (
       <div className="flex min-h-screen items-center justify-center bg-mc-bg">
         <div className="h-6 w-6 animate-spin rounded-full border-2 border-mc-border border-t-mc-accent" />
@@ -51,13 +20,36 @@ export function ProtectedRoute() {
     );
   }
 
-  if (state.status === "unauthed") {
-    return <Navigate to="/login" replace />;
+  if (error) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-mc-bg">
+        <p>{error}</p>
+      </div>
+    );
   }
 
-  if (state.user.must_change_password) {
-    return <Navigate to="/change-password/required" replace />;
+  if (
+    status === "unauthenticated" ||
+    !currentUser
+  ) {
+    return (
+      <Navigate
+        to="/login"
+        replace
+      />
+    );
   }
 
-  return <AppShell user={state.user} />;
+  if (currentUser.must_change_password) {
+    return (
+      <Navigate
+        to="/change-password/required"
+        replace
+      />
+    );
+  }
+
+  return (
+    <AppShell user={currentUser} />
+  );
 }

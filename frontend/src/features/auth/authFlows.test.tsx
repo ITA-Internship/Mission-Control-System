@@ -55,6 +55,10 @@ import {
   ResetPasswordPage,
 } from "./pages/ResetPasswordPage";
 
+import {
+  AuthProvider,
+} from "./context/AuthProvider";
+
 function renderRoute(
   path: string,
   routePath: string,
@@ -75,7 +79,7 @@ function renderRoute(
   );
 
   return render(
-    <RouterProvider router={router} />,
+    <RouterProvider router={router} />
   );
 }
 
@@ -270,9 +274,21 @@ describe("login", () => {
   it("signs in and redirects to my profile", async () => {
     const user = userEvent.setup();
 
+    // 1. AuthProvider checks the existing session.
+    mockJsonResponse(
+      {
+        detail:
+          "Authentication credentials were not provided.",
+      },
+      401,
+    );
+
+    // 2. Login GET initializes the CSRF cookie.
     mockJsonResponse({
       detail: "CSRF cookie set.",
     });
+
+    // 3. Login POST returns the authenticated user.
     mockJsonResponse({
       id: 47,
       username: "root.admin",
@@ -313,11 +329,15 @@ describe("login", () => {
     );
 
     render(
-      <RouterProvider router={router} />,
+      <AuthProvider>
+        <RouterProvider router={router} />
+      </AuthProvider>,
     );
 
     await user.type(
-      screen.getByLabelText("Email or Username"),
+      screen.getByLabelText(
+        "Email or Username",
+      ),
       "root.admin@example.com",
     );
 
@@ -344,24 +364,33 @@ describe("login", () => {
     );
 
     const [
-      firstRequestUrl,
+      sessionRequestUrl,
     ] = fetchMock.mock.calls[0];
+
     const [
-      secondRequestUrl,
-      secondRequestOptions,
+      csrfRequestUrl,
     ] = fetchMock.mock.calls[1];
 
-    expect(firstRequestUrl).toBe(
+    const [
+      loginRequestUrl,
+      loginRequestOptions,
+    ] = fetchMock.mock.calls[2];
+
+    expect(sessionRequestUrl).toBe(
+      "/api/accounts/users/me/",
+    );
+
+    expect(csrfRequestUrl).toBe(
       "/api/accounts/login/",
     );
 
-    expect(secondRequestUrl).toBe(
+    expect(loginRequestUrl).toBe(
       "/api/accounts/login/",
     );
 
     expect(
       JSON.parse(
-        secondRequestOptions?.body as string,
+        loginRequestOptions?.body as string,
       ),
     ).toEqual({
       identifier:
@@ -404,7 +433,9 @@ describe("required password change", () => {
     );
 
     return render(
-      <RouterProvider router={router} />,
+      <AuthProvider>
+        <RouterProvider router={router} />
+      </AuthProvider>,
     );
   }
 
@@ -456,10 +487,20 @@ describe("required password change", () => {
 
   it("changes the required password and continues", async () => {
     const user = userEvent.setup();
+
+    // 1. Initial session restoration.
     mockJsonResponse(requiredUser);
+
+    // 2. Password-change response.
     mockJsonResponse({
       detail:
         "Password has been successfully changed.",
+    });
+
+    // 3. Refreshed current user after password change.
+    mockJsonResponse({
+      ...requiredUser,
+      must_change_password: false,
     });
 
     renderRequiredPasswordRoute();
@@ -470,16 +511,19 @@ describe("required password change", () => {
       ),
       "OldPassword123!",
     );
+
     await user.type(
       screen.getByLabelText("New password"),
       "NewPassword123!",
     );
+
     await user.type(
       screen.getByLabelText(
         "Confirm new password",
       ),
       "NewPassword123!",
     );
+
     await user.click(
       screen.getByRole("button", {
         name: "Save and continue",
@@ -491,6 +535,20 @@ describe("required password change", () => {
         "My Profile page",
       ),
     ).toBeInTheDocument();
+
+    const fetchMock = vi.mocked(
+      globalThis.fetch,
+    );
+
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+
+    const [
+      refreshedUserRequestUrl,
+    ] = fetchMock.mock.calls[2];
+
+    expect(refreshedUserRequestUrl).toBe(
+      "/api/accounts/users/me/",
+    );
   });
 
   it("redirects to login when the session expires during submission", async () => {

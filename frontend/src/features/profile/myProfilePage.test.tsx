@@ -20,6 +20,19 @@ import {
 
 import { RequireSessionAuth } from "../auth/components/RequireSessionAuth";
 import { MyProfilePage } from "./pages/MyProfilePage";
+import { useState } from "react";
+import type { ReactNode } from "react";
+
+import { signOut } from "../auth/api/authApi";
+import {
+  AuthContext,
+} from "../auth/context/AuthContext";
+import type {
+  AuthContextValue,
+} from "../auth/context/AuthContext";
+import type {
+  CurrentUser,
+} from "../../shared/types/accounts";
 
 const currentUserResponse = {
   id: 47,
@@ -40,7 +53,10 @@ const currentUserResponse = {
   must_change_password: false,
 };
 
-function renderPage() {
+function renderPage(
+  initialUser: CurrentUser =
+    currentUserResponse,
+) {
   const router = createMemoryRouter(
     [
       {
@@ -66,7 +82,11 @@ function renderPage() {
   );
 
   return render(
-    <RouterProvider router={router} />,
+    <TestAuthProvider
+      initialUser={initialUser}
+    >
+      <RouterProvider router={router} />
+    </TestAuthProvider>,
   );
 }
 
@@ -77,11 +97,7 @@ function renderProtectedPage() {
         path: "/my-profile",
         element: (
           <RequireSessionAuth>
-            {(currentUser) => (
-              <MyProfilePage
-                initialUser={currentUser}
-              />
-            )}
+            {() => <MyProfilePage />}
           </RequireSessionAuth>
         ),
       },
@@ -104,7 +120,11 @@ function renderProtectedPage() {
   );
 
   return render(
-    <RouterProvider router={router} />,
+    <TestAuthProvider
+      initialUser={null}
+    >
+      <RouterProvider router={router} />
+    </TestAuthProvider>,
   );
 }
 
@@ -127,16 +147,64 @@ function mockJsonResponse(
     );
 }
 
+type TestAuthProviderProps = {
+  children: ReactNode;
+  initialUser: CurrentUser | null;
+};
+
+function TestAuthProvider({
+  children,
+  initialUser,
+}: TestAuthProviderProps) {
+  const [
+    currentUser,
+    setCurrentUser,
+  ] = useState<CurrentUser | null>(
+    initialUser,
+  );
+
+  const value: AuthContextValue = {
+    status: currentUser
+      ? "authenticated"
+      : "unauthenticated",
+
+    currentUser,
+
+    error: null,
+
+    refreshCurrentUser: async () =>
+      currentUser,
+
+    setAuthenticatedUser: (user) => {
+      setCurrentUser(user);
+    },
+
+    clearAuthentication: () => {
+      setCurrentUser(null);
+    },
+
+    logout: async (signal) => {
+      await signOut(signal);
+      setCurrentUser(null);
+    },
+  };
+
+  return (
+    <AuthContext.Provider value={value}>
+      {children}
+    </AuthContext.Provider>
+  );
+}
+
 describe("MyProfilePage", () => {
   it("loads and updates profile details", async () => {
     const user = userEvent.setup();
 
-    mockJsonResponse(currentUserResponse);
     mockJsonResponse({
-      ...currentUserResponse,
-      rank: "Lt. Colonel",
-      contact: "+1 (703) 555-0100",
-    });
+    ...currentUserResponse,
+    rank: "Lt. Colonel",
+    contact: "+1 (703) 555-0100",
+  });
 
     renderPage();
 
@@ -204,18 +272,21 @@ describe("MyProfilePage", () => {
       globalThis.fetch,
     );
     expect(
-      fetchMock.mock.calls[1]?.[0],
+      fetchMock.mock.calls[0]?.[0],
     ).toBe("/api/accounts/users/me/");
+
     expect(
-      fetchMock.mock.calls[1]?.[1]
+      fetchMock.mock.calls[0]?.[1]
         ?.method,
     ).toBe("PATCH");
+
     expect(
-      fetchMock.mock.calls[1]?.[1]?.body,
+      fetchMock.mock.calls[0]?.[1]?.body,
     ).toBeInstanceOf(FormData);
+
     expect(
       new Headers(
-        fetchMock.mock.calls[1]?.[1]?.headers,
+        fetchMock.mock.calls[0]?.[1]?.headers,
       ).get("Content-Type"),
     ).toBeNull();
     expect(
@@ -226,7 +297,6 @@ describe("MyProfilePage", () => {
   it("shows profile validation errors", async () => {
     const user = userEvent.setup();
 
-    mockJsonResponse(currentUserResponse);
     mockJsonResponse(
       {
         contact: [
@@ -274,7 +344,6 @@ describe("MyProfilePage", () => {
   it("shows a save error when profile update fails", async () => {
     const user = userEvent.setup();
 
-    mockJsonResponse(currentUserResponse);
     mockJsonResponse(
       {
         detail:
@@ -311,7 +380,6 @@ describe("MyProfilePage", () => {
   it("changes password successfully", async () => {
     const user = userEvent.setup();
 
-    mockJsonResponse(currentUserResponse);
     mockJsonResponse({
       detail:
         "Password has been successfully changed.",
@@ -358,7 +426,7 @@ describe("MyProfilePage", () => {
       globalThis.fetch,
     );
     expect(
-      fetchMock.mock.calls[1]?.[0],
+      fetchMock.mock.calls[0]?.[0],
     ).toBe(
       "/api/accounts/users/me/change-password/",
     );
@@ -374,7 +442,7 @@ describe("MyProfilePage", () => {
         "Password has been successfully changed.",
       ),
     ).not.toBeInTheDocument();
-    expect(fetchMock.mock.calls).toHaveLength(2);
+    expect(fetchMock.mock.calls).toHaveLength(1);
   });
 
   it("uploads a selected avatar without a delayed state race", async () => {
@@ -385,7 +453,6 @@ describe("MyProfilePage", () => {
       { type: "image/png" },
     );
 
-    mockJsonResponse(currentUserResponse);
     mockJsonResponse({
       ...currentUserResponse,
       profile_picture:
@@ -422,7 +489,7 @@ describe("MyProfilePage", () => {
 
     const requestBody = vi.mocked(
       globalThis.fetch,
-    ).mock.calls[1]?.[1]?.body;
+    ).mock.calls[0]?.[1]?.body;
     expect(requestBody).toBeInstanceOf(FormData);
     expect(
       (requestBody as FormData).get(
@@ -442,7 +509,6 @@ describe("MyProfilePage", () => {
       { type: "image/png" },
     );
 
-    mockJsonResponse(currentUserResponse);
     renderPage();
 
     await screen.findByText(
@@ -487,8 +553,6 @@ describe("MyProfilePage", () => {
       { type: "image/gif" },
     );
 
-    mockJsonResponse(currentUserResponse);
-
     renderPage();
 
     await screen.findByText(
@@ -517,7 +581,7 @@ describe("MyProfilePage", () => {
     ).not.toBeInTheDocument();
     expect(
       vi.mocked(globalThis.fetch).mock.calls,
-    ).toHaveLength(1);
+    ).toHaveLength(0);
   });
 
   it("cancels a pending avatar directly from the avatar card", async () => {
@@ -528,7 +592,6 @@ describe("MyProfilePage", () => {
       { type: "image/png" },
     );
 
-    mockJsonResponse(currentUserResponse);
     renderPage();
 
     await screen.findByText(
@@ -556,39 +619,42 @@ describe("MyProfilePage", () => {
     ).not.toBeInTheDocument();
     expect(
       vi.mocked(globalThis.fetch).mock.calls,
-    ).toHaveLength(1);
+    ).toHaveLength(0);
   });
 
-  it("falls back to initials when protected avatar images fail to load", async () => {
-    mockJsonResponse({
-      ...currentUserResponse,
-      profile_picture:
-        "/api/accounts/users/47/profile-picture/",
-    });
+  it(
+    "falls back to initials when protected avatar images fail to load",
+    async () => {
+      renderPage({
+        ...currentUserResponse,
+        profile_picture:
+          "/api/accounts/users/47/profile-picture/",
+      });
 
-    renderPage();
+      await screen.findByText(
+        "Major Sarah Chen",
+      );
 
-    await screen.findByText(
-      "Major Sarah Chen",
-    );
-    const avatarImages = screen.getAllByRole(
-      "img",
-    );
-    expect(avatarImages).toHaveLength(3);
+      const avatarImages =
+        screen.getAllByRole("img");
 
-    avatarImages.forEach((image) => {
-      fireEvent.error(image);
-    });
+      expect(avatarImages).toHaveLength(3);
 
-    await waitFor(() => {
+      avatarImages.forEach((image) => {
+        fireEvent.error(image);
+      });
+
+      await waitFor(() => {
+        expect(
+          screen.queryAllByRole("img"),
+        ).toHaveLength(0);
+      });
+
       expect(
-        screen.queryAllByRole("img"),
-      ).toHaveLength(0);
-    });
-    expect(
-      screen.getAllByText("SC").length,
-    ).toBeGreaterThan(0);
-  });
+        screen.getAllByText("SC").length,
+      ).toBeGreaterThan(0);
+    },
+  );
 
   it("clears a stale avatar API error after selecting another file", async () => {
     const user = userEvent.setup();
@@ -603,7 +669,6 @@ describe("MyProfilePage", () => {
       { type: "image/png" },
     );
 
-    mockJsonResponse(currentUserResponse);
     mockJsonResponse(
       {
         profile_picture: [
@@ -649,7 +714,6 @@ describe("MyProfilePage", () => {
   it("shows incorrect current password error", async () => {
     const user = userEvent.setup();
 
-    mockJsonResponse(currentUserResponse);
     mockJsonResponse(
       {
         old_password: [
@@ -700,23 +764,23 @@ describe("MyProfilePage", () => {
       expect(
         vi.mocked(globalThis.fetch)
           .mock.calls.length,
-      ).toBe(2);
+      ).toBe(1);
     });
   });
 
   it("removes a saved avatar through a JSON PATCH", async () => {
     const user = userEvent.setup();
-    mockJsonResponse({
-      ...currentUserResponse,
-      profile_picture:
-        "/api/accounts/users/47/profile-picture/",
-    });
+
     mockJsonResponse({
       ...currentUserResponse,
       profile_picture: null,
     });
 
-    renderPage();
+    renderPage({
+      ...currentUserResponse,
+      profile_picture:
+        "/api/accounts/users/47/profile-picture/",
+    });
 
     await screen.findByText(
       "Major Sarah Chen",
@@ -740,7 +804,7 @@ describe("MyProfilePage", () => {
 
     const requestOptions = vi.mocked(
       globalThis.fetch,
-    ).mock.calls[1]?.[1];
+    ).mock.calls[0]?.[1];
     expect(requestOptions?.method).toBe("PATCH");
     expect(
       new Headers(
@@ -755,7 +819,6 @@ describe("MyProfilePage", () => {
 
   it("redirects to login when profile saving loses the session", async () => {
     const user = userEvent.setup();
-    mockJsonResponse(currentUserResponse);
     mockJsonResponse(
       {
         detail:
@@ -787,7 +850,6 @@ describe("MyProfilePage", () => {
 
   it("redirects to required password change when the backend enforces it", async () => {
     const user = userEvent.setup();
-    mockJsonResponse(currentUserResponse);
     mockJsonResponse(
       {
         detail:
@@ -822,7 +884,6 @@ describe("MyProfilePage", () => {
 
   it("redirects to login when password change loses the session", async () => {
     const user = userEvent.setup();
-    mockJsonResponse(currentUserResponse);
     mockJsonResponse(
       {
         detail:
@@ -863,7 +924,6 @@ describe("MyProfilePage", () => {
 
   it("signs out from the account menu", async () => {
     const user = userEvent.setup();
-    mockJsonResponse(currentUserResponse);
     mockJsonResponse({
       detail: "Signed out successfully.",
     });
@@ -889,17 +949,16 @@ describe("MyProfilePage", () => {
     ).toBeInTheDocument();
     expect(
       vi.mocked(globalThis.fetch)
-        .mock.calls[1]?.[0],
+        .mock.calls[0]?.[0],
     ).toBe("/api/accounts/logout/");
     expect(
       vi.mocked(globalThis.fetch)
-        .mock.calls[1]?.[1]?.method,
+        .mock.calls[0]?.[1]?.method,
     ).toBe("POST");
   });
 
   it("opens profile sections from the workspace navigation", async () => {
     const user = userEvent.setup();
-    mockJsonResponse(currentUserResponse);
 
     renderPage();
 
@@ -971,18 +1030,15 @@ describe("MyProfilePage", () => {
   });
 
   it("redirects unauthenticated users to login from the protected route", async () => {
-    mockJsonResponse(
-      {
-        detail: "Authentication credentials were not provided.",
-      },
-      403,
-    );
-
     renderProtectedPage();
 
     expect(
       await screen.findByText("Login page"),
     ).toBeInTheDocument();
+
+    expect(
+      globalThis.fetch,
+    ).not.toHaveBeenCalled();
   });
 });
 

@@ -26,6 +26,7 @@ import {
   validatePasswordConfirmation,
   validateRequiredPassword,
 } from "../validation/authValidation";
+import { useAuth } from "../hooks/useAuth";
 
 export function RequiredPasswordChangePage() {
   const navigate = useNavigate();
@@ -73,6 +74,8 @@ export function RequiredPasswordChangePage() {
     run,
     isMounted,
   } = useAbortableRequest();
+
+  const { refreshCurrentUser } = useAuth();
 
   function focusAlert() {
     requestAnimationFrame(() => {
@@ -143,6 +146,26 @@ export function RequiredPasswordChangePage() {
       );
 
       if (!isMounted()) {
+        return;
+      }
+
+      const refreshedUser = await refreshCurrentUser();
+
+      if (!isMounted()) {
+        return;
+      }
+
+      if (!refreshedUser) {
+        navigate("/login", {
+          replace: true,
+        });
+        return;
+      }
+
+      if (refreshedUser.must_change_password) {
+        setFormError(
+          "Your account still requires a password change. Please try again.",
+        );
         return;
       }
 
