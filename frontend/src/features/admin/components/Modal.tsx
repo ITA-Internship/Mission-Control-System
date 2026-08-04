@@ -90,7 +90,11 @@ export function Modal({
         return;
       }
 
-      if (!event.shiftKey && active === last) {
+      if (
+        !event.shiftKey &&
+        (active === last ||
+          !dialogRef.current?.contains(active))
+      ) {
         event.preventDefault();
         first.focus();
       }
