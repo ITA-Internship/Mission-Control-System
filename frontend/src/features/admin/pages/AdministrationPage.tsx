@@ -9,7 +9,11 @@ import {
   Shield,
   Users,
 } from "lucide-react";
-import { useSearchParams } from "react-router";
+import {
+  Navigate,
+  useOutletContext,
+  useSearchParams,
+} from "react-router";
 import type { LucideIcon } from "lucide-react";
 
 import { Button } from "../components/Button";
@@ -17,6 +21,8 @@ import { AuditLogTab } from "../tabs/AuditLogTab";
 import { UnitsTab } from "../tabs/UnitsTab";
 import { UsersTab } from "../tabs/UsersTab";
 import { useAdminCatalog } from "../hooks/useAdminCatalog";
+import { toRoleCode } from "../../../shared/layout/shellContext";
+import type { ShellContext } from "../../../shared/layout/shellContext";
 
 type TabId = "users" | "units" | "audit";
 
@@ -53,7 +59,35 @@ function resolveTab(
   );
 }
 
+/**
+ * Route entry for `/administration`.
+ *
+ * The console belongs to the Admin role: the sidebar offers the destination to
+ * admins only, so this covers the deep-link case (typed URL, stale bookmark) by
+ * sending everyone else back to the dashboard. Nothing renders and no
+ * administration request is fired for a non-admin.
+ */
 export function AdministrationPage() {
+  const context =
+    useOutletContext<ShellContext | null>();
+
+  const role = toRoleCode(
+    context?.user.role_code,
+  );
+
+  if (role !== "ADMIN") {
+    return (
+      <Navigate
+        to="/dashboard"
+        replace
+      />
+    );
+  }
+
+  return <AdministrationConsole />;
+}
+
+function AdministrationConsole() {
   const [searchParams, setSearchParams] =
     useSearchParams();
 
@@ -129,8 +163,7 @@ export function AdministrationPage() {
           </h1>
 
           <p className="mt-0.5 font-mono text-xs text-mc-muted">
-            Restricted — Admin &amp;
-            Commander roles
+            Restricted — Admin role only
           </p>
         </div>
 

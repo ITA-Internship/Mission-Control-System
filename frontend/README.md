@@ -272,6 +272,15 @@ The administration console renders inside the shared application shell
 The active tab is stored in the `tab` query parameter, so a tab is
 linkable and survives a reload.
 
+### Access
+
+The console is for the **Admin** role only. The sidebar hides the entry
+for every other role (`allowedRoles` in `src/shared/layout/navigation.ts`),
+and the route redirects a non-admin to `/dashboard`, so a deep link
+neither renders the console nor fires an administration request. This
+mirrors `accounts/rbac.py`, where no other role holds the `users.*` or
+`audit_logs.view_all` permissions the console depends on.
+
 ### Backend endpoints used
 
 | Console area | Endpoint | Available in the API |

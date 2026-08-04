@@ -9,6 +9,7 @@ import userEvent from "@testing-library/user-event";
 
 import {
   createMemoryRouter,
+  Outlet,
   RouterProvider,
 } from "react-router";
 
@@ -23,6 +24,9 @@ import {
 
 import { AdministrationPage } from "./pages/AdministrationPage";
 
+import type { ShellContext } from "../../shared/layout/shellContext";
+import type { CurrentUser } from "../../shared/types/accounts";
+
 interface RouteHandler {
   match: (url: string) => boolean;
   respond: (
@@ -31,7 +35,7 @@ interface RouteHandler {
   ) => Response;
 }
 
-const CURRENT_USER = {
+const CURRENT_USER: CurrentUser = {
   id: 1,
   username: "m.hale",
   email: "m.hale@mcs.mil",
@@ -41,6 +45,8 @@ const CURRENT_USER = {
   contact: "",
   profile_picture: null,
   role: 1,
+  role_code: "ADMIN",
+  role_name: "Admin",
   unit: 1,
   is_active: true,
   must_change_password: false,
@@ -228,14 +234,36 @@ function stubApi(
   return fetchMock;
 }
 
+/** Stand-in for the app shell, which hands the signed-in user to the page. */
+function ShellStub({
+  user,
+}: {
+  user: CurrentUser;
+}) {
+  const context: ShellContext = { user };
+
+  return <Outlet context={context} />;
+}
+
 function renderConsole(
   initialEntry = "/administration",
+  user: CurrentUser = CURRENT_USER,
 ) {
   const router = createMemoryRouter(
     [
       {
         path: "/administration",
-        Component: AdministrationPage,
+        element: <ShellStub user={user} />,
+        children: [
+          {
+            index: true,
+            Component: AdministrationPage,
+          },
+        ],
+      },
+      {
+        path: "/dashboard",
+        element: <p>Dashboard</p>,
       },
     ],
     {
@@ -243,9 +271,12 @@ function renderConsole(
     },
   );
 
-  return render(
-    <RouterProvider router={router} />,
-  );
+  return {
+    ...render(
+      <RouterProvider router={router} />,
+    ),
+    router,
+  };
 }
 
 function requestedUrls(): string[] {
@@ -622,6 +653,52 @@ describe("audit log tab", () => {
 
     expect(createObjectUrl).toHaveBeenCalled();
     expect(clickSpy).toHaveBeenCalled();
+  });
+});
+
+describe("role gating", () => {
+  it("redirects non-admins away without issuing any request", async () => {
+    const fetchMock = stubApi();
+
+    const { router } = renderConsole(
+      "/administration",
+      {
+        ...CURRENT_USER,
+        role: 2,
+        role_code: "COMMANDER",
+        role_name: "Commander",
+      },
+    );
+
+    await waitFor(() => {
+      expect(
+        router.state.location.pathname,
+      ).toBe("/dashboard");
+    });
+
+    expect(
+      screen.queryByRole("tab", {
+        name: "Users",
+      }),
+    ).not.toBeInTheDocument();
+
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("renders the console for admins", async () => {
+    stubApi();
+
+    const { router } = renderConsole();
+
+    expect(
+      await screen.findByRole("tab", {
+        name: "Users",
+      }),
+    ).toBeInTheDocument();
+
+    expect(
+      router.state.location.pathname,
+    ).toBe("/administration");
   });
 });
 
