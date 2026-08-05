@@ -1,7 +1,19 @@
-import {
-  ApiError,
-  NetworkError,
-} from "../../../shared/api/apiClient";
+import { ApiError } from "../../../shared/api/apiClient";
+import { getApiDetail } from "../../../shared/utils/apiErrors";
+
+/*
+ * Auth-specific error predicates.
+ *
+ * The transport-level helpers (`getApiDetail`, `getApiFieldError`,
+ * `getFormError`) live in `shared/utils/apiErrors` because every feature needs
+ * them; they are re-exported here so auth, profile and session callers can keep
+ * importing their error helpers from one module.
+ */
+export {
+  getApiDetail,
+  getApiFieldError,
+  getFormError,
+} from "../../../shared/utils/apiErrors";
 
 function isRecord(
   value: unknown,
@@ -13,73 +25,7 @@ function isRecord(
   );
 }
 
-function collectMessages(
-  value: unknown,
-): string[] {
-  if (typeof value === "string") {
-    return [value];
-  }
-
-  if (Array.isArray(value)) {
-    return value.flatMap(collectMessages);
-  }
-
-  if (isRecord(value)) {
-    return Object.values(value).flatMap(
-      collectMessages,
-    );
-  }
-
-  return [];
-}
-
-function uniqueMessages(
-  value: unknown,
-): string[] {
-  return [
-    ...new Set(
-      collectMessages(value),
-    ),
-  ];
-}
-
-export function getApiFieldError(
-  error: unknown,
-  field: string,
-): string | undefined {
-  if (
-    !(error instanceof ApiError) ||
-    !isRecord(error.body)
-  ) {
-    return undefined;
-  }
-
-  const messages = uniqueMessages(
-    error.body[field],
-  );
-
-  return messages.length > 0
-    ? messages.join(" ")
-    : undefined;
-}
-
-export function getApiDetail(
-  error: unknown,
-): string | undefined {
-  if (
-    !(error instanceof ApiError) ||
-    !isRecord(error.body)
-  ) {
-    return undefined;
-  }
-
-  const detail = error.body.detail;
-
-  return typeof detail === "string"
-    ? detail
-    : undefined;
-}
-
+/** The session cookie is missing, expired or rejected. */
 export function isSessionAuthenticationError(
   error: unknown,
 ): boolean {
@@ -106,6 +52,7 @@ export function isSessionAuthenticationError(
   );
 }
 
+/** The account must set a new password before any other request succeeds. */
 export function isPasswordChangeRequiredError(
   error: unknown,
 ): boolean {
@@ -116,60 +63,6 @@ export function isPasswordChangeRequiredError(
     error.body.code ===
       "password_change_required"
   );
-}
-
-export function getFormError(
-  error: unknown,
-  fallback: string,
-): string {
-  if (error instanceof NetworkError) {
-    return (
-      "Unable to reach Mission Control. " +
-      "Check your connection and try again."
-    );
-  }
-
-  if (error instanceof ApiError) {
-    if (error.status === 429) {
-      return (
-        "Too many attempts. " +
-        "Please wait and try again."
-      );
-    }
-
-    if (error.status === 401) {
-      return (
-        "Your session has expired. " +
-        "Sign in and try again."
-      );
-    }
-
-    if (error.status === 403) {
-      return (
-        "The request could not be completed. " +
-        "Refresh the page and try again."
-      );
-    }
-
-    if (error.status >= 500) {
-      return fallback;
-    }
-
-    const detail = getApiDetail(error);
-
-    if (detail) {
-      return detail;
-    }
-
-    const messages =
-      uniqueMessages(error.body);
-
-    if (messages.length > 0) {
-      return messages.join(" ");
-    }
-  }
-
-  return fallback;
 }
 
 export function isInvalidResetLinkError(
