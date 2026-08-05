@@ -145,13 +145,24 @@ class UserListCreateView(generics.ListCreateAPIView):
         return self.serializer_class
 
 
+class MilitaryUnitPagination(StandardResultsSetPagination):
+    """Paginate military units.
+
+    Units double as reference data for the admin console's unit filters and
+    selects, which fetch the full catalog in a single page, so allow a larger
+    page size than the default list pagination.
+    """
+
+    max_page_size = 500
+
+
 @extend_schema_view(get=military_unit_list_schema, post=military_unit_create_schema)
 class MilitaryUnitListCreateView(generics.ListCreateAPIView):
     """List military units and create new units."""
 
     serializer_class = MilitaryUnitSerializer
     permission_classes = [MilitaryUnitPermission]
-    pagination_class = StandardResultsSetPagination
+    pagination_class = MilitaryUnitPagination
     filter_backends = (DjangoFilterBackend, SearchFilter, OrderingFilter)
     filterset_class = MilitaryUnitFilter
     search_fields = ("name", "code")

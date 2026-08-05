@@ -29,11 +29,11 @@ import type {
 /**
  * Endpoints per the Administration design brief (`docs/design/administration.md`).
  *
- * Implemented in the backend today: the audit log (list + CSV export), user
- * creation, the user status endpoint and the role endpoint. The user *list*,
- * military-unit and role endpoints are part of the same contract but are not
- * exposed by the API yet — requests to them fail with 404 and the console
- * renders an explicit "endpoint unavailable" state instead of empty tables.
+ * All endpoints below are implemented by the backend: the audit log (list + CSV
+ * export), user creation, the user list, the user status and role endpoints, the
+ * military-unit endpoints, and the role catalog. The parsers and per-resource
+ * degradation states are kept defensive so a transient failure surfaces an
+ * "endpoint unavailable" state instead of blanking out the console.
  */
 export const ADMIN_ENDPOINTS = {
   users: "/api/accounts/users/",
