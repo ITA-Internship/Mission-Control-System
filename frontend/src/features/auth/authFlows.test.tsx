@@ -11,9 +11,12 @@ import userEvent from "@testing-library/user-event";
 
 import {
   createMemoryRouter,
-  RouterProvider,
   useLocation,
 } from "react-router";
+
+import {
+  RouterProvider,
+} from "react-router/dom";
 
 import {
   afterEach,
@@ -598,11 +601,16 @@ describe("required password change", () => {
       },
     );
 
-    return render(
+    const rendered = render(
       <AuthProvider>
         <RouterProvider router={router} />
       </AuthProvider>,
     );
+
+    return {
+      router,
+      ...rendered,
+    };
   }
 
   const requiredUser = {
@@ -790,6 +798,120 @@ describe("required password change", () => {
     expect(
       await screen.findByText("Login page"),
     ).toBeInTheDocument();
+  });
+
+  it("signs out from the required password-change page", async () => {
+    const user = userEvent.setup();
+
+    // Initial current-user request.
+    mockJsonResponse(requiredUser);
+
+    // Logout response.
+    mockJsonResponse({
+      detail: "Signed out successfully.",
+    });
+
+    const { router } =
+      renderRequiredPasswordRoute(
+        "/change-password/required?returnTo=%2Fmissions%2F42",
+      );
+
+    await user.click(
+      await screen.findByRole(
+        "button",
+        {
+          name: "Sign out",
+        },
+      ),
+    );
+
+    expect(
+      await screen.findByText(
+        "Login page",
+      ),
+    ).toBeInTheDocument();
+
+    expect(
+      router.state.location.pathname,
+    ).toBe("/login");
+
+    expect(
+      router.state.location.search,
+    ).toBe("");
+
+    const fetchMock = vi.mocked(
+      globalThis.fetch,
+    );
+
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+
+    expect(
+      fetchMock.mock.calls[1]?.[0],
+    ).toBe("/api/accounts/logout/");
+
+    expect(
+      fetchMock.mock.calls[1]?.[1]
+        ?.method,
+    ).toBe("POST");
+  });
+
+  it("keeps the authenticated state when logout fails", async () => {
+    const user = userEvent.setup();
+
+    // Initial current-user request.
+    mockJsonResponse(requiredUser);
+
+    // Failed logout response.
+    mockJsonResponse(
+      {
+        detail: "Logout failed.",
+      },
+      500,
+    );
+
+    const { router } =
+      renderRequiredPasswordRoute();
+
+    await user.click(
+      await screen.findByRole(
+        "button",
+        {
+          name: "Sign out",
+        },
+      ),
+    );
+
+    expect(
+      await screen.findByText(
+        "We could not sign you out. Please try again.",
+      ),
+    ).toBeInTheDocument();
+
+    expect(
+      screen.getByLabelText(
+        "Current password",
+      ),
+    ).toBeInTheDocument();
+
+    expect(
+      screen.queryByText("Login page"),
+    ).not.toBeInTheDocument();
+
+    expect(
+      router.state.location.pathname,
+    ).toBe(
+      "/change-password/required",
+    );
+
+    const fetchMock = vi.mocked(
+      globalThis.fetch,
+    );
+
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+
+    expect(
+      fetchMock.mock.calls[1]?.[0],
+    ).toBe("/api/accounts/logout/");
   });
 });
 

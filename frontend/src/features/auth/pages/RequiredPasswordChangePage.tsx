@@ -68,6 +68,8 @@ export function RequiredPasswordChangePage() {
     isSubmitting,
     setIsSubmitting,
   ] = useState(false);
+  const [isSigningOut, setIsSigningOut] =
+    useState(false);
 
   const currentPasswordRef =
     useRef<HTMLInputElement>(null);
@@ -86,6 +88,7 @@ export function RequiredPasswordChangePage() {
   const {
     refreshCurrentUser,
     clearAuthentication,
+    logout,
   } = useAuth();
 
   const location = useLocation();
@@ -106,10 +109,55 @@ export function RequiredPasswordChangePage() {
     });
   }
 
+  async function handleSignOut() {
+    if (isSubmitting || isSigningOut) {
+      return;
+    }
+
+    setFormError(undefined);
+    setIsSigningOut(true);
+
+    try {
+      await run((signal) =>
+        logout(signal),
+      );
+
+      if (!isMounted()) {
+        return;
+      }
+
+      navigate("/login", {
+        replace: true,
+        flushSync: true,
+      });
+    } catch (error) {
+      if (
+        isAbortError(error) ||
+        !isMounted()
+      ) {
+        return;
+      }
+
+      setFormError(
+        "We could not sign you out. Please try again.",
+      );
+
+      focusAlert();
+    } finally {
+      if (isMounted()) {
+        setIsSigningOut(false);
+      }
+    }
+  }
+
   async function handleSubmit(
     event: FormEvent<HTMLFormElement>,
   ) {
     event.preventDefault();
+
+    if (isSubmitting || isSigningOut) {
+      return;
+    }
 
     if (isSubmitting) {
       return;
@@ -376,6 +424,23 @@ export function RequiredPasswordChangePage() {
           >
             Save and continue
           </SubmitButton>
+
+          <button
+            type="button"
+            onClick={() => {
+              void handleSignOut();
+            }}
+            disabled={
+              isSubmitting ||
+              isSigningOut
+            }
+            aria-busy={isSigningOut}
+            className="mt-3 w-full rounded-lg border border-white/10 px-4 py-3 text-sm font-semibold text-slate-300 transition hover:bg-white/5 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {isSigningOut
+              ? "Signing out..."
+              : "Sign out"}
+          </button>
 
           <p className="text-center text-xs leading-5 text-mc-subtle">
             This step is mandatory and cannot be
