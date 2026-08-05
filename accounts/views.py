@@ -761,3 +761,12 @@ class ProtectedProfilePictureView(APIView):
         )
         response["Cache-Control"] = "private, no-store"
         return response
+
+
+class MilitaryUnitListView(generics.ListAPIView):
+    """List military units for dropdown selection."""
+
+    queryset = MilitaryUnit.objects.filter(is_active=True).order_by("name")
+    serializer_class = MilitaryUnitSerializer
+    permission_classes = [permissions.AllowAny]
+    pagination_class = None

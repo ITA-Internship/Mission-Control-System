@@ -10,6 +10,7 @@ from .views import (
     ChangePasswordView,
     MilitaryUnitDetailView,
     MilitaryUnitListCreateView,
+    MilitaryUnitListView,
     PasswordResetConfirmView,
     PasswordResetRequestView,
     ProtectedProfilePictureView,
@@ -76,5 +77,10 @@ urlpatterns = [
         "users/<int:user_id>/profile-picture/",
         ProtectedProfilePictureView.as_view(),
         name="user-profile-picture",
+    ),
+    path(
+        "military-units/",
+        MilitaryUnitListView.as_view(),
+        name="military-unit-list",
     ),
 ]

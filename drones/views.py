@@ -249,11 +249,24 @@ class DroneListCreateView(generics.ListCreateAPIView):
     permission_classes = [DronePermission]
     filter_backends = (
         DjangoFilterBackend,
+        filters.SearchFilter,
         filters.OrderingFilter,
     )
     filterset_class = DroneFilter
+    search_fields = [
+        "serial_number",
+        "inventory_number",
+        "name",
+        "drone_model__name",
+    ]
     pagination_class = StandardResultsSetPagination
-    ordering_fields = ["created_at", "status", "name", "classification"]
+    ordering_fields = [
+        "created_at",
+        "status",
+        "name",
+        "classification",
+        "serial_number",
+    ]
 
     def get_queryset(self):
         """Return drones with related data needed by list and create responses."""

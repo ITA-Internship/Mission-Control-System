@@ -514,11 +514,32 @@ class DroneUpdateSerializer(serializers.ModelSerializer):
 
 
 class DroneListSerializer(serializers.ModelSerializer):
-    """Serialize compact drone fields for list responses."""
+    """Serialize compact drone fields for list responses with related object names."""
 
     status_label = serializers.CharField(read_only=True)
     status_indicator = serializers.CharField(read_only=True)
     status_category = serializers.CharField(read_only=True)
+    military_unit_name = serializers.CharField(
+        source="military_unit.name", read_only=True
+    )
+    drone_model_name = serializers.CharField(source="drone_model.name", read_only=True)
+    max_speed_kmh = serializers.DecimalField(
+        source="spec.max_speed_kmh",
+        read_only=True,
+        max_digits=6,
+        decimal_places=2,
+        allow_null=True,
+    )
+    max_range_km = serializers.DecimalField(
+        source="spec.max_range_km",
+        read_only=True,
+        max_digits=6,
+        decimal_places=2,
+        allow_null=True,
+    )
+    payload_capacity_g = serializers.IntegerField(
+        source="spec.payload_capacity_g", read_only=True, allow_null=True
+    )
 
     class Meta:
         """Configure compact Drone fields exposed by list endpoints."""
@@ -530,12 +551,17 @@ class DroneListSerializer(serializers.ModelSerializer):
             "inventory_number",
             "name",
             "drone_model",
+            "drone_model_name",
             "classification",
             "status",
             "status_label",
             "status_indicator",
             "status_category",
             "military_unit",
+            "military_unit_name",
+            "max_speed_kmh",
+            "max_range_km",
+            "payload_capacity_g",
             "created_at",
         )
 
