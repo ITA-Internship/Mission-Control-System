@@ -83,8 +83,6 @@ export const NAV_ITEMS: NavItem[] = [
     allowedRoles: [
       "ADMIN",
       "COMMANDER",
-      "DISPATCHER",
-      "OPERATOR",
       "TECHNICIAN",
       "VIEWER",
     ],
