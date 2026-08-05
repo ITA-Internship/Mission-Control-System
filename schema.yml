@@ -40,6 +40,8 @@ paths:
               $ref: '#/components/schemas/AccountActivation'
         required: true
       security:
+      - cookieAuth: []
+      - basicAuth: []
       - {}
       responses:
         '200':
@@ -136,6 +138,9 @@ paths:
           type: integer
       tags:
       - accounts
+      security:
+      - cookieAuth: []
+      - basicAuth: []
       responses:
         '200':
           content:
@@ -181,6 +186,9 @@ paths:
         required: true
       tags:
       - accounts
+      security:
+      - cookieAuth: []
+      - basicAuth: []
       responses:
         '200':
           content:
@@ -217,6 +225,9 @@ paths:
       summary: Export audit logs to CSV
       tags:
       - accounts
+      security:
+      - cookieAuth: []
+      - basicAuth: []
       responses:
         '200':
           description: A CSV file containing audit logs generated successfully.
@@ -224,6 +235,116 @@ paths:
           description: Forbidden. User does not have permission to perform this action.
         '429':
           description: Export rate limit exceeded.
+  /api/accounts/login/:
+    get:
+      operationId: accounts_login_retrieve
+      description: Issues a CSRF cookie that must be included in the subsequent login
+        POST request.
+      summary: Initialize login CSRF protection
+      tags:
+      - accounts
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoginMessageResponse'
+              examples:
+                CSRFCookieSet:
+                  value:
+                    detail: CSRF cookie set.
+                  summary: CSRF cookie set
+          description: CSRF cookie issued successfully.
+    post:
+      operationId: accounts_login_create
+      description: Authenticates a user by username or email and password, then starts
+        a Django session.
+      summary: Log in
+      tags:
+      - accounts
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Login'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/Login'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/Login'
+        required: true
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserMe'
+          description: Authentication succeeded and a session was created.
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoginMessageResponse'
+              examples:
+                InvalidCredentials:
+                  value:
+                    detail: Invalid credentials.
+                  summary: Invalid credentials
+                MissingIdentifier:
+                  value:
+                    detail: Identifier is required.
+                  summary: Missing identifier
+          description: The submitted credentials are missing or invalid.
+        '429':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoginMessageResponse'
+              examples:
+                RateLimitExceeded:
+                  value:
+                    detail: Request was throttled. Expected available in 60 seconds.
+                  summary: Rate limit exceeded
+          description: Login rate limit exceeded.
+  /api/accounts/logout/:
+    post:
+      operationId: accounts_logout
+      description: Ends only the current authenticated session. The endpoint uses
+        session authentication and requires a valid CSRF cookie and X-CSRFToken header
+        for the POST request.
+      summary: Log out of the current session
+      tags:
+      - accounts
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LogoutResponse'
+              examples:
+                LogoutSuccessful:
+                  value:
+                    detail: Signed out successfully.
+                  summary: Logout successful
+          description: The current session was ended successfully.
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LogoutResponse'
+              examples:
+                UnauthenticatedRequest:
+                  value:
+                    detail: Authentication credentials were not provided.
+                  summary: Unauthenticated request
+                CSRFFailure:
+                  value:
+                    detail: 'CSRF Failed: CSRF token missing.'
+                  summary: CSRF failure
+          description: The request is unauthenticated or CSRF verification failed.
   /api/accounts/military-units/:
     get:
       operationId: accounts_military_units_list
@@ -263,6 +384,9 @@ paths:
           type: string
       tags:
       - accounts
+      security:
+      - cookieAuth: []
+      - basicAuth: []
       responses:
         '200':
           content:
@@ -315,6 +439,9 @@ paths:
             schema:
               $ref: '#/components/schemas/MilitaryUnit'
         required: true
+      security:
+      - cookieAuth: []
+      - basicAuth: []
       responses:
         '201':
           content:
@@ -352,6 +479,9 @@ paths:
         required: true
       tags:
       - accounts
+      security:
+      - cookieAuth: []
+      - basicAuth: []
       responses:
         '200':
           content:
@@ -394,6 +524,9 @@ paths:
           multipart/form-data:
             schema:
               $ref: '#/components/schemas/PatchedMilitaryUnit'
+      security:
+      - cookieAuth: []
+      - basicAuth: []
       responses:
         '200':
           content:
@@ -472,6 +605,9 @@ paths:
           type: string
       tags:
       - accounts
+      security:
+      - cookieAuth: []
+      - basicAuth: []
       responses:
         '200':
           content:
@@ -537,6 +673,9 @@ paths:
             schema:
               $ref: '#/components/schemas/UserRegistration'
         required: true
+      security:
+      - cookieAuth: []
+      - basicAuth: []
       responses:
         '201':
           content:
@@ -611,6 +750,9 @@ paths:
           multipart/form-data:
             schema:
               $ref: '#/components/schemas/PatchedUserStatusUpdate'
+      security:
+      - cookieAuth: []
+      - basicAuth: []
       responses:
         '200':
           description: User status updated successfully.
@@ -641,6 +783,9 @@ paths:
         required: true
       tags:
       - accounts
+      security:
+      - cookieAuth: []
+      - basicAuth: []
       responses:
         '200':
           content:
@@ -688,6 +833,9 @@ paths:
           multipart/form-data:
             schema:
               $ref: '#/components/schemas/PatchedUserRoleUpdate'
+      security:
+      - cookieAuth: []
+      - basicAuth: []
       responses:
         '200':
           content:
@@ -733,6 +881,9 @@ paths:
       summary: Retrieve current user profile
       tags:
       - accounts
+      security:
+      - cookieAuth: []
+      - basicAuth: []
       responses:
         '200':
           content:
@@ -785,6 +936,9 @@ paths:
           multipart/form-data:
             schema:
               $ref: '#/components/schemas/UserMe'
+      security:
+      - cookieAuth: []
+      - basicAuth: []
       responses:
         '200':
           content:
@@ -839,6 +993,9 @@ paths:
           multipart/form-data:
             schema:
               $ref: '#/components/schemas/PatchedUserMe'
+      security:
+      - cookieAuth: []
+      - basicAuth: []
       responses:
         '200':
           content:
@@ -893,6 +1050,9 @@ paths:
             schema:
               $ref: '#/components/schemas/ChangePassword'
         required: true
+      security:
+      - cookieAuth: []
+      - basicAuth: []
       responses:
         '200':
           description: Password changed successfully. Active sessions have been invalidated.
@@ -923,6 +1083,8 @@ paths:
               $ref: '#/components/schemas/PasswordResetRequest'
         required: true
       security:
+      - cookieAuth: []
+      - basicAuth: []
       - {}
       responses:
         '200':
@@ -970,6 +1132,8 @@ paths:
               $ref: '#/components/schemas/PasswordResetConfirm'
         required: true
       security:
+      - cookieAuth: []
+      - basicAuth: []
       - {}
       responses:
         '200':
@@ -1138,6 +1302,9 @@ paths:
           - WRITTEN_OFF
       tags:
       - drones
+      security:
+      - cookieAuth: []
+      - basicAuth: []
       responses:
         '200':
           content:
@@ -1241,6 +1408,9 @@ paths:
             schema:
               $ref: '#/components/schemas/Drone'
         required: true
+      security:
+      - cookieAuth: []
+      - basicAuth: []
       responses:
         '201':
           content:
@@ -1430,6 +1600,9 @@ paths:
           format: date
       tags:
       - drones
+      security:
+      - cookieAuth: []
+      - basicAuth: []
       responses:
         '200':
           content:
@@ -1478,6 +1651,9 @@ paths:
         required: true
       tags:
       - drones
+      security:
+      - cookieAuth: []
+      - basicAuth: []
       responses:
         '200':
           content:
@@ -1570,6 +1746,9 @@ paths:
           multipart/form-data:
             schema:
               $ref: '#/components/schemas/PatchedDroneUpdate'
+      security:
+      - cookieAuth: []
+      - basicAuth: []
       responses:
         '200':
           content:
@@ -1678,6 +1857,9 @@ paths:
           type: integer
       tags:
       - drones
+      security:
+      - cookieAuth: []
+      - basicAuth: []
       responses:
         '200':
           content:
@@ -1737,6 +1919,9 @@ paths:
           type: integer
       tags:
       - drones
+      security:
+      - cookieAuth: []
+      - basicAuth: []
       responses:
         '200':
           content:
@@ -1916,6 +2101,9 @@ paths:
           - WRITTEN_OFF
       tags:
       - drones
+      security:
+      - cookieAuth: []
+      - basicAuth: []
       responses:
         '200':
           description: A CSV file containing drone data generated successfully.
@@ -1946,6 +2134,9 @@ paths:
             schema:
               $ref: '#/components/schemas/DroneImport'
         required: true
+      security:
+      - cookieAuth: []
+      - basicAuth: []
       responses:
         '200':
           description: Import processing completed.
@@ -1976,6 +2167,9 @@ paths:
           type: integer
       tags:
       - drones
+      security:
+      - cookieAuth: []
+      - basicAuth: []
       responses:
         '200':
           content:
@@ -2035,6 +2229,9 @@ paths:
             schema:
               $ref: '#/components/schemas/DroneModel'
         required: true
+      security:
+      - cookieAuth: []
+      - basicAuth: []
       responses:
         '200':
           content:
@@ -2088,6 +2285,9 @@ paths:
       summary: List write-off records
       tags:
       - drones
+      security:
+      - cookieAuth: []
+      - basicAuth: []
       responses:
         '200':
           content:
@@ -2146,6 +2346,9 @@ paths:
             schema:
               $ref: '#/components/schemas/WriteOffRecordCreate'
         required: true
+      security:
+      - cookieAuth: []
+      - basicAuth: []
       responses:
         '201':
           content:
@@ -2263,6 +2466,9 @@ paths:
           format: date
       tags:
       - drones
+      security:
+      - cookieAuth: []
+      - basicAuth: []
       responses:
         '200':
           content:
@@ -2347,6 +2553,9 @@ paths:
         description: Filter by the ID of the acting user.
       tags:
       - media
+      security:
+      - cookieAuth: []
+      - basicAuth: []
       responses:
         '200':
           content:
@@ -2392,6 +2601,9 @@ paths:
         required: true
       tags:
       - media
+      security:
+      - cookieAuth: []
+      - basicAuth: []
       responses:
         '200':
           content:
@@ -2481,6 +2693,9 @@ paths:
         description: 'Filter by uploader user ID (alias: `uploaded_by`).'
       tags:
       - media
+      security:
+      - cookieAuth: []
+      - basicAuth: []
       responses:
         '200':
           content:
@@ -2563,6 +2778,9 @@ paths:
                   checksum: 9f2c1a4b8e5d6f70a1b2c3d4e5f60718
                 summary: Valid Request
         required: true
+      security:
+      - cookieAuth: []
+      - basicAuth: []
       responses:
         '201':
           content:
@@ -2611,6 +2829,9 @@ paths:
         required: true
       tags:
       - media
+      security:
+      - cookieAuth: []
+      - basicAuth: []
       responses:
         '200':
           content:
@@ -2679,6 +2900,9 @@ paths:
                   recorded_at: '2026-06-02T02:28:43Z'
                   checksum: 9f2c1a4b8e5d6f70a1b2c3d4e5f60718
                 summary: Valid Request
+      security:
+      - cookieAuth: []
+      - basicAuth: []
       responses:
         '200':
           content:
@@ -2746,6 +2970,9 @@ paths:
                 value:
                   recorded_at: '2026-06-02T02:28:43Z'
                 summary: Valid Request
+      security:
+      - cookieAuth: []
+      - basicAuth: []
       responses:
         '200':
           content:
@@ -2795,6 +3022,9 @@ paths:
         required: true
       tags:
       - media
+      security:
+      - cookieAuth: []
+      - basicAuth: []
       responses:
         '204':
           description: Video metadata record successfully deleted. No content.
@@ -2855,6 +3085,9 @@ paths:
         description: Filter missions by their current state.
       tags:
       - missions
+      security:
+      - cookieAuth: []
+      - basicAuth: []
       responses:
         '200':
           content:
@@ -2941,6 +3174,9 @@ paths:
             schema:
               $ref: '#/components/schemas/Mission'
         required: true
+      security:
+      - cookieAuth: []
+      - basicAuth: []
       responses:
         '200':
           content:
@@ -3009,6 +3245,9 @@ paths:
           type: integer
       tags:
       - media
+      security:
+      - cookieAuth: []
+      - basicAuth: []
       responses:
         '200':
           content:
@@ -3071,6 +3310,9 @@ paths:
             schema:
               $ref: '#/components/schemas/MissionArtifactUpload'
         required: true
+      security:
+      - cookieAuth: []
+      - basicAuth: []
       responses:
         '201':
           content:
@@ -3145,6 +3387,9 @@ paths:
         required: true
       tags:
       - media
+      security:
+      - cookieAuth: []
+      - basicAuth: []
       responses:
         '200':
           content:
@@ -3197,6 +3442,9 @@ paths:
         required: true
       tags:
       - media
+      security:
+      - cookieAuth: []
+      - basicAuth: []
       responses:
         '204':
           description: Artifact successfully deleted. No content returned.
@@ -3229,6 +3477,9 @@ paths:
         required: true
       tags:
       - media
+      security:
+      - cookieAuth: []
+      - basicAuth: []
       responses:
         '200':
           content:
@@ -3271,6 +3522,9 @@ paths:
           type: integer
       tags:
       - mission assignments
+      security:
+      - cookieAuth: []
+      - basicAuth: []
       responses:
         '200':
           content:
@@ -3367,6 +3621,9 @@ paths:
             schema:
               $ref: '#/components/schemas/MissionDrone'
         required: true
+      security:
+      - cookieAuth: []
+      - basicAuth: []
       responses:
         '201':
           content:
@@ -3430,6 +3687,9 @@ paths:
         required: true
       tags:
       - mission assignments
+      security:
+      - cookieAuth: []
+      - basicAuth: []
       responses:
         '204':
           description: Assignment successfully deleted. No content is returned.
@@ -3456,6 +3716,9 @@ paths:
         required: true
       tags:
       - missions
+      security:
+      - cookieAuth: []
+      - basicAuth: []
       responses:
         '200':
           content:
@@ -3544,6 +3807,9 @@ paths:
           multipart/form-data:
             schema:
               $ref: '#/components/schemas/PatchedMissionDroneCondition'
+      security:
+      - cookieAuth: []
+      - basicAuth: []
       responses:
         '200':
           content:
@@ -3620,6 +3886,9 @@ paths:
           multipart/form-data:
             schema:
               $ref: '#/components/schemas/PatchedMissionOutcome'
+      security:
+      - cookieAuth: []
+      - basicAuth: []
       responses:
         '200':
           content:
@@ -3679,6 +3948,9 @@ paths:
         required: true
       tags:
       - missions
+      security:
+      - cookieAuth: []
+      - basicAuth: []
       responses:
         '200':
           content:
@@ -3729,6 +4001,9 @@ paths:
           multipart/form-data:
             schema:
               $ref: '#/components/schemas/MissionStatusUpdate'
+      security:
+      - cookieAuth: []
+      - basicAuth: []
       responses:
         '200':
           content:
@@ -3791,6 +4066,9 @@ paths:
           multipart/form-data:
             schema:
               $ref: '#/components/schemas/PatchedMissionStatusUpdate'
+      security:
+      - cookieAuth: []
+      - basicAuth: []
       responses:
         '200':
           content:
@@ -3898,6 +4176,9 @@ paths:
         style: form
       tags:
       - repairs
+      security:
+      - cookieAuth: []
+      - basicAuth: []
       responses:
         '200':
           content:
@@ -3951,6 +4232,9 @@ paths:
             schema:
               $ref: '#/components/schemas/DefectReport'
         required: true
+      security:
+      - cookieAuth: []
+      - basicAuth: []
       responses:
         '201':
           content:
@@ -3993,6 +4277,9 @@ paths:
         required: true
       tags:
       - repairs
+      security:
+      - cookieAuth: []
+      - basicAuth: []
       responses:
         '200':
           content:
@@ -4047,6 +4334,9 @@ paths:
           type: integer
       tags:
       - repairs
+      security:
+      - cookieAuth: []
+      - basicAuth: []
       responses:
         '200':
           content:
@@ -4110,6 +4400,9 @@ paths:
             schema:
               $ref: '#/components/schemas/DefectStatusUpdate'
         required: true
+      security:
+      - cookieAuth: []
+      - basicAuth: []
       responses:
         '200':
           content:
@@ -4188,6 +4481,9 @@ paths:
           `status_change`, `repair`, `replacement`).
       tags:
       - repairs
+      security:
+      - cookieAuth: []
+      - basicAuth: []
       responses:
         '200':
           content:
@@ -4260,6 +4556,9 @@ paths:
           `status_change`, `repair`, `replacement`).
       tags:
       - repairs
+      security:
+      - cookieAuth: []
+      - basicAuth: []
       responses:
         '200':
           description: A CSV file containing the drone repair history generated successfully.
@@ -4340,6 +4639,9 @@ paths:
           - PENDING
       tags:
       - repairs
+      security:
+      - cookieAuth: []
+      - basicAuth: []
       responses:
         '200':
           content:
@@ -4393,6 +4695,9 @@ paths:
             schema:
               $ref: '#/components/schemas/RepairOrderCreate'
         required: true
+      security:
+      - cookieAuth: []
+      - basicAuth: []
       responses:
         '201':
           content:
@@ -4440,6 +4745,9 @@ paths:
         required: true
       tags:
       - repairs
+      security:
+      - cookieAuth: []
+      - basicAuth: []
       responses:
         '200':
           content:
@@ -4501,6 +4809,9 @@ paths:
           multipart/form-data:
             schema:
               $ref: '#/components/schemas/PatchedRepairOrderStatusUpdate'
+      security:
+      - cookieAuth: []
+      - basicAuth: []
       responses:
         '200':
           content:
@@ -4582,6 +4893,9 @@ paths:
             schema:
               $ref: '#/components/schemas/RepairOrderReplacement'
         required: true
+      security:
+      - cookieAuth: []
+      - basicAuth: []
       responses:
         '201':
           content:
@@ -4687,6 +5001,9 @@ paths:
           format: date-time
       tags:
       - repairs
+      security:
+      - cookieAuth: []
+      - basicAuth: []
       responses:
         '200':
           content:
@@ -4744,6 +5061,9 @@ paths:
             schema:
               $ref: '#/components/schemas/ComponentReplacement'
         required: true
+      security:
+      - cookieAuth: []
+      - basicAuth: []
       responses:
         '201':
           content:
@@ -4788,6 +5108,9 @@ paths:
         required: true
       tags:
       - repairs
+      security:
+      - cookieAuth: []
+      - basicAuth: []
       responses:
         '200':
           content:
@@ -4825,6 +5148,9 @@ paths:
       summary: Export component replacement data to CSV
       tags:
       - repairs
+      security:
+      - cookieAuth: []
+      - basicAuth: []
       responses:
         '200':
           description: A CSV file generated successfully.
@@ -4840,6 +5166,9 @@ paths:
       summary: List roles
       tags:
       - roles
+      security:
+      - cookieAuth: []
+      - basicAuth: []
       responses:
         '200':
           content:
@@ -5704,6 +6033,32 @@ components:
       - image
       - data
       type: string
+    Login:
+      type: object
+      description: Serialize login requests for session-based authentication.
+      properties:
+        identifier:
+          type: string
+        password:
+          type: string
+          writeOnly: true
+      required:
+      - identifier
+      - password
+    LoginMessageResponse:
+      type: object
+      properties:
+        detail:
+          type: string
+      required:
+      - detail
+    LogoutResponse:
+      type: object
+      properties:
+        detail:
+          type: string
+      required:
+      - detail
     MediaAuditLog:
       type: object
       description: Serialize read-only media audit log data for list responses.
@@ -7662,3 +8017,11 @@ components:
       - drone
       - id
       - reason
+  securitySchemes:
+    basicAuth:
+      type: http
+      scheme: basic
+    cookieAuth:
+      type: apiKey
+      in: cookie
+      name: sessionid

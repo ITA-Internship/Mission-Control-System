@@ -4,7 +4,15 @@ import {
 } from "react";
 import type { FormEvent } from "react";
 import { Shield } from "lucide-react";
-import { useNavigate } from "react-router";
+import {
+  useLocation,
+  useNavigate,
+} from "react-router";
+import {
+  buildLoginPath,
+  DEFAULT_AUTHENTICATED_ROUTE,
+  getSafeReturnTo,
+} from "../utils/returnTo";
 
 import {
   isAbortError,
@@ -26,6 +34,7 @@ import {
   validatePasswordConfirmation,
   validateRequiredPassword,
 } from "../validation/authValidation";
+import { useAuth } from "../hooks/useAuth";
 
 export function RequiredPasswordChangePage() {
   const navigate = useNavigate();
@@ -59,6 +68,8 @@ export function RequiredPasswordChangePage() {
     isSubmitting,
     setIsSubmitting,
   ] = useState(false);
+  const [isSigningOut, setIsSigningOut] =
+    useState(false);
 
   const currentPasswordRef =
     useRef<HTMLInputElement>(null);
@@ -74,10 +85,69 @@ export function RequiredPasswordChangePage() {
     isMounted,
   } = useAbortableRequest();
 
+  const {
+    refreshCurrentUser,
+    clearAuthentication,
+    logout,
+  } = useAuth();
+
+  const location = useLocation();
+
+  const safeReturnTo = getSafeReturnTo(
+    new URLSearchParams(
+      location.search,
+    ).get("returnTo"),
+  );
+
+  const destination =
+    safeReturnTo ??
+    DEFAULT_AUTHENTICATED_ROUTE;
+
   function focusAlert() {
     requestAnimationFrame(() => {
       alertRef.current?.focus();
     });
+  }
+
+  async function handleSignOut() {
+    if (isSubmitting || isSigningOut) {
+      return;
+    }
+
+    setFormError(undefined);
+    setIsSigningOut(true);
+
+    try {
+      await run((signal) =>
+        logout(signal),
+      );
+
+      if (!isMounted()) {
+        return;
+      }
+
+      navigate("/login", {
+        replace: true,
+        flushSync: true,
+      });
+    } catch (error) {
+      if (
+        isAbortError(error) ||
+        !isMounted()
+      ) {
+        return;
+      }
+
+      setFormError(
+        "We could not sign you out. Please try again.",
+      );
+
+      focusAlert();
+    } finally {
+      if (isMounted()) {
+        setIsSigningOut(false);
+      }
+    }
   }
 
   async function handleSubmit(
@@ -85,7 +155,7 @@ export function RequiredPasswordChangePage() {
   ) {
     event.preventDefault();
 
-    if (isSubmitting) {
+    if (isSubmitting || isSigningOut) {
       return;
     }
 
@@ -146,7 +216,34 @@ export function RequiredPasswordChangePage() {
         return;
       }
 
-      navigate("/my-profile", {
+      const refreshedUser = await run(
+        (signal) =>
+          refreshCurrentUser(signal),
+      );
+
+      if (!isMounted()) {
+        return;
+      }
+
+      if (!refreshedUser) {
+        navigate(
+          buildLoginPath(safeReturnTo),
+          {
+            replace: true,
+          },
+        );
+
+        return;
+      }
+
+      if (refreshedUser.must_change_password) {
+        setFormError(
+          "Your account still requires a password change. Please try again.",
+        );
+        return;
+      }
+
+      navigate(destination, {
         replace: true,
       });
     } catch (error) {
@@ -158,9 +255,15 @@ export function RequiredPasswordChangePage() {
       }
 
       if (isSessionAuthenticationError(error)) {
-        navigate("/login", {
-          replace: true,
-        });
+        clearAuthentication();
+
+        navigate(
+          buildLoginPath(safeReturnTo),
+          {
+            replace: true,
+          },
+        );
+
         return;
       }
 
@@ -320,6 +423,23 @@ export function RequiredPasswordChangePage() {
           >
             Save and continue
           </SubmitButton>
+
+          <button
+            type="button"
+            onClick={() => {
+              void handleSignOut();
+            }}
+            disabled={
+              isSubmitting ||
+              isSigningOut
+            }
+            aria-busy={isSigningOut}
+            className="mt-3 w-full rounded-lg border border-white/10 px-4 py-3 text-sm font-semibold text-slate-300 transition hover:bg-white/5 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {isSigningOut
+              ? "Signing out..."
+              : "Sign out"}
+          </button>
 
           <p className="text-center text-xs leading-5 text-mc-subtle">
             This step is mandatory and cannot be

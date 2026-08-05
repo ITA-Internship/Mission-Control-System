@@ -89,11 +89,7 @@ export const router = createBrowserRouter([
     path: "/my-profile",
     element: (
       <RequireSessionAuth>
-        {(user) => (
-          <MyProfilePage
-            initialUser={user}
-          />
-        )}
+        {() => <MyProfilePage />}
       </RequireSessionAuth>
     ),
   },

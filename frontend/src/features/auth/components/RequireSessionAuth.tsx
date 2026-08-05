@@ -1,153 +1,120 @@
-import {
-  useEffect,
-  useState,
-} from "react";
 import type { ReactNode } from "react";
 import {
-  useNavigate,
+  Navigate,
+  useLocation,
 } from "react-router";
 
 import {
-  isAbortError,
-} from "../../../shared/api/apiClient";
-import { getCurrentUser } from "../api/authApi";
-import { AuthAlert } from "./AuthAlert";
-import type { CurrentUser } from "../../../shared/types/accounts";
+  buildLoginPath,
+  buildRequiredPasswordChangePath,
+  DEFAULT_AUTHENTICATED_ROUTE,
+  getSafeReturnTo,
+} from "../utils/returnTo";
+
+import type {
+  CurrentUser,
+} from "../../../shared/types/accounts";
 import {
-  getFormError,
-  isSessionAuthenticationError,
-} from "../utils/authErrors";
+  useAuth,
+} from "../hooks/useAuth";
+import { AuthAlert } from "./AuthAlert";
 
 export function RequireSessionAuth({
   children,
   requirePasswordChange = false,
 }: {
-  children: (user: CurrentUser) => ReactNode;
+  children: (
+    user: CurrentUser,
+  ) => ReactNode;
   requirePasswordChange?: boolean;
 }) {
-  const navigate = useNavigate();
-  const [currentUser, setCurrentUser] =
-    useState<CurrentUser | null>(null);
-  const [loading, setLoading] =
-    useState(true);
-  const [loadError, setLoadError] =
-    useState<string | null>(null);
+  const {
+    status,
+    currentUser,
+    error,
+  } = useAuth();
 
-  useEffect(() => {
-    const controller =
-      new AbortController();
+  const location = useLocation();
 
-    async function loadUser() {
-      try {
-        setLoading(true);
-        setLoadError(null);
+  const returnToFromQuery =
+    getSafeReturnTo(
+      new URLSearchParams(
+        location.search,
+      ).get("returnTo"),
+    );
 
-        const user =
-          await getCurrentUser(
-            controller.signal,
-          );
+  const currentRoute =
+    getSafeReturnTo(
+      [
+        location.pathname,
+        location.search,
+        location.hash,
+      ].join(""),
+    );
 
-        if (
-          user.must_change_password &&
-          !requirePasswordChange
-        ) {
-          navigate(
-            "/change-password/required",
-            {
-              replace: true,
-            },
-          );
-          return;
-        }
+  const requestedReturnTo =
+    requirePasswordChange
+      ? returnToFromQuery
+      : currentRoute;
 
-        if (
-          !user.must_change_password &&
-          requirePasswordChange
-        ) {
-          navigate("/my-profile", {
-            replace: true,
-          });
-          return;
-        }
-
-        setCurrentUser(user);
-      } catch (error) {
-        if (isAbortError(error)) {
-          return;
-        }
-
-        if (isSessionAuthenticationError(error)) {
-          navigate("/login", {
-            replace: true,
-          });
-          return;
-        }
-
-        setLoadError(
-          getFormError(
-            error,
-            "We could not verify your session right now.",
-          ),
-        );
-      } finally {
-        if (!controller.signal.aborted) {
-          setLoading(false);
-        }
-      }
-    }
-
-    void loadUser();
-
-    return () => {
-      controller.abort();
-    };
-  }, [navigate, requirePasswordChange]);
-
-  if (loading) {
+  if (status === "loading") {
     return (
-      <div
-        className="flex min-h-screen items-center justify-center"
-        style={{
-          background: "#0B0F14",
-          color: "#E6EAF0",
-        }}
-      >
-        <div
-          className="rounded-xl border px-6 py-4 text-sm"
-          style={{
-            background: "#161D26",
-            borderColor:
-              "rgba(255,255,255,.08)",
-          }}
-        >
-          Loading profile...
-        </div>
+      <div className="flex min-h-screen items-center justify-center">
+        Loading profile...
       </div>
     );
   }
 
-  if (!currentUser || loadError) {
+  if (error) {
     return (
-      <div
-        className="flex min-h-screen items-center justify-center px-6"
-        style={{
-          background: "#0B0F14",
-        }}
-      >
-        <div
-          className="flex max-w-md flex-col gap-4 rounded-xl border p-6"
-          style={{
-            background: "#161D26",
-            borderColor:
-              "rgba(255,255,255,.08)",
-          }}
-        >
-          <AuthAlert variant="error">
-            {loadError ??
-              "Profile data is unavailable."}
-          </AuthAlert>
-        </div>
+      <div className="flex min-h-screen items-center justify-center px-6">
+        <AuthAlert variant="error">
+          {error}
+        </AuthAlert>
       </div>
+    );
+  }
+
+  if (
+    status === "unauthenticated" ||
+    !currentUser
+  ) {
+    return (
+      <Navigate
+        to={buildLoginPath(
+          requestedReturnTo,
+        )}
+        replace
+      />
+    );
+  }
+
+  if (
+    currentUser.must_change_password &&
+    !requirePasswordChange
+  ) {
+    return (
+      <Navigate
+        to={buildRequiredPasswordChangePath(
+          requestedReturnTo,
+        )}
+        replace
+      />
+    );
+  }
+
+  if (
+    !currentUser.must_change_password &&
+    requirePasswordChange
+  ) {
+    return (
+      <Navigate
+        to={
+          returnToFromQuery ??
+          DEFAULT_AUTHENTICATED_ROUTE
+        }
+        replace
+      />
     );
   }
 

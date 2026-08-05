@@ -1,6 +1,12 @@
 from drf_spectacular.types import OpenApiTypes
-from drf_spectacular.utils import OpenApiExample, OpenApiParameter, OpenApiResponse
-from rest_framework import status
+from drf_spectacular.utils import (
+    OpenApiExample,
+    OpenApiParameter,
+    OpenApiResponse,
+    extend_schema,
+    inline_serializer,
+)
+from rest_framework import serializers, status
 
 from common.api_description_schema import description_schema
 from config.settings import MAX_EXPORT_LIMIT
@@ -9,6 +15,7 @@ from .serializers import (
     AccountActivationSerializer,
     AuditLogSerializer,
     ChangePasswordSerializer,
+    LoginSerializer,
     MilitaryUnitSerializer,
     PasswordResetConfirmSerializer,
     PasswordResetRequestSerializer,
@@ -640,6 +647,153 @@ change_password_schema = description_schema(
             },
         )
     ],
+)
+
+login_response_serializer = inline_serializer(
+    name="LoginMessageResponse",
+    fields={
+        "detail": serializers.CharField(),
+    },
+)
+
+login_get_schema = extend_schema(
+    tags=["accounts"],
+    auth=[],
+    operation_id="accounts_login_retrieve",
+    summary="Initialize login CSRF protection",
+    description=(
+        "Issues a CSRF cookie that must be included in the "
+        "subsequent login POST request."
+    ),
+    request=None,
+    responses={
+        status.HTTP_200_OK: OpenApiResponse(
+            response=login_response_serializer,
+            description="CSRF cookie issued successfully.",
+            examples=[
+                OpenApiExample(
+                    "CSRF cookie set",
+                    value={
+                        "detail": "CSRF cookie set.",
+                    },
+                    response_only=True,
+                ),
+            ],
+        ),
+    },
+)
+
+login_post_schema = extend_schema(
+    tags=["accounts"],
+    auth=[],
+    operation_id="accounts_login_create",
+    summary="Log in",
+    description=(
+        "Authenticates a user by username or email and password, "
+        "then starts a Django session."
+    ),
+    request=LoginSerializer,
+    responses={
+        status.HTTP_200_OK: OpenApiResponse(
+            response=UserMeSerializer,
+            description=("Authentication succeeded and a session was created."),
+        ),
+        status.HTTP_400_BAD_REQUEST: OpenApiResponse(
+            response=login_response_serializer,
+            description=("The submitted credentials are missing or invalid."),
+            examples=[
+                OpenApiExample(
+                    "Invalid credentials",
+                    value={
+                        "detail": "Invalid credentials.",
+                    },
+                    response_only=True,
+                ),
+                OpenApiExample(
+                    "Missing identifier",
+                    value={
+                        "detail": "Identifier is required.",
+                    },
+                    response_only=True,
+                ),
+            ],
+        ),
+        status.HTTP_429_TOO_MANY_REQUESTS: OpenApiResponse(
+            response=login_response_serializer,
+            description="Login rate limit exceeded.",
+            examples=[
+                OpenApiExample(
+                    "Rate limit exceeded",
+                    value={
+                        "detail": (
+                            "Request was throttled. "
+                            "Expected available in 60 seconds."
+                        ),
+                    },
+                    response_only=True,
+                ),
+            ],
+        ),
+    },
+)
+
+logout_response_serializer = inline_serializer(
+    name="LogoutResponse",
+    fields={
+        "detail": serializers.CharField(),
+    },
+)
+
+
+logout_schema = extend_schema(
+    tags=["accounts"],
+    auth=[{"cookieAuth": []}],
+    operation_id="accounts_logout",
+    summary="Log out of the current session",
+    description=(
+        "Ends only the current authenticated session. "
+        "The endpoint uses session authentication and "
+        "requires a valid CSRF cookie and X-CSRFToken "
+        "header for the POST request."
+    ),
+    request=None,
+    responses={
+        status.HTTP_200_OK: OpenApiResponse(
+            response=logout_response_serializer,
+            description=("The current session was ended " "successfully."),
+            examples=[
+                OpenApiExample(
+                    "Logout successful",
+                    value={
+                        "detail": ("Signed out successfully."),
+                    },
+                    response_only=True,
+                ),
+            ],
+        ),
+        status.HTTP_403_FORBIDDEN: OpenApiResponse(
+            response=logout_response_serializer,
+            description=(
+                "The request is unauthenticated or " "CSRF verification failed."
+            ),
+            examples=[
+                OpenApiExample(
+                    "Unauthenticated request",
+                    value={
+                        "detail": ("Authentication credentials " "were not provided."),
+                    },
+                    response_only=True,
+                ),
+                OpenApiExample(
+                    "CSRF failure",
+                    value={
+                        "detail": ("CSRF Failed: CSRF token " "missing."),
+                    },
+                    response_only=True,
+                ),
+            ],
+        ),
+    },
 )
 
 password_reset_schema = description_schema(

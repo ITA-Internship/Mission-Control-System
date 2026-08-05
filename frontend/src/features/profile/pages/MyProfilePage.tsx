@@ -10,26 +10,22 @@ import type {
   FormEvent,
 } from "react";
 import {
-  Link,
+  useLocation,
   useNavigate,
 } from "react-router";
 
-import {
-  isAbortError,
-} from "../../../shared/api/apiClient";
-import {
-  changePassword,
-  getCurrentUser,
-  signOut,
-} from "../../auth/api/authApi";
-import { AuthAlert } from "../../auth/components/AuthAlert";
+import { changePassword } from "../../auth/api/authApi";
+import { useAuth } from "../../auth/hooks/useAuth";
 import {
   getApiFieldError,
   getFormError,
   isPasswordChangeRequiredError,
   isSessionAuthenticationError,
 } from "../../auth/utils/authErrors";
-import type { CurrentUser } from "../../../shared/types/accounts";
+import {
+  buildLoginPath,
+  buildRequiredPasswordChangePath,
+} from "../../auth/utils/returnTo";
 import { updateCurrentUserProfile } from "../api/profileApi";
 import { ProfileAvatarCard } from "../components/ProfileAvatarCard";
 import { ProfileDetailsCard } from "../components/ProfileDetailsCard";
@@ -76,19 +72,22 @@ const SECTIONS: Array<{
   },
 ];
 
-export function MyProfilePage({
-  initialUser = null,
-}: {
-  initialUser?: CurrentUser | null;
-}) {
+export function MyProfilePage() {
   const navigate = useNavigate();
+  const location = useLocation();
 
-  const [currentUser, setCurrentUser] =
-    useState<CurrentUser | null>(initialUser);
-  const [loading, setLoading] =
-    useState(initialUser === null);
-  const [loadError, setLoadError] =
-    useState<string | null>(null);
+  const currentRoute = [
+    location.pathname,
+    location.search,
+    location.hash,
+  ].join("");
+
+  const {
+    currentUser,
+    setAuthenticatedUser,
+    clearAuthentication,
+    logout,
+  } = useAuth();
   const [activeSection, setActiveSection] =
     useState<ActiveSection>("profile");
   const [sidebarOpen, setSidebarOpen] =
@@ -109,8 +108,8 @@ export function MyProfilePage({
     );
   const [profileForm, setProfileForm] =
     useState<ProfileFormState>(
-      initialUser
-        ? getProfileFormState(initialUser)
+      currentUser
+        ? getProfileFormState(currentUser)
         : {
             firstName: "",
             lastName: "",
@@ -190,70 +189,6 @@ export function MyProfilePage({
       );
     };
   }, [userMenuOpen]);
-
-  useEffect(() => {
-    if (initialUser) {
-      return undefined;
-    }
-
-    const controller =
-      new AbortController();
-
-    async function loadCurrentUserData() {
-      try {
-        setLoading(true);
-        setLoadError(null);
-
-        const user =
-          await getCurrentUser(
-            controller.signal,
-          );
-
-        if (user.must_change_password) {
-          navigate(
-            "/change-password/required",
-            {
-              replace: true,
-            },
-          );
-          return;
-        }
-
-        setCurrentUser(user);
-        setProfileForm(
-          getProfileFormState(user),
-        );
-      } catch (error) {
-        if (isAbortError(error)) {
-          return;
-        }
-
-        if (isSessionAuthenticationError(error)) {
-          navigate("/login", {
-            replace: true,
-          });
-          return;
-        }
-
-        setLoadError(
-          getFormError(
-            error,
-            "We could not load your profile right now.",
-          ),
-        );
-      } finally {
-        if (!controller.signal.aborted) {
-          setLoading(false);
-        }
-      }
-    }
-
-    void loadCurrentUserData();
-
-    return () => {
-      controller.abort();
-    };
-  }, [initialUser, navigate]);
 
   const avatarPreview = useMemo(() => {
     if (!avatarFile) {
@@ -448,16 +383,35 @@ export function MyProfilePage({
     error: unknown,
   ): boolean {
     if (isPasswordChangeRequiredError(error)) {
-      navigate("/change-password/required", {
-        replace: true,
-      });
+      if (currentUser) {
+        setAuthenticatedUser({
+          ...currentUser,
+          must_change_password: true,
+        });
+      }
+
+      navigate(
+        buildRequiredPasswordChangePath(
+          currentRoute,
+        ),
+        {
+          replace: true,
+        },
+      );
+
       return true;
     }
 
     if (isSessionAuthenticationError(error)) {
-      navigate("/login", {
-        replace: true,
-      });
+      clearAuthentication();
+
+      navigate(
+        buildLoginPath(currentRoute),
+        {
+          replace: true,
+        },
+      );
+
       return true;
     }
 
@@ -531,7 +485,7 @@ export function MyProfilePage({
             : avatarFile ?? undefined,
         });
 
-      setCurrentUser(updatedUser);
+      setAuthenticatedUser(updatedUser);
       setProfileForm(
         getProfileFormState(updatedUser),
       );
@@ -750,7 +704,7 @@ export function MyProfilePage({
     setUserMenuOpen(false);
 
     try {
-      await signOut();
+      await logout();
       navigate("/login", {
         replace: true,
       });
@@ -821,62 +775,8 @@ export function MyProfilePage({
     event.target.value = "";
   }
 
-  if (loading) {
-    return (
-      <div
-        className="flex min-h-screen items-center justify-center"
-        style={{
-          background: "#0B0F14",
-          color: "#E6EAF0",
-        }}
-      >
-        <div
-          className="rounded-xl border px-6 py-4 text-sm"
-          style={{
-            background: "#161D26",
-            borderColor:
-              "rgba(255,255,255,.08)",
-          }}
-        >
-          Loading profile...
-        </div>
-      </div>
-    );
-  }
-
-  if (!currentUser || loadError) {
-    return (
-      <div
-        className="flex min-h-screen items-center justify-center px-6"
-        style={{
-          background: "#0B0F14",
-        }}
-      >
-        <div
-          className="flex max-w-md flex-col gap-4 rounded-xl border p-6"
-          style={{
-            background: "#161D26",
-            borderColor:
-              "rgba(255,255,255,.08)",
-          }}
-        >
-          <AuthAlert variant="error">
-            {loadError ??
-              "Profile data is unavailable."}
-          </AuthAlert>
-
-          <Link
-            to="/login"
-            className="text-sm font-medium"
-            style={{
-              color: "#C8A24A",
-            }}
-          >
-            Return to sign in
-          </Link>
-        </div>
-      </div>
-    );
+  if (!currentUser) {
+    return null;
   }
 
   return (

@@ -3,16 +3,22 @@ import type {
 } from "react";
 
 import {
+  act,
   render,
   screen,
+  waitFor,
 } from "@testing-library/react";
 
 import userEvent from "@testing-library/user-event";
 
 import {
   createMemoryRouter,
-  RouterProvider,
+  useLocation,
 } from "react-router";
+
+import {
+  RouterProvider,
+} from "react-router/dom";
 
 import {
   afterEach,
@@ -55,6 +61,10 @@ import {
   ResetPasswordPage,
 } from "./pages/ResetPasswordPage";
 
+import {
+  AuthProvider,
+} from "./context/AuthProvider";
+
 function renderRoute(
   path: string,
   routePath: string,
@@ -75,7 +85,7 @@ function renderRoute(
   );
 
   return render(
-    <RouterProvider router={router} />,
+    <RouterProvider router={router} />
   );
 }
 
@@ -98,6 +108,20 @@ function mockJsonResponse(
         },
       },
     ),
+  );
+}
+
+function LocationProbe() {
+  const location = useLocation();
+
+  return (
+    <div data-testid="current-location">
+      {[
+        location.pathname,
+        location.search,
+        location.hash,
+      ].join("")}
+    </div>
   );
 }
 
@@ -270,9 +294,21 @@ describe("login", () => {
   it("signs in and redirects to my profile", async () => {
     const user = userEvent.setup();
 
+    // 1. AuthProvider checks the existing session.
+    mockJsonResponse(
+      {
+        detail:
+          "Authentication credentials were not provided.",
+      },
+      401,
+    );
+
+    // 2. Login GET initializes the CSRF cookie.
     mockJsonResponse({
       detail: "CSRF cookie set.",
     });
+
+    // 3. Login POST returns the authenticated user.
     mockJsonResponse({
       id: 47,
       username: "root.admin",
@@ -313,11 +349,15 @@ describe("login", () => {
     );
 
     render(
-      <RouterProvider router={router} />,
+      <AuthProvider>
+        <RouterProvider router={router} />
+      </AuthProvider>,
     );
 
     await user.type(
-      screen.getByLabelText("Email or Username"),
+      screen.getByLabelText(
+        "Email or Username",
+      ),
       "root.admin@example.com",
     );
 
@@ -344,24 +384,33 @@ describe("login", () => {
     );
 
     const [
-      firstRequestUrl,
+      sessionRequestUrl,
     ] = fetchMock.mock.calls[0];
+
     const [
-      secondRequestUrl,
-      secondRequestOptions,
+      csrfRequestUrl,
     ] = fetchMock.mock.calls[1];
 
-    expect(firstRequestUrl).toBe(
+    const [
+      loginRequestUrl,
+      loginRequestOptions,
+    ] = fetchMock.mock.calls[2];
+
+    expect(sessionRequestUrl).toBe(
+      "/api/accounts/users/me/",
+    );
+
+    expect(csrfRequestUrl).toBe(
       "/api/accounts/login/",
     );
 
-    expect(secondRequestUrl).toBe(
+    expect(loginRequestUrl).toBe(
       "/api/accounts/login/",
     );
 
     expect(
       JSON.parse(
-        secondRequestOptions?.body as string,
+        loginRequestOptions?.body as string,
       ),
     ).toEqual({
       identifier:
@@ -371,8 +420,157 @@ describe("login", () => {
   });
 });
 
+describe("safe return navigation", () => {
+  it("preserves the requested protected route", async () => {
+    mockJsonResponse(
+      {
+        detail:
+          "Authentication credentials were not provided.",
+      },
+      401,
+    );
+
+    const router = createMemoryRouter(
+      [
+        {
+          path: "/missions/42",
+          element: (
+            <RequireSessionAuth>
+              {() => (
+                <div>Mission details</div>
+              )}
+            </RequireSessionAuth>
+          ),
+        },
+        {
+          path: "/login",
+          element: <LocationProbe />,
+        },
+      ],
+      {
+        initialEntries: [
+          "/missions/42?tab=activity#latest",
+        ],
+      },
+    );
+
+    render(
+      <AuthProvider>
+        <RouterProvider router={router} />
+      </AuthProvider>,
+    );
+
+    expect(
+      await screen.findByTestId(
+        "current-location",
+      ),
+    ).toHaveTextContent(
+      "/login?returnTo=%2Fmissions%2F42%3Ftab%3Dactivity%23latest",
+    );
+  });
+
+  it("redirects to a valid return destination after login", async () => {
+    const user = userEvent.setup();
+
+    mockJsonResponse(
+      {
+        detail:
+          "Authentication credentials were not provided.",
+      },
+      401,
+    );
+
+    mockJsonResponse({
+      detail: "CSRF cookie set.",
+    });
+
+    mockJsonResponse({
+      id: 47,
+      username: "root.admin",
+      email: "root.admin@example.com",
+      first_name: "Root",
+      last_name: "Admin",
+      rank: null,
+      contact: null,
+      profile_picture: null,
+      role: 1,
+      role_name: "Administrator",
+      role_code: "ADMIN",
+      unit: null,
+      is_active: true,
+      must_change_password: false,
+    });
+
+    const router = createMemoryRouter(
+      [
+        {
+          path: "/login",
+          Component: LoginPage,
+        },
+        {
+          path: "/missions/42",
+          element: <LocationProbe />,
+        },
+        {
+          path:
+            "/change-password/required",
+          element: (
+            <div>
+              Password change required
+            </div>
+          ),
+        },
+        {
+          path: "/my-profile",
+          element: <div>My Profile</div>,
+        },
+      ],
+      {
+        initialEntries: [
+          "/login?returnTo=%2Fmissions%2F42%3Ftab%3Dactivity%23latest",
+        ],
+      },
+    );
+
+    render(
+      <AuthProvider>
+        <RouterProvider router={router} />
+      </AuthProvider>,
+    );
+
+    await user.type(
+      screen.getByLabelText(
+        "Email or Username",
+      ),
+      "root.admin@example.com",
+    );
+
+    await user.type(
+      screen.getByLabelText("Password"),
+      "Test@1234",
+    );
+
+    await user.click(
+      screen.getByRole("button", {
+        name: "Sign in",
+      }),
+    );
+
+    expect(
+      await screen.findByTestId(
+        "current-location",
+      ),
+    ).toHaveTextContent(
+      "/missions/42?tab=activity#latest",
+    );
+  });
+});
+
 describe("required password change", () => {
-  function renderRequiredPasswordRoute() {
+  function renderRequiredPasswordRoute(
+    initialEntry =
+      "/change-password/required",
+  ) {
     const router = createMemoryRouter(
       [
         {
@@ -395,17 +593,26 @@ describe("required password change", () => {
           path: "/my-profile",
           element: <div>My Profile page</div>,
         },
+        {
+          path: "/missions/42",
+          element: <div>Mission details</div>,
+        },
       ],
       {
-        initialEntries: [
-          "/change-password/required",
-        ],
+        initialEntries: [initialEntry],
       },
     );
 
-    return render(
-      <RouterProvider router={router} />,
+    const rendered = render(
+      <AuthProvider>
+        <RouterProvider router={router} />
+      </AuthProvider>,
     );
+
+    return {
+      router,
+      ...rendered,
+    };
   }
 
   const requiredUser = {
@@ -422,6 +629,113 @@ describe("required password change", () => {
     is_active: true,
     must_change_password: true,
   };
+
+  it("prevents Back and Forward navigation from bypassing a required password change", async () => {
+    mockJsonResponse(requiredUser);
+
+    const router = createMemoryRouter(
+      [
+        {
+          path: "/my-profile",
+          element: (
+            <RequireSessionAuth>
+              {() => (
+                <div>
+                  Protected profile
+                </div>
+              )}
+            </RequireSessionAuth>
+          ),
+        },
+        {
+          path:
+            "/change-password/required",
+          element: (
+            <RequireSessionAuth
+              requirePasswordChange
+            >
+              {() => (
+                <div>
+                  Password change required
+                </div>
+              )}
+            </RequireSessionAuth>
+          ),
+        },
+        {
+          path: "/login",
+          element: <div>Login page</div>,
+        },
+      ],
+      {
+        initialEntries: [
+          "/change-password/required",
+          "/my-profile",
+        ],
+        initialIndex: 1,
+      },
+    );
+
+    render(
+      <AuthProvider>
+        <RouterProvider router={router} />
+      </AuthProvider>,
+    );
+
+    expect(
+      await screen.findByText(
+        "Password change required",
+      ),
+    ).toBeInTheDocument();
+
+    expect(
+      screen.queryByText(
+        "Protected profile",
+      ),
+    ).not.toBeInTheDocument();
+
+    expect(
+      router.state.location.pathname,
+    ).toBe(
+      "/change-password/required",
+    );
+
+    await act(async () => {
+      await router.navigate(-1);
+    });
+
+    await waitFor(() => {
+      expect(
+        router.state.location.pathname,
+      ).toBe(
+        "/change-password/required",
+      );
+    });
+
+    expect(
+      screen.queryByText(
+        "Protected profile",
+      ),
+    ).not.toBeInTheDocument();
+
+    await act(async () => {
+      await router.navigate(1);
+    });
+
+    await waitFor(() => {
+      expect(
+        router.state.location.pathname,
+      ).toBe(
+        "/change-password/required",
+      );
+    });
+
+    expect(
+      screen.queryByText(
+        "Protected profile",
+      ),
+    ).not.toBeInTheDocument();
+  });
 
   it("redirects users without a session to login", async () => {
     mockJsonResponse(
@@ -456,13 +770,25 @@ describe("required password change", () => {
 
   it("changes the required password and continues", async () => {
     const user = userEvent.setup();
+
+    // Initial AuthProvider session restoration.
     mockJsonResponse(requiredUser);
+
+    // Password-change request.
     mockJsonResponse({
       detail:
         "Password has been successfully changed.",
     });
 
-    renderRequiredPasswordRoute();
+    // refreshCurrentUser() after password change.
+    mockJsonResponse({
+      ...requiredUser,
+      must_change_password: false,
+    });
+
+    renderRequiredPasswordRoute(
+      "/change-password/required?returnTo=%2Fmissions%2F42",
+    );
 
     await user.type(
       await screen.findByLabelText(
@@ -470,16 +796,19 @@ describe("required password change", () => {
       ),
       "OldPassword123!",
     );
+
     await user.type(
       screen.getByLabelText("New password"),
       "NewPassword123!",
     );
+
     await user.type(
       screen.getByLabelText(
         "Confirm new password",
       ),
       "NewPassword123!",
     );
+
     await user.click(
       screen.getByRole("button", {
         name: "Save and continue",
@@ -488,9 +817,90 @@ describe("required password change", () => {
 
     expect(
       await screen.findByText(
-        "My Profile page",
+        "Mission details",
       ),
     ).toBeInTheDocument();
+
+    const fetchMock = vi.mocked(
+      globalThis.fetch,
+    );
+
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+
+    expect(
+      fetchMock.mock.calls[2]?.[0],
+    ).toBe("/api/accounts/users/me/");
+  });
+
+  it("stays on the required page when the refreshed user still requires a password change", async () => {
+    const user = userEvent.setup();
+
+    // Initial session restoration.
+    mockJsonResponse(requiredUser);
+
+    // Successful password change.
+    mockJsonResponse({
+      detail:
+        "Password has been successfully changed.",
+    });
+
+    // Backend still reports that the
+    // password change is required.
+    mockJsonResponse(requiredUser);
+
+    const { router } =
+      renderRequiredPasswordRoute(
+        "/change-password/required?returnTo=%2Fmissions%2F42",
+      );
+
+    await user.type(
+      await screen.findByLabelText(
+        "Current password",
+      ),
+      "OldPassword123!",
+    );
+
+    await user.type(
+      screen.getByLabelText(
+        "New password",
+      ),
+      "NewPassword123!",
+    );
+
+    await user.type(
+      screen.getByLabelText(
+        "Confirm new password",
+      ),
+      "NewPassword123!",
+    );
+
+    await user.click(
+      screen.getByRole("button", {
+        name: "Save and continue",
+      }),
+    );
+
+    expect(
+      await screen.findByText(
+        "Your account still requires a password change. Please try again.",
+      ),
+    ).toBeInTheDocument();
+
+    expect(
+      router.state.location.pathname,
+    ).toBe(
+      "/change-password/required",
+    );
+
+    expect(
+      screen.queryByText(
+        "Mission details",
+      ),
+    ).not.toBeInTheDocument();
+
+    expect(
+      vi.mocked(globalThis.fetch),
+    ).toHaveBeenCalledTimes(3);
   });
 
   it("redirects to login when the session expires during submission", async () => {
@@ -501,7 +911,10 @@ describe("required password change", () => {
       401,
     );
 
-    renderRequiredPasswordRoute();
+    const { router } =
+      renderRequiredPasswordRoute(
+        "/change-password/required?returnTo=%2Fmissions%2F42",
+      );
 
     await user.type(
       await screen.findByLabelText(
@@ -528,6 +941,16 @@ describe("required password change", () => {
     expect(
       await screen.findByText("Login page"),
     ).toBeInTheDocument();
+
+    expect(
+      router.state.location.pathname,
+    ).toBe("/login");
+
+    expect(
+      router.state.location.search,
+    ).toBe(
+      "?returnTo=%2Fmissions%2F42",
+    );
   });
 
   it("redirects to login when DRF returns not_authenticated during submission", async () => {
@@ -541,7 +964,10 @@ describe("required password change", () => {
       403,
     );
 
-    renderRequiredPasswordRoute();
+    const { router } =
+      renderRequiredPasswordRoute(
+        "/change-password/required?returnTo=%2Fmissions%2F42",
+      );
 
     await user.type(
       await screen.findByLabelText(
@@ -568,6 +994,130 @@ describe("required password change", () => {
     expect(
       await screen.findByText("Login page"),
     ).toBeInTheDocument();
+
+    expect(
+      router.state.location.pathname,
+    ).toBe("/login");
+
+    expect(
+      router.state.location.search,
+    ).toBe(
+      "?returnTo=%2Fmissions%2F42",
+    );
+  });
+
+  it("signs out from the required password-change page", async () => {
+    const user = userEvent.setup();
+
+    // Initial current-user request.
+    mockJsonResponse(requiredUser);
+
+    // Logout response.
+    mockJsonResponse({
+      detail: "Signed out successfully.",
+    });
+
+    const { router } =
+      renderRequiredPasswordRoute(
+        "/change-password/required?returnTo=%2Fmissions%2F42",
+      );
+
+    await user.click(
+      await screen.findByRole(
+        "button",
+        {
+          name: "Sign out",
+        },
+      ),
+    );
+
+    expect(
+      await screen.findByText(
+        "Login page",
+      ),
+    ).toBeInTheDocument();
+
+    expect(
+      router.state.location.pathname,
+    ).toBe("/login");
+
+    expect(
+      router.state.location.search,
+    ).toBe("");
+
+    const fetchMock = vi.mocked(
+      globalThis.fetch,
+    );
+
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+
+    expect(
+      fetchMock.mock.calls[1]?.[0],
+    ).toBe("/api/accounts/logout/");
+
+    expect(
+      fetchMock.mock.calls[1]?.[1]
+        ?.method,
+    ).toBe("POST");
+  });
+
+  it("keeps the authenticated state when logout fails", async () => {
+    const user = userEvent.setup();
+
+    // Initial current-user request.
+    mockJsonResponse(requiredUser);
+
+    // Failed logout response.
+    mockJsonResponse(
+      {
+        detail: "Logout failed.",
+      },
+      500,
+    );
+
+    const { router } =
+      renderRequiredPasswordRoute();
+
+    await user.click(
+      await screen.findByRole(
+        "button",
+        {
+          name: "Sign out",
+        },
+      ),
+    );
+
+    expect(
+      await screen.findByText(
+        "We could not sign you out. Please try again.",
+      ),
+    ).toBeInTheDocument();
+
+    expect(
+      screen.getByLabelText(
+        "Current password",
+      ),
+    ).toBeInTheDocument();
+
+    expect(
+      screen.queryByText("Login page"),
+    ).not.toBeInTheDocument();
+
+    expect(
+      router.state.location.pathname,
+    ).toBe(
+      "/change-password/required",
+    );
+
+    const fetchMock = vi.mocked(
+      globalThis.fetch,
+    );
+
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+
+    expect(
+      fetchMock.mock.calls[1]?.[0],
+    ).toBe("/api/accounts/logout/");
   });
 });
 

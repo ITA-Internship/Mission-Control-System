@@ -173,6 +173,79 @@ python manage.py test
 
 For more details, see [Development](docs/development.md).
 
+## Session Authentication
+
+The frontend uses a centralized authentication state provided by
+`AuthProvider`. When the application starts, it requests
+`GET /api/accounts/users/me/` and exposes the current session as
+`loading`, `authenticated`, or `unauthenticated`.
+
+Authentication is restored from the backend session cookie after a
+browser refresh. Authentication cookies and session identifiers are
+not stored in `localStorage` or `sessionStorage`.
+
+Protected routes use the shared authentication state:
+
+- unauthenticated users are redirected to `/login`;
+- users with `must_change_password=true` are redirected to
+  `/change-password/required`;
+- protected routes remain inaccessible until the required password
+  change is completed;
+- direct navigation, page refresh, and browser Back/Forward navigation
+  use the same access-control logic.
+
+A validated internal destination can be preserved through the
+`returnTo` query parameter. External, malformed, protocol-relative,
+and authentication-loop destinations are rejected. The fallback
+destination is `/my-profile`.
+
+After a required password change, the frontend refreshes
+`GET /api/accounts/users/me/`, verifies that
+`must_change_password=false`, updates the shared authentication state,
+and redirects only after the refresh completes.
+
+Logout ends only the current backend session. The frontend clears its
+shared authentication state only after a successful logout response.
+A failed logout keeps the authenticated state and displays a safe
+error.
+
+Authentication errors are handled consistently:
+
+- session-related `401` and `403` responses clear stale authentication
+  state and redirect to login;
+- genuine authorization `403` responses display an access-denied
+  message;
+- CSRF failures refresh CSRF state and retry an unsafe request once;
+- `429`, network, and server failures display safe messages.
+
+Session-authentication endpoints:
+
+```text
+GET  /api/accounts/login/
+POST /api/accounts/login/
+POST /api/accounts/logout/
+GET  /api/accounts/users/me/
+POST /api/accounts/users/me/change-password/
+```
+
+### Local Authentication Verification
+
+1. Open `/my-profile` without an authenticated session.
+2. Verify the redirect to `/login`.
+3. Sign in using a seeded user.
+4. Verify that a required password change redirects to
+   `/change-password/required`.
+5. Verify that `/my-profile` remains inaccessible before changing the
+   password.
+6. Change the password.
+7. Verify that authentication state is refreshed before redirecting.
+8. Verify navigation to `/my-profile` or the preserved `returnTo`
+   destination.
+9. Refresh the browser and verify that the session is restored.
+10. Sign out.
+11. Verify that protected routes and
+    `GET /api/accounts/users/me/` are no longer accessible.
+
 ## Documentation
 - [Contributing](CONTRIBUTING.md)
 - [API Reference](docs/api.md)

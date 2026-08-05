@@ -4,7 +4,15 @@ import {
 } from "react";
 import type { FormEvent } from "react";
 import { Mail } from "lucide-react";
-import { useNavigate } from "react-router";
+import {
+  useLocation,
+  useNavigate,
+} from "react-router";
+import {
+  buildRequiredPasswordChangePath,
+  DEFAULT_AUTHENTICATED_ROUTE,
+  getSafeReturnTo,
+} from "../utils/returnTo";
 
 import { isAbortError } from "../../../shared/api/apiClient";
 import {
@@ -21,6 +29,7 @@ import { TextInput } from "../components/TextInput";
 import { useAbortableRequest } from "../../../shared/hooks/useAbortableRequest";
 import { getFormError } from "../utils/authErrors";
 import { validateRequiredPassword } from "../validation/authValidation";
+import { useAuth } from "../hooks/useAuth";
 
 export function LoginPage() {
   const navigate = useNavigate();
@@ -45,6 +54,23 @@ export function LoginPage() {
     run,
     isMounted,
   } = useAbortableRequest();
+
+  const {
+    setAuthenticatedUser,
+  } = useAuth();
+
+  const location = useLocation();
+
+  const safeReturnTo =
+    getSafeReturnTo(
+      new URLSearchParams(
+        location.search,
+      ).get("returnTo"),
+    );
+
+  const destination =
+    safeReturnTo ??
+    DEFAULT_AUTHENTICATED_ROUTE;
 
   function focusAlert() {
     requestAnimationFrame(() => {
@@ -109,12 +135,24 @@ export function LoginPage() {
         return;
       }
 
-      navigate(
-        user.must_change_password
-          ? "/change-password/required"
-          : "/my-profile",
-        { replace: true },
-      );
+      setAuthenticatedUser(user);
+
+      if (user.must_change_password) {
+        navigate(
+          buildRequiredPasswordChangePath(
+            safeReturnTo,
+          ),
+          {
+            replace: true,
+          },
+        );
+
+        return;
+      }
+
+      navigate(destination, {
+        replace: true,
+      });
     } catch (error) {
       if (
         isAbortError(error) ||

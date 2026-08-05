@@ -53,6 +53,9 @@ from .api_details import (
     audit_log_retrieve_schema,
     audit_log_view_schema,
     change_password_schema,
+    login_get_schema,
+    login_post_schema,
+    logout_schema,
     military_unit_create_schema,
     military_unit_get_schema,
     military_unit_list_schema,
@@ -199,6 +202,10 @@ class MilitaryUnitDetailView(generics.RetrieveUpdateAPIView):
 
 
 @method_decorator(csrf_protect, name="dispatch")
+@extend_schema_view(
+    get=login_get_schema,
+    post=login_post_schema,
+)
 class LoginView(APIView):
     """Create a session for a user authenticated by email or username."""
 
@@ -281,6 +288,7 @@ class LogoutView(APIView):
 
     permission_classes = [permissions.IsAuthenticated]
 
+    @logout_schema
     def post(self, request):
         """Flush the session and emit Django's logout signal."""
         logout(request)

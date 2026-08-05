@@ -17,12 +17,17 @@ const CSRF_HEADER_NAME =
   import.meta.env.VITE_CSRF_HEADER_NAME ??
   "X-CSRFToken";
 
+const CSRF_BOOTSTRAP_PATH =
+  "/api/accounts/login/";
+
 export class ApiError extends Error {
   readonly status: number;
   readonly body: unknown;
 
   constructor(status: number, body: unknown) {
-    super(`API request failed with status ${status}.`);
+    super(
+      `API request failed with status ${status}.`,
+    );
 
     this.name = "ApiError";
     this.status = status;
@@ -33,6 +38,7 @@ export class ApiError extends Error {
 export class NetworkError extends Error {
   constructor() {
     super("The API could not be reached.");
+
     this.name = "NetworkError";
   }
 }
@@ -71,17 +77,22 @@ function getCookie(
     return undefined;
   }
 
-  const prefix = `${encodeURIComponent(name)}=`;
+  const prefix =
+    `${encodeURIComponent(name)}=`;
 
   const cookie = document.cookie
     .split("; ")
-    .find((item) => item.startsWith(prefix));
+    .find((item) =>
+      item.startsWith(prefix),
+    );
 
   if (!cookie) {
     return undefined;
   }
 
-  const value = cookie.slice(prefix.length);
+  const value = cookie.slice(
+    prefix.length,
+  );
 
   try {
     return decodeURIComponent(value);
@@ -91,17 +102,21 @@ function getCookie(
 }
 
 function buildApiUrl(path: string): string {
-  const normalizedPath = path.startsWith("/")
-    ? path
-    : `/${path}`;
+  const normalizedPath =
+    path.startsWith("/")
+      ? path
+      : `/${path}`;
 
   return `${API_BASE_URL}${normalizedPath}`;
 }
 
 /**
- * Append the defined entries of `params` to `path` as a query string.
- * Empty strings, null and undefined are dropped so that unset filters
- * never reach the API.
+ * Append the defined entries of `params`
+ * to `path` as a query string.
+ *
+ * Empty strings, null and undefined are
+ * dropped so unset filters do not reach
+ * the API.
  */
 export function withQuery(
   path: string,
@@ -109,9 +124,11 @@ export function withQuery(
 ): string {
   const search = new URLSearchParams();
 
-  for (const [key, value] of Object.entries(
-    params,
-  )) {
+  for (
+    const [key, value] of Object.entries(
+      params,
+    )
+  ) {
     if (
       value === null ||
       value === undefined ||
@@ -125,7 +142,9 @@ export function withQuery(
 
   const query = search.toString();
 
-  return query ? `${path}?${query}` : path;
+  return query
+    ? `${path}?${query}`
+    : path;
 }
 
 async function parseResponseBody(
@@ -144,6 +163,63 @@ async function parseResponseBody(
   }
 }
 
+function getResponseField(
+  body: unknown,
+  field: string,
+): string | undefined {
+  if (
+    typeof body !== "object" ||
+    body === null ||
+    Array.isArray(body)
+  ) {
+    return undefined;
+  }
+
+  const value = (
+    body as Record<string, unknown>
+  )[field];
+
+  return typeof value === "string"
+    ? value
+    : undefined;
+}
+
+function isCsrfApiError(
+  error: unknown,
+): error is ApiError {
+  if (
+    !(error instanceof ApiError) ||
+    error.status !== 403
+  ) {
+    return false;
+  }
+
+  const code = getResponseField(
+    error.body,
+    "code",
+  )?.toLowerCase();
+
+  if (
+    code === "csrf_failed" ||
+    code === "csrf_failure"
+  ) {
+    return true;
+  }
+
+  const detail = (
+    typeof error.body === "string"
+      ? error.body
+      : getResponseField(
+          error.body,
+          "detail",
+        )
+  )?.toLowerCase();
+
+  return Boolean(
+    detail?.includes("csrf"),
+  );
+}
+
 function parseFilename(
   disposition: string | null,
 ): string | undefined {
@@ -151,32 +227,41 @@ function parseFilename(
     return undefined;
   }
 
-  const encoded = /filename\*=UTF-8''([^;]+)/i.exec(
-    disposition,
-  );
+  const encoded =
+    /filename\*=UTF-8''([^;]+)/i.exec(
+      disposition,
+    );
 
   if (encoded) {
     try {
-      return decodeURIComponent(encoded[1]);
+      return decodeURIComponent(
+        encoded[1],
+      );
     } catch {
       return encoded[1];
     }
   }
 
-  const plain = /filename="?([^";]+)"?/i.exec(
-    disposition,
-  );
+  const plain =
+    /filename="?([^";]+)"?/i.exec(
+      disposition,
+    );
 
-  return plain ? plain[1] : undefined;
+  return plain
+    ? plain[1]
+    : undefined;
 }
 
 function buildRequestHeaders(
   method: string,
-  initialHeaders: HeadersInit | undefined,
+  initialHeaders:
+    | HeadersInit
+    | undefined,
   accept: string,
   hasJsonBody: boolean,
 ): Headers {
-  const headers = new Headers(initialHeaders);
+  const headers =
+    new Headers(initialHeaders);
 
   headers.set("Accept", accept);
 
@@ -193,7 +278,10 @@ function buildRequestHeaders(
     );
 
     if (csrfToken) {
-      headers.set(CSRF_HEADER_NAME, csrfToken);
+      headers.set(
+        CSRF_HEADER_NAME,
+        csrfToken,
+      );
     }
   }
 
@@ -205,16 +293,22 @@ async function sendRequest(
   method: string,
   headers: Headers,
   body: BodyInit | undefined,
-  options: Omit<RequestInit, "body">,
+  options: Omit<
+    RequestInit,
+    "body"
+  >,
 ): Promise<Response> {
   try {
-    return await fetch(buildApiUrl(path), {
-      ...options,
-      method,
-      headers,
-      body,
-      credentials: "include",
-    });
+    return await fetch(
+      buildApiUrl(path),
+      {
+        ...options,
+        method,
+        headers,
+        body,
+        credentials: "include",
+      },
+    );
   } catch (error) {
     if (isAbortError(error)) {
       throw error;
@@ -224,7 +318,7 @@ async function sendRequest(
   }
 }
 
-export async function apiRequest<T>(
+async function apiRequestOnce<T>(
   path: string,
   {
     json,
@@ -246,12 +340,13 @@ export async function apiRequest<T>(
     );
   }
 
-  const headers = buildRequestHeaders(
-    method,
-    initialHeaders,
-    "application/json",
-    json !== undefined,
-  );
+  const headers =
+    buildRequestHeaders(
+      method,
+      initialHeaders,
+      "application/json",
+      json !== undefined,
+    );
 
   let body: BodyInit | undefined;
 
@@ -260,21 +355,27 @@ export async function apiRequest<T>(
   }
 
   if (formData !== undefined) {
-    // Let the browser set the multipart boundary.
+    /*
+     * Let the browser set the multipart
+     * boundary automatically.
+     */
     headers.delete("Content-Type");
     body = formData;
   }
 
-  const response = await sendRequest(
-    path,
-    method,
-    headers,
-    body,
-    options,
-  );
+  const response =
+    await sendRequest(
+      path,
+      method,
+      headers,
+      body,
+      options,
+    );
 
   const responseBody =
-    await parseResponseBody(response);
+    await parseResponseBody(
+      response,
+    );
 
   if (!response.ok) {
     throw new ApiError(
@@ -286,13 +387,73 @@ export async function apiRequest<T>(
   return responseBody as T;
 }
 
+async function refreshCsrfState(
+  signal?: AbortSignal | null,
+): Promise<void> {
+  await apiRequestOnce<unknown>(
+    CSRF_BOOTSTRAP_PATH,
+    {
+      method: "GET",
+      cache: "no-store",
+      signal,
+    },
+  );
+}
+
+export async function apiRequest<T>(
+  path: string,
+  options: ApiRequestOptions = {},
+): Promise<T> {
+  const method = (
+    options.method ?? "GET"
+  ).toUpperCase();
+
+  try {
+    return await apiRequestOnce<T>(
+      path,
+      options,
+    );
+  } catch (error) {
+    /*
+     * Safe requests do not require CSRF.
+     * Non-CSRF 403 responses must not be
+     * retried as they may be genuine
+     * authorization failures.
+     */
+    if (
+      SAFE_METHODS.has(method) ||
+      !isCsrfApiError(error)
+    ) {
+      throw error;
+    }
+
+    /*
+     * Bootstrap a fresh CSRF cookie and
+     * repeat the original request exactly
+     * once.
+     */
+    await refreshCsrfState(
+      options.signal,
+    );
+
+    return apiRequestOnce<T>(
+      path,
+      options,
+    );
+  }
+}
+
 /**
- * Fetch a binary payload (CSV exports, protected media) together with the
- * filename advertised by the API.
+ * Fetch a binary payload, such as a CSV
+ * export or protected media, together
+ * with the filename advertised by the API.
  */
 export async function apiDownload(
   path: string,
-  { headers: initialHeaders, ...options }: Omit<
+  {
+    headers: initialHeaders,
+    ...options
+  }: Omit<
     ApiRequestOptions,
     "json" | "formData"
   > = {},
@@ -301,24 +462,28 @@ export async function apiDownload(
     options.method ?? "GET"
   ).toUpperCase();
 
-  const headers = buildRequestHeaders(
-    method,
-    initialHeaders,
-    "*/*",
-    false,
-  );
+  const headers =
+    buildRequestHeaders(
+      method,
+      initialHeaders,
+      "*/*",
+      false,
+    );
 
-  const response = await sendRequest(
-    path,
-    method,
-    headers,
-    undefined,
-    options,
-  );
+  const response =
+    await sendRequest(
+      path,
+      method,
+      headers,
+      undefined,
+      options,
+    );
 
   if (!response.ok) {
     const responseBody =
-      await parseResponseBody(response);
+      await parseResponseBody(
+        response,
+      );
 
     throw new ApiError(
       response.status,
