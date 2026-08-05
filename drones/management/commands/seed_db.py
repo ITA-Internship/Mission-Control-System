@@ -69,15 +69,15 @@ class Command(BaseCommand):
                 )
             )
 
-        if module is None or module == "missions":
-            self.stdout.write("Seeding missions...")
-            mission_stats = seed_missions()
-            self.stdout.write(self.style.SUCCESS(self._format_stats(mission_stats)))
-
         if module is None or module == "drones":
             self.stdout.write("Seeding drones...")
             drone_stats = seed_drones()
             self.stdout.write(self.style.SUCCESS(self._format_stats(drone_stats)))
+
+        if module is None or module == "missions":
+            self.stdout.write("Seeding missions...")
+            mission_stats = seed_missions()
+            self.stdout.write(self.style.SUCCESS(self._format_stats(mission_stats)))
 
         if module is None or module == "repairs":
             self.stdout.write("Seeding repairs...")
