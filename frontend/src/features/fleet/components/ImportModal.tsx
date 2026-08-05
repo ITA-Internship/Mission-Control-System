@@ -48,8 +48,35 @@ export function ImportModal({ onClose, onSuccess }: ImportModalProps) {
       if (data.added_count > 0 && onSuccess) {
         onSuccess();
       }
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : "An error occurred during import.";
+    } catch (err: any) {
+      let errorMessage = err instanceof Error ? err.message : "An error occurred during import.";
+
+      if (err && typeof err === "object" && "body" in err && err.body) {
+        const body = err.body;
+
+        if (typeof body === "object" && Array.isArray(body.errors)) {
+          setResult({
+            added_count: body.added_count || 0,
+            errors: body.errors,
+          });
+          setIsUploading(false);
+          return;
+        }
+
+        if (typeof body === "object" && body !== null) {
+          try {
+            const messages = Object.values(body).flat().join(" | ");
+            if (messages) {
+              errorMessage = messages;
+            }
+          } catch (parseError) {
+            console.error("Не вдалося розпарсити помилку", parseError);
+          }
+        } else if (typeof body === "string") {
+          errorMessage = body;
+        }
+      }
+
       setGlobalError(errorMessage);
     } finally {
       setIsUploading(false);

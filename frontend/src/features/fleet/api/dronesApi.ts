@@ -9,34 +9,36 @@ export async function fetchDrones(params: {
   classification?: string[];
   ordering?: string;
 } = {}) {
-  const queryParams = new URLSearchParams();
+  const searchParams = new URLSearchParams();
 
-  if (params.page) queryParams.append("page", params.page.toString());
-  if (params.pageSize) queryParams.append("page_size", params.pageSize.toString());
-  if (params.search) queryParams.append("search", params.search);
+  if (params.page) searchParams.append("page", params.page.toString());
+  if (params.pageSize) searchParams.append("page_size", params.pageSize.toString());
+  if (params.search) searchParams.append("search", params.search);
+  if (params.ordering) searchParams.append("ordering", params.ordering);
 
-  if (params.status?.length) {
-    params.status.forEach(s => queryParams.append("status", s));
-  }
-  if (params.classification?.length) {
-    params.classification.forEach(c => queryParams.append("classification", c));
-  }
-  if (params.ordering) {
-    queryParams.append("ordering", params.ordering);
-  }
+  // Для Django REST Framework повторювані параметри додаються через append
+  params.status?.forEach(s => searchParams.append("status", s));
+  params.classification?.forEach(c => searchParams.append("classification", c));
 
-  return apiRequest<PaginatedResponse<Drone>>(`drones/?${queryParams.toString()}`);
+  const queryString = searchParams.toString();
+  // Шлях без "api/" на початку! Усі маршрути відносні до API_BASE_URL
+  const path = queryString ? `drones/?${queryString}` : "drones/";
+
+  return apiRequest<PaginatedResponse<Drone>>(path);
 }
 
 export async function fetchDroneModels() {
+  // Відповідає: path("models/", ...) у drones/urls.py
   return apiRequest<PaginatedResponse<DroneModel>>("drones/models/");
 }
 
 export async function fetchMilitaryUnits() {
+  // Відповідає: path("api/accounts/" чи common/urls) - перевірте точний шлях у військових частин!
   return apiRequest<PaginatedResponse<MilitaryUnit>>("military-units/");
 }
 
 export async function createDrone(data: Partial<Drone>) {
+  // Відповідає: path("", DroneListCreateView.as_view()) у drones/urls.py
   return apiRequest<Drone>("drones/", {
     method: "POST",
     json: data,
@@ -44,6 +46,7 @@ export async function createDrone(data: Partial<Drone>) {
 }
 
 export async function updateDrone(id: number | string, data: Partial<Drone>) {
+  // Відповідає: path("<int:pk>/", DroneDetailView.as_view()) у drones/urls.py
   return apiRequest<Drone>(`drones/${id}/`, {
     method: "PATCH",
     json: data,
@@ -54,9 +57,10 @@ export async function importDronesCSV(file: File) {
   const formData = new FormData();
   formData.append("file", file);
 
+  // Відповідає: path("import/", DroneDataImportView.as_view()) у drones/urls.py
   return apiRequest<{
     added_count: number;
-    errors: Array<{ row: number | string; error: string }>
+    errors: Array<{ row: number | string; error: string }>;
   }>("drones/import/", {
     method: "POST",
     formData,
