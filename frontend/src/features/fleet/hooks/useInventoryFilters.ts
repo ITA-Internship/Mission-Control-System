@@ -14,7 +14,6 @@ export interface FilterState {
 export function useInventoryFilters() {
   const [filters, setFilters] = useState<FilterState>({
     search: "",
-    // Встановлюємо ACTIVE за замовчуванням
     statusFilter: ["ACTIVE"] as DroneStatus[],
     classFilter: [],
     sortKey: "serial_number",
@@ -70,7 +69,6 @@ export function useInventoryFilters() {
   const clearAll = useCallback(() => {
     setFilters({
       search: "",
-      // При скиданні фільтрів повертаємось до ACTIVE
       statusFilter: ["ACTIVE"] as DroneStatus[],
       classFilter: [],
       sortKey: "serial_number",
@@ -80,13 +78,12 @@ export function useInventoryFilters() {
     });
   }, []);
 
-  // Перевіряємо, чи статус відрізняється від дефолтного ["ACTIVE"]
   const isDefaultStatus =
     filters.statusFilter.length === 1 && filters.statusFilter[0] === "ACTIVE";
 
   const hasFilters =
     Boolean(filters.search) ||
-    !isDefaultStatus || // Показуємо Clear All, якщо статус змінено або скинуто
+    !isDefaultStatus ||
     filters.classFilter.length > 0;
 
   return {

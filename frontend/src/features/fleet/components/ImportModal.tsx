@@ -48,24 +48,26 @@ export function ImportModal({ onClose, onSuccess }: ImportModalProps) {
       if (data.added_count > 0 && onSuccess) {
         onSuccess();
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       let errorMessage = err instanceof Error ? err.message : "An error occurred during import.";
 
-      if (err && typeof err === "object" && "body" in err && err.body) {
-        const body = err.body;
+      if (err && typeof err === "object" && "body" in err) {
+        const body = (err as Record<string, unknown>).body;
 
-        if (typeof body === "object" && Array.isArray(body.errors)) {
-          setResult({
-            added_count: body.added_count || 0,
-            errors: body.errors,
-          });
-          setIsUploading(false);
-          return;
-        }
+        if (body && typeof body === "object") {
+          const bodyRecord = body as Record<string, unknown>;
 
-        if (typeof body === "object" && body !== null) {
+          if (Array.isArray(bodyRecord.errors)) {
+            setResult({
+              added_count: typeof bodyRecord.added_count === "number" ? bodyRecord.added_count : 0,
+              errors: bodyRecord.errors as Array<{ row: number | string; error: string }>,
+            });
+            setIsUploading(false);
+            return;
+          }
+
           try {
-            const messages = Object.values(body).flat().join(" | ");
+            const messages = Object.values(bodyRecord).flat().join(" | ");
             if (messages) {
               errorMessage = messages;
             }
