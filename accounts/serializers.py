@@ -3,6 +3,9 @@
 Classes:
     UserRegistrationSerializer: Serializes data for the registration of
         new users.
+    UserListSerializer: Serializes compact user rows for the user list.
+    MilitaryUnitSerializer: Serializes military units for listing and
+        management, including drone and user counts.
     UserStatusUpdateSerializer: Serializes requests to activate or
         deactivate a user.
     UserRoleUpdateSerializer: Serializes requests to change a user's role.
@@ -29,7 +32,7 @@ from django.db import transaction
 from django.urls import reverse
 from rest_framework import serializers
 
-from .models import AuditLog, User, UserProfile
+from .models import AuditLog, MilitaryUnit, User, UserProfile
 from .services import create_user_account
 from .validators import validate_image_extension, validate_image_size
 
@@ -91,6 +94,98 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
         created_by = request.user if request and hasattr(request, "user") else None
 
         return create_user_account(validated_data, created_by)
+
+
+class UserListSerializer(serializers.ModelSerializer):
+    """Serialize compact user rows for the paginated user list."""
+
+    role_name = serializers.CharField(source="role.name", read_only=True, default=None)
+    role_code = serializers.CharField(source="role.code", read_only=True, default=None)
+    unit_name = serializers.CharField(source="unit.name", read_only=True, default=None)
+    unit_code = serializers.CharField(source="unit.code", read_only=True, default=None)
+    created_by_username = serializers.CharField(
+        source="created_by.username",
+        read_only=True,
+        default=None,
+    )
+
+    class Meta:
+        model = User
+        fields = (
+            "id",
+            "username",
+            "email",
+            "first_name",
+            "last_name",
+            "role",
+            "role_name",
+            "role_code",
+            "unit",
+            "unit_name",
+            "unit_code",
+            "is_active",
+            "last_login",
+            "created_at",
+            "created_by_username",
+        )
+        read_only_fields = fields
+
+
+class MilitaryUnitSerializer(serializers.ModelSerializer):
+    """Serialize military units with cheap drone and user counts."""
+
+    drone_count = serializers.SerializerMethodField()
+    user_count = serializers.SerializerMethodField()
+
+    class Meta:
+        model = MilitaryUnit
+        fields = (
+            "id",
+            "name",
+            "code",
+            "description",
+            "is_active",
+            "drone_count",
+            "user_count",
+            "created_at",
+            "updated_at",
+        )
+        read_only_fields = (
+            "id",
+            "drone_count",
+            "user_count",
+            "created_at",
+            "updated_at",
+        )
+
+    def validate_code(self, value):
+        """Validate that the provided unit code is unique (case-insensitive)."""
+        queryset = MilitaryUnit.objects.filter(code__iexact=value)
+        if self.instance:
+            queryset = queryset.exclude(pk=self.instance.pk)
+        if queryset.exists():
+            raise serializers.ValidationError(
+                "A military unit with that code already exists."
+            )
+        return value
+
+    def get_drone_count(self, obj) -> int:
+        """Return the number of drones assigned to the unit.
+
+        Prefers the annotated value from the list queryset and falls back to a
+        single count query for freshly created or retrieved instances.
+        """
+        count = getattr(obj, "drone_count", None)
+        return count if count is not None else obj.drones.count()
+
+    def get_user_count(self, obj) -> int:
+        """Return the number of users belonging to the unit.
+
+        Prefers the annotated value from the list queryset and falls back to a
+        single count query for freshly created or retrieved instances.
+        """
+        count = getattr(obj, "user_count", None)
+        return count if count is not None else obj.users.count()
 
 
 class UserStatusUpdateSerializer(serializers.Serializer):
@@ -362,3 +457,10 @@ class PasswordResetConfirmSerializer(serializers.Serializer):
         except DjangoValidationError as exc:
             raise serializers.ValidationError(list(exc.messages))
         return value
+
+
+class LoginSerializer(serializers.Serializer):
+    """Serialize login requests for session-based authentication."""
+
+    identifier = serializers.CharField(required=True, allow_blank=False)
+    password = serializers.CharField(required=True, write_only=True)

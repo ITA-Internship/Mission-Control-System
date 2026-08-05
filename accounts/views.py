@@ -1,7 +1,9 @@
 """Expose user management, authentication, and authorization endpoints.
 
 Classes:
-    UserRegistrationView: Handles user registration.
+    UserListCreateView: Lists users and registers new user accounts.
+    MilitaryUnitListCreateView: Lists and creates military units.
+    MilitaryUnitDetailView: Retrieves and partially updates a military unit.
     UserRoleUpdateAPIView: Handles updating user roles.
     ActivateAccountAPIView: Handles user account activation via email tokens.
     AuditLogViewSet: Provides read-only access and CSV export for audit logs.
@@ -19,24 +21,30 @@ import os
 import posixpath
 
 from django.conf import settings
-from django.contrib.auth import update_session_auth_hash
+from django.contrib.auth import authenticate, login, logout, update_session_auth_hash
 from django.contrib.auth.tokens import default_token_generator
 from django.core.exceptions import ValidationError as DjangoValidationError
+from django.db.models import Count, Q
 from django.http import FileResponse, Http404, HttpResponse, StreamingHttpResponse
+from django.middleware.csrf import get_token
 from django.shortcuts import get_object_or_404
+from django.utils.decorators import method_decorator
 from django.utils.encoding import escape_uri_path, force_bytes, force_str
 from django.utils.http import urlsafe_base64_decode, urlsafe_base64_encode
+from django.views.decorators.csrf import csrf_protect
 from django_filters import rest_framework as filters
+from django_filters.rest_framework import DjangoFilterBackend
 from drf_spectacular.utils import extend_schema_view
 from rest_framework import generics, permissions, status, viewsets
 from rest_framework.decorators import action
+from rest_framework.filters import OrderingFilter, SearchFilter
 from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework.throttling import ScopedRateThrottle
 from rest_framework.views import APIView
 
-from common.pagination import AuditLogPagination
+from common.pagination import AuditLogPagination, StandardResultsSetPagination
 from common.utils import EchoBuffer, sanitize_row
 
 from .api_details import (
@@ -45,17 +53,28 @@ from .api_details import (
     audit_log_retrieve_schema,
     audit_log_view_schema,
     change_password_schema,
+    military_unit_create_schema,
+    military_unit_get_schema,
+    military_unit_list_schema,
+    military_unit_update_schema,
     password_reset_confirm_schema,
     password_reset_schema,
     profile_picture_get_schema,
+    user_list_schema,
     user_me_get_schema,
     user_me_update_schema,
     user_registration_schema,
     user_role_update_schema,
     user_status_update_schema,
 )
-from .models import AuditLog, User, UserSession, UserStatusLog
-from .permissions import HasAnyRBACPermission, HasRBACPermission, user_has_permission
+from .filters import MilitaryUnitFilter, UserFilter
+from .models import AuditLog, MilitaryUnit, User, UserSession, UserStatusLog
+from .permissions import (
+    HasAnyRBACPermission,
+    HasRBACPermission,
+    MilitaryUnitPermission,
+    user_has_permission,
+)
 from .rbac import (
     PERMISSION_AUDIT_LOGS_VIEW_ALL,
     PERMISSION_AUDIT_LOGS_VIEW_OWN,
@@ -66,13 +85,17 @@ from .rbac import (
     PERMISSION_USERS_ACTIVATE_DEACTIVATE,
     PERMISSION_USERS_CREATE,
     PERMISSION_USERS_MANAGE_ROLES,
+    PERMISSION_USERS_VIEW,
 )
 from .serializers import (
     AccountActivationSerializer,
     AuditLogSerializer,
     ChangePasswordSerializer,
+    LoginSerializer,
+    MilitaryUnitSerializer,
     PasswordResetConfirmSerializer,
     PasswordResetRequestSerializer,
+    UserListSerializer,
     UserMeSerializer,
     UserRegistrationSerializer,
     UserRoleUpdateResponseSerializer,
@@ -83,20 +106,188 @@ from .services import create_audit_log, set_user_password, update_user_role
 from .tasks import send_email_task
 from .throttles import (
     AccountActivationThrottle,
+    LoginThrottle,
     PasswordResetConfirmThrottle,
     PasswordResetRequestThrottle,
 )
 from .tokens import account_activation_token_generator
 
 
-@user_registration_schema
-class UserRegistrationView(generics.CreateAPIView):
-    """Register a new user account."""
+@extend_schema_view(get=user_list_schema, post=user_registration_schema)
+class UserListCreateView(generics.ListCreateAPIView):
+    """List user accounts and register new users."""
 
     queryset = User.objects.all()
     serializer_class = UserRegistrationSerializer
     permission_classes = [HasRBACPermission]
     required_permission = PERMISSION_USERS_CREATE
+    pagination_class = StandardResultsSetPagination
+    filter_backends = (DjangoFilterBackend, SearchFilter, OrderingFilter)
+    filterset_class = UserFilter
+    search_fields = ("username", "email", "first_name", "last_name")
+    ordering_fields = ("username", "email", "last_login", "created_at", "is_active")
+    ordering = ("username",)
+
+    def get_permissions(self):
+        """Resolve the RBAC permission dynamically for read vs create actions."""
+        if self.request.method == "POST":
+            self.required_permission = PERMISSION_USERS_CREATE
+        else:
+            self.required_permission = PERMISSION_USERS_VIEW
+        return super().get_permissions()
+
+    def get_queryset(self):
+        """Return users with related data needed by the list response."""
+        return User.objects.select_related("role", "unit", "created_by").order_by(
+            "username"
+        )
+
+    def get_serializer_class(self):
+        """Use the compact list serializer for GET and the full one for create."""
+        if self.request.method == "GET":
+            return UserListSerializer
+
+        return self.serializer_class
+
+
+class MilitaryUnitPagination(StandardResultsSetPagination):
+    """Paginate military units.
+
+    Units double as reference data for the admin console's unit filters and
+    selects, which fetch the full catalog in a single page, so allow a larger
+    page size than the default list pagination.
+    """
+
+    max_page_size = 500
+
+
+@extend_schema_view(get=military_unit_list_schema, post=military_unit_create_schema)
+class MilitaryUnitListCreateView(generics.ListCreateAPIView):
+    """List military units and create new units."""
+
+    serializer_class = MilitaryUnitSerializer
+    permission_classes = [MilitaryUnitPermission]
+    pagination_class = MilitaryUnitPagination
+    filter_backends = (DjangoFilterBackend, SearchFilter, OrderingFilter)
+    filterset_class = MilitaryUnitFilter
+    search_fields = ("name", "code")
+    ordering_fields = ("name", "code", "is_active", "created_at")
+    ordering = ("name",)
+
+    def get_queryset(self):
+        """Return units annotated with cheap drone and user counts."""
+        return MilitaryUnit.objects.annotate(
+            drone_count=Count("drones", distinct=True),
+            user_count=Count("users", distinct=True),
+        ).order_by("name")
+
+
+@extend_schema_view(get=military_unit_get_schema, patch=military_unit_update_schema)
+class MilitaryUnitDetailView(generics.RetrieveUpdateAPIView):
+    """Retrieve a military unit and apply partial updates."""
+
+    serializer_class = MilitaryUnitSerializer
+    permission_classes = [MilitaryUnitPermission]
+    http_method_names = ["get", "patch", "head", "options"]
+
+    def get_queryset(self):
+        """Return units annotated with cheap drone and user counts."""
+        return MilitaryUnit.objects.annotate(
+            drone_count=Count("drones", distinct=True),
+            user_count=Count("users", distinct=True),
+        )
+
+
+@method_decorator(csrf_protect, name="dispatch")
+class LoginView(APIView):
+    """Create a session for a user authenticated by email or username."""
+
+    permission_classes = [AllowAny]
+    throttle_classes = [LoginThrottle]
+
+    def get(self, request):
+        """Issue a CSRF cookie for the upcoming login request."""
+        get_token(request)
+        return Response(
+            {"detail": "CSRF cookie set."},
+            status=status.HTTP_200_OK,
+        )
+
+    def post(self, request):
+        """Authenticate the submitted credentials and start a Django session."""
+        raw_identifier = None
+        if hasattr(request, "data") and hasattr(request.data, "get"):
+            raw_identifier = request.data.get("identifier")
+        if isinstance(raw_identifier, str) and not raw_identifier.strip():
+            return Response(
+                {"detail": "Identifier is required."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        serializer = LoginSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        identifier = serializer.validated_data["identifier"].strip()
+        if not identifier:
+            return Response(
+                {"detail": "Identifier is required."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        identifier_normalized = identifier.lower()
+        password = serializer.validated_data["password"]
+
+        username = identifier
+        # Resolve either username or email case-insensitively before handing off
+        # to Django auth. This keeps lookup behavior consistent while preserving
+        # the generic invalid-credentials response.
+        matched_user = (
+            User.objects.filter(
+                Q(username__iexact=identifier_normalized)
+                | Q(email__iexact=identifier_normalized)
+            )
+            .only("username")
+            .order_by("id")
+            .first()
+        )
+        if matched_user is not None:
+            username = matched_user.username
+
+        user = authenticate(
+            request,
+            username=username,
+            password=password,
+        )
+
+        if user is None or not getattr(user, "is_active", True):
+            return Response(
+                {"detail": "Invalid credentials."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # Django rotates the session key during login to defend against
+        # session fixation; the test suite asserts this behavior.
+        login(request, user)
+        get_token(request)
+
+        return Response(
+            UserMeSerializer(user).data,
+            status=status.HTTP_200_OK,
+        )
+
+
+class LogoutView(APIView):
+    """End the authenticated user's current Django session."""
+
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request):
+        """Flush the session and emit Django's logout signal."""
+        logout(request)
+        return Response(
+            {"detail": "Signed out successfully."},
+            status=status.HTTP_200_OK,
+        )
 
 
 @user_role_update_schema
@@ -558,49 +749,51 @@ class PasswordResetConfirmView(APIView):
 
         token_is_valid = bool(user and default_token_generator.check_token(user, token))
 
+        if not token_is_valid:
+            if user:
+                create_audit_log(
+                    actor=None,
+                    action_type=AuditLog.ActionType.PASSWORD_CHANGED,
+                    result=AuditLog.ResultStatus.FAILED,
+                    target_user=user,
+                    description=(
+                        "Failed attempt to reset password (invalid/expired token)."
+                    ),
+                    request=request,
+                )
+
+            return Response(
+                {"detail": "The reset link is invalid or has expired."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
         serializer = PasswordResetConfirmSerializer(
             data=request.data,
-            context={"user": user if token_is_valid else None},
+            context={"user": user},
         )
         serializer.is_valid(raise_exception=True)
 
-        if token_is_valid:
-            set_user_password(user, serializer.validated_data["new_password"])
-            invalidate_user_sessions(user)
+        set_user_password(user, serializer.validated_data["new_password"])
+        invalidate_user_sessions(user)
 
-            send_email_task.delay(
-                subject="Password Successfully Reset",
-                message="Your password has been reset successfully.",
-                recipient_list=[user.email],
-            )
+        send_email_task.delay(
+            subject="Password Successfully Reset",
+            message="Your password has been reset successfully.",
+            recipient_list=[user.email],
+        )
 
-            create_audit_log(
-                actor=user,
-                action_type=AuditLog.ActionType.PASSWORD_CHANGED,
-                result=AuditLog.ResultStatus.SUCCESS,
-                target_user=user,
-                description="Password reset completed via emailed link.",
-                request=request,
-            )
-
-            return Response(
-                {"detail": "Password has been reset successfully."},
-                status=status.HTTP_200_OK,
-            )
-
-        if user:
-            create_audit_log(
-                actor=None,
-                action_type=AuditLog.ActionType.PASSWORD_CHANGED,
-                result=AuditLog.ResultStatus.FAILED,
-                target_user=user,
-                description="Failed attempt to reset password (invalid/expired token).",
-                request=request,
-            )
+        create_audit_log(
+            actor=user,
+            action_type=AuditLog.ActionType.PASSWORD_CHANGED,
+            result=AuditLog.ResultStatus.SUCCESS,
+            target_user=user,
+            description="Password reset completed via emailed link.",
+            request=request,
+        )
 
         return Response(
-            {"detail": "The reset link is invalid or has expired."},
-            status=status.HTTP_400_BAD_REQUEST,
+            {"detail": "Password has been reset successfully."},
+            status=status.HTTP_200_OK,
         )
 
 

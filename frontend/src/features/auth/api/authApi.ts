@@ -19,6 +19,47 @@ export function requestPasswordReset(
   );
 }
 
+export function signIn(
+  identifier: string,
+  password: string,
+  signal?: AbortSignal,
+): Promise<CurrentUser> {
+  return apiRequest<CurrentUser>(
+    "/api/accounts/login/",
+    {
+      method: "POST",
+      json: {
+        identifier,
+        password,
+      },
+      signal,
+    },
+  );
+}
+
+export function signOut(
+  signal?: AbortSignal,
+): Promise<DetailResponse> {
+  return apiRequest<DetailResponse>(
+    "/api/accounts/logout/",
+    {
+      method: "POST",
+      signal,
+    },
+  );
+}
+
+export function prepareSignIn(
+  signal?: AbortSignal,
+): Promise<DetailResponse> {
+  return apiRequest<DetailResponse>(
+    "/api/accounts/login/",
+    {
+      signal,
+    },
+  );
+}
+
 export function confirmPasswordReset(
   uid: string,
   token: string,

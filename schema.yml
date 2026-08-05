@@ -224,7 +224,316 @@ paths:
           description: Forbidden. User does not have permission to perform this action.
         '429':
           description: Export rate limit exceeded.
+  /api/accounts/login/:
+    get:
+      operationId: accounts_login_retrieve
+      description: Issue a CSRF cookie for the upcoming login request.
+      tags:
+      - accounts
+      security:
+      - {}
+      responses:
+        '200':
+          description: No response body
+    post:
+      operationId: accounts_login_create
+      description: Authenticate the submitted credentials and start a Django session.
+      tags:
+      - accounts
+      security:
+      - {}
+      responses:
+        '200':
+          description: No response body
+  /api/accounts/logout/:
+    post:
+      operationId: accounts_logout_create
+      description: Flush the session and emit Django's logout signal.
+      tags:
+      - accounts
+      responses:
+        '200':
+          description: No response body
+  /api/accounts/military-units/:
+    get:
+      operationId: accounts_military_units_list
+      description: |-
+        Retrieves a paginated list of military units, each including the number of assigned drones (`drone_count`) and users (`user_count`). Supports search across `name` and `code` via the `search` query parameter and filtering by `is_active`.
+
+        Required permission: `PERMISSION_UNITS_VIEW`.
+      summary: List military units
+      parameters:
+      - in: query
+        name: is_active
+        schema:
+          type: boolean
+      - name: ordering
+        required: false
+        in: query
+        description: Which field to use when ordering the results.
+        schema:
+          type: string
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      - name: page_size
+        required: false
+        in: query
+        description: Number of results to return per page.
+        schema:
+          type: integer
+      - name: search
+        required: false
+        in: query
+        description: A search term.
+        schema:
+          type: string
+      tags:
+      - accounts
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedMilitaryUnitList'
+              examples:
+                ValidRequest:
+                  value:
+                    count: 123
+                    next: http://api.example.org/accounts/?page=4
+                    previous: http://api.example.org/accounts/?page=2
+                    results:
+                    - id: 7
+                      name: 1st Assault Battalion
+                      code: 1AB
+                      description: Primary assault formation.
+                      is_active: true
+                      drone_count: 12
+                      user_count: 5
+                      created_at: '2026-06-25T14:44:49.068836Z'
+                      updated_at: '2026-06-25T14:44:49.068836Z'
+                  summary: Valid Request
+          description: Successfully retrieved the list of military units.
+        '403':
+          description: Forbidden. User does not have permission to perform this action.
+    post:
+      operationId: accounts_military_units_create
+      description: "Creates a new military unit. \n\nValidation: \n- The unit code
+        must be unique (case-insensitive).\n\nRequired permission: `PERMISSION_UNITS_MANAGE`."
+      summary: Create a military unit
+      tags:
+      - accounts
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MilitaryUnit'
+            examples:
+              ValidRequest:
+                value:
+                  name: 1st Assault Battalion
+                  code: 1AB
+                  description: Primary assault formation.
+                summary: Valid request
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/MilitaryUnit'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/MilitaryUnit'
+        required: true
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MilitaryUnit'
+          description: Military unit successfully created.
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MilitaryUnit'
+              examples:
+                DuplicateUnitCode:
+                  value:
+                    code: A military unit with that code already exists.
+                  summary: Duplicate unit code
+          description: Bad Request
+        '403':
+          description: Forbidden. User does not have permission to perform this action.
+  /api/accounts/military-units/{id}/:
+    get:
+      operationId: accounts_military_units_retrieve
+      description: |-
+        Retrieves a single military unit by its ID, including the number of assigned drones (`drone_count`) and users (`user_count`).
+
+        Required permission: `PERMISSION_UNITS_VIEW`.
+      summary: Retrieve a military unit
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: ID of the military unit.
+        required: true
+      tags:
+      - accounts
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MilitaryUnit'
+          description: Military unit details successfully retrieved.
+        '403':
+          description: Forbidden. User does not have permission to perform this action.
+        '404':
+          description: Not Found.
+    patch:
+      operationId: accounts_military_units_partial_update
+      description: "Partially updates a military unit, including its active status
+        (`is_active`). \n\nValidation: \n- The unit code must remain unique (case-insensitive).\n\nRequired
+        permission: `PERMISSION_UNITS_MANAGE`."
+      summary: Update a military unit
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: ID of the military unit being updated.
+        required: true
+      tags:
+      - accounts
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedMilitaryUnit'
+            examples:
+              DeactivateUnit:
+                value:
+                  is_active: false
+                summary: Deactivate unit
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedMilitaryUnit'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedMilitaryUnit'
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MilitaryUnit'
+          description: Military unit successfully updated.
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MilitaryUnit'
+              examples:
+                DuplicateUnitCode:
+                  value:
+                    code: A military unit with that code already exists.
+                  summary: Duplicate unit code
+          description: Bad Request
+        '403':
+          description: Forbidden. User does not have permission to perform this action.
+        '404':
+          description: Not Found.
   /api/accounts/users/:
+    get:
+      operationId: accounts_users_list
+      description: "Retrieves a paginated list of user accounts. \n\nSupports full-text
+        search across username, email, first name, and last name via the `search`
+        query parameter, and filtering by `role`, `role_code`, `unit`, `unit_code`,
+        and `is_active`. Results can be ordered by `username`, `email`, `last_login`,
+        `created_at`, or `is_active`.\n\nRequired permission: `PERMISSION_USERS_VIEW`."
+      summary: List users
+      parameters:
+      - in: query
+        name: is_active
+        schema:
+          type: boolean
+      - name: ordering
+        required: false
+        in: query
+        description: Which field to use when ordering the results.
+        schema:
+          type: string
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      - name: page_size
+        required: false
+        in: query
+        description: Number of results to return per page.
+        schema:
+          type: integer
+      - in: query
+        name: role
+        schema:
+          type: integer
+      - in: query
+        name: role_code
+        schema:
+          type: string
+      - name: search
+        required: false
+        in: query
+        description: A search term.
+        schema:
+          type: string
+      - in: query
+        name: unit
+        schema:
+          type: integer
+      - in: query
+        name: unit_code
+        schema:
+          type: string
+      tags:
+      - accounts
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedUserListList'
+              examples:
+                ValidRequest:
+                  value:
+                    count: 123
+                    next: http://api.example.org/accounts/?page=4
+                    previous: http://api.example.org/accounts/?page=2
+                    results:
+                    - id: 24
+                      username: oleksandr.koval
+                      email: oleksandr.koval@example.com
+                      first_name: Oleksandr
+                      last_name: Koval
+                      role: 1
+                      role_name: Admin
+                      role_code: ADMIN
+                      unit: 7
+                      unit_name: 1st Assault Battalion
+                      unit_code: 1AB
+                      is_active: true
+                      last_login: '2026-08-01T09:12:04.512000Z'
+                      created_at: '2026-06-25T14:44:49.068836Z'
+                      created_by_username: root.admin
+                  summary: Valid Request
+          description: Successfully retrieved the list of users.
+        '403':
+          description: Forbidden. User does not have permission to perform this action.
     post:
       operationId: accounts_users_create
       description: "Creates a new user. Sends an activation email to the user and
@@ -4571,6 +4880,34 @@ paths:
           description: A CSV file generated successfully.
         '403':
           description: Forbidden. User does not have permission to perform this action.
+  /api/roles/:
+    get:
+      operationId: roles_list
+      description: |-
+        Retrieves the full list of roles available in the system. Intended to populate role filters and the create-user / change-role selection controls. This endpoint is not paginated.
+
+        Required permission: `PERMISSION_ROLES_VIEW`.
+      summary: List roles
+      tags:
+      - roles
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Role'
+              examples:
+                ValidRequest:
+                  value:
+                  - id: 1
+                    code: ADMIN
+                    name: Admin
+                  summary: Valid Request
+          description: Successfully retrieved the list of roles.
+        '403':
+          description: Forbidden. User does not have permission to perform this action.
 components:
   schemas:
     AccountActivation:
@@ -4675,6 +5012,15 @@ components:
       - COMBAT
       - TRANSPORT
       - SURVEILLANCE
+      type: string
+    CodeEnum:
+      enum:
+      - ADMIN
+      - COMMANDER
+      - OPERATOR
+      - TECHNICIAN
+      - VIEWER
+      - DISPATCHER
       type: string
     ComponentReplacement:
       type: object
@@ -5451,6 +5797,55 @@ components:
       - ip_address
       - mission
       - user
+    MilitaryUnit:
+      type: object
+      description: Serialize military units with cheap drone and user counts.
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        name:
+          type: string
+          maxLength: 255
+        code:
+          type: string
+          maxLength: 255
+        description:
+          type: string
+        is_active:
+          type: boolean
+        drone_count:
+          type: integer
+          description: |-
+            Return the number of drones assigned to the unit.
+
+            Prefers the annotated value from the list queryset and falls back to a
+            single count query for freshly created or retrieved instances.
+          readOnly: true
+        user_count:
+          type: integer
+          description: |-
+            Return the number of users belonging to the unit.
+
+            Prefers the annotated value from the list queryset and falls back to a
+            single count query for freshly created or retrieved instances.
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - code
+      - created_at
+      - drone_count
+      - id
+      - name
+      - updated_at
+      - user_count
     MilitaryUnitBrief:
       type: object
       properties:
@@ -5962,6 +6357,29 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/MediaAuditLog'
+    PaginatedMilitaryUnitList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/MilitaryUnit'
     PaginatedMissionArtifactList:
       type: object
       required:
@@ -6100,6 +6518,29 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/RepairOrderList'
+    PaginatedUserListList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/UserList'
     PaginatedVideoMetadataList:
       type: object
       required:
@@ -6219,6 +6660,47 @@ components:
           type: integer
           writeOnly: true
           nullable: true
+    PatchedMilitaryUnit:
+      type: object
+      description: Serialize military units with cheap drone and user counts.
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        name:
+          type: string
+          maxLength: 255
+        code:
+          type: string
+          maxLength: 255
+        description:
+          type: string
+        is_active:
+          type: boolean
+        drone_count:
+          type: integer
+          description: |-
+            Return the number of drones assigned to the unit.
+
+            Prefers the annotated value from the list queryset and falls back to a
+            single count query for freshly created or retrieved instances.
+          readOnly: true
+        user_count:
+          type: integer
+          description: |-
+            Return the number of users belonging to the unit.
+
+            Prefers the annotated value from the list queryset and falls back to a
+            single count query for freshly created or retrieved instances.
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
     PatchedMissionDroneCondition:
       type: object
       description: |-
@@ -6652,6 +7134,24 @@ components:
       - replaced_at
       - replaced_by
       - updated_at
+    Role:
+      type: object
+      description: Serialize roles for role filters and selection controls.
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        code:
+          allOf:
+          - $ref: '#/components/schemas/CodeEnum'
+          readOnly: true
+        name:
+          type: string
+          readOnly: true
+      required:
+      - code
+      - id
+      - name
     SeverityEnum:
       enum:
       - LOW
@@ -6691,6 +7191,82 @@ components:
       required:
       - email
       - id
+      - username
+    UserList:
+      type: object
+      description: Serialize compact user rows for the paginated user list.
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        username:
+          type: string
+          readOnly: true
+          description: Required. 150 characters or fewer. Letters, digits and @/./+/-/_
+            only.
+        email:
+          type: string
+          format: email
+          readOnly: true
+        first_name:
+          type: string
+          readOnly: true
+        last_name:
+          type: string
+          readOnly: true
+        role:
+          type: integer
+          readOnly: true
+          nullable: true
+        role_name:
+          type: string
+          readOnly: true
+        role_code:
+          type: string
+          readOnly: true
+        unit:
+          type: integer
+          readOnly: true
+          nullable: true
+        unit_name:
+          type: string
+          readOnly: true
+        unit_code:
+          type: string
+          readOnly: true
+        is_active:
+          type: boolean
+          readOnly: true
+          title: Active
+          description: Designates whether this user should be treated as active. Unselect
+            this instead of deleting accounts.
+        last_login:
+          type: string
+          format: date-time
+          readOnly: true
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        created_by_username:
+          type: string
+          readOnly: true
+      required:
+      - created_at
+      - created_by_username
+      - email
+      - first_name
+      - id
+      - is_active
+      - last_login
+      - last_name
+      - role
+      - role_code
+      - role_name
+      - unit
+      - unit_code
+      - unit_name
       - username
     UserMe:
       type: object

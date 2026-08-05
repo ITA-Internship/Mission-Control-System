@@ -20,6 +20,7 @@ import {
 import {
   changePassword,
   getCurrentUser,
+  signOut,
 } from "../../auth/api/authApi";
 import { AuthAlert } from "../../auth/components/AuthAlert";
 import {
@@ -133,6 +134,8 @@ export function MyProfilePage({
     useState<StatusBanner | null>(null);
   const [passwordStatus, setPasswordStatus] =
     useState<"idle" | "saving">("idle");
+  const [signingOut, setSigningOut] =
+    useState(false);
   const [passwordVisibility, setPasswordVisibility] =
     useState<
       Record<PasswordVisibilityKey, boolean>
@@ -152,6 +155,10 @@ export function MyProfilePage({
     useRef<HTMLInputElement>(null);
   const avatarOpenedProfileEditRef =
     useRef(false);
+  const avatarStateBeforeDragRef =
+    useRef<Exclude<AvatarState, "dragging">>(
+      "idle",
+    );
 
   useEffect(() => {
     if (!userMenuOpen) {
@@ -334,10 +341,20 @@ export function MyProfilePage({
     setSidebarOpen(false);
     document
       .getElementById(section)
-      ?.scrollIntoView({
+      ?.scrollIntoView?.({
         behavior: "smooth",
         block: "start",
       });
+  }
+
+  function openProfileSection() {
+    setUserMenuOpen(false);
+    scrollToSection("profile");
+  }
+
+  function openSettingsSection() {
+    setUserMenuOpen(false);
+    scrollToSection("security");
   }
 
   function enterProfileEditMode() {
@@ -647,7 +664,7 @@ export function MyProfilePage({
         return;
       }
 
-      setPasswordErrors({
+      const nextPasswordErrors = {
         currentPassword:
           getApiFieldError(
             error,
@@ -659,14 +676,23 @@ export function MyProfilePage({
             "new_password",
           ) ?? "",
         confirmPassword: "",
-      });
-      setPasswordBanner({
-        type: "error",
-        message: getFormError(
-          error,
-          "We could not update your password.",
-        ),
-      });
+      };
+      setPasswordErrors(nextPasswordErrors);
+
+      const hasFieldErrors = Object.values(
+        nextPasswordErrors,
+      ).some(Boolean);
+      setPasswordBanner(
+        hasFieldErrors
+          ? null
+          : {
+              type: "error",
+              message: getFormError(
+                error,
+                "We could not update your password.",
+              ),
+            },
+      );
     } finally {
       setPasswordStatus("idle");
     }
@@ -715,24 +741,71 @@ export function MyProfilePage({
     setProfileBanner(null);
   }
 
+  async function handleSignOut() {
+    if (signingOut) {
+      return;
+    }
+
+    setSigningOut(true);
+    setUserMenuOpen(false);
+
+    try {
+      await signOut();
+      navigate("/login", {
+        replace: true,
+      });
+    } catch (error) {
+      if (redirectExpiredSession(error)) {
+        return;
+      }
+
+      setProfileBanner({
+        type: "error",
+        message: getFormError(
+          error,
+          "We could not sign you out. Please try again.",
+        ),
+      });
+      scrollToSection("profile");
+    } finally {
+      setSigningOut(false);
+    }
+  }
+
   function handleAvatarDrop(
     event: DragEvent<HTMLDivElement>,
   ) {
     event.preventDefault();
-    setAvatarState("idle");
     const file =
       event.dataTransfer.files?.[0];
 
     if (file) {
       handleAvatarFile(file);
+      return;
     }
+
+    setAvatarState(
+      avatarStateBeforeDragRef.current,
+    );
   }
 
   function handleAvatarDragOver(
     event: DragEvent<HTMLDivElement>,
   ) {
     event.preventDefault();
-    setAvatarState("dragging");
+    setAvatarState((current) => {
+      if (current !== "dragging") {
+        avatarStateBeforeDragRef.current =
+          current;
+      }
+      return "dragging";
+    });
+  }
+
+  function handleAvatarDragLeave() {
+    setAvatarState(
+      avatarStateBeforeDragRef.current,
+    );
   }
 
   function handleAvatarInputChange(
@@ -822,6 +895,10 @@ export function MyProfilePage({
       onToggleUserMenu={() =>
         setUserMenuOpen((current) => !current)
       }
+      onOpenProfile={openProfileSection}
+      onOpenSettings={openSettingsSection}
+      onSignOut={handleSignOut}
+      signingOut={signingOut}
     >
       <div className="mx-auto max-w-240 px-6 py-8">
         <div className="mb-7">
@@ -903,8 +980,8 @@ export function MyProfilePage({
               onAvatarDragOver={
                 handleAvatarDragOver
               }
-              onAvatarDragLeave={() =>
-                setAvatarState("idle")
+              onAvatarDragLeave={
+                handleAvatarDragLeave
               }
               onAvatarInputChange={
                 handleAvatarInputChange

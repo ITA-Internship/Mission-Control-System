@@ -27,7 +27,12 @@ from rest_framework import status
 from rest_framework.test import APIClient, APIRequestFactory, APITestCase
 
 from common.authentication import RequiredPasswordChangeBasicAuthentication
-from drones.factories import AdminUserFactory
+from drones.factories import (
+    AdminUserFactory,
+    DroneFactory,
+    MilitaryUnitFactory,
+    ViewerUserFactory,
+)
 from roles.models import ADMIN_CODE, OPERATOR_CODE, Role
 from seed_data.users import seed_users
 
@@ -48,7 +53,11 @@ from .rbac import (
 )
 from .serializers import delete_storage_file_safely
 from .services import create_audit_log, update_user_role
-from .throttles import AccountActivationThrottle, PasswordResetRequestThrottle
+from .throttles import (
+    AccountActivationThrottle,
+    LoginThrottle,
+    PasswordResetRequestThrottle,
+)
 from .tokens import account_activation_token_generator
 from .views import UserMeView
 
@@ -61,6 +70,7 @@ THROTTLE_TEST_SETTINGS = {
         "rest_framework.throttling.ScopedRateThrottle",
     ],
     "DEFAULT_THROTTLE_RATES": {
+        "login": "5/min",
         "account_activation": "1/minute",
         "password_reset_request": "1/minute",
         "password_reset_confirm": "1/minute",
@@ -804,6 +814,257 @@ class UserMeRBACTests(APITestCase):
         self.assertIsNone(remove_response.data["profile_picture"])
 
 
+class LoginViewTests(APITestCase):
+    """Test the session login endpoint used by the frontend sign-in form."""
+
+    def setUp(self):
+        """Create an active user and the endpoint URLs used by the tests."""
+        cache.clear()
+        self.password = "Test@1234"
+        self.operator_role = Role.objects.get(code=OPERATOR_CODE)
+        self.user = User.objects.create_user(
+            username="root.admin",
+            email="root.admin@example.com",
+            password=self.password,
+            role=self.operator_role,
+            is_active=True,
+        )
+        self.client = APIClient(enforce_csrf_checks=True)
+        self.url = reverse("accounts:login")
+        self.logout_url = reverse("accounts:logout")
+        self.me_url = reverse("accounts:user-me")
+
+    def _prime_csrf_cookie(self):
+        """Request the CSRF cookie required by the session login endpoint."""
+        response = self.client.get(self.url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK, response.data)
+        self.assertIn("csrftoken", self.client.cookies)
+        return self.client.cookies["csrftoken"].value
+
+    def test_login_get_issues_csrf_cookie(self):
+        """Verify the login bootstrap request returns a CSRF cookie."""
+        response = self.client.get(self.url)
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK, response.data)
+        self.assertEqual(response.data["detail"], "CSRF cookie set.")
+        self.assertIn("csrftoken", self.client.cookies)
+
+    def test_login_requires_csrf_token(self):
+        """Verify unsafe login requests are rejected without a CSRF token."""
+        response = self.client.post(
+            self.url,
+            {
+                "identifier": self.user.email,
+                "password": self.password,
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_login_with_email_creates_session(self):
+        """Verify email-based login starts a session and returns user data."""
+        csrf_token = self._prime_csrf_cookie()
+
+        response = self.client.post(
+            self.url,
+            {
+                "identifier": self.user.email,
+                "password": self.password,
+            },
+            format="json",
+            HTTP_X_CSRFTOKEN=csrf_token,
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK, response.data)
+        self.assertEqual(response.data["id"], self.user.id)
+        self.assertEqual(response.data["email"], self.user.email)
+        self.assertEqual(
+            self.client.session.get("_auth_user_id"),
+            str(self.user.pk),
+        )
+        self.assertIn("csrftoken", response.cookies)
+
+        me_response = self.client.get(self.me_url)
+        self.assertEqual(me_response.status_code, status.HTTP_200_OK, me_response.data)
+        self.assertEqual(me_response.data["email"], self.user.email)
+
+    def test_login_rotates_existing_anonymous_session_key(self):
+        """Verify session login rotates the session key to avoid fixation."""
+        csrf_token = self._prime_csrf_cookie()
+        session = self.client.session
+        session["bootstrap"] = "anonymous"
+        session.save()
+        anonymous_session_key = session.session_key
+
+        response = self.client.post(
+            self.url,
+            {
+                "identifier": self.user.email,
+                "password": self.password,
+            },
+            format="json",
+            HTTP_X_CSRFTOKEN=csrf_token,
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK, response.data)
+        self.assertNotEqual(self.client.session.session_key, anonymous_session_key)
+
+    def test_login_with_username_creates_session(self):
+        """Verify username-based login is also accepted for compatibility."""
+        csrf_token = self._prime_csrf_cookie()
+
+        response = self.client.post(
+            self.url,
+            {
+                "identifier": self.user.username,
+                "password": self.password,
+            },
+            format="json",
+            HTTP_X_CSRFTOKEN=csrf_token,
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK, response.data)
+        self.assertEqual(
+            self.client.session.get("_auth_user_id"),
+            str(self.user.pk),
+        )
+
+    def test_login_matches_username_case_insensitively(self):
+        """Verify mixed-case usernames still resolve to the same account."""
+        csrf_token = self._prime_csrf_cookie()
+
+        response = self.client.post(
+            self.url,
+            {
+                "identifier": "ROOT.ADMIN",
+                "password": self.password,
+            },
+            format="json",
+            HTTP_X_CSRFTOKEN=csrf_token,
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK, response.data)
+        self.assertEqual(response.data["username"], self.user.username)
+
+    def test_login_matches_email_case_insensitively(self):
+        """Verify mixed-case emails still resolve to the same account."""
+        csrf_token = self._prime_csrf_cookie()
+
+        response = self.client.post(
+            self.url,
+            {
+                "identifier": "ROOT.ADMIN@EXAMPLE.COM",
+                "password": self.password,
+            },
+            format="json",
+            HTTP_X_CSRFTOKEN=csrf_token,
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK, response.data)
+        self.assertEqual(response.data["email"], self.user.email)
+
+    def test_login_rejects_invalid_credentials(self):
+        """Verify the endpoint does not authenticate wrong credentials."""
+        csrf_token = self._prime_csrf_cookie()
+
+        response = self.client.post(
+            self.url,
+            {
+                "identifier": self.user.email,
+                "password": "WrongPassword!",
+            },
+            format="json",
+            HTTP_X_CSRFTOKEN=csrf_token,
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(response.data["detail"], "Invalid credentials.")
+        self.assertNotIn("_auth_user_id", self.client.session)
+
+    def test_login_rejects_whitespace_only_identifier(self):
+        """Verify identifiers containing only whitespace are rejected explicitly."""
+        csrf_token = self._prime_csrf_cookie()
+
+        response = self.client.post(
+            self.url,
+            {
+                "identifier": "   ",
+                "password": self.password,
+            },
+            format="json",
+            HTTP_X_CSRFTOKEN=csrf_token,
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(response.data["detail"], "Identifier is required.")
+        self.assertNotIn("_auth_user_id", self.client.session)
+
+    def test_login_rejects_inactive_user_with_generic_error(self):
+        """Verify inactive accounts are rejected with the generic auth message."""
+        inactive_user = User.objects.create_user(
+            username="inactive.user",
+            email="inactive.user@example.com",
+            password=self.password,
+            role=self.operator_role,
+            is_active=False,
+        )
+        csrf_token = self._prime_csrf_cookie()
+
+        response = self.client.post(
+            self.url,
+            {
+                "identifier": inactive_user.email,
+                "password": self.password,
+            },
+            format="json",
+            HTTP_X_CSRFTOKEN=csrf_token,
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(response.data["detail"], "Invalid credentials.")
+        self.assertNotIn("_auth_user_id", self.client.session)
+
+    def test_logout_requires_csrf_and_ends_current_session(self):
+        """Verify logout is CSRF protected and removes session tracking."""
+        csrf_token = self._prime_csrf_cookie()
+        login_response = self.client.post(
+            self.url,
+            {
+                "identifier": self.user.email,
+                "password": self.password,
+            },
+            format="json",
+            HTTP_X_CSRFTOKEN=csrf_token,
+        )
+        self.assertEqual(login_response.status_code, status.HTTP_200_OK)
+        session_key = self.client.session.session_key
+        self.assertTrue(
+            UserSession.objects.filter(
+                user=self.user,
+                session_key=session_key,
+            ).exists()
+        )
+
+        missing_csrf_response = self.client.post(self.logout_url, {}, format="json")
+        self.assertEqual(
+            missing_csrf_response.status_code,
+            status.HTTP_403_FORBIDDEN,
+        )
+
+        logout_response = self.client.post(
+            self.logout_url,
+            {},
+            format="json",
+            HTTP_X_CSRFTOKEN=self.client.cookies["csrftoken"].value,
+        )
+
+        self.assertEqual(logout_response.status_code, status.HTTP_200_OK)
+        self.assertFalse(Session.objects.filter(session_key=session_key).exists())
+        self.assertFalse(UserSession.objects.filter(session_key=session_key).exists())
+        self.assertNotIn(SESSION_KEY, self.client.session)
+
+
 class PasswordResetConfirmViewTests(APITestCase):
     """Test the password reset confirmation API endpoint via token."""
 
@@ -1008,6 +1269,25 @@ class PasswordResetConfirmViewTests(APITestCase):
         )
         self.assertNotIn("new_password", response.data)
 
+    def test_invalid_reset_token_takes_precedence_over_password_validation(self):
+        """Return a stable invalid-link response before validating the password."""
+        invalid_url = reverse(
+            "accounts:password-reset-confirm",
+            kwargs={"uidb64": self.uidb64, "token": "invalid-token"},
+        )
+
+        response = self.client.post(
+            invalid_url,
+            {"new_password": "weak"},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(
+            response.data,
+            {"detail": "The reset link is invalid or has expired."},
+        )
+
     def test_password_reset_invalid_uidb64(self):
         """Ensure that an invalid base64 encoded user ID rejects the request."""
         invalid_url = reverse(
@@ -1165,6 +1445,37 @@ class PublicAuthThrottleTests(APITestCase):
 
         self.assertNotEqual(first_key, second_key)
         self.assertNotIn("first@example.com", first_key)
+
+    def test_login_throttle_cache_key_is_scoped_by_normalized_identifier(self):
+        """Verify login throttling hashes the normalized identifier value."""
+        view = SimpleNamespace(kwargs={})
+        request = self.request_factory.post("/login/")
+        request.data = {"identifier": "  ROOT.ADMIN@EXAMPLE.COM "}
+
+        cache_key = LoginThrottle().get_cache_key(request, view)
+
+        self.assertIn("identifier:", cache_key)
+        self.assertNotIn("ROOT.ADMIN@EXAMPLE.COM", cache_key)
+
+    def test_login_throttle_ignores_non_mapping_request_data(self):
+        """Verify login throttling falls back safely when request.data is unexpected."""
+        view = SimpleNamespace(kwargs={})
+        request = self.request_factory.post("/login/")
+        request.data = "invalid-payload"
+
+        cache_key = LoginThrottle().get_cache_key(request, view)
+
+        self.assertNotIn("identifier:", cache_key)
+
+    def test_password_reset_throttle_ignores_non_mapping_request_data(self):
+        """Verify password reset throttling safely handles non-mapping payloads."""
+        view = SimpleNamespace(kwargs={})
+        request = self.request_factory.post("/password-reset/")
+        request.data = "invalid-payload"
+
+        cache_key = PasswordResetRequestThrottle().get_cache_key(request, view)
+
+        self.assertNotIn("email:", cache_key)
 
     def test_password_reset_request_endpoint_is_throttled(self):
         """Verify that repeated password reset generation requests are rate-limited."""
@@ -1622,6 +1933,215 @@ class ProtectedProfilePictureRBACTests(APITestCase):
             response.status_code,
             status.HTTP_403_FORBIDDEN,
         )
+
+
+class UserListViewTests(APITestCase):
+    """Test the paginated user list endpoint."""
+
+    def setUp(self):
+        """Set up the URL, an admin viewer, and users to list and filter."""
+        self.url = reverse("accounts:user-create")
+        self.admin_role = Role.objects.get(code=ADMIN_CODE)
+        self.operator_role = Role.objects.get(code=OPERATOR_CODE)
+        self.unit = MilitaryUnitFactory(name="Alpha Company", code="ALPHA")
+
+        self.admin_user = AdminUserFactory()
+        self.viewer_user = ViewerUserFactory()
+
+        self.operator = User.objects.create_user(
+            username="petro.melnyk",
+            email="petro.melnyk@example.com",
+            password="StrongPassword123!",
+            first_name="Petro",
+            last_name="Melnyk",
+            role=self.operator_role,
+            unit=self.unit,
+            is_active=True,
+            created_by=self.admin_user,
+        )
+        self.inactive_user = User.objects.create_user(
+            username="inactive.ivan",
+            email="inactive.ivan@example.com",
+            password="StrongPassword123!",
+            first_name="Ivan",
+            last_name="Shevchenko",
+            role=self.operator_role,
+            is_active=False,
+        )
+
+    def test_admin_can_list_users_with_expected_row_fields(self):
+        """Admins receive a paginated list where each row carries the row data."""
+        self.client.force_authenticate(user=self.admin_user)
+
+        response = self.client.get(self.url)
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertIn("results", response.data)
+
+        row = next(
+            item
+            for item in response.data["results"]
+            if item["username"] == "petro.melnyk"
+        )
+        self.assertEqual(row["role"], self.operator_role.id)
+        self.assertEqual(row["role_code"], OPERATOR_CODE)
+        self.assertEqual(row["unit"], self.unit.id)
+        self.assertEqual(row["unit_name"], "Alpha Company")
+        self.assertTrue(row["is_active"])
+        self.assertEqual(row["created_by_username"], self.admin_user.username)
+        self.assertIn("last_login", row)
+
+    def test_search_matches_name_and_email(self):
+        """The search query filters users by name and email fragments."""
+        self.client.force_authenticate(user=self.admin_user)
+
+        response = self.client.get(self.url, {"search": "petro.melnyk@example.com"})
+
+        usernames = [row["username"] for row in response.data["results"]]
+        self.assertEqual(usernames, ["petro.melnyk"])
+
+    def test_filter_by_role(self):
+        """The role filter narrows results to users with the given role id."""
+        self.client.force_authenticate(user=self.admin_user)
+
+        response = self.client.get(self.url, {"role": self.operator_role.id})
+
+        returned_roles = {row["role"] for row in response.data["results"]}
+        self.assertEqual(returned_roles, {self.operator_role.id})
+
+    def test_filter_by_unit_and_active_status(self):
+        """The unit and is_active filters can be combined."""
+        self.client.force_authenticate(user=self.admin_user)
+
+        response = self.client.get(
+            self.url, {"unit": self.unit.id, "is_active": "true"}
+        )
+
+        usernames = [row["username"] for row in response.data["results"]]
+        self.assertEqual(usernames, ["petro.melnyk"])
+
+    def test_filter_inactive_users(self):
+        """Filtering by is_active=false returns only deactivated users."""
+        self.client.force_authenticate(user=self.admin_user)
+
+        response = self.client.get(self.url, {"is_active": "false"})
+
+        usernames = [row["username"] for row in response.data["results"]]
+        self.assertIn("inactive.ivan", usernames)
+        self.assertNotIn("petro.melnyk", usernames)
+
+    def test_user_without_view_permission_is_forbidden(self):
+        """Users without the users view permission cannot list users."""
+        self.client.force_authenticate(user=self.viewer_user)
+
+        response = self.client.get(self.url)
+
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+
+class MilitaryUnitViewTests(APITestCase):
+    """Test the military unit list, create, and update endpoints."""
+
+    def setUp(self):
+        """Set up URLs, an admin manager, and a viewer without unit permissions."""
+        self.list_url = reverse("accounts:military-unit-list")
+        self.admin_user = AdminUserFactory()
+        self.viewer_user = ViewerUserFactory()
+        self.unit = MilitaryUnitFactory(name="Bravo Company", code="BRAVO")
+
+    def _detail_url(self, unit):
+        """Return the detail URL for the supplied unit."""
+        return reverse("accounts:military-unit-detail", kwargs={"pk": unit.pk})
+
+    def test_admin_can_list_units_with_counts(self):
+        """The list response includes drone_count and user_count per unit."""
+        DroneFactory(military_unit=self.unit)
+        DroneFactory(military_unit=self.unit)
+        ViewerUserFactory(unit=self.unit)
+        self.client.force_authenticate(user=self.admin_user)
+
+        response = self.client.get(self.list_url)
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        row = next(item for item in response.data["results"] if item["code"] == "BRAVO")
+        self.assertEqual(row["drone_count"], 2)
+        self.assertEqual(row["user_count"], 1)
+
+    def test_search_by_code(self):
+        """Units can be searched by code."""
+        MilitaryUnitFactory(name="Charlie Company", code="CHARLIE")
+        self.client.force_authenticate(user=self.admin_user)
+
+        response = self.client.get(self.list_url, {"search": "BRAVO"})
+
+        codes = [row["code"] for row in response.data["results"]]
+        self.assertEqual(codes, ["BRAVO"])
+
+    def test_admin_can_create_unit(self):
+        """Admins can create a military unit."""
+        self.client.force_authenticate(user=self.admin_user)
+
+        response = self.client.post(
+            self.list_url,
+            {
+                "name": "Delta Company",
+                "code": "DELTA",
+                "description": "Reserve formation.",
+            },
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertTrue(MilitaryUnit.objects.filter(code="DELTA").exists())
+        self.assertEqual(response.data["drone_count"], 0)
+        self.assertEqual(response.data["user_count"], 0)
+
+    def test_create_rejects_duplicate_code_case_insensitively(self):
+        """Creating a unit with an existing code (any case) is rejected."""
+        self.client.force_authenticate(user=self.admin_user)
+
+        response = self.client.post(
+            self.list_url,
+            {"name": "Bravo Clone", "code": "bravo"},
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("code", response.data)
+
+    def test_viewer_cannot_create_unit(self):
+        """Users without the units manage permission cannot create units."""
+        self.client.force_authenticate(user=self.viewer_user)
+
+        response = self.client.post(
+            self.list_url,
+            {"name": "Echo Company", "code": "ECHO"},
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_admin_can_patch_is_active(self):
+        """Admins can deactivate a unit via PATCH."""
+        self.client.force_authenticate(user=self.admin_user)
+
+        response = self.client.patch(
+            self._detail_url(self.unit),
+            {"is_active": False},
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertFalse(response.data["is_active"])
+        self.unit.refresh_from_db()
+        self.assertFalse(self.unit.is_active)
+
+    def test_viewer_cannot_patch_unit(self):
+        """Users without the units manage permission cannot update units."""
+        self.client.force_authenticate(user=self.viewer_user)
+
+        response = self.client.patch(
+            self._detail_url(self.unit),
+            {"is_active": False},
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
 
 
 class AuditLogRBACTests(APITestCase):
