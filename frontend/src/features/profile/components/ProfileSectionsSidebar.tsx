@@ -57,6 +57,9 @@ export function ProfileSectionsSidebar({
                 onClick={() =>
                   onSelectSection(section.id)
                 }
+                aria-current={
+                  isActive ? "page" : undefined
+                }
                 className="mb-0.5 w-full rounded-lg px-3 py-2 text-left text-xs font-medium transition-all"
                 style={{
                   color: isActive

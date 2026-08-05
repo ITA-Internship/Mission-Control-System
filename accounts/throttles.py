@@ -6,6 +6,7 @@ and spam attacks.
 """
 
 import hashlib
+from collections.abc import Mapping
 
 from django.conf import settings
 from django.core.exceptions import ImproperlyConfigured
@@ -15,6 +16,19 @@ from rest_framework.throttling import SimpleRateThrottle
 def _hash_cache_part(value):
     """Return an SHA-256 hash of the given value for safe cache key generation."""
     return hashlib.sha256(str(value).encode("utf-8")).hexdigest()
+
+
+def _get_normalized_request_value(request, key):
+    """Safely normalize a string-like value from request.data for cache keys."""
+    data = getattr(request, "data", None)
+    if not isinstance(data, Mapping):
+        return ""
+
+    value = data.get(key, "")
+    if not isinstance(value, str):
+        return ""
+
+    return value.strip().lower()
 
 
 class _BaseIPThrottle(SimpleRateThrottle):
@@ -72,8 +86,7 @@ class PasswordResetRequestThrottle(_BaseIPThrottle):
     def get_throttle_ident(self, request, view):
         """Append the hashed target email to the base identifier."""
         ident = super().get_throttle_ident(request, view)
-        email = getattr(request, "data", {}).get("email", "")
-        email = email.strip().lower()
+        email = _get_normalized_request_value(request, "email")
         if not email:
             return ident
         return f"{ident}:email:{_hash_cache_part(email)}"
@@ -91,3 +104,17 @@ class PasswordResetConfirmThrottle(_BaseIPThrottle):
         if uidb64 is None:
             return ident
         return f"{ident}:uid:{_hash_cache_part(uidb64)}"
+
+
+class LoginThrottle(_BaseIPThrottle):
+    """Throttle limits for session login attempts."""
+
+    scope = "login"
+
+    def get_throttle_ident(self, request, view):
+        """Append the hashed identifier to the base identifier when present."""
+        ident = super().get_throttle_ident(request, view)
+        identifier = _get_normalized_request_value(request, "identifier")
+        if not identifier:
+            return ident
+        return f"{ident}:identifier:{_hash_cache_part(identifier)}"

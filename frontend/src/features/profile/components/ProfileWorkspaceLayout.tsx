@@ -3,6 +3,7 @@ import {
   ChevronRight,
   Crosshair,
   LayoutDashboard,
+  LogOut,
   Navigation2,
   Settings,
   Target,
@@ -63,6 +64,10 @@ export function ProfileWorkspaceLayout({
   onToggleSidebar,
   onCloseSidebar,
   onToggleUserMenu,
+  onOpenProfile,
+  onOpenSettings,
+  onSignOut,
+  signingOut,
   children,
 }: {
   currentUser: CurrentUser;
@@ -73,6 +78,10 @@ export function ProfileWorkspaceLayout({
   onToggleSidebar: () => void;
   onCloseSidebar: () => void;
   onToggleUserMenu: () => void;
+  onOpenProfile: () => void;
+  onOpenSettings: () => void;
+  onSignOut: () => void;
+  signingOut: boolean;
   children: ReactNode;
 }) {
   return (
@@ -160,6 +169,16 @@ export function ProfileWorkspaceLayout({
               <button
                 key={item.label}
                 type="button"
+                onClick={
+                  item.label === "Settings"
+                    ? onOpenSettings
+                    : undefined
+                }
+                aria-label={
+                  item.label === "Settings"
+                    ? "Open profile settings from navigation"
+                    : undefined
+                }
                 className="mb-0.5 flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm transition-all"
                 style={{
                   color: "#8A94A6",
@@ -180,7 +199,12 @@ export function ProfileWorkspaceLayout({
               "rgba(255,255,255,.07)",
           }}
         >
-          <div className="flex items-center gap-3">
+          <button
+            type="button"
+            onClick={onOpenProfile}
+            aria-label="Open my profile from sidebar"
+            className="flex w-full items-center gap-3 rounded-lg p-1 text-left transition-colors hover:bg-white/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C8A24A]"
+          >
             <div
               className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-bold"
               style={{
@@ -213,7 +237,7 @@ export function ProfileWorkspaceLayout({
                 {getUnitLabel(currentUser)}
               </div>
             </div>
-          </div>
+          </button>
         </div>
       </aside>
 
@@ -366,6 +390,8 @@ export function ProfileWorkspaceLayout({
                   <div className="p-2">
                     <button
                       type="button"
+                      onClick={onOpenProfile}
+                      aria-label="Open my profile"
                       className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left text-sm transition-all"
                       style={{
                         color: "#E6EAF0",
@@ -381,6 +407,8 @@ export function ProfileWorkspaceLayout({
                     </button>
                     <button
                       type="button"
+                      onClick={onOpenSettings}
+                      aria-label="Open profile settings"
                       className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left text-sm transition-all"
                       style={{
                         color: "#E6EAF0",
@@ -393,6 +421,27 @@ export function ProfileWorkspaceLayout({
                         }}
                       />
                       Settings
+                    </button>
+                    <div
+                      className="my-1 border-t"
+                      style={{
+                        borderColor:
+                          "rgba(255,255,255,.07)",
+                      }}
+                    />
+                    <button
+                      type="button"
+                      onClick={onSignOut}
+                      disabled={signingOut}
+                      className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left text-sm transition-all"
+                      style={{
+                        color: "#E5484D",
+                      }}
+                    >
+                      <LogOut size={13} />
+                      {signingOut
+                        ? "Signing Out..."
+                        : "Sign Out"}
                     </button>
                   </div>
                 </div>
