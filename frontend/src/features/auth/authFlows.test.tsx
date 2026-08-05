@@ -731,7 +731,10 @@ describe("required password change", () => {
       401,
     );
 
-    renderRequiredPasswordRoute();
+    const { router } =
+      renderRequiredPasswordRoute(
+        "/change-password/required?returnTo=%2Fmissions%2F42",
+      );
 
     await user.type(
       await screen.findByLabelText(
@@ -758,6 +761,16 @@ describe("required password change", () => {
     expect(
       await screen.findByText("Login page"),
     ).toBeInTheDocument();
+
+    expect(
+      router.state.location.pathname,
+    ).toBe("/login");
+
+    expect(
+      router.state.location.search,
+    ).toBe(
+      "?returnTo=%2Fmissions%2F42",
+    );
   });
 
   it("redirects to login when DRF returns not_authenticated during submission", async () => {
@@ -771,7 +784,10 @@ describe("required password change", () => {
       403,
     );
 
-    renderRequiredPasswordRoute();
+    const { router } =
+      renderRequiredPasswordRoute(
+        "/change-password/required?returnTo=%2Fmissions%2F42",
+      );
 
     await user.type(
       await screen.findByLabelText(
@@ -798,6 +814,16 @@ describe("required password change", () => {
     expect(
       await screen.findByText("Login page"),
     ).toBeInTheDocument();
+
+    expect(
+      router.state.location.pathname,
+    ).toBe("/login");
+
+    expect(
+      router.state.location.search,
+    ).toBe(
+      "?returnTo=%2Fmissions%2F42",
+    );
   });
 
   it("signs out from the required password-change page", async () => {

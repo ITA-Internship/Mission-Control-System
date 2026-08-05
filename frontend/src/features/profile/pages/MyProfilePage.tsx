@@ -9,7 +9,10 @@ import type {
   DragEvent,
   FormEvent,
 } from "react";
-import { useNavigate } from "react-router";
+import {
+  useLocation,
+  useNavigate,
+} from "react-router";
 
 import { changePassword } from "../../auth/api/authApi";
 import { useAuth } from "../../auth/hooks/useAuth";
@@ -19,6 +22,10 @@ import {
   isPasswordChangeRequiredError,
   isSessionAuthenticationError,
 } from "../../auth/utils/authErrors";
+import {
+  buildLoginPath,
+  buildRequiredPasswordChangePath,
+} from "../../auth/utils/returnTo";
 import { updateCurrentUserProfile } from "../api/profileApi";
 import { ProfileAvatarCard } from "../components/ProfileAvatarCard";
 import { ProfileDetailsCard } from "../components/ProfileDetailsCard";
@@ -67,6 +74,13 @@ const SECTIONS: Array<{
 
 export function MyProfilePage() {
   const navigate = useNavigate();
+  const location = useLocation();
+
+  const currentRoute = [
+    location.pathname,
+    location.search,
+    location.hash,
+  ].join("");
 
   const {
     currentUser,
@@ -376,9 +390,14 @@ export function MyProfilePage() {
         });
       }
 
-      navigate("/change-password/required", {
-        replace: true,
-      });
+      navigate(
+        buildRequiredPasswordChangePath(
+          currentRoute,
+        ),
+        {
+          replace: true,
+        },
+      );
 
       return true;
     }
@@ -386,9 +405,12 @@ export function MyProfilePage() {
     if (isSessionAuthenticationError(error)) {
       clearAuthentication();
 
-      navigate("/login", {
-        replace: true,
-      });
+      navigate(
+        buildLoginPath(currentRoute),
+        {
+          replace: true,
+        },
+      );
 
       return true;
     }

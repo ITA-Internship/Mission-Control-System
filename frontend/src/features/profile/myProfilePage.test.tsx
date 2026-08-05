@@ -375,6 +375,12 @@ describe("MyProfilePage", () => {
         "We could not save your profile changes.",
       ),
     ).toBeInTheDocument();
+
+    expect(
+      screen.queryByText(
+        "Internal database traceback.",
+      ),
+    ).not.toBeInTheDocument();
   });
 
   it("changes password successfully", async () => {
@@ -1039,6 +1045,155 @@ describe("MyProfilePage", () => {
     expect(
       globalThis.fetch,
     ).not.toHaveBeenCalled();
+  });
+
+  it("shows an access error for a genuine authorization failure", async () => {
+    const user = userEvent.setup();
+
+    mockJsonResponse(
+      {
+        detail:
+          "You do not have permission to update this profile.",
+      },
+      403,
+    );
+
+    renderPage();
+
+    await screen.findByText(
+      "Major Sarah Chen",
+    );
+
+    await user.click(
+      screen.getByRole("button", {
+        name: "Edit Profile",
+      }),
+    );
+
+    await user.click(
+      screen.getByRole("button", {
+        name: "Save Changes",
+      }),
+    );
+
+    expect(
+      await screen.findByText(
+        "You do not have permission to perform this action.",
+      ),
+    ).toBeInTheDocument();
+
+    expect(
+      screen.queryByText("Login page"),
+    ).not.toBeInTheDocument();
+  });
+
+  it("shows a safe CSRF failure message", async () => {
+    const user = userEvent.setup();
+
+    mockJsonResponse(
+      {
+        detail:
+          "CSRF verification failed. Request aborted.",
+      },
+      403,
+    );
+
+    renderPage();
+
+    await screen.findByText(
+      "Major Sarah Chen",
+    );
+
+    await user.click(
+      screen.getByRole("button", {
+        name: "Edit Profile",
+      }),
+    );
+
+    await user.click(
+      screen.getByRole("button", {
+        name: "Save Changes",
+      }),
+    );
+
+    expect(
+      await screen.findByText(
+        "Your security session could not be verified. " +
+          "Refresh the page and try again.",
+      ),
+    ).toBeInTheDocument();
+  });
+
+  it("shows a retry-later message for rate limiting", async () => {
+    const user = userEvent.setup();
+
+    mockJsonResponse(
+      {
+        detail:
+          "Request was throttled.",
+      },
+      429,
+    );
+
+    renderPage();
+
+    await screen.findByText(
+      "Major Sarah Chen",
+    );
+
+    await user.click(
+      screen.getByRole("button", {
+        name: "Edit Profile",
+      }),
+    );
+
+    await user.click(
+      screen.getByRole("button", {
+        name: "Save Changes",
+      }),
+    );
+
+    expect(
+      await screen.findByText(
+        "Too many requests. " +
+          "Please wait a moment and try again.",
+      ),
+    ).toBeInTheDocument();
+  });
+
+  it("shows a safe network error", async () => {
+    const user = userEvent.setup();
+
+    vi.mocked(
+      globalThis.fetch,
+    ).mockRejectedValueOnce(
+      new TypeError("Network failure"),
+    );
+
+    renderPage();
+
+    await screen.findByText(
+      "Major Sarah Chen",
+    );
+
+    await user.click(
+      screen.getByRole("button", {
+        name: "Edit Profile",
+      }),
+    );
+
+    await user.click(
+      screen.getByRole("button", {
+        name: "Save Changes",
+      }),
+    );
+
+    expect(
+      await screen.findByText(
+        "Unable to reach Mission Control. " +
+          "Check your connection and try again.",
+      ),
+    ).toBeInTheDocument();
   });
 });
 
