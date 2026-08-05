@@ -15,8 +15,11 @@ from .serializers import (
     AccountActivationSerializer,
     AuditLogSerializer,
     ChangePasswordSerializer,
+    LoginSerializer,
+    MilitaryUnitSerializer,
     PasswordResetConfirmSerializer,
     PasswordResetRequestSerializer,
+    UserListSerializer,
     UserMeSerializer,
     UserRegistrationSerializer,
     UserRoleUpdateResponseSerializer,
@@ -74,6 +77,196 @@ user_registration_schema = description_schema(
                 "role": 1,
                 "unit": 7,
             },
+        ),
+    ],
+)
+
+user_list_schema = description_schema(
+    summary="List users",
+    description=(
+        "Retrieves a paginated list of user accounts. \n\n"
+        "Supports full-text search across username, email, first name, and "
+        "last name via the `search` query parameter, and filtering by "
+        "`role`, `role_code`, `unit`, `unit_code`, and `is_active`. Results "
+        "can be ordered by `username`, `email`, `last_login`, `created_at`, "
+        "or `is_active`."
+    ),
+    permission_code="PERMISSION_USERS_VIEW",
+    request=None,
+    responses={
+        status.HTTP_200_OK: OpenApiResponse(
+            response=UserListSerializer(many=True),
+            description="Successfully retrieved the list of users.",
+        ),
+    },
+    error_statuses=[status.HTTP_403_FORBIDDEN],
+    examples=[
+        OpenApiExample(
+            name="Valid Request",
+            response_only=True,
+            status_codes=[status.HTTP_200_OK],
+            value={
+                "id": 24,
+                "username": "oleksandr.koval",
+                "email": "oleksandr.koval@example.com",
+                "first_name": "Oleksandr",
+                "last_name": "Koval",
+                "role": 1,
+                "role_name": "Admin",
+                "role_code": "ADMIN",
+                "unit": 7,
+                "unit_name": "1st Assault Battalion",
+                "unit_code": "1AB",
+                "is_active": True,
+                "last_login": "2026-08-01T09:12:04.512000Z",
+                "created_at": "2026-06-25T14:44:49.068836Z",
+                "created_by_username": "root.admin",
+            },
+        )
+    ],
+)
+
+military_unit_list_schema = description_schema(
+    summary="List military units",
+    description=(
+        "Retrieves a paginated list of military units, each including the "
+        "number of assigned drones (`drone_count`) and users (`user_count`). "
+        "Supports search across `name` and `code` via the `search` query "
+        "parameter and filtering by `is_active`."
+    ),
+    permission_code="PERMISSION_UNITS_VIEW",
+    request=None,
+    responses={
+        status.HTTP_200_OK: OpenApiResponse(
+            response=MilitaryUnitSerializer(many=True),
+            description="Successfully retrieved the list of military units.",
+        ),
+    },
+    error_statuses=[status.HTTP_403_FORBIDDEN],
+    examples=[
+        OpenApiExample(
+            name="Valid Request",
+            response_only=True,
+            status_codes=[status.HTTP_200_OK],
+            value={
+                "id": 7,
+                "name": "1st Assault Battalion",
+                "code": "1AB",
+                "description": "Primary assault formation.",
+                "is_active": True,
+                "drone_count": 12,
+                "user_count": 5,
+                "created_at": "2026-06-25T14:44:49.068836Z",
+                "updated_at": "2026-06-25T14:44:49.068836Z",
+            },
+        )
+    ],
+)
+
+military_unit_create_schema = description_schema(
+    summary="Create a military unit",
+    description=(
+        "Creates a new military unit. \n\n"
+        "Validation: \n"
+        "- The unit code must be unique (case-insensitive). "
+    ),
+    permission_code="PERMISSION_UNITS_MANAGE",
+    request=MilitaryUnitSerializer,
+    responses={
+        status.HTTP_201_CREATED: OpenApiResponse(
+            response=MilitaryUnitSerializer,
+            description="Military unit successfully created.",
+        ),
+        status.HTTP_400_BAD_REQUEST: OpenApiResponse(
+            response=MilitaryUnitSerializer,
+            description="Bad Request",
+            examples=[
+                OpenApiExample(
+                    name="Duplicate unit code",
+                    value={"code": "A military unit with that code already exists."},
+                ),
+            ],
+        ),
+    },
+    error_statuses=[status.HTTP_403_FORBIDDEN],
+    examples=[
+        OpenApiExample(
+            name="Valid request",
+            request_only=True,
+            value={
+                "name": "1st Assault Battalion",
+                "code": "1AB",
+                "description": "Primary assault formation.",
+            },
+        ),
+    ],
+)
+
+military_unit_get_schema = description_schema(
+    summary="Retrieve a military unit",
+    description=(
+        "Retrieves a single military unit by its ID, including the number of "
+        "assigned drones (`drone_count`) and users (`user_count`)."
+    ),
+    permission_code="PERMISSION_UNITS_VIEW",
+    parameters=[
+        OpenApiParameter(
+            name="id",
+            type=int,
+            location=OpenApiParameter.PATH,
+            description="ID of the military unit.",
+        )
+    ],
+    request=None,
+    responses={
+        status.HTTP_200_OK: OpenApiResponse(
+            response=MilitaryUnitSerializer,
+            description="Military unit details successfully retrieved.",
+        ),
+    },
+    error_statuses=[status.HTTP_403_FORBIDDEN, status.HTTP_404_NOT_FOUND],
+)
+
+military_unit_update_schema = description_schema(
+    summary="Update a military unit",
+    description=(
+        "Partially updates a military unit, including its active status "
+        "(`is_active`). \n\n"
+        "Validation: \n"
+        "- The unit code must remain unique (case-insensitive). "
+    ),
+    permission_code="PERMISSION_UNITS_MANAGE",
+    parameters=[
+        OpenApiParameter(
+            name="id",
+            type=int,
+            location=OpenApiParameter.PATH,
+            description="ID of the military unit being updated.",
+        )
+    ],
+    request=MilitaryUnitSerializer,
+    responses={
+        status.HTTP_200_OK: OpenApiResponse(
+            response=MilitaryUnitSerializer,
+            description="Military unit successfully updated.",
+        ),
+        status.HTTP_400_BAD_REQUEST: OpenApiResponse(
+            response=MilitaryUnitSerializer,
+            description="Bad Request",
+            examples=[
+                OpenApiExample(
+                    name="Duplicate unit code",
+                    value={"code": "A military unit with that code already exists."},
+                ),
+            ],
+        ),
+    },
+    error_statuses=[status.HTTP_403_FORBIDDEN, status.HTTP_404_NOT_FOUND],
+    examples=[
+        OpenApiExample(
+            name="Deactivate unit",
+            request_only=True,
+            value={"is_active": False},
         ),
     ],
 )
@@ -454,6 +647,98 @@ change_password_schema = description_schema(
             },
         )
     ],
+)
+
+login_response_serializer = inline_serializer(
+    name="LoginMessageResponse",
+    fields={
+        "detail": serializers.CharField(),
+    },
+)
+
+login_get_schema = extend_schema(
+    tags=["accounts"],
+    auth=[],
+    operation_id="accounts_login_retrieve",
+    summary="Initialize login CSRF protection",
+    description=(
+        "Issues a CSRF cookie that must be included in the "
+        "subsequent login POST request."
+    ),
+    request=None,
+    responses={
+        status.HTTP_200_OK: OpenApiResponse(
+            response=login_response_serializer,
+            description="CSRF cookie issued successfully.",
+            examples=[
+                OpenApiExample(
+                    "CSRF cookie set",
+                    value={
+                        "detail": "CSRF cookie set.",
+                    },
+                    response_only=True,
+                ),
+            ],
+        ),
+    },
+)
+
+login_post_schema = extend_schema(
+    tags=["accounts"],
+    auth=[],
+    operation_id="accounts_login_create",
+    summary="Log in",
+    description=(
+        "Authenticates a user by username or email and password, "
+        "then starts a Django session."
+    ),
+    request=LoginSerializer,
+    responses={
+        status.HTTP_200_OK: OpenApiResponse(
+            response=UserMeSerializer,
+            description=(
+                "Authentication succeeded and a session was created."
+            ),
+        ),
+        status.HTTP_400_BAD_REQUEST: OpenApiResponse(
+            response=login_response_serializer,
+            description=(
+                "The submitted credentials are missing or invalid."
+            ),
+            examples=[
+                OpenApiExample(
+                    "Invalid credentials",
+                    value={
+                        "detail": "Invalid credentials.",
+                    },
+                    response_only=True,
+                ),
+                OpenApiExample(
+                    "Missing identifier",
+                    value={
+                        "detail": "Identifier is required.",
+                    },
+                    response_only=True,
+                ),
+            ],
+        ),
+        status.HTTP_429_TOO_MANY_REQUESTS: OpenApiResponse(
+            response=login_response_serializer,
+            description="Login rate limit exceeded.",
+            examples=[
+                OpenApiExample(
+                    "Rate limit exceeded",
+                    value={
+                        "detail": (
+                            "Request was throttled. "
+                            "Expected available in 60 seconds."
+                        ),
+                    },
+                    response_only=True,
+                ),
+            ],
+        ),
+    },
 )
 
 logout_response_serializer = inline_serializer(

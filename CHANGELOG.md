@@ -125,6 +125,11 @@
 - *(auth)* Enforce required password change on backend (by **Anastasiia**)
 - *(profile)* Add avatar save and cancel actions (by **Anastasiia**)
 - *(profile)* Improve error handling for profile updates (by **Anastasiia**)
+- Fixed requirements and linting (by **Olena Kshyk**)
+- Fixed version in requirements (by **Olena Kshyk**)
+- Fix from comments (by **Olena Kshyk**)
+- Fixed some bugs (by **Olena Kshyk**)
+- Fixed bugs from merge (by **Olena Kshyk**)
 
 ### Other
 
@@ -828,6 +833,15 @@
 - Merge branch 'develop' of https://github.com/ITA-Internship/Mission-Control-System into task#205-implement-dashboard-frontend (by **Olena Kshyk**)
 - Merge pull request #211 from ITA-Internship/task#205-implement-dashboard-frontend (by **Olena Kshyk**)
 - Task#205 implement dashboard on frontend (by **Olena Kshyk**)
+- Added endpoints for users units and roles (by **Olena Kshyk**)
+- Started working on admin page (by **Olena Kshyk**)
+- Merge branch 'develop' of https://github.com/ITA-Internship/Mission-Control-System into task#212-frontend-admin-page (by **Olena Kshyk**)
+- Restricted acces to admin only (by **Olena Kshyk**)
+- Merge pull request #223 from ITA-Internship/task#212-frontend-admin-page (by **Olena Kshyk**)
+- Task#212 frontend admin page (by **Olena Kshyk**)
+- Merge branch 'develop' of https://github.com/ITA-Internship/Mission-Control-System into task#224-add-missing-endpoints-users-and-units (by **Olena Kshyk**)
+- Merge pull request #225 from ITA-Internship/task#224-add-missing-endpoints-users-and-units (by **Olena Kshyk**)
+- Task#224 endpoints for users units and roles (by **Olena Kshyk**)
 
 ### Refactor
 
@@ -901,6 +915,8 @@
 - *(changelog)* Update CHANGELOG.md [skip ci] (by **github-actions[bot]**)
 - *(changelog)* Update CHANGELOG.md [skip ci] (by **github-actions[bot]**)
 - *(auth)* Add frontend runtime, SPA deployment and tests (#200) (by **yana-donda**)
+- *(changelog)* Update CHANGELOG.md [skip ci] (by **github-actions[bot]**)
+- *(changelog)* Update CHANGELOG.md [skip ci] (by **github-actions[bot]**)
 - *(changelog)* Update CHANGELOG.md [skip ci] (by **github-actions[bot]**)
 - *(changelog)* Update CHANGELOG.md [skip ci] (by **github-actions[bot]**)
 - *(changelog)* Update CHANGELOG.md [skip ci] (by **github-actions[bot]**)

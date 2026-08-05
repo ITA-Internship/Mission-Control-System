@@ -127,7 +127,7 @@ INSTALLED_APPS = [
     "repairs",
     "rest_framework",
     "django_filters",
-    "common",
+    "common.apps.CommonConfig",
     "drf_spectacular",
     "storages",
 ]

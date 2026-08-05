@@ -1,10 +1,20 @@
-import {
-  ApiError,
-  NetworkError,
-} from "../../../shared/api/apiClient";
+import { ApiError } from "../../../shared/api/apiClient";
+import { getApiDetail } from "../../../shared/utils/apiErrors";
 
-type ApiErrorBody =
-  Record<string, unknown>;
+/*
+ * Auth-specific error predicates.
+ *
+ * Transport-level helpers live in shared/utils/apiErrors because they are
+ * used across multiple features. They are re-exported here so existing auth,
+ * profile and session imports do not need to change.
+ */
+export {
+  getApiDetail,
+  getApiFieldError,
+  getFormError,
+} from "../../../shared/utils/apiErrors";
+
+type ApiErrorBody = Record<string, unknown>;
 
 const SESSION_AUTH_CODES = new Set([
   "not_authenticated",
@@ -35,24 +45,6 @@ function getErrorBody(
   return error.body;
 }
 
-export function getApiDetail(
-  error: unknown,
-): string | undefined {
-  if (!(error instanceof ApiError)) {
-    return undefined;
-  }
-
-  if (typeof error.body === "string") {
-    return error.body;
-  }
-
-  const body = getErrorBody(error);
-
-  return typeof body?.detail === "string"
-    ? body.detail
-    : undefined;
-}
-
 export function getApiCode(
   error: unknown,
 ): string | undefined {
@@ -63,137 +55,7 @@ export function getApiCode(
     : undefined;
 }
 
-export function getApiFieldError(
-  error: unknown,
-  field: string,
-): string | undefined {
-  const body = getErrorBody(error);
-
-  if (!body) {
-    return undefined;
-  }
-
-  const fieldError = body[field];
-
-  if (typeof fieldError === "string") {
-    return fieldError;
-  }
-
-  if (Array.isArray(fieldError)) {
-    return fieldError.find(
-      (value): value is string =>
-        typeof value === "string",
-    );
-  }
-
-  return undefined;
-}
-
-export function isPasswordChangeRequiredError(
-  error: unknown,
-): boolean {
-  if (
-    !(error instanceof ApiError) ||
-    error.status !== 403
-  ) {
-    return false;
-  }
-
-  return (
-    getApiCode(error) ===
-    "password_change_required"
-  );
-}
-
-export function isAlreadyActivatedError(
-  error: unknown,
-): boolean {
-  if (!(error instanceof ApiError)) {
-    return false;
-  }
-
-  const code =
-    getApiCode(error)?.toLowerCase();
-
-  if (
-    code === "already_activated" ||
-    code === "account_already_activated"
-  ) {
-    return true;
-  }
-
-  const detail =
-    getApiDetail(error)?.toLowerCase();
-
-  return Boolean(
-    detail?.includes("already activated"),
-  );
-}
-
-export function isInvalidActivationLinkError(
-  error: unknown,
-): boolean {
-  if (
-    !(error instanceof ApiError) ||
-    error.status !== 400
-  ) {
-    return false;
-  }
-
-  const code =
-    getApiCode(error)?.toLowerCase();
-
-  if (
-    code === "invalid_activation_link" ||
-    code === "activation_link_invalid" ||
-    code === "activation_link_expired"
-  ) {
-    return true;
-  }
-
-  const detail =
-    getApiDetail(error)?.toLowerCase();
-
-  return Boolean(
-    detail?.includes(
-      "invalid or expired activation link",
-    ) ||
-      (
-        detail?.includes("activation link") &&
-        (
-          detail.includes("invalid") ||
-          detail.includes("expired")
-        )
-      ),
-  );
-}
-
-export function isInvalidResetLinkError(
-  error: unknown,
-): boolean {
-  if (
-    !(error instanceof ApiError) ||
-    ![400, 404].includes(error.status)
-  ) {
-    return false;
-  }
-
-  const detail =
-    getApiDetail(error)?.toLowerCase();
-
-  if (!detail) {
-    return false;
-  }
-
-  return (
-    detail.includes("reset link") &&
-    (
-      detail.includes("invalid") ||
-      detail.includes("expired")
-    )
-  );
-}
-
+/** The session cookie is missing, expired or rejected. */
 export function isSessionAuthenticationError(
   error: unknown,
 ): boolean {
@@ -233,6 +95,23 @@ export function isSessionAuthenticationError(
     detail.includes("not authenticated") ||
     detail.includes("session expired") ||
     detail.includes("invalid session")
+  );
+}
+
+/** The account must set a new password before any other request succeeds. */
+export function isPasswordChangeRequiredError(
+  error: unknown,
+): boolean {
+  if (
+    !(error instanceof ApiError) ||
+    error.status !== 403
+  ) {
+    return false;
+  }
+
+  return (
+    getApiCode(error)?.toLowerCase() ===
+    "password_change_required"
   );
 }
 
@@ -285,49 +164,118 @@ export function isRateLimitError(
   );
 }
 
-export function getFormError(
+export function isInvalidResetLinkError(
   error: unknown,
-  fallback: string,
-): string {
-  if (error instanceof NetworkError) {
-    return (
-      "Unable to reach Mission Control. " +
-      "Check your connection and try again."
-    );
+): boolean {
+  if (
+    !(error instanceof ApiError) ||
+    ![400, 404].includes(error.status)
+  ) {
+    return false;
   }
 
-  if (isRateLimitError(error)) {
-    return (
-      "Too many requests. " +
-      "Please wait a moment and try again."
-    );
+  if (error.status === 404) {
+    return true;
   }
 
-  if (isCsrfError(error)) {
-    return (
-      "Your security session could not be verified. " +
-      "Refresh the page and try again."
-    );
+  const code =
+    getApiCode(error)?.toLowerCase();
+
+  if (
+    code === "invalid_reset_link" ||
+    code === "reset_link_invalid" ||
+    code === "reset_link_expired"
+  ) {
+    return true;
   }
 
-  if (isAuthorizationError(error)) {
-    return (
-      "You do not have permission " +
-      "to perform this action."
-    );
+  const detail =
+    getApiDetail(error)?.toLowerCase();
+
+  if (!detail) {
+    return false;
   }
 
-  if (error instanceof ApiError) {
-    /*
-     * Never display backend details for server errors.
-     * They may contain implementation information.
-     */
-    if (error.status >= 500) {
-      return fallback;
-    }
+  return (
+    detail.includes("reset link") &&
+    (
+      detail.includes("invalid") ||
+      detail.includes("expired")
+    )
+  );
+}
 
-    return getApiDetail(error) ?? fallback;
+export function isInvalidActivationLinkError(
+  error: unknown,
+): boolean {
+  if (
+    !(error instanceof ApiError) ||
+    ![400, 404].includes(error.status)
+  ) {
+    return false;
   }
 
-  return fallback;
+  if (error.status === 404) {
+    return true;
+  }
+
+  const code =
+    getApiCode(error)?.toLowerCase();
+
+  if (
+    code === "invalid_activation_link" ||
+    code === "activation_link_invalid" ||
+    code === "activation_link_expired"
+  ) {
+    return true;
+  }
+
+  const detail =
+    getApiDetail(error)?.toLowerCase();
+
+  return Boolean(
+    detail?.includes(
+      "invalid or expired activation link",
+    ) ||
+      (
+        detail?.includes("activation link") &&
+        (
+          detail.includes("invalid") ||
+          detail.includes("expired")
+        )
+      ),
+  );
+}
+
+export function isAlreadyActivatedError(
+  error: unknown,
+): boolean {
+  if (!(error instanceof ApiError)) {
+    return false;
+  }
+
+  const code =
+    getApiCode(error)?.toLowerCase();
+
+  if (
+    code === "already_activated" ||
+    code === "account_already_activated"
+  ) {
+    return true;
+  }
+
+  const detail =
+    getApiDetail(error)?.toLowerCase();
+
+  return Boolean(
+    error.status === 400 &&
+      (
+        detail?.includes(
+          "already activated",
+        ) ||
+        detail?.includes(
+          "already been activated",
+        )
+      ),
+  );
 }

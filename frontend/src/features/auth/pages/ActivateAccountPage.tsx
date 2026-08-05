@@ -51,6 +51,8 @@ import {
 import {
   getApiFieldError,
   getFormError,
+} from "../../../shared/utils/apiErrors";
+import {
   isAlreadyActivatedError,
   isInvalidActivationLinkError,
 } from "../utils/authErrors";

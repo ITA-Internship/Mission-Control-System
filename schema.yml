@@ -40,6 +40,8 @@ paths:
               $ref: '#/components/schemas/AccountActivation'
         required: true
       security:
+      - cookieAuth: []
+      - basicAuth: []
       - {}
       responses:
         '200':
@@ -136,6 +138,9 @@ paths:
           type: integer
       tags:
       - accounts
+      security:
+      - cookieAuth: []
+      - basicAuth: []
       responses:
         '200':
           content:
@@ -181,6 +186,9 @@ paths:
         required: true
       tags:
       - accounts
+      security:
+      - cookieAuth: []
+      - basicAuth: []
       responses:
         '200':
           content:
@@ -217,6 +225,9 @@ paths:
       summary: Export audit logs to CSV
       tags:
       - accounts
+      security:
+      - cookieAuth: []
+      - basicAuth: []
       responses:
         '200':
           description: A CSV file containing audit logs generated successfully.
@@ -227,24 +238,75 @@ paths:
   /api/accounts/login/:
     get:
       operationId: accounts_login_retrieve
-      description: Issue a CSRF cookie for the upcoming login request.
+      description: Issues a CSRF cookie that must be included in the subsequent login
+        POST request.
+      summary: Initialize login CSRF protection
       tags:
       - accounts
-      security:
-      - {}
       responses:
         '200':
-          description: No response body
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoginMessageResponse'
+              examples:
+                CSRFCookieSet:
+                  value:
+                    detail: CSRF cookie set.
+                  summary: CSRF cookie set
+          description: CSRF cookie issued successfully.
     post:
       operationId: accounts_login_create
-      description: Authenticate the submitted credentials and start a Django session.
+      description: Authenticates a user by username or email and password, then starts
+        a Django session.
+      summary: Log in
       tags:
       - accounts
-      security:
-      - {}
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Login'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/Login'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/Login'
+        required: true
       responses:
         '200':
-          description: No response body
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserMe'
+          description: Authentication succeeded and a session was created.
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoginMessageResponse'
+              examples:
+                InvalidCredentials:
+                  value:
+                    detail: Invalid credentials.
+                  summary: Invalid credentials
+                MissingIdentifier:
+                  value:
+                    detail: Identifier is required.
+                  summary: Missing identifier
+          description: The submitted credentials are missing or invalid.
+        '429':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoginMessageResponse'
+              examples:
+                RateLimitExceeded:
+                  value:
+                    detail: Request was throttled. Expected available in 60 seconds.
+                  summary: Rate limit exceeded
+          description: Login rate limit exceeded.
   /api/accounts/logout/:
     post:
       operationId: accounts_logout
@@ -283,7 +345,301 @@ paths:
                     detail: 'CSRF Failed: CSRF token missing.'
                   summary: CSRF failure
           description: The request is unauthenticated or CSRF verification failed.
+  /api/accounts/military-units/:
+    get:
+      operationId: accounts_military_units_list
+      description: |-
+        Retrieves a paginated list of military units, each including the number of assigned drones (`drone_count`) and users (`user_count`). Supports search across `name` and `code` via the `search` query parameter and filtering by `is_active`.
+
+        Required permission: `PERMISSION_UNITS_VIEW`.
+      summary: List military units
+      parameters:
+      - in: query
+        name: is_active
+        schema:
+          type: boolean
+      - name: ordering
+        required: false
+        in: query
+        description: Which field to use when ordering the results.
+        schema:
+          type: string
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      - name: page_size
+        required: false
+        in: query
+        description: Number of results to return per page.
+        schema:
+          type: integer
+      - name: search
+        required: false
+        in: query
+        description: A search term.
+        schema:
+          type: string
+      tags:
+      - accounts
+      security:
+      - cookieAuth: []
+      - basicAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedMilitaryUnitList'
+              examples:
+                ValidRequest:
+                  value:
+                    count: 123
+                    next: http://api.example.org/accounts/?page=4
+                    previous: http://api.example.org/accounts/?page=2
+                    results:
+                    - id: 7
+                      name: 1st Assault Battalion
+                      code: 1AB
+                      description: Primary assault formation.
+                      is_active: true
+                      drone_count: 12
+                      user_count: 5
+                      created_at: '2026-06-25T14:44:49.068836Z'
+                      updated_at: '2026-06-25T14:44:49.068836Z'
+                  summary: Valid Request
+          description: Successfully retrieved the list of military units.
+        '403':
+          description: Forbidden. User does not have permission to perform this action.
+    post:
+      operationId: accounts_military_units_create
+      description: "Creates a new military unit. \n\nValidation: \n- The unit code
+        must be unique (case-insensitive).\n\nRequired permission: `PERMISSION_UNITS_MANAGE`."
+      summary: Create a military unit
+      tags:
+      - accounts
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MilitaryUnit'
+            examples:
+              ValidRequest:
+                value:
+                  name: 1st Assault Battalion
+                  code: 1AB
+                  description: Primary assault formation.
+                summary: Valid request
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/MilitaryUnit'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/MilitaryUnit'
+        required: true
+      security:
+      - cookieAuth: []
+      - basicAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MilitaryUnit'
+          description: Military unit successfully created.
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MilitaryUnit'
+              examples:
+                DuplicateUnitCode:
+                  value:
+                    code: A military unit with that code already exists.
+                  summary: Duplicate unit code
+          description: Bad Request
+        '403':
+          description: Forbidden. User does not have permission to perform this action.
+  /api/accounts/military-units/{id}/:
+    get:
+      operationId: accounts_military_units_retrieve
+      description: |-
+        Retrieves a single military unit by its ID, including the number of assigned drones (`drone_count`) and users (`user_count`).
+
+        Required permission: `PERMISSION_UNITS_VIEW`.
+      summary: Retrieve a military unit
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: ID of the military unit.
+        required: true
+      tags:
+      - accounts
+      security:
+      - cookieAuth: []
+      - basicAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MilitaryUnit'
+          description: Military unit details successfully retrieved.
+        '403':
+          description: Forbidden. User does not have permission to perform this action.
+        '404':
+          description: Not Found.
+    patch:
+      operationId: accounts_military_units_partial_update
+      description: "Partially updates a military unit, including its active status
+        (`is_active`). \n\nValidation: \n- The unit code must remain unique (case-insensitive).\n\nRequired
+        permission: `PERMISSION_UNITS_MANAGE`."
+      summary: Update a military unit
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: ID of the military unit being updated.
+        required: true
+      tags:
+      - accounts
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedMilitaryUnit'
+            examples:
+              DeactivateUnit:
+                value:
+                  is_active: false
+                summary: Deactivate unit
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedMilitaryUnit'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedMilitaryUnit'
+      security:
+      - cookieAuth: []
+      - basicAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MilitaryUnit'
+          description: Military unit successfully updated.
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MilitaryUnit'
+              examples:
+                DuplicateUnitCode:
+                  value:
+                    code: A military unit with that code already exists.
+                  summary: Duplicate unit code
+          description: Bad Request
+        '403':
+          description: Forbidden. User does not have permission to perform this action.
+        '404':
+          description: Not Found.
   /api/accounts/users/:
+    get:
+      operationId: accounts_users_list
+      description: "Retrieves a paginated list of user accounts. \n\nSupports full-text
+        search across username, email, first name, and last name via the `search`
+        query parameter, and filtering by `role`, `role_code`, `unit`, `unit_code`,
+        and `is_active`. Results can be ordered by `username`, `email`, `last_login`,
+        `created_at`, or `is_active`.\n\nRequired permission: `PERMISSION_USERS_VIEW`."
+      summary: List users
+      parameters:
+      - in: query
+        name: is_active
+        schema:
+          type: boolean
+      - name: ordering
+        required: false
+        in: query
+        description: Which field to use when ordering the results.
+        schema:
+          type: string
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      - name: page_size
+        required: false
+        in: query
+        description: Number of results to return per page.
+        schema:
+          type: integer
+      - in: query
+        name: role
+        schema:
+          type: integer
+      - in: query
+        name: role_code
+        schema:
+          type: string
+      - name: search
+        required: false
+        in: query
+        description: A search term.
+        schema:
+          type: string
+      - in: query
+        name: unit
+        schema:
+          type: integer
+      - in: query
+        name: unit_code
+        schema:
+          type: string
+      tags:
+      - accounts
+      security:
+      - cookieAuth: []
+      - basicAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedUserListList'
+              examples:
+                ValidRequest:
+                  value:
+                    count: 123
+                    next: http://api.example.org/accounts/?page=4
+                    previous: http://api.example.org/accounts/?page=2
+                    results:
+                    - id: 24
+                      username: oleksandr.koval
+                      email: oleksandr.koval@example.com
+                      first_name: Oleksandr
+                      last_name: Koval
+                      role: 1
+                      role_name: Admin
+                      role_code: ADMIN
+                      unit: 7
+                      unit_name: 1st Assault Battalion
+                      unit_code: 1AB
+                      is_active: true
+                      last_login: '2026-08-01T09:12:04.512000Z'
+                      created_at: '2026-06-25T14:44:49.068836Z'
+                      created_by_username: root.admin
+                  summary: Valid Request
+          description: Successfully retrieved the list of users.
+        '403':
+          description: Forbidden. User does not have permission to perform this action.
     post:
       operationId: accounts_users_create
       description: "Creates a new user. Sends an activation email to the user and
@@ -317,6 +673,9 @@ paths:
             schema:
               $ref: '#/components/schemas/UserRegistration'
         required: true
+      security:
+      - cookieAuth: []
+      - basicAuth: []
       responses:
         '201':
           content:
@@ -391,6 +750,9 @@ paths:
           multipart/form-data:
             schema:
               $ref: '#/components/schemas/PatchedUserStatusUpdate'
+      security:
+      - cookieAuth: []
+      - basicAuth: []
       responses:
         '200':
           description: User status updated successfully.
@@ -421,6 +783,9 @@ paths:
         required: true
       tags:
       - accounts
+      security:
+      - cookieAuth: []
+      - basicAuth: []
       responses:
         '200':
           content:
@@ -468,6 +833,9 @@ paths:
           multipart/form-data:
             schema:
               $ref: '#/components/schemas/PatchedUserRoleUpdate'
+      security:
+      - cookieAuth: []
+      - basicAuth: []
       responses:
         '200':
           content:
@@ -513,6 +881,9 @@ paths:
       summary: Retrieve current user profile
       tags:
       - accounts
+      security:
+      - cookieAuth: []
+      - basicAuth: []
       responses:
         '200':
           content:
@@ -565,6 +936,9 @@ paths:
           multipart/form-data:
             schema:
               $ref: '#/components/schemas/UserMe'
+      security:
+      - cookieAuth: []
+      - basicAuth: []
       responses:
         '200':
           content:
@@ -619,6 +993,9 @@ paths:
           multipart/form-data:
             schema:
               $ref: '#/components/schemas/PatchedUserMe'
+      security:
+      - cookieAuth: []
+      - basicAuth: []
       responses:
         '200':
           content:
@@ -673,6 +1050,9 @@ paths:
             schema:
               $ref: '#/components/schemas/ChangePassword'
         required: true
+      security:
+      - cookieAuth: []
+      - basicAuth: []
       responses:
         '200':
           description: Password changed successfully. Active sessions have been invalidated.
@@ -703,6 +1083,8 @@ paths:
               $ref: '#/components/schemas/PasswordResetRequest'
         required: true
       security:
+      - cookieAuth: []
+      - basicAuth: []
       - {}
       responses:
         '200':
@@ -750,6 +1132,8 @@ paths:
               $ref: '#/components/schemas/PasswordResetConfirm'
         required: true
       security:
+      - cookieAuth: []
+      - basicAuth: []
       - {}
       responses:
         '200':
@@ -918,6 +1302,9 @@ paths:
           - WRITTEN_OFF
       tags:
       - drones
+      security:
+      - cookieAuth: []
+      - basicAuth: []
       responses:
         '200':
           content:
@@ -1021,6 +1408,9 @@ paths:
             schema:
               $ref: '#/components/schemas/Drone'
         required: true
+      security:
+      - cookieAuth: []
+      - basicAuth: []
       responses:
         '201':
           content:
@@ -1210,6 +1600,9 @@ paths:
           format: date
       tags:
       - drones
+      security:
+      - cookieAuth: []
+      - basicAuth: []
       responses:
         '200':
           content:
@@ -1258,6 +1651,9 @@ paths:
         required: true
       tags:
       - drones
+      security:
+      - cookieAuth: []
+      - basicAuth: []
       responses:
         '200':
           content:
@@ -1350,6 +1746,9 @@ paths:
           multipart/form-data:
             schema:
               $ref: '#/components/schemas/PatchedDroneUpdate'
+      security:
+      - cookieAuth: []
+      - basicAuth: []
       responses:
         '200':
           content:
@@ -1458,6 +1857,9 @@ paths:
           type: integer
       tags:
       - drones
+      security:
+      - cookieAuth: []
+      - basicAuth: []
       responses:
         '200':
           content:
@@ -1517,6 +1919,9 @@ paths:
           type: integer
       tags:
       - drones
+      security:
+      - cookieAuth: []
+      - basicAuth: []
       responses:
         '200':
           content:
@@ -1696,6 +2101,9 @@ paths:
           - WRITTEN_OFF
       tags:
       - drones
+      security:
+      - cookieAuth: []
+      - basicAuth: []
       responses:
         '200':
           description: A CSV file containing drone data generated successfully.
@@ -1726,6 +2134,9 @@ paths:
             schema:
               $ref: '#/components/schemas/DroneImport'
         required: true
+      security:
+      - cookieAuth: []
+      - basicAuth: []
       responses:
         '200':
           description: Import processing completed.
@@ -1756,6 +2167,9 @@ paths:
           type: integer
       tags:
       - drones
+      security:
+      - cookieAuth: []
+      - basicAuth: []
       responses:
         '200':
           content:
@@ -1815,6 +2229,9 @@ paths:
             schema:
               $ref: '#/components/schemas/DroneModel'
         required: true
+      security:
+      - cookieAuth: []
+      - basicAuth: []
       responses:
         '200':
           content:
@@ -1868,6 +2285,9 @@ paths:
       summary: List write-off records
       tags:
       - drones
+      security:
+      - cookieAuth: []
+      - basicAuth: []
       responses:
         '200':
           content:
@@ -1926,6 +2346,9 @@ paths:
             schema:
               $ref: '#/components/schemas/WriteOffRecordCreate'
         required: true
+      security:
+      - cookieAuth: []
+      - basicAuth: []
       responses:
         '201':
           content:
@@ -2043,6 +2466,9 @@ paths:
           format: date
       tags:
       - drones
+      security:
+      - cookieAuth: []
+      - basicAuth: []
       responses:
         '200':
           content:
@@ -2127,6 +2553,9 @@ paths:
         description: Filter by the ID of the acting user.
       tags:
       - media
+      security:
+      - cookieAuth: []
+      - basicAuth: []
       responses:
         '200':
           content:
@@ -2172,6 +2601,9 @@ paths:
         required: true
       tags:
       - media
+      security:
+      - cookieAuth: []
+      - basicAuth: []
       responses:
         '200':
           content:
@@ -2261,6 +2693,9 @@ paths:
         description: 'Filter by uploader user ID (alias: `uploaded_by`).'
       tags:
       - media
+      security:
+      - cookieAuth: []
+      - basicAuth: []
       responses:
         '200':
           content:
@@ -2343,6 +2778,9 @@ paths:
                   checksum: 9f2c1a4b8e5d6f70a1b2c3d4e5f60718
                 summary: Valid Request
         required: true
+      security:
+      - cookieAuth: []
+      - basicAuth: []
       responses:
         '201':
           content:
@@ -2391,6 +2829,9 @@ paths:
         required: true
       tags:
       - media
+      security:
+      - cookieAuth: []
+      - basicAuth: []
       responses:
         '200':
           content:
@@ -2459,6 +2900,9 @@ paths:
                   recorded_at: '2026-06-02T02:28:43Z'
                   checksum: 9f2c1a4b8e5d6f70a1b2c3d4e5f60718
                 summary: Valid Request
+      security:
+      - cookieAuth: []
+      - basicAuth: []
       responses:
         '200':
           content:
@@ -2526,6 +2970,9 @@ paths:
                 value:
                   recorded_at: '2026-06-02T02:28:43Z'
                 summary: Valid Request
+      security:
+      - cookieAuth: []
+      - basicAuth: []
       responses:
         '200':
           content:
@@ -2575,6 +3022,9 @@ paths:
         required: true
       tags:
       - media
+      security:
+      - cookieAuth: []
+      - basicAuth: []
       responses:
         '204':
           description: Video metadata record successfully deleted. No content.
@@ -2635,6 +3085,9 @@ paths:
         description: Filter missions by their current state.
       tags:
       - missions
+      security:
+      - cookieAuth: []
+      - basicAuth: []
       responses:
         '200':
           content:
@@ -2721,6 +3174,9 @@ paths:
             schema:
               $ref: '#/components/schemas/Mission'
         required: true
+      security:
+      - cookieAuth: []
+      - basicAuth: []
       responses:
         '200':
           content:
@@ -2789,6 +3245,9 @@ paths:
           type: integer
       tags:
       - media
+      security:
+      - cookieAuth: []
+      - basicAuth: []
       responses:
         '200':
           content:
@@ -2851,6 +3310,9 @@ paths:
             schema:
               $ref: '#/components/schemas/MissionArtifactUpload'
         required: true
+      security:
+      - cookieAuth: []
+      - basicAuth: []
       responses:
         '201':
           content:
@@ -2925,6 +3387,9 @@ paths:
         required: true
       tags:
       - media
+      security:
+      - cookieAuth: []
+      - basicAuth: []
       responses:
         '200':
           content:
@@ -2977,6 +3442,9 @@ paths:
         required: true
       tags:
       - media
+      security:
+      - cookieAuth: []
+      - basicAuth: []
       responses:
         '204':
           description: Artifact successfully deleted. No content returned.
@@ -3009,6 +3477,9 @@ paths:
         required: true
       tags:
       - media
+      security:
+      - cookieAuth: []
+      - basicAuth: []
       responses:
         '200':
           content:
@@ -3051,6 +3522,9 @@ paths:
           type: integer
       tags:
       - mission assignments
+      security:
+      - cookieAuth: []
+      - basicAuth: []
       responses:
         '200':
           content:
@@ -3147,6 +3621,9 @@ paths:
             schema:
               $ref: '#/components/schemas/MissionDrone'
         required: true
+      security:
+      - cookieAuth: []
+      - basicAuth: []
       responses:
         '201':
           content:
@@ -3210,6 +3687,9 @@ paths:
         required: true
       tags:
       - mission assignments
+      security:
+      - cookieAuth: []
+      - basicAuth: []
       responses:
         '204':
           description: Assignment successfully deleted. No content is returned.
@@ -3236,6 +3716,9 @@ paths:
         required: true
       tags:
       - missions
+      security:
+      - cookieAuth: []
+      - basicAuth: []
       responses:
         '200':
           content:
@@ -3324,6 +3807,9 @@ paths:
           multipart/form-data:
             schema:
               $ref: '#/components/schemas/PatchedMissionDroneCondition'
+      security:
+      - cookieAuth: []
+      - basicAuth: []
       responses:
         '200':
           content:
@@ -3400,6 +3886,9 @@ paths:
           multipart/form-data:
             schema:
               $ref: '#/components/schemas/PatchedMissionOutcome'
+      security:
+      - cookieAuth: []
+      - basicAuth: []
       responses:
         '200':
           content:
@@ -3459,6 +3948,9 @@ paths:
         required: true
       tags:
       - missions
+      security:
+      - cookieAuth: []
+      - basicAuth: []
       responses:
         '200':
           content:
@@ -3509,6 +4001,9 @@ paths:
           multipart/form-data:
             schema:
               $ref: '#/components/schemas/MissionStatusUpdate'
+      security:
+      - cookieAuth: []
+      - basicAuth: []
       responses:
         '200':
           content:
@@ -3571,6 +4066,9 @@ paths:
           multipart/form-data:
             schema:
               $ref: '#/components/schemas/PatchedMissionStatusUpdate'
+      security:
+      - cookieAuth: []
+      - basicAuth: []
       responses:
         '200':
           content:
@@ -3678,6 +4176,9 @@ paths:
         style: form
       tags:
       - repairs
+      security:
+      - cookieAuth: []
+      - basicAuth: []
       responses:
         '200':
           content:
@@ -3731,6 +4232,9 @@ paths:
             schema:
               $ref: '#/components/schemas/DefectReport'
         required: true
+      security:
+      - cookieAuth: []
+      - basicAuth: []
       responses:
         '201':
           content:
@@ -3773,6 +4277,9 @@ paths:
         required: true
       tags:
       - repairs
+      security:
+      - cookieAuth: []
+      - basicAuth: []
       responses:
         '200':
           content:
@@ -3827,6 +4334,9 @@ paths:
           type: integer
       tags:
       - repairs
+      security:
+      - cookieAuth: []
+      - basicAuth: []
       responses:
         '200':
           content:
@@ -3890,6 +4400,9 @@ paths:
             schema:
               $ref: '#/components/schemas/DefectStatusUpdate'
         required: true
+      security:
+      - cookieAuth: []
+      - basicAuth: []
       responses:
         '200':
           content:
@@ -3968,6 +4481,9 @@ paths:
           `status_change`, `repair`, `replacement`).
       tags:
       - repairs
+      security:
+      - cookieAuth: []
+      - basicAuth: []
       responses:
         '200':
           content:
@@ -4040,6 +4556,9 @@ paths:
           `status_change`, `repair`, `replacement`).
       tags:
       - repairs
+      security:
+      - cookieAuth: []
+      - basicAuth: []
       responses:
         '200':
           description: A CSV file containing the drone repair history generated successfully.
@@ -4120,6 +4639,9 @@ paths:
           - PENDING
       tags:
       - repairs
+      security:
+      - cookieAuth: []
+      - basicAuth: []
       responses:
         '200':
           content:
@@ -4173,6 +4695,9 @@ paths:
             schema:
               $ref: '#/components/schemas/RepairOrderCreate'
         required: true
+      security:
+      - cookieAuth: []
+      - basicAuth: []
       responses:
         '201':
           content:
@@ -4220,6 +4745,9 @@ paths:
         required: true
       tags:
       - repairs
+      security:
+      - cookieAuth: []
+      - basicAuth: []
       responses:
         '200':
           content:
@@ -4281,6 +4809,9 @@ paths:
           multipart/form-data:
             schema:
               $ref: '#/components/schemas/PatchedRepairOrderStatusUpdate'
+      security:
+      - cookieAuth: []
+      - basicAuth: []
       responses:
         '200':
           content:
@@ -4362,6 +4893,9 @@ paths:
             schema:
               $ref: '#/components/schemas/RepairOrderReplacement'
         required: true
+      security:
+      - cookieAuth: []
+      - basicAuth: []
       responses:
         '201':
           content:
@@ -4467,6 +5001,9 @@ paths:
           format: date-time
       tags:
       - repairs
+      security:
+      - cookieAuth: []
+      - basicAuth: []
       responses:
         '200':
           content:
@@ -4524,6 +5061,9 @@ paths:
             schema:
               $ref: '#/components/schemas/ComponentReplacement'
         required: true
+      security:
+      - cookieAuth: []
+      - basicAuth: []
       responses:
         '201':
           content:
@@ -4568,6 +5108,9 @@ paths:
         required: true
       tags:
       - repairs
+      security:
+      - cookieAuth: []
+      - basicAuth: []
       responses:
         '200':
           content:
@@ -4605,9 +5148,43 @@ paths:
       summary: Export component replacement data to CSV
       tags:
       - repairs
+      security:
+      - cookieAuth: []
+      - basicAuth: []
       responses:
         '200':
           description: A CSV file generated successfully.
+        '403':
+          description: Forbidden. User does not have permission to perform this action.
+  /api/roles/:
+    get:
+      operationId: roles_list
+      description: |-
+        Retrieves the full list of roles available in the system. Intended to populate role filters and the create-user / change-role selection controls. This endpoint is not paginated.
+
+        Required permission: `PERMISSION_ROLES_VIEW`.
+      summary: List roles
+      tags:
+      - roles
+      security:
+      - cookieAuth: []
+      - basicAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Role'
+              examples:
+                ValidRequest:
+                  value:
+                  - id: 1
+                    code: ADMIN
+                    name: Admin
+                  summary: Valid Request
+          description: Successfully retrieved the list of roles.
         '403':
           description: Forbidden. User does not have permission to perform this action.
 components:
@@ -4714,6 +5291,15 @@ components:
       - COMBAT
       - TRANSPORT
       - SURVEILLANCE
+      type: string
+    CodeEnum:
+      enum:
+      - ADMIN
+      - COMMANDER
+      - OPERATOR
+      - TECHNICIAN
+      - VIEWER
+      - DISPATCHER
       type: string
     ComponentReplacement:
       type: object
@@ -5447,6 +6033,25 @@ components:
       - image
       - data
       type: string
+    Login:
+      type: object
+      description: Serialize login requests for session-based authentication.
+      properties:
+        identifier:
+          type: string
+        password:
+          type: string
+          writeOnly: true
+      required:
+      - identifier
+      - password
+    LoginMessageResponse:
+      type: object
+      properties:
+        detail:
+          type: string
+      required:
+      - detail
     LogoutResponse:
       type: object
       properties:
@@ -5497,6 +6102,55 @@ components:
       - ip_address
       - mission
       - user
+    MilitaryUnit:
+      type: object
+      description: Serialize military units with cheap drone and user counts.
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        name:
+          type: string
+          maxLength: 255
+        code:
+          type: string
+          maxLength: 255
+        description:
+          type: string
+        is_active:
+          type: boolean
+        drone_count:
+          type: integer
+          description: |-
+            Return the number of drones assigned to the unit.
+
+            Prefers the annotated value from the list queryset and falls back to a
+            single count query for freshly created or retrieved instances.
+          readOnly: true
+        user_count:
+          type: integer
+          description: |-
+            Return the number of users belonging to the unit.
+
+            Prefers the annotated value from the list queryset and falls back to a
+            single count query for freshly created or retrieved instances.
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - code
+      - created_at
+      - drone_count
+      - id
+      - name
+      - updated_at
+      - user_count
     MilitaryUnitBrief:
       type: object
       properties:
@@ -6008,6 +6662,29 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/MediaAuditLog'
+    PaginatedMilitaryUnitList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/MilitaryUnit'
     PaginatedMissionArtifactList:
       type: object
       required:
@@ -6146,6 +6823,29 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/RepairOrderList'
+    PaginatedUserListList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/UserList'
     PaginatedVideoMetadataList:
       type: object
       required:
@@ -6265,6 +6965,47 @@ components:
           type: integer
           writeOnly: true
           nullable: true
+    PatchedMilitaryUnit:
+      type: object
+      description: Serialize military units with cheap drone and user counts.
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        name:
+          type: string
+          maxLength: 255
+        code:
+          type: string
+          maxLength: 255
+        description:
+          type: string
+        is_active:
+          type: boolean
+        drone_count:
+          type: integer
+          description: |-
+            Return the number of drones assigned to the unit.
+
+            Prefers the annotated value from the list queryset and falls back to a
+            single count query for freshly created or retrieved instances.
+          readOnly: true
+        user_count:
+          type: integer
+          description: |-
+            Return the number of users belonging to the unit.
+
+            Prefers the annotated value from the list queryset and falls back to a
+            single count query for freshly created or retrieved instances.
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
     PatchedMissionDroneCondition:
       type: object
       description: |-
@@ -6698,6 +7439,24 @@ components:
       - replaced_at
       - replaced_by
       - updated_at
+    Role:
+      type: object
+      description: Serialize roles for role filters and selection controls.
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        code:
+          allOf:
+          - $ref: '#/components/schemas/CodeEnum'
+          readOnly: true
+        name:
+          type: string
+          readOnly: true
+      required:
+      - code
+      - id
+      - name
     SeverityEnum:
       enum:
       - LOW
@@ -6737,6 +7496,82 @@ components:
       required:
       - email
       - id
+      - username
+    UserList:
+      type: object
+      description: Serialize compact user rows for the paginated user list.
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        username:
+          type: string
+          readOnly: true
+          description: Required. 150 characters or fewer. Letters, digits and @/./+/-/_
+            only.
+        email:
+          type: string
+          format: email
+          readOnly: true
+        first_name:
+          type: string
+          readOnly: true
+        last_name:
+          type: string
+          readOnly: true
+        role:
+          type: integer
+          readOnly: true
+          nullable: true
+        role_name:
+          type: string
+          readOnly: true
+        role_code:
+          type: string
+          readOnly: true
+        unit:
+          type: integer
+          readOnly: true
+          nullable: true
+        unit_name:
+          type: string
+          readOnly: true
+        unit_code:
+          type: string
+          readOnly: true
+        is_active:
+          type: boolean
+          readOnly: true
+          title: Active
+          description: Designates whether this user should be treated as active. Unselect
+            this instead of deleting accounts.
+        last_login:
+          type: string
+          format: date-time
+          readOnly: true
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        created_by_username:
+          type: string
+          readOnly: true
+      required:
+      - created_at
+      - created_by_username
+      - email
+      - first_name
+      - id
+      - is_active
+      - last_login
+      - last_name
+      - role
+      - role_code
+      - role_name
+      - unit
+      - unit_code
+      - unit_name
       - username
     UserMe:
       type: object
@@ -7182,3 +8017,11 @@ components:
       - drone
       - id
       - reason
+  securitySchemes:
+    basicAuth:
+      type: http
+      scheme: basic
+    cookieAuth:
+      type: apiKey
+      in: cookie
+      name: sessionid
