@@ -33,12 +33,16 @@ def _artifact_snapshot(artifact):
     }
 
 
-def _write_media_audit_log(*, user, artifact, action, request=None, changes=None):
+def _write_media_audit_log(
+    *, user, artifact, action, request=None, changes=None, mission_id=None
+):
     """Create a MediaAuditLog row. Callers decide transaction semantics."""
+    if mission_id is None and artifact:
+        mission_id = artifact.mission_id
     return MediaAuditLog.objects.create(
         user=user if getattr(user, "is_authenticated", False) else None,
         artifact=artifact,
-        mission_id=artifact.mission_id if artifact else None,
+        mission_id=mission_id,
         action=action,
         changes=changes or {},
         ip_address=get_client_ip(request),

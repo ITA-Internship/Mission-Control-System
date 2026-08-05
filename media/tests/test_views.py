@@ -1607,3 +1607,74 @@ class CrossMissionIDORTests(APITestCase):
         self.client.force_authenticate(self.operator)
         response = self.client.get(self.download_url_b)
         self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+
+
+class MediaStatsAPITests(APITestCase):
+    """Test suite for the media storage statistics endpoint."""
+
+    def setUp(self):
+        self.user = AdminUserFactory()
+        self.url = reverse("video_media:media-stats")
+
+    def test_stats_unauthenticated(self):
+        """Ensure unauthenticated users receive a 403 Forbidden response."""
+        response = self.client.get(self.url)
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+    @override_settings(MEDIA_STORAGE_QUOTA_GB=1)
+    def test_stats_success_with_mixed_media(self):
+        """Ensure stats compute the correct total for both videos and artifacts."""
+        self.client.force_authenticate(user=self.user)
+
+        mission = MissionFactory()
+        drone = MissionDroneFactory(mission=mission).drone
+
+        MissionArtifactFactory(file_size=1024, mission=mission)
+        MissionArtifactFactory(file_size=2048, mission=mission)
+
+        VideoMetadata.objects.create(
+            mission=mission,
+            drone=drone,
+            uploaded_by=self.user,
+            file=SimpleUploadedFile(
+                "test.mp4", VALID_MP4_BYTES, content_type="video/mp4"
+            ),
+            file_name="test.mp4",
+            file_size=4096,
+        )
+
+        response = self.client.get(self.url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        expected_used = 1024 + 2048 + 4096
+        expected_allotted = 1 * 1024 * 1024 * 1024
+
+        self.assertEqual(response.data["total_used_bytes"], expected_used)
+        self.assertEqual(response.data["allotted_bytes"], expected_allotted)
+
+    def test_stats_empty_database(self):
+        """Ensure stats return 0 used bytes when no media exists."""
+        self.client.force_authenticate(user=self.user)
+
+        response = self.client.get(self.url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["total_used_bytes"], 0)
+
+    def test_stats_default_quota(self):
+        """Ensure stats fallback to the default 500GB quota if settings are missing."""
+        self.client.force_authenticate(user=self.user)
+        response = self.client.get(self.url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        expected_default_allotted = 500 * 1024 * 1024 * 1024
+        self.assertEqual(response.data["allotted_bytes"], expected_default_allotted)
+
+    @override_settings(MEDIA_STORAGE_QUOTA_GB=2)
+    def test_stats_only_artifacts(self):
+        """Ensure stats compute correctly when only artifacts exist."""
+        self.client.force_authenticate(user=self.user)
+        MissionArtifactFactory(file_size=5000)
+
+        response = self.client.get(self.url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["total_used_bytes"], 5000)

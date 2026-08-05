@@ -10,14 +10,14 @@ import posixpath
 
 from django.conf import settings
 from django.db import transaction
-from django.db.models import ProtectedError
+from django.db.models import ProtectedError, Sum
 from django.http import FileResponse, Http404, HttpResponse, HttpResponseForbidden
 from django.shortcuts import get_object_or_404
 from django.utils.dateparse import parse_date
 from django.utils.encoding import escape_uri_path
 from django.views.generic import TemplateView
 from django_filters import rest_framework as filters
-from drf_spectacular.utils import extend_schema_view
+from drf_spectacular.utils import extend_schema, extend_schema_view
 from rest_framework import generics, parsers, permissions, status, viewsets
 from rest_framework.exceptions import ValidationError
 from rest_framework.parsers import FormParser, MultiPartParser
@@ -394,6 +394,25 @@ class VideoMetadataViewSet(viewsets.ModelViewSet):
             status=VideoMetadata.Status.UPLOADING,
         )
 
+        from .services import _write_media_audit_log
+
+        changes = {
+            "object_type": "VideoMetadata",
+            "object_id": instance.id,
+            "file_name": instance.file_name,
+        }
+        try:
+            _write_media_audit_log(
+                user=self.request.user,
+                artifact=None,
+                mission_id=instance.mission_id,
+                action=MediaAuditLog.Action.UPLOAD,
+                request=self.request,
+                changes=changes,
+            )
+        except Exception:
+            logger.exception("Failed to write media audit log for video upload")
+
         try:
             extract_video_duration_task.delay(instance.id)
         except Exception:
@@ -402,12 +421,50 @@ class VideoMetadataViewSet(viewsets.ModelViewSet):
                 instance.id,
             )
 
+    def retrieve(self, request, *args, **kwargs):
+        """Log a view action before returning the video metadata."""
+        instance = self.get_object()
+        from .services import _write_media_audit_log
+
+        changes = {
+            "object_type": "VideoMetadata",
+            "object_id": instance.id,
+            "file_name": instance.file_name,
+        }
+        try:
+            _write_media_audit_log(
+                user=request.user,
+                artifact=None,
+                mission_id=instance.mission_id,
+                action=MediaAuditLog.Action.VIEW,
+                request=request,
+                changes=changes,
+            )
+        except Exception:
+            logger.exception("Failed to write media audit log for video view")
+        return super().retrieve(request, *args, **kwargs)
+
     def perform_destroy(self, instance):
         """Safely delete the instance, returning a validation error
         if it has protected dependencies."""
+        from .services import _write_media_audit_log
+
+        changes = {
+            "object_type": "VideoMetadata",
+            "object_id": instance.id,
+            "file_name": instance.file_name,
+        }
         try:
             with transaction.atomic():
                 instance.delete()
+                _write_media_audit_log(
+                    user=self.request.user,
+                    artifact=None,
+                    mission_id=instance.mission_id,
+                    action=MediaAuditLog.Action.DELETE,
+                    request=self.request,
+                    changes=changes,
+                )
         except ProtectedError:
             raise ValidationError(
                 {
@@ -471,3 +528,44 @@ class VideoMetadataBrowserView(TemplateView):
                 context["error"] = str(exc.detail)
 
         return context
+
+
+class MediaStatsView(APIView):
+    """Retrieve global media storage statistics."""
+
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(
+        summary="Get media storage statistics",
+        description=(
+            "Calculates total storage used by all videos and artifacts, "
+            "and returns the maximum allotted storage."
+        ),
+        responses={
+            200: {
+                "type": "object",
+                "properties": {
+                    "total_used_bytes": {"type": "integer"},
+                    "allotted_bytes": {"type": "integer"},
+                },
+            }
+        },
+    )
+    def get(self, request, *args, **kwargs):
+        video_bytes = (
+            VideoMetadata.objects.aggregate(total=Sum("file_size"))["total"] or 0
+        )
+        artifact_bytes = (
+            MissionArtifact.objects.aggregate(total=Sum("file_size"))["total"] or 0
+        )
+        total_used_bytes = video_bytes + artifact_bytes
+
+        # Default quota is 500GB
+        allotted_gb = getattr(settings, "MEDIA_STORAGE_QUOTA_GB", 500)
+
+        return Response(
+            {
+                "total_used_bytes": total_used_bytes,
+                "allotted_bytes": allotted_gb * 1024 * 1024 * 1024,
+            }
+        )
