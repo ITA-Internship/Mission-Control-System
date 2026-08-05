@@ -4,7 +4,7 @@ import {
   useMemo,
   useState,
 } from "react";
-import { Plus } from "lucide-react";
+import { Plus, Search } from "lucide-react";
 
 import { ActiveFilterChips } from "../../admin/components/ActiveFilterChips";
 import { Button } from "../../admin/components/Button";
@@ -178,12 +178,11 @@ export function DefectsTab({
           id="defects-drone-filter"
           label="Drone ID"
           type="number"
-          min={1}
           value={droneFilter}
           placeholder="Any"
-          onChange={(event) =>
+          onChange={(value) =>
             changeFilter(() =>
-              setDroneFilter(event.target.value),
+              setDroneFilter(value),
             )
           }
           className="w-28"
@@ -278,16 +277,15 @@ export function DefectsTab({
             ) : tableError ? (
               <TableErrorState
                 colSpan={5}
-                title={tableError.title}
-                message={tableError.message}
-                canRetry={tableError.canRetry}
+                error={tableError}
                 onRetry={reload}
               />
             ) : !data?.results.length ? (
               <TableEmptyState
                 colSpan={5}
+                icon={Search}
                 title="No defects found"
-                description="Adjust filters or report a new defect."
+                hint="Adjust filters or report a new defect."
               />
             ) : (
               data.results.map((defect) => (

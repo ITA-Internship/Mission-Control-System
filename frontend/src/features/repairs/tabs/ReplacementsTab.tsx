@@ -4,7 +4,7 @@ import {
   useMemo,
   useState,
 } from "react";
-import { Download, Plus } from "lucide-react";
+import { Download, Plus, Search } from "lucide-react";
 
 import { ActiveFilterChips } from "../../admin/components/ActiveFilterChips";
 import { Button } from "../../admin/components/Button";
@@ -328,16 +328,15 @@ export function ReplacementsTab({
             ) : tableError ? (
               <TableErrorState
                 colSpan={6}
-                title={tableError.title}
-                message={tableError.message}
-                canRetry={tableError.canRetry}
+                error={tableError}
                 onRetry={reload}
               />
             ) : !data?.results.length ? (
               <TableEmptyState
                 colSpan={6}
+                icon={Search}
                 title="No replacements"
-                description="Log a component swap to begin tracking lifecycle history."
+                hint="Log a component swap to begin tracking lifecycle history."
               />
             ) : (
               data.results.map((item) => (

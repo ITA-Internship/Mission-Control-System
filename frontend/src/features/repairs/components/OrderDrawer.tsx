@@ -47,7 +47,8 @@ export function OrderDrawer({
   onClose,
   onUpdated,
 }: OrderDrawerProps) {
-  const { run, isPending } = useAbortableRequest();
+  const { run } = useAbortableRequest();
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const [detail, setDetail] =
     useState<RepairOrderDetail | null>(null);
@@ -88,10 +89,8 @@ export function OrderDrawer({
   );
 
   useEffect(() => {
-    const controller = new AbortController();
-    void load(controller.signal);
-    return () => controller.abort();
-  }, [load]);
+    void run((signal) => load(signal));
+  }, [load, run]);
 
   const transitions =
     detail !== null
@@ -107,6 +106,7 @@ export function OrderDrawer({
     setTransitionError(null);
 
     try {
+      setIsSubmitting(true);
       await run(() =>
         updateRepairOrderStatus(orderId, {
           status: nextStatus,
@@ -124,6 +124,8 @@ export function OrderDrawer({
           "Could not update order status.",
         ),
       );
+    } finally {
+      setIsSubmitting(false);
     }
   }
 
@@ -195,7 +197,7 @@ export function OrderDrawer({
                   id="order-notes"
                   label="Notes"
                   value={notes}
-                  onChange={(event) => setNotes(event.target.value)}
+                  onChange={setNotes}
                   rows={2}
                   placeholder="Optional notes for this transition..."
                 />
@@ -215,7 +217,7 @@ export function OrderDrawer({
                           ? "danger"
                           : "secondary"
                       }
-                      isLoading={isPending}
+                      isLoading={isSubmitting}
                       onClick={() =>
                         void handleTransition(nextStatus)
                       }

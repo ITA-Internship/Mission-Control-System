@@ -47,7 +47,8 @@ export function DefectDrawer({
   onClose,
   onUpdated,
 }: DefectDrawerProps) {
-  const { run, isPending } = useAbortableRequest();
+  const { run } = useAbortableRequest();
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const [detail, setDetail] = useState<DefectDetail | null>(null);
   const [status, setStatus] =
@@ -97,10 +98,8 @@ export function DefectDrawer({
   );
 
   useEffect(() => {
-    const controller = new AbortController();
-    void load(controller.signal);
-    return () => controller.abort();
-  }, [load]);
+    void run((signal) => load(signal));
+  }, [load, run]);
 
   const nextStatus =
     status !== null
@@ -121,6 +120,7 @@ export function DefectDrawer({
     }
 
     try {
+      setIsSubmitting(true);
       await run(() =>
         updateDefectStatus(defectId, {
           status: nextStatus,
@@ -139,6 +139,8 @@ export function DefectDrawer({
           "Could not update defect status.",
         ),
       );
+    } finally {
+      setIsSubmitting(false);
     }
   }
 
@@ -206,8 +208,8 @@ export function DefectDrawer({
                 id="defect-action-taken"
                 label="Action taken"
                 value={actionTaken}
-                onChange={(event) =>
-                  setActionTaken(event.target.value)
+                onChange={(value) =>
+                  setActionTaken(value)
                 }
                 rows={3}
                 placeholder="Work performed, parts replaced, test results..."
@@ -219,7 +221,7 @@ export function DefectDrawer({
                 </p>
               ) : null}
 
-              <Button type="submit" isLoading={isPending}>
+              <Button type="submit" isLoading={isSubmitting}>
                 Update status
               </Button>
             </form>

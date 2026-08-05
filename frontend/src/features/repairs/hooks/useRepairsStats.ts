@@ -5,6 +5,7 @@ import {
   fetchOpenDefectsCount,
 } from "../api/repairsApi";
 import { isAbortError } from "../../../shared/api/apiClient";
+import { useAbortableRequest } from "../../../shared/hooks/useAbortableRequest";
 
 export interface RepairsStats {
   openDefects: number | null;
@@ -13,6 +14,8 @@ export interface RepairsStats {
 }
 
 export function useRepairsStats(reloadSignal = 0) {
+  const { run } = useAbortableRequest();
+
   const [stats, setStats] = useState<RepairsStats>({
     openDefects: null,
     criticalDefects: null,
@@ -22,41 +25,38 @@ export function useRepairsStats(reloadSignal = 0) {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    const controller = new AbortController();
+    void run(async (signal) => {
+      setIsLoading(true);
+      try {
+        const [openDefects, criticalDefects, activeOrders] =
+          await Promise.all([
+            fetchOpenDefectsCount({}, signal),
+            fetchOpenDefectsCount(
+              { severity: "CRITICAL" },
+              signal,
+            ),
+            fetchActiveOrdersCount(signal),
+          ]);
 
-    setIsLoading(true);
-
-    Promise.all([
-      fetchOpenDefectsCount({}, controller.signal),
-      fetchOpenDefectsCount(
-        { severity: "CRITICAL" },
-        controller.signal,
-      ),
-      fetchActiveOrdersCount(controller.signal),
-    ])
-      .then(([openDefects, criticalDefects, activeOrders]) => {
         setStats({
           openDefects,
           criticalDefects,
           activeOrders,
         });
-      })
-      .catch((error) => {
+      } catch (error) {
         if (isAbortError(error)) return;
         setStats({
           openDefects: null,
           criticalDefects: null,
           activeOrders: null,
         });
-      })
-      .finally(() => {
-        if (!controller.signal.aborted) {
+      } finally {
+        if (!signal.aborted) {
           setIsLoading(false);
         }
-      });
-
-    return () => controller.abort();
-  }, [reloadSignal]);
+      }
+    });
+  }, [reloadSignal, run]);
 
   return { stats, isLoading };
 }

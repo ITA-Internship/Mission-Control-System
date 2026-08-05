@@ -1,6 +1,5 @@
 import { useState } from "react";
 import type { FormEvent } from "react";
-import { Plus } from "lucide-react";
 
 import { Button } from "../../../admin/components/Button";
 import { Modal } from "../../../admin/components/Modal";
@@ -38,7 +37,8 @@ export function AddOrderReplacementModal({
   onClose,
   onCreated,
 }: AddOrderReplacementModalProps) {
-  const { run, isPending } = useAbortableRequest();
+  const { run } = useAbortableRequest();
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const [componentType, setComponentType] = useState("");
   const [componentName, setComponentName] = useState("");
@@ -59,6 +59,7 @@ export function AddOrderReplacementModal({
     setFieldErrors({});
 
     try {
+      setIsSubmitting(true);
       const replacement = await run(() =>
         addOrderReplacement(orderId, {
           drone: droneId,
@@ -92,6 +93,8 @@ export function AddOrderReplacementModal({
       setFormError(
         getFormError(error, "Could not add replacement."),
       );
+    } finally {
+      setIsSubmitting(false);
     }
   }
 
@@ -106,9 +109,7 @@ export function AddOrderReplacementModal({
           id="order-replacement-type"
           label="Component type"
           value={componentType}
-          onChange={(event) =>
-            setComponentType(event.target.value)
-          }
+          onChange={setComponentType}
           error={fieldErrors.component_type}
           options={COMPONENT_TYPE_OPTIONS}
           placeholder="Select component type"
@@ -119,9 +120,7 @@ export function AddOrderReplacementModal({
             id="order-replacement-name"
             label="Component name"
             value={componentName}
-            onChange={(event) =>
-              setComponentName(event.target.value)
-            }
+            onChange={setComponentName}
             error={fieldErrors.component_name}
           />
         ) : null}
@@ -131,14 +130,14 @@ export function AddOrderReplacementModal({
             id="order-replacement-old-serial"
             label="Old serial"
             value={oldSerial}
-            onChange={(event) => setOldSerial(event.target.value)}
+            onChange={setOldSerial}
             error={fieldErrors.old_serial_number}
           />
           <TextField
             id="order-replacement-new-serial"
             label="New serial"
             value={newSerial}
-            onChange={(event) => setNewSerial(event.target.value)}
+            onChange={setNewSerial}
             error={fieldErrors.new_serial_number}
           />
         </div>
@@ -148,7 +147,7 @@ export function AddOrderReplacementModal({
           label="Replaced at"
           type="datetime-local"
           value={replacedAt}
-          onChange={(event) => setReplacedAt(event.target.value)}
+          onChange={setReplacedAt}
           error={fieldErrors.replaced_at}
         />
 
@@ -156,7 +155,7 @@ export function AddOrderReplacementModal({
           id="order-replacement-reason"
           label="Reason"
           value={reason}
-          onChange={(event) => setReason(event.target.value)}
+          onChange={setReason}
           error={fieldErrors.reason}
           rows={3}
         />
@@ -171,7 +170,7 @@ export function AddOrderReplacementModal({
           <Button variant="secondary" onClick={onClose}>
             Cancel
           </Button>
-          <Button type="submit" isLoading={isPending}>
+          <Button type="submit" isLoading={isSubmitting}>
             Add replacement
           </Button>
         </ModalActions>

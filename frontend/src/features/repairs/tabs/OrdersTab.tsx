@@ -4,7 +4,7 @@ import {
   useMemo,
   useState,
 } from "react";
-import { Plus } from "lucide-react";
+import { Plus, Search } from "lucide-react";
 
 import { ActiveFilterChips } from "../../admin/components/ActiveFilterChips";
 import { Button } from "../../admin/components/Button";
@@ -150,12 +150,11 @@ export function OrdersTab({
           id="orders-drone-filter"
           label="Drone ID"
           type="number"
-          min={1}
           value={droneFilter}
           placeholder="Any"
-          onChange={(event) =>
+          onChange={(value) =>
             changeFilter(() =>
-              setDroneFilter(event.target.value),
+              setDroneFilter(value),
             )
           }
           className="w-28"
@@ -219,25 +218,23 @@ export function OrdersTab({
               <HeaderCell>Status</HeaderCell>
               <HeaderCell>Assigned to</HeaderCell>
               <HeaderCell>Created</HeaderCell>
-              <HeaderCell>Updated</HeaderCell>
             </tr>
           </thead>
           <tbody>
             {isLoading ? (
-              <TableSkeleton columns={7} rows={6} />
+              <TableSkeleton columns={6} rows={6} />
             ) : tableError ? (
               <TableErrorState
-                colSpan={7}
-                title={tableError.title}
-                message={tableError.message}
-                canRetry={tableError.canRetry}
+                colSpan={6}
+                error={tableError}
                 onRetry={reload}
               />
             ) : !data?.results.length ? (
               <TableEmptyState
-                colSpan={7}
+                colSpan={6}
+                icon={Search}
                 title="No repair orders"
-                description="Create an order to begin maintenance work."
+                hint="Create an order to begin maintenance work."
               />
             ) : (
               data.results.map((order) => (
@@ -265,9 +262,6 @@ export function OrdersTab({
                   </td>
                   <td className="px-4 py-3 font-mono text-xs text-mc-muted">
                     {formatDateTime(order.created_at)}
-                  </td>
-                  <td className="px-4 py-3 font-mono text-xs text-mc-muted">
-                    {formatDateTime(order.updated_at)}
                   </td>
                 </tr>
               ))
