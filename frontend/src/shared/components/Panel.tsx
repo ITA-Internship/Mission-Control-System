@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 import { cn } from "../utils/cn";
 
 interface PanelProps {
+  id?: string;
   title?: string;
   action?: ReactNode;
   children: ReactNode;
@@ -13,6 +14,7 @@ interface PanelProps {
 /* Shared card container for page panels: rounded surface, subtle border,
  * optional header row with a title and a trailing action. */
 export function Panel({
+  id,
   title,
   action,
   children,
@@ -21,6 +23,7 @@ export function Panel({
 }: PanelProps) {
   return (
     <div
+      id={id}
       className={cn(
         "flex h-full flex-col rounded-xl border border-mc-border bg-mc-card p-5",
         className,

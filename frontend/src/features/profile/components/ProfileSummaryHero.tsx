@@ -26,20 +26,17 @@ export function ProfileSummaryHero({
 }) {
   return (
     <div
-      className="mb-8 overflow-hidden rounded-xl border"
+      className="mb-8 overflow-hidden rounded-xl border border-mc-accent/15 bg-mc-card"
       style={{
-        background: "#161D26",
-        borderColor:
-          "rgba(200,162,74,.15)",
         boxShadow:
-          "0 0 0 1px rgba(200,162,74,.05), 0 4px 24px rgba(0,0,0,.3)",
+          "0 0 0 1px rgb(200 162 74 / 0.05), 0 4px 24px rgb(0 0 0 / 0.3)",
       }}
     >
       <div
         className="h-px"
         style={{
           background:
-            "linear-gradient(90deg, #C8A24A 0%, rgba(200,162,74,.15) 50%, transparent 80%)",
+            "linear-gradient(90deg, var(--color-mc-accent) 0%, rgb(200 162 74 / 0.15) 50%, transparent 80%)",
         }}
       />
 
@@ -51,20 +48,9 @@ export function ProfileSummaryHero({
           title="Change avatar"
           aria-label="Change avatar"
         >
-          <div
-            className="relative h-[76px] w-[76px] overflow-hidden rounded-full border-2"
-            style={{
-              borderColor:
-                "rgba(200,162,74,.35)",
-              background:
-                "rgba(200,162,74,.08)",
-            }}
-          >
+          <div className="relative h-[76px] w-[76px] overflow-hidden rounded-full border-2 border-mc-accent/35 bg-mc-accent/[0.08]">
             <div
-              className="flex h-full w-full items-center justify-center text-2xl font-bold"
-              style={{
-                color: "#C8A24A",
-              }}
+              className="flex h-full w-full items-center justify-center text-2xl font-bold text-mc-accent"
               aria-hidden={Boolean(avatarDisplay)}
             >
               {getInitials(currentUser)}
@@ -76,30 +62,17 @@ export function ProfileSummaryHero({
             />
           </div>
 
-          <div
-            className="absolute inset-0 flex items-center justify-center rounded-full opacity-0 transition-opacity group-hover:opacity-100"
-            style={{
-              background:
-                "rgba(0,0,0,.6)",
-            }}
-          >
+          <div className="absolute inset-0 flex items-center justify-center rounded-full bg-black/60 opacity-0 transition-opacity group-hover:opacity-100">
             <Camera
               size={18}
-              style={{
-                color: "#fff",
-              }}
+              className="text-white"
             />
           </div>
         </button>
 
         <div className="min-w-0 flex-1">
           <div className="mb-1.5 flex flex-wrap items-center gap-2">
-            <h2
-              className="text-xl font-semibold"
-              style={{
-                color: "#E6EAF0",
-              }}
-            >
+            <h2 className="text-xl font-semibold text-mc-text">
               {currentUser.rank
                 ? `${currentUser.rank} ${currentUser.first_name} ${currentUser.last_name}`
                 : `${currentUser.first_name} ${currentUser.last_name}`}
@@ -113,43 +86,19 @@ export function ProfileSummaryHero({
             <UnitChip
               unit={getUnitLabel(currentUser)}
             />
-            <span
-              className="text-xs font-mono"
-              style={{
-                color: "#4A5568",
-              }}
-            >
+            <span className="font-mono text-xs text-mc-subtle">
               {getUserIdentifier(currentUser)}
             </span>
           </div>
 
-          <p
-            className="text-xs font-mono"
-            style={{
-              color: "#8A94A6",
-            }}
-          >
+          <p className="font-mono text-xs text-mc-muted">
             {currentUser.email}
           </p>
         </div>
 
         <div className="flex-shrink-0 self-start sm:self-auto">
-          <span
-            className="inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-semibold"
-            style={{
-              color: "#3FB950",
-              background:
-                "rgba(63,185,80,.08)",
-              borderColor:
-                "rgba(63,185,80,.2)",
-            }}
-          >
-            <span
-              className="inline-block h-1.5 w-1.5 animate-pulse rounded-full"
-              style={{
-                background: "#3FB950",
-              }}
-            />
+          <span className="inline-flex items-center gap-1.5 rounded-full border border-mc-success/20 bg-mc-success/[0.08] px-3 py-1.5 text-xs font-semibold text-mc-success">
+            <span className="inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-mc-success" />
             {currentUser.is_active
               ? "Active"
               : "Inactive"}

@@ -21,7 +21,7 @@ import {
   changePassword,
   getCurrentUser,
 } from "../../auth/api/authApi";
-import { AuthAlert } from "../../auth/components/AuthAlert";
+import { Alert } from "../../../shared/components/Alert";
 import {
   getApiFieldError,
   getFormError,
@@ -750,54 +750,28 @@ export function MyProfilePage({
 
   if (loading) {
     return (
-      <div
-        className="flex min-h-screen items-center justify-center"
-        style={{
-          background: "#0B0F14",
-          color: "#E6EAF0",
-        }}
-      >
+      <div className="flex min-h-screen items-center justify-center bg-mc-bg">
         <div
-          className="rounded-xl border px-6 py-4 text-sm"
-          style={{
-            background: "#161D26",
-            borderColor:
-              "rgba(255,255,255,.08)",
-          }}
-        >
-          Loading profile...
-        </div>
+          className="h-6 w-6 animate-spin rounded-full border-2 border-mc-border border-t-mc-accent"
+          role="status"
+          aria-label="Loading profile"
+        />
       </div>
     );
   }
 
   if (!currentUser || loadError) {
     return (
-      <div
-        className="flex min-h-screen items-center justify-center px-6"
-        style={{
-          background: "#0B0F14",
-        }}
-      >
-        <div
-          className="flex max-w-md flex-col gap-4 rounded-xl border p-6"
-          style={{
-            background: "#161D26",
-            borderColor:
-              "rgba(255,255,255,.08)",
-          }}
-        >
-          <AuthAlert variant="error">
+      <div className="flex min-h-screen items-center justify-center bg-mc-bg px-6">
+        <div className="flex max-w-md flex-col gap-4 rounded-xl border border-white/8 bg-mc-card p-6">
+          <Alert variant="error">
             {loadError ??
               "Profile data is unavailable."}
-          </AuthAlert>
+          </Alert>
 
           <Link
             to="/login"
-            className="text-sm font-medium"
-            style={{
-              color: "#C8A24A",
-            }}
+            className="text-sm font-medium text-mc-accent"
           >
             Return to sign in
           </Link>
@@ -825,20 +799,10 @@ export function MyProfilePage({
     >
       <div className="mx-auto max-w-240 px-6 py-8">
         <div className="mb-7">
-          <h1
-            className="text-2xl font-semibold"
-            style={{
-              color: "#E6EAF0",
-            }}
-          >
+          <h1 className="text-2xl font-semibold text-mc-text">
             My Profile
           </h1>
-          <p
-            className="mt-1 text-sm"
-            style={{
-              color: "#8A94A6",
-            }}
-          >
+          <p className="mt-1 text-sm text-mc-muted">
             Manage your personal information and account security settings.
           </p>
         </div>

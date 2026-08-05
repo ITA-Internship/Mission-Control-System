@@ -8,12 +8,13 @@ import type {
   RefObject,
 } from "react";
 
+import { Alert } from "../../../shared/components/Alert";
+import { Panel } from "../../../shared/components/Panel";
 import type { CurrentUser } from "../../../shared/types/accounts";
+import { cn } from "../../../shared/utils/cn";
 import type { AvatarState } from "../types/profile";
 import { getInitials } from "../utils/profileUtils";
 import {
-  AlertBanner,
-  Card,
   PrimaryButton,
   ProfileAvatarImage,
   SecondaryButton,
@@ -63,22 +64,12 @@ export function ProfileAvatarCard({
   onCancel: () => void;
 }) {
   return (
-    <Card id="avatar" title="Avatar">
+    <Panel id="avatar" title="Avatar">
       <div className="flex flex-col items-start gap-6 sm:flex-row">
         <div className="flex flex-shrink-0 flex-col items-center gap-2">
-          <div
-            className="relative flex h-24 w-24 items-center justify-center overflow-hidden rounded-full border-2"
-            style={{
-              borderColor:
-                "rgba(200,162,74,.3)",
-              background: "#1A2233",
-            }}
-          >
+          <div className="relative flex h-24 w-24 items-center justify-center overflow-hidden rounded-full border-2 border-mc-accent/30 bg-mc-elevated">
             <span
-              className="text-2xl font-bold"
-              style={{
-                color: "#C8A24A",
-              }}
+              className="text-2xl font-bold text-mc-accent"
               aria-hidden={Boolean(avatarDisplay)}
             >
               {getInitials(currentUser)}
@@ -94,10 +85,7 @@ export function ProfileAvatarCard({
             <button
               type="button"
               onClick={onRemoveAvatar}
-              className="text-xs transition-colors"
-              style={{
-                color: "#E5484D",
-              }}
+              className="text-xs text-mc-error transition-colors hover:text-mc-error/80"
               aria-label="Remove selected avatar"
             >
               Remove
@@ -122,37 +110,23 @@ export function ProfileAvatarCard({
                 onOpenFilePicker();
               }
             }}
-            className="relative flex cursor-pointer flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed p-8 transition-all"
-            style={{
-              borderColor:
-                avatarState ===
-                "dragging"
-                  ? "#C8A24A"
-                  : avatarState === "error"
-                    ? "#E5484D"
-                    : "rgba(255,255,255,.12)",
-              background:
-                avatarState ===
-                "dragging"
-                  ? "rgba(200,162,74,.04)"
-                  : "rgba(255,255,255,.015)",
-            }}
+            className={cn(
+              "relative flex cursor-pointer flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed p-8 transition-colors",
+              avatarState === "dragging"
+                ? "border-mc-accent bg-mc-accent/[0.04]"
+                : avatarState === "error"
+                  ? "border-mc-error bg-white/[0.015]"
+                  : "border-white/12 bg-white/[0.015]",
+            )}
             aria-label="Upload profile avatar"
           >
             {avatarState === "success" ? (
               <div className="flex flex-col items-center gap-2">
                 <CheckCircle
                   size={24}
-                  style={{
-                    color: "#3FB950",
-                  }}
+                  className="text-mc-success"
                 />
-                <span
-                  className="text-xs font-medium"
-                  style={{
-                    color: "#3FB950",
-                  }}
-                >
+                <span className="text-xs font-medium text-mc-success">
                   Ready to save
                 </span>
               </div>
@@ -160,33 +134,17 @@ export function ProfileAvatarCard({
               <>
                 <Upload
                   size={20}
-                  style={{
-                    color: "#8A94A6",
-                  }}
+                  className="text-mc-muted"
                 />
                 <p className="text-center text-sm">
-                  <span
-                    className="font-medium"
-                    style={{
-                      color: "#E6EAF0",
-                    }}
-                  >
+                  <span className="font-medium text-mc-text">
                     Drop an image here
                   </span>
-                  <span
-                    style={{
-                      color: "#8A94A6",
-                    }}
-                  >
+                  <span className="text-mc-muted">
                     {" "}
                     or{" "}
                   </span>
-                  <span
-                    className="font-semibold"
-                    style={{
-                      color: "#C8A24A",
-                    }}
-                  >
+                  <span className="font-semibold text-mc-accent">
                     browse files
                   </span>
                 </p>
@@ -204,31 +162,25 @@ export function ProfileAvatarCard({
           </div>
 
           {avatarState === "error" ? (
-            <AlertBanner
-              type="error"
-              message={avatarError}
+            <Alert
+              variant="error"
               onClose={onDismissAvatarError}
-            />
+            >
+              {avatarError}
+            </Alert>
           ) : null}
 
           {profilePictureError ? (
-            <AlertBanner
-              type="error"
-              message={profilePictureError}
-              onClose={
-                onDismissProfilePictureError
-              }
-            />
+            <Alert
+              variant="error"
+              onClose={onDismissProfilePictureError}
+            >
+              {profilePictureError}
+            </Alert>
           ) : null}
 
           {avatarState === "success" ? (
-            <div
-              className="flex flex-wrap gap-3 border-t pt-4"
-              style={{
-                borderColor:
-                  "rgba(255,255,255,.07)",
-              }}
-            >
+            <div className="flex flex-wrap gap-3 border-t border-mc-border pt-4">
               <PrimaryButton
                 onClick={onSave}
                 loading={saving}
@@ -248,16 +200,11 @@ export function ProfileAvatarCard({
             </div>
           ) : null}
 
-          <p
-            className="text-xs"
-            style={{
-              color: "#8A94A6",
-            }}
-          >
+          <p className="text-xs text-mc-muted">
             Accepted: JPG, PNG, WEBP - max 5 MB. Image will be cropped to a circle.
           </p>
         </div>
       </div>
-    </Card>
+    </Panel>
   );
 }

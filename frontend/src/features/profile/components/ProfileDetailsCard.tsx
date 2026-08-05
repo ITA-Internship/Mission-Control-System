@@ -2,6 +2,8 @@ import type {
   RefObject,
 } from "react";
 
+import { Alert } from "../../../shared/components/Alert";
+import { Panel } from "../../../shared/components/Panel";
 import type { CurrentUser } from "../../../shared/types/accounts";
 import {
   getRoleLabel,
@@ -12,8 +14,6 @@ import type {
   StatusBanner,
 } from "../types/profile";
 import {
-  AlertBanner,
-  Card,
   FieldLabel,
   FormTextInput,
   PrimaryButton,
@@ -52,17 +52,18 @@ export function ProfileDetailsCard({
   onCancel: () => void;
 }) {
   return (
-    <Card
+    <Panel
       id="profile"
       title="Profile Details"
     >
       <div className="flex flex-col gap-5">
         {profileBanner ? (
-          <AlertBanner
-            type={profileBanner.type}
-            message={profileBanner.message}
+          <Alert
+            variant={profileBanner.type}
             onClose={onDismissBanner}
-          />
+          >
+            {profileBanner.message}
+          </Alert>
         ) : null}
 
         <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
@@ -116,12 +117,7 @@ export function ProfileDetailsCard({
                 />
               </div>
             ) : (
-              <span
-                className="text-sm"
-                style={{
-                  color: "#E6EAF0",
-                }}
-              >
+              <span className="text-sm text-mc-text">
                 {currentUser.first_name}{" "}
                 {currentUser.last_name}
               </span>
@@ -149,12 +145,7 @@ export function ProfileDetailsCard({
                 maxLength={100}
               />
             ) : (
-              <span
-                className="text-sm"
-                style={{
-                  color: "#E6EAF0",
-                }}
-              >
+              <span className="text-sm text-mc-text">
                 {currentUser.rank ||
                   "Not set"}
               </span>
@@ -165,20 +156,10 @@ export function ProfileDetailsCard({
             <FieldLabel>
               Email Address
             </FieldLabel>
-            <span
-              className="text-sm font-mono"
-              style={{
-                color: "#8A94A6",
-              }}
-            >
+            <span className="font-mono text-sm text-mc-muted">
               {currentUser.email}
             </span>
-            <span
-              className="text-xs"
-              style={{
-                color: "#4A5568",
-              }}
-            >
+            <span className="text-xs text-mc-subtle">
               Managed by administrators - not editable
             </span>
           </div>
@@ -206,12 +187,7 @@ export function ProfileDetailsCard({
                 autoComplete="tel"
               />
             ) : (
-              <span
-                className="text-sm font-mono"
-                style={{
-                  color: "#E6EAF0",
-                }}
-              >
+              <span className="font-mono text-sm text-mc-text">
                 {currentUser.contact ||
                   "Not set"}
               </span>
@@ -223,22 +199,10 @@ export function ProfileDetailsCard({
               Military Unit
             </FieldLabel>
             <div className="flex flex-wrap items-center gap-2">
-              <span
-                className="text-sm"
-                style={{
-                  color: "#8A94A6",
-                }}
-              >
+              <span className="text-sm text-mc-muted">
                 {getUnitLabel(currentUser)}
               </span>
-              <span
-                className="rounded px-1.5 py-0.5 text-xs"
-                style={{
-                  background:
-                    "rgba(138,148,166,.1)",
-                  color: "#8A94A6",
-                }}
-              >
+              <span className="rounded bg-mc-muted/10 px-1.5 py-0.5 text-xs text-mc-muted">
                 Admin-managed
               </span>
             </div>
@@ -252,25 +216,14 @@ export function ProfileDetailsCard({
                   currentUser,
                 )}
               />
-              <span
-                className="text-xs"
-                style={{
-                  color: "#4A5568",
-                }}
-              >
+              <span className="text-xs text-mc-subtle">
                 Admin-managed - not editable
               </span>
             </div>
           </div>
         </div>
 
-        <div
-          className="flex items-center gap-3 border-t pt-4"
-          style={{
-            borderColor:
-              "rgba(255,255,255,.07)",
-          }}
-        >
+        <div className="flex items-center gap-3 border-t border-mc-border pt-4">
           {!profileEditing &&
           !profileSaving ? (
             <PrimaryButton
@@ -300,6 +253,6 @@ export function ProfileDetailsCard({
           )}
         </div>
       </div>
-    </Card>
+    </Panel>
   );
 }

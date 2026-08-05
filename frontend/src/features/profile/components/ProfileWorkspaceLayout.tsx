@@ -15,6 +15,7 @@ import type {
   RefObject,
 } from "react";
 
+import { cn } from "../../../shared/utils/cn";
 import type { CurrentUser } from "../../../shared/types/accounts";
 import {
   ProfileAvatarImage,
@@ -76,64 +77,27 @@ export function ProfileWorkspaceLayout({
   children: ReactNode;
 }) {
   return (
-    <div
-      className="flex h-screen overflow-hidden"
-      style={{
-        background: "#0B0F14",
-        fontFamily:
-          "'Inter', -apple-system, sans-serif",
-      }}
-    >
+    <div className="flex h-screen overflow-hidden bg-mc-bg">
       <aside
-        className={`fixed inset-y-0 left-0 z-40 flex w-60 flex-col border-r transition-transform duration-200 lg:static lg:z-auto lg:translate-x-0 ${
+        className={cn(
+          "fixed inset-y-0 left-0 z-40 flex w-60 flex-col border-r border-mc-border bg-mc-sidebar transition-transform duration-200 lg:static lg:z-auto lg:translate-x-0",
           sidebarOpen
             ? "translate-x-0"
-            : "-translate-x-full"
-        }`}
-        style={{
-          background: "#0D1219",
-          borderColor:
-            "rgba(255,255,255,.07)",
-        }}
+            : "-translate-x-full",
+        )}
       >
-        <div
-          className="flex h-14 shrink-0 items-center gap-3 border-b px-5"
-          style={{
-            borderColor:
-              "rgba(255,255,255,.07)",
-          }}
-        >
-          <div
-            className="flex h-7 w-7 shrink-0 items-center justify-center rounded"
-            style={{
-              background:
-                "rgba(200,162,74,.13)",
-              border:
-                "1px solid rgba(200,162,74,.28)",
-            }}
-          >
+        <div className="flex h-14 shrink-0 items-center gap-3 border-b border-mc-border px-5">
+          <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded border border-mc-accent/[0.28] bg-mc-accent/[0.13]">
             <Crosshair
               size={14}
-              style={{
-                color: "#C8A24A",
-              }}
+              className="text-mc-accent"
             />
           </div>
           <div className="leading-none">
-            <div
-              className="text-xs font-bold uppercase tracking-widest"
-              style={{
-                color: "#E6EAF0",
-              }}
-            >
+            <div className="text-xs font-bold uppercase tracking-widest text-mc-text">
               Mission
             </div>
-            <div
-              className="mt-0.5 text-[10px] tracking-widest"
-              style={{
-                color: "#8A94A6",
-              }}
-            >
+            <div className="mt-0.5 text-[10px] tracking-widest text-mc-muted">
               CONTROL SYSTEM
             </div>
           </div>
@@ -145,12 +109,7 @@ export function ProfileWorkspaceLayout({
             scrollbarWidth: "none",
           }}
         >
-          <p
-            className="mb-2 px-3 text-[10px] font-semibold uppercase tracking-widest"
-            style={{
-              color: "#4A5568",
-            }}
-          >
+          <p className="mb-2 px-3 text-[10px] font-semibold uppercase tracking-widest text-mc-subtle">
             Navigation
           </p>
           {NAV_ITEMS.map((item) => {
@@ -160,11 +119,7 @@ export function ProfileWorkspaceLayout({
               <button
                 key={item.label}
                 type="button"
-                className="mb-0.5 flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm transition-all"
-                style={{
-                  color: "#8A94A6",
-                  background: "transparent",
-                }}
+                className="mb-0.5 flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm text-mc-muted transition-colors hover:bg-white/5 hover:text-mc-text"
               >
                 <Icon size={15} />
                 {item.label}
@@ -173,43 +128,18 @@ export function ProfileWorkspaceLayout({
           })}
         </nav>
 
-        <div
-          className="border-t px-4 py-4"
-          style={{
-            borderColor:
-              "rgba(255,255,255,.07)",
-          }}
-        >
+        <div className="border-t border-mc-border px-4 py-4">
           <div className="flex items-center gap-3">
-            <div
-              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-bold"
-              style={{
-                background:
-                  "rgba(200,162,74,.13)",
-                color: "#C8A24A",
-                border:
-                  "1px solid rgba(200,162,74,.25)",
-              }}
-            >
+            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-mc-accent/25 bg-mc-accent/[0.13] text-xs font-bold text-mc-accent">
               {getInitials(currentUser)}
             </div>
             <div className="min-w-0">
-              <div
-                className="truncate text-xs font-semibold"
-                style={{
-                  color: "#E6EAF0",
-                }}
-              >
+              <div className="truncate text-xs font-semibold text-mc-text">
                 {currentUser.rank
                   ? `${currentUser.rank} ${currentUser.first_name?.[0]}. ${currentUser.last_name}`
                   : `${currentUser.first_name} ${currentUser.last_name}`}
               </div>
-              <div
-                className="truncate text-xs"
-                style={{
-                  color: "#8A94A6",
-                }}
-              >
+              <div className="truncate text-xs text-mc-muted">
                 {getUnitLabel(currentUser)}
               </div>
             </div>
@@ -225,39 +155,20 @@ export function ProfileWorkspaceLayout({
       ) : null}
 
       <div className="flex min-w-0 flex-1 flex-col">
-        <header
-          className="flex h-14 shrink-0 items-center justify-between border-b px-5"
-          style={{
-            background: "#0D1219",
-            borderColor:
-              "rgba(255,255,255,.07)",
-          }}
-        >
+        <header className="flex h-14 shrink-0 items-center justify-between border-b border-mc-border bg-mc-sidebar px-5">
           <div className="flex items-center gap-3">
             <button
               type="button"
-              className="lg:hidden"
+              className="text-mc-muted lg:hidden"
               onClick={onToggleSidebar}
-              style={{
-                color: "#8A94A6",
-              }}
               aria-label="Toggle navigation"
             >
               <LayoutDashboard size={20} />
             </button>
-            <nav
-              className="flex items-center gap-1.5 text-xs"
-              style={{
-                color: "#8A94A6",
-              }}
-            >
+            <nav className="flex items-center gap-1.5 text-xs text-mc-muted">
               <span>Home</span>
               <ChevronRight size={11} />
-              <span
-                style={{
-                  color: "#E6EAF0",
-                }}
-              >
+              <span className="text-mc-text">
                 My Profile
               </span>
             </nav>
@@ -271,25 +182,12 @@ export function ProfileWorkspaceLayout({
               <button
                 type="button"
                 onClick={onToggleUserMenu}
-                className="flex items-center gap-2 rounded-lg px-3 py-1.5 transition-all"
-                style={{
-                  background:
-                    "rgba(255,255,255,.04)",
-                  border:
-                    "1px solid rgba(255,255,255,.08)",
-                }}
+                className="flex items-center gap-2 rounded-lg border border-white/8 bg-white/[0.04] px-3 py-1.5 transition-colors hover:bg-white/[0.08]"
                 aria-haspopup="menu"
                 aria-expanded={userMenuOpen}
                 aria-label="Open account menu"
               >
-                <div
-                  className="relative flex h-6 w-6 items-center justify-center overflow-hidden rounded-full text-xs font-bold"
-                  style={{
-                    background:
-                      "rgba(200,162,74,.13)",
-                    color: "#C8A24A",
-                  }}
-                >
+                <div className="relative flex h-6 w-6 items-center justify-center overflow-hidden rounded-full bg-mc-accent/[0.13] text-xs font-bold text-mc-accent">
                   <span aria-hidden={Boolean(avatarDisplay)}>
                     {getInitials(currentUser)}
                   </span>
@@ -299,55 +197,25 @@ export function ProfileWorkspaceLayout({
                     className="absolute inset-0 h-full w-full object-cover"
                   />
                 </div>
-                <span
-                  className="hidden text-xs font-medium sm:block"
-                  style={{
-                    color: "#E6EAF0",
-                  }}
-                >
+                <span className="hidden text-xs font-medium text-mc-text sm:block">
                   {currentUser.rank
                     ? `${currentUser.rank} ${currentUser.last_name}`
                     : `${currentUser.first_name} ${currentUser.last_name}`}
                 </span>
                 <ChevronDown
                   size={12}
-                  style={{
-                    color: "#8A94A6",
-                  }}
+                  className="text-mc-muted"
                 />
               </button>
 
               {userMenuOpen ? (
-                <div
-                  className="absolute right-0 top-full z-50 mt-2 w-56 overflow-hidden rounded-xl border shadow-2xl"
-                  style={{
-                    background: "#161D26",
-                    borderColor:
-                      "rgba(255,255,255,.1)",
-                  }}
-                >
-                  <div
-                    className="border-b px-4 py-3"
-                    style={{
-                      borderColor:
-                        "rgba(255,255,255,.07)",
-                    }}
-                  >
-                    <div
-                      className="text-sm font-semibold"
-                      style={{
-                        color: "#E6EAF0",
-                      }}
-                    >
+                <div className="absolute right-0 top-full z-50 mt-2 w-56 overflow-hidden rounded-xl border border-white/10 bg-mc-card shadow-2xl">
+                  <div className="border-b border-mc-border px-4 py-3">
+                    <div className="text-sm font-semibold text-mc-text">
                       {currentUser.first_name}{" "}
                       {currentUser.last_name}
                     </div>
-                    <div
-                      className="mt-0.5 text-xs font-mono"
-                      style={{
-                        color: "#8A94A6",
-                      }}
-                    >
+                    <div className="mt-0.5 font-mono text-xs text-mc-muted">
                       {currentUser.email}
                     </div>
                     <div className="mt-2 flex items-center gap-2">
@@ -366,31 +234,21 @@ export function ProfileWorkspaceLayout({
                   <div className="p-2">
                     <button
                       type="button"
-                      className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left text-sm transition-all"
-                      style={{
-                        color: "#E6EAF0",
-                      }}
+                      className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left text-sm text-mc-text transition-colors hover:bg-white/5"
                     >
                       <User
                         size={13}
-                        style={{
-                          color: "#C8A24A",
-                        }}
+                        className="text-mc-accent"
                       />
                       My Profile
                     </button>
                     <button
                       type="button"
-                      className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left text-sm transition-all"
-                      style={{
-                        color: "#E6EAF0",
-                      }}
+                      className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left text-sm text-mc-text transition-colors hover:bg-white/5"
                     >
                       <Settings
                         size={13}
-                        style={{
-                          color: "#8A94A6",
-                        }}
+                        className="text-mc-muted"
                       />
                       Settings
                     </button>
