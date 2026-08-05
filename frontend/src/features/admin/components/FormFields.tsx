@@ -101,7 +101,7 @@ interface TextFieldProps {
   label: string;
   value: string;
   onChange: (value: string) => void;
-  type?: "text" | "email" | "date";
+  type?: "text" | "email" | "date" | "number" | "datetime-local";
   placeholder?: string;
   error?: string;
   hint?: string;

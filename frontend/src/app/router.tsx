@@ -12,6 +12,12 @@ import { RequiredPasswordChangePage } from "../features/auth/pages/RequiredPassw
 import { ResetPasswordPage } from "../features/auth/pages/ResetPasswordPage";
 import { DashboardPage } from "../features/dashboard/pages/DashboardPage";
 import { MyProfilePage } from "../features/profile/pages/MyProfilePage";
+import { RepairsPage } from "../features/repairs/pages/RepairsPage";
+import {
+  DefectsRoute,
+  OrdersRoute,
+  ReplacementsRoute,
+} from "../features/repairs/tabRoutes";
 import { PlaceholderPage } from "../shared/pages/PlaceholderPage";
 import { ProtectedRoute } from "./ProtectedRoute";
 
@@ -37,7 +43,25 @@ export const router = createBrowserRouter([
       },
       {
         path: "/repairs",
-        Component: PlaceholderPage,
+        Component: RepairsPage,
+        children: [
+          {
+            index: true,
+            loader: () => redirect("/repairs/defects"),
+          },
+          {
+            path: "defects",
+            Component: DefectsRoute,
+          },
+          {
+            path: "orders",
+            Component: OrdersRoute,
+          },
+          {
+            path: "replacements",
+            Component: ReplacementsRoute,
+          },
+        ],
       },
       {
         path: "/media",

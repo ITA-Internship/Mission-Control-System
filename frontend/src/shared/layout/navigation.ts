@@ -80,7 +80,12 @@ export const NAV_ITEMS: NavItem[] = [
     label: "Repairs",
     path: "/repairs",
     icon: Wrench,
-    allowedRoles: ["ADMIN", "COMMANDER", "TECHNICIAN"],
+    allowedRoles: [
+      "ADMIN",
+      "COMMANDER",
+      "TECHNICIAN",
+      "VIEWER",
+    ],
   },
   {
     id: "media",

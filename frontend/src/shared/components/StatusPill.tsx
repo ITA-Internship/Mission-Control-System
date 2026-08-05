@@ -1,5 +1,9 @@
 import type { MissionStatus } from "../types/missions";
-import type { DefectSeverity } from "../types/repairs";
+import type {
+  DefectSeverity,
+  DefectTransitionStatus,
+  OrderStatus,
+} from "../types/repairs";
 import { cn } from "../utils/cn";
 
 interface PillStyle {
@@ -21,6 +25,26 @@ const SEVERITY: Record<DefectSeverity, PillStyle> = {
   MEDIUM: { label: "Medium", color: "var(--color-status-maintenance)" },
   HIGH: { label: "High", color: "var(--color-severity-high)" },
   CRITICAL: { label: "Critical", color: "var(--color-mc-error)" },
+};
+
+const DEFECT_STATUS: Record<DefectTransitionStatus, PillStyle> = {
+  REPORTED: { label: "Reported", color: "var(--color-mc-muted)" },
+  IN_PROGRESS: {
+    label: "In Progress",
+    color: "var(--color-status-maintenance)",
+  },
+  FIXED: { label: "Fixed", color: "var(--color-status-mission)" },
+  VERIFIED: { label: "Verified", color: "var(--color-status-active)" },
+};
+
+const ORDER_STATUS: Record<OrderStatus, PillStyle> = {
+  PENDING: { label: "Pending", color: "var(--color-mc-muted)" },
+  IN_PROGRESS: {
+    label: "In Progress",
+    color: "var(--color-status-maintenance)",
+  },
+  COMPLETED: { label: "Completed", color: "var(--color-status-active)" },
+  CANCELLED: { label: "Cancelled", color: "var(--color-mc-error)" },
 };
 
 function Pill({ label, color }: PillStyle) {
@@ -58,6 +82,32 @@ export function SeverityPill({
   const style =
     SEVERITY[severity] ?? {
       label: severity,
+      color: "var(--color-mc-muted)",
+    };
+  return <Pill {...style} />;
+}
+
+export function DefectStatusPill({
+  status,
+}: {
+  status: DefectTransitionStatus;
+}) {
+  const style =
+    DEFECT_STATUS[status] ?? {
+      label: status,
+      color: "var(--color-mc-muted)",
+    };
+  return <Pill {...style} />;
+}
+
+export function OrderStatusPill({
+  status,
+}: {
+  status: OrderStatus;
+}) {
+  const style =
+    ORDER_STATUS[status] ?? {
+      label: status,
       color: "var(--color-mc-muted)",
     };
   return <Pill {...style} />;
