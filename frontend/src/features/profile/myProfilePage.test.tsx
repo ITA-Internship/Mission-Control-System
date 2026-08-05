@@ -1090,6 +1090,21 @@ describe("MyProfilePage", () => {
   it("shows a safe CSRF failure message", async () => {
     const user = userEvent.setup();
 
+    // Initial profile update fails because the CSRF token is stale.
+    mockJsonResponse(
+      {
+        detail:
+          "CSRF verification failed. Request aborted.",
+      },
+      403,
+    );
+
+    // API client refreshes the CSRF cookie.
+    mockJsonResponse({
+      detail: "CSRF cookie set.",
+    });
+
+    // The single retried profile update also fails.
     mockJsonResponse(
       {
         detail:

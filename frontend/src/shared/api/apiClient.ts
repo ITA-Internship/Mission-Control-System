@@ -17,6 +17,9 @@ const CSRF_HEADER_NAME =
   import.meta.env.VITE_CSRF_HEADER_NAME ??
   "X-CSRFToken";
 
+const CSRF_BOOTSTRAP_PATH =
+  "/api/accounts/login/";
+
 export class ApiError extends Error {
   readonly status: number;
   readonly body: unknown;
@@ -102,7 +105,66 @@ async function parseResponseBody(
   }
 }
 
-export async function apiRequest<T>(
+function getResponseField(
+  body: unknown,
+  field: string,
+): string | undefined {
+  if (
+    typeof body !== "object" ||
+    body === null ||
+    Array.isArray(body)
+  ) {
+    return undefined;
+  }
+
+  const value = (
+    body as Record<string, unknown>
+  )[field];
+
+  return typeof value === "string"
+    ? value
+    : undefined;
+}
+
+function isCsrfApiError(
+  error: unknown,
+): error is ApiError {
+  if (
+    !(error instanceof ApiError) ||
+    error.status !== 403
+  ) {
+    return false;
+  }
+
+  const code =
+    getResponseField(
+      error.body,
+      "code",
+    )?.toLowerCase();
+
+  if (
+    code === "csrf_failed" ||
+    code === "csrf_failure"
+  ) {
+    return true;
+  }
+
+  const detail =
+    (
+      typeof error.body === "string"
+        ? error.body
+        : getResponseField(
+            error.body,
+            "detail",
+          )
+    )?.toLowerCase();
+
+  return Boolean(
+    detail?.includes("csrf"),
+  );
+}
+
+async function apiRequestOnce<T>(
   path: string,
   {
     json,
@@ -186,4 +248,49 @@ export async function apiRequest<T>(
   }
 
   return responseBody as T;
+}
+
+async function refreshCsrfState(
+  signal?: AbortSignal | null,
+): Promise<void> {
+  await apiRequestOnce<unknown>(
+    CSRF_BOOTSTRAP_PATH,
+    {
+      method: "GET",
+      cache: "no-store",
+      signal,
+    },
+  );
+}
+
+export async function apiRequest<T>(
+  path: string,
+  options: ApiRequestOptions = {},
+): Promise<T> {
+  const method = (
+    options.method ?? "GET"
+  ).toUpperCase();
+
+  try {
+    return await apiRequestOnce<T>(
+      path,
+      options,
+    );
+  } catch (error) {
+    if (
+      SAFE_METHODS.has(method) ||
+      !isCsrfApiError(error)
+    ) {
+      throw error;
+    }
+
+    await refreshCsrfState(
+      options.signal,
+    );
+
+    return apiRequestOnce<T>(
+      path,
+      options,
+    );
+  }
 }
