@@ -1,4 +1,5 @@
 import {
+  act,
   render,
   screen,
   waitFor,
@@ -12,6 +13,9 @@ import {
   it,
   vi,
 } from "vitest";
+import {
+  StrictMode,
+} from "react";
 
 import type {
   CurrentUser,
@@ -133,6 +137,89 @@ function AuthStateProbe({
 }
 
 describe("AuthProvider", () => {
+    it("shows loading while the initial session request is pending", async () => {
+        let resolveRequest:
+        | ((response: Response) => void)
+        | undefined;
+
+        vi.mocked(globalThis.fetch)
+        .mockImplementationOnce(
+            () =>
+            new Promise<Response>(
+                (resolve) => {
+                resolveRequest = resolve;
+                },
+            ),
+        );
+
+        render(
+        <AuthProvider>
+            <AuthStateProbe name="probe" />
+        </AuthProvider>,
+        );
+
+        expect(
+        screen.getByTestId("probe-status"),
+        ).toHaveTextContent("loading");
+
+        await act(async () => {
+        resolveRequest?.(
+            new Response(
+            JSON.stringify(
+                authenticatedUser,
+            ),
+            {
+                status: 200,
+                headers: {
+                "Content-Type":
+                    "application/json",
+                },
+            },
+            ),
+        );
+        });
+
+        expect(
+        await screen.findByTestId(
+            "probe-status",
+        ),
+        ).toHaveTextContent(
+        "authenticated",
+        );
+    });
+
+    it("performs one initial current-user request under StrictMode", async () => {
+        mockJsonResponse(authenticatedUser);
+
+        const fetchMock = vi.mocked(
+        globalThis.fetch,
+        );
+
+        render(
+        <StrictMode>
+            <AuthProvider>
+            <AuthStateProbe name="probe" />
+            </AuthProvider>
+        </StrictMode>,
+        );
+
+        expect(
+        await screen.findByTestId(
+            "probe-username",
+        ),
+        ).toHaveTextContent(
+        "root.admin",
+        );
+
+        expect(fetchMock).toHaveBeenCalledTimes(
+        1,
+        );
+
+        expect(
+        fetchMock.mock.calls[0]?.[0],
+        ).toBe("/api/accounts/users/me/");
+    });
+
   it("restores and shares the authenticated session", async () => {
     mockJsonResponse(authenticatedUser);
 
@@ -313,6 +400,247 @@ describe("AuthProvider", () => {
       vi.mocked(globalThis.fetch),
     ).toHaveBeenCalledTimes(2);
   });
+
+    it("clears authentication when refresh returns 401", async () => {
+        const user = userEvent.setup();
+
+        mockJsonResponse(authenticatedUser);
+
+        mockJsonResponse(
+        {
+            detail: "Session expired.",
+            code: "session_expired",
+        },
+        401,
+        );
+
+        render(
+        <AuthProvider>
+            <AuthStateProbe name="probe" />
+        </AuthProvider>,
+        );
+
+        expect(
+        await screen.findByTestId(
+            "probe-username",
+        ),
+        ).toHaveTextContent(
+        "root.admin",
+        );
+
+        await user.click(
+        screen.getByRole("button", {
+            name: "probe refresh user",
+        }),
+        );
+
+        await waitFor(() => {
+        expect(
+            screen.getByTestId(
+            "probe-status",
+            ),
+        ).toHaveTextContent(
+            "unauthenticated",
+        );
+        });
+
+        expect(
+        screen.getByTestId(
+            "probe-username",
+        ),
+        ).toHaveTextContent("none");
+    });
+
+    it("preserves authentication when refresh returns a server error", async () => {
+        const user = userEvent.setup();
+
+        mockJsonResponse(authenticatedUser);
+
+        mockJsonResponse(
+        {
+            detail:
+            "Internal implementation details.",
+        },
+        500,
+        );
+
+        const fetchMock = vi.mocked(
+        globalThis.fetch,
+        );
+
+        render(
+        <AuthProvider>
+            <AuthStateProbe name="probe" />
+        </AuthProvider>,
+        );
+
+        expect(
+        await screen.findByTestId(
+            "probe-username",
+        ),
+        ).toHaveTextContent(
+        "root.admin",
+        );
+
+        await user.click(
+        screen.getByRole("button", {
+            name: "probe refresh user",
+        }),
+        );
+
+        await waitFor(() => {
+        expect(fetchMock).toHaveBeenCalledTimes(
+            2,
+        );
+        });
+
+        expect(
+        screen.getByTestId("probe-status"),
+        ).toHaveTextContent(
+        "authenticated",
+        );
+
+        expect(
+        screen.getByTestId(
+            "probe-username",
+        ),
+        ).toHaveTextContent(
+        "root.admin",
+        );
+    });
+
+    it("preserves authentication when refresh has a network failure", async () => {
+        const user = userEvent.setup();
+
+        mockJsonResponse(authenticatedUser);
+
+        vi.mocked(globalThis.fetch)
+        .mockRejectedValueOnce(
+            new TypeError("Failed to fetch"),
+        );
+
+        const fetchMock = vi.mocked(
+        globalThis.fetch,
+        );
+
+        render(
+        <AuthProvider>
+            <AuthStateProbe name="probe" />
+        </AuthProvider>,
+        );
+
+        expect(
+        await screen.findByTestId(
+            "probe-username",
+        ),
+        ).toHaveTextContent(
+        "root.admin",
+        );
+
+        await user.click(
+        screen.getByRole("button", {
+            name: "probe refresh user",
+        }),
+        );
+
+        await waitFor(() => {
+        expect(fetchMock).toHaveBeenCalledTimes(
+            2,
+        );
+        });
+
+        expect(
+        screen.getByTestId("probe-status"),
+        ).toHaveTextContent(
+        "authenticated",
+        );
+
+        expect(
+        screen.getByTestId(
+            "probe-username",
+        ),
+        ).toHaveTextContent(
+        "root.admin",
+        );
+    });
+
+    it("ignores a stale initial session response after authentication state changes", async () => {
+        const user = userEvent.setup();
+
+        let resolveRequest:
+            | ((response: Response) => void)
+            | undefined;
+
+        const fetchMock = vi.mocked(
+            globalThis.fetch,
+        );
+
+        fetchMock.mockImplementationOnce(
+            () =>
+            new Promise<Response>((resolve) => {
+                resolveRequest = resolve;
+            }),
+        );
+
+        render(
+            <AuthProvider>
+            <AuthStateProbe name="probe" />
+            </AuthProvider>,
+        );
+
+        // Спочатку переконуємося, що initial
+        // /users/me/ request уже почався.
+        await waitFor(() => {
+            expect(fetchMock).toHaveBeenCalledTimes(
+            1,
+            );
+        });
+
+        expect(
+            fetchMock.mock.calls[0]?.[0],
+        ).toBe("/api/accounts/users/me/");
+
+        // Тепер змінюємо auth state, поки
+        // initial request все ще pending.
+        await user.click(
+            screen.getByRole("button", {
+            name: "probe set user",
+            }),
+        );
+
+        expect(
+            screen.getByTestId("probe-username"),
+        ).toHaveTextContent("updated.admin");
+
+        // Повертається стара відповідь initial
+        // request. Provider повинен її проігнорувати.
+        await act(async () => {
+            resolveRequest?.(
+            new Response(
+                JSON.stringify(
+                authenticatedUser,
+                ),
+                {
+                status: 200,
+                headers: {
+                    "Content-Type":
+                    "application/json",
+                },
+                },
+            ),
+            );
+
+            await Promise.resolve();
+        });
+
+        expect(
+            screen.getByTestId("probe-username"),
+        ).toHaveTextContent("updated.admin");
+
+        expect(
+            screen.getByTestId("probe-status"),
+        ).toHaveTextContent("authenticated");
+        });
 
   it("clears authentication after successful logout", async () => {
     const user = userEvent.setup();

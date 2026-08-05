@@ -2,6 +2,7 @@ import {
   useCallback,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from "react";
 import type { ReactNode } from "react";
@@ -40,62 +41,87 @@ export function AuthProvider({
   const [error, setError] =
     useState<string | null>(null);
 
+  const initialSessionRequestRef =
+    useRef<Promise<CurrentUser> | null>(null);
+
+  const authRevisionRef = useRef(0);
+
   const clearAuthentication =
     useCallback(() => {
-      setCurrentUser(null);
-      setStatus("unauthenticated");
-      setError(null);
+        authRevisionRef.current += 1;
+
+        setCurrentUser(null);
+        setStatus("unauthenticated");
+        setError(null);
     }, []);
 
   const setAuthenticatedUser =
     useCallback((user: CurrentUser) => {
-      setCurrentUser(user);
-      setStatus("authenticated");
-      setError(null);
+        authRevisionRef.current += 1;
+
+        setCurrentUser(user);
+        setStatus("authenticated");
+        setError(null);
     }, []);
 
-  const refreshCurrentUser =
-    useCallback(
-      async (
-        signal?: AbortSignal,
-      ): Promise<CurrentUser | null> => {
-        try {
-          const user =
-            await getCurrentUser(signal);
+    const refreshCurrentUser =
+        useCallback(
+        async (
+            signal?: AbortSignal,
+        ): Promise<CurrentUser | null> => {
+            const revisionAtStart =
+            authRevisionRef.current;
 
-          setAuthenticatedUser(user);
-          return user;
-        } catch (requestError) {
-          if (isAbortError(requestError)) {
+            try {
+            const user =
+                await getCurrentUser(signal);
+
+            if (
+                revisionAtStart !==
+                authRevisionRef.current
+            ) {
+                throw new DOMException(
+                "Stale authentication request.",
+                "AbortError",
+                );
+            }
+
+            setAuthenticatedUser(user);
+
+            return user;
+            } catch (requestError) {
+            if (isAbortError(requestError)) {
+                throw requestError;
+            }
+
+            if (
+                revisionAtStart !==
+                authRevisionRef.current
+            ) {
+                throw new DOMException(
+                "Stale authentication request.",
+                "AbortError",
+                );
+            }
+
+            if (
+                isSessionAuthenticationError(
+                requestError,
+                )
+            ) {
+                clearAuthentication();
+
+                return null;
+            }
+
             throw requestError;
-          }
-
-          if (
-            isSessionAuthenticationError(
-              requestError,
-            )
-          ) {
-            clearAuthentication();
-            return null;
-          }
-
-          setCurrentUser(null);
-          setStatus("unauthenticated");
-          setError(
-            getFormError(
-              requestError,
-              "We could not verify your session right now.",
-            ),
-          );
-
-          throw requestError;
-        }
-      },
-      [
-        clearAuthentication,
-        setAuthenticatedUser,
-      ],
-    );
+            }
+        },
+        [
+            clearAuthentication,
+            setAuthenticatedUser,
+        ],
+        );
 
   const logout = useCallback(
     async (signal?: AbortSignal) => {
@@ -106,56 +132,62 @@ export function AuthProvider({
   );
 
   useEffect(() => {
-    const controller =
-        new AbortController();
+        let isActive = true;
 
-    async function restoreSession() {
-        try {
-        const user = await getCurrentUser(
-            controller.signal,
-        );
+        const revisionAtStart =
+        authRevisionRef.current;
 
-        if (controller.signal.aborted) {
+        initialSessionRequestRef.current ??=
+        getCurrentUser();
+
+        void initialSessionRequestRef.current
+        .then((user) => {
+            if (
+            !isActive ||
+            revisionAtStart !==
+                authRevisionRef.current
+            ) {
             return;
-        }
+            }
 
-        setAuthenticatedUser(user);
-        } catch (requestError) {
-        if (
-            isAbortError(requestError) ||
-            controller.signal.aborted
-        ) {
+            setAuthenticatedUser(user);
+        })
+        .catch((requestError) => {
+            if (
+            !isActive ||
+            revisionAtStart !==
+                authRevisionRef.current ||
+            isAbortError(requestError)
+            ) {
             return;
-        }
+            }
 
-        if (
+            if (
             isSessionAuthenticationError(
-            requestError,
+                requestError,
             )
-        ) {
+            ) {
             clearAuthentication();
+
             return;
-        }
+            }
 
-        setCurrentUser(null);
-        setStatus("unauthenticated");
-        setError(
+            setCurrentUser(null);
+            setStatus("unauthenticated");
+            setError(
             getFormError(
-            requestError,
-            "We could not verify your session right now.",
+                requestError,
+                "We could not verify your session right now.",
             ),
-        );
-        }
-    }
+            );
+        });
 
-    void restoreSession();
-
-    return () => {
-        controller.abort();
-    };
+        return () => {
+        isActive = false;
+        };
     }, [
-    clearAuthentication,
-    setAuthenticatedUser,
+        clearAuthentication,
+        setAuthenticatedUser,
     ]);
 
   const value =

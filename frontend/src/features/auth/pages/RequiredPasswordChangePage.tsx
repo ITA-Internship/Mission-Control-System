@@ -159,10 +159,6 @@ export function RequiredPasswordChangePage() {
       return;
     }
 
-    if (isSubmitting) {
-      return;
-    }
-
     const nextCurrentPasswordError =
       validateRequiredPassword(
         currentPassword,
@@ -220,7 +216,10 @@ export function RequiredPasswordChangePage() {
         return;
       }
 
-      const refreshedUser = await refreshCurrentUser();
+      const refreshedUser = await run(
+        (signal) =>
+          refreshCurrentUser(signal),
+      );
 
       if (!isMounted()) {
         return;

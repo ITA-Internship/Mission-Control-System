@@ -832,6 +832,77 @@ describe("required password change", () => {
     ).toBe("/api/accounts/users/me/");
   });
 
+  it("stays on the required page when the refreshed user still requires a password change", async () => {
+    const user = userEvent.setup();
+
+    // Initial session restoration.
+    mockJsonResponse(requiredUser);
+
+    // Successful password change.
+    mockJsonResponse({
+      detail:
+        "Password has been successfully changed.",
+    });
+
+    // Backend still reports that the
+    // password change is required.
+    mockJsonResponse(requiredUser);
+
+    const { router } =
+      renderRequiredPasswordRoute(
+        "/change-password/required?returnTo=%2Fmissions%2F42",
+      );
+
+    await user.type(
+      await screen.findByLabelText(
+        "Current password",
+      ),
+      "OldPassword123!",
+    );
+
+    await user.type(
+      screen.getByLabelText(
+        "New password",
+      ),
+      "NewPassword123!",
+    );
+
+    await user.type(
+      screen.getByLabelText(
+        "Confirm new password",
+      ),
+      "NewPassword123!",
+    );
+
+    await user.click(
+      screen.getByRole("button", {
+        name: "Save and continue",
+      }),
+    );
+
+    expect(
+      await screen.findByText(
+        "Your account still requires a password change. Please try again.",
+      ),
+    ).toBeInTheDocument();
+
+    expect(
+      router.state.location.pathname,
+    ).toBe(
+      "/change-password/required",
+    );
+
+    expect(
+      screen.queryByText(
+        "Mission details",
+      ),
+    ).not.toBeInTheDocument();
+
+    expect(
+      vi.mocked(globalThis.fetch),
+    ).toHaveBeenCalledTimes(3);
+  });
+
   it("redirects to login when the session expires during submission", async () => {
     const user = userEvent.setup();
     mockJsonResponse(requiredUser);
