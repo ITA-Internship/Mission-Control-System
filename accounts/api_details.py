@@ -696,15 +696,11 @@ login_post_schema = extend_schema(
     responses={
         status.HTTP_200_OK: OpenApiResponse(
             response=UserMeSerializer,
-            description=(
-                "Authentication succeeded and a session was created."
-            ),
+            description=("Authentication succeeded and a session was created."),
         ),
         status.HTTP_400_BAD_REQUEST: OpenApiResponse(
             response=login_response_serializer,
-            description=(
-                "The submitted credentials are missing or invalid."
-            ),
+            description=("The submitted credentials are missing or invalid."),
             examples=[
                 OpenApiExample(
                     "Invalid credentials",

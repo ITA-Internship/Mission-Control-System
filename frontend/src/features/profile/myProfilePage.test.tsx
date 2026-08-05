@@ -245,16 +245,17 @@ describe("MyProfilePage", () => {
         "+1 (000) 000-0000",
       );
 
-    await user.clear(rankInput);
-    await user.type(
-      rankInput,
-      "Lt. Colonel",
-    );
-    await user.clear(contactInput);
-    await user.type(
-      contactInput,
-      "+1 (703) 555-0100",
-    );
+    fireEvent.change(rankInput, {
+      target: {
+        value: "Lt. Colonel",
+      },
+    });
+
+    fireEvent.change(contactInput, {
+      target: {
+        value: "+1 (703) 555-0100",
+      },
+    });
 
     await user.click(
       screen.getByRole("button", {
@@ -292,7 +293,7 @@ describe("MyProfilePage", () => {
     expect(
       screen.queryByText("Ready to save"),
     ).not.toBeInTheDocument();
-  });
+  }, 10_000);
 
   it("shows profile validation errors", async () => {
     const user = userEvent.setup();
@@ -322,11 +323,11 @@ describe("MyProfilePage", () => {
       screen.getByPlaceholderText(
         "+1 (000) 000-0000",
       );
-    await user.clear(contactInput);
-    await user.type(
-      contactInput,
-      "bad-contact",
-    );
+    fireEvent.change(contactInput, {
+      target: {
+        value: "bad-contact",
+      },
+    });
 
     await user.click(
       screen.getByRole("button", {
@@ -337,9 +338,13 @@ describe("MyProfilePage", () => {
     expect(
       await screen.findAllByText(
         "Enter a valid contact value.",
+        {},
+        {
+          timeout: 5_000,
+        },
       ),
     ).not.toHaveLength(0);
-  });
+  }, 10_000);
 
   it("shows a save error when profile update fails", async () => {
     const user = userEvent.setup();

@@ -1,8 +1,6 @@
 """OpenAPI extensions for project-specific authentication classes."""
 
-from drf_spectacular.extensions import (
-    OpenApiAuthenticationExtension,
-)
+from drf_spectacular.extensions import OpenApiAuthenticationExtension
 
 
 class RequiredPasswordChangeSessionAuthenticationScheme(
@@ -11,8 +9,7 @@ class RequiredPasswordChangeSessionAuthenticationScheme(
     """Describe Django session-cookie authentication in OpenAPI."""
 
     target_class = (
-        "common.authentication."
-        "RequiredPasswordChangeSessionAuthentication"
+        "common.authentication." "RequiredPasswordChangeSessionAuthentication"
     )
     name = "cookieAuth"
     priority = 1
@@ -30,10 +27,7 @@ class RequiredPasswordChangeBasicAuthenticationScheme(
 ):
     """Describe development-only HTTP Basic authentication."""
 
-    target_class = (
-        "common.authentication."
-        "RequiredPasswordChangeBasicAuthentication"
-    )
+    target_class = "common.authentication." "RequiredPasswordChangeBasicAuthentication"
     name = "basicAuth"
     priority = 1
 

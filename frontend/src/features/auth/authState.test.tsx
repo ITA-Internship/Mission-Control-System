@@ -661,11 +661,13 @@ describe("AuthProvider", () => {
       </AuthProvider>,
     );
 
-    expect(
-      await screen.findByTestId(
-        "probe-username",
-      ),
-    ).toHaveTextContent("root.admin");
+    await waitFor(() => {
+        expect(
+            screen.getByTestId(
+            "probe-username",
+            ),
+        ).toHaveTextContent("root.admin");
+    });
 
     await user.click(
       screen.getByRole("button", {

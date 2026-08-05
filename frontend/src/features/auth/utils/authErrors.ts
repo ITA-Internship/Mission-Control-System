@@ -1,4 +1,7 @@
-import { ApiError } from "../../../shared/api/apiClient";
+import {
+  ApiError,
+  NetworkError,
+} from "../../../shared/api/apiClient";
 import { getApiDetail } from "../../../shared/utils/apiErrors";
 
 /*
@@ -11,7 +14,6 @@ import { getApiDetail } from "../../../shared/utils/apiErrors";
 export {
   getApiDetail,
   getApiFieldError,
-  getFormError,
 } from "../../../shared/utils/apiErrors";
 
 type ApiErrorBody = Record<string, unknown>;
@@ -162,6 +164,53 @@ export function isRateLimitError(
     error instanceof ApiError &&
     error.status === 429
   );
+}
+
+export function getFormError(
+  error: unknown,
+  fallback: string,
+): string {
+  if (error instanceof NetworkError) {
+    return (
+      "Unable to reach Mission Control. " +
+      "Check your connection and try again."
+    );
+  }
+
+  if (isRateLimitError(error)) {
+    return (
+      "Too many requests. " +
+      "Please wait a moment and try again."
+    );
+  }
+
+  if (isCsrfError(error)) {
+    return (
+      "Your security session could not be verified. " +
+      "Refresh the page and try again."
+    );
+  }
+
+  if (isAuthorizationError(error)) {
+    return (
+      "You do not have permission " +
+      "to perform this action."
+    );
+  }
+
+  if (error instanceof ApiError) {
+    /*
+     * Never expose backend implementation
+     * details for server errors.
+     */
+    if (error.status >= 500) {
+      return fallback;
+    }
+
+    return getApiDetail(error) ?? fallback;
+  }
+
+  return fallback;
 }
 
 export function isInvalidResetLinkError(
