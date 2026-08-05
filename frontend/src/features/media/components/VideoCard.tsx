@@ -55,8 +55,8 @@ export function VideoCard({ video, onClick }: VideoCardProps) {
           <div className="absolute inset-0 flex flex-col items-center justify-center gap-2.5 px-5">
             <Loader2 size={22} className="text-mc-accent animate-spin" />
             <div className="w-full h-1 bg-[#1E2733] rounded-full overflow-hidden relative">
-              <div 
-                className="h-full bg-mc-accent rounded-full transition-all duration-150" 
+              <div
+                className="h-full bg-mc-accent rounded-full transition-all duration-150"
                 style={{ width: `${displayProgress}%` }}
               />
             </div>

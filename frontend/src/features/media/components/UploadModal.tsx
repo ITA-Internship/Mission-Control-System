@@ -61,10 +61,10 @@ export function UploadModal({ onClose, onUpload, missionsList }: UploadModalProp
 
   const startUpload = () => {
     if (!canSubmit || !file) return;
-    
+
     // Fire and forget
     onUpload(file, { title, missionId: selectedMission, droneId: selectedDrone });
-    
+
     // Close modal immediately so user sees the background upload in the grid
     onClose();
   };
@@ -113,7 +113,7 @@ export function UploadModal({ onClose, onUpload, missionsList }: UploadModalProp
               }`}
             >
               <input type="file" className="hidden" accept="video/*" onChange={handleFileChange} />
-              
+
               {file ? (
                 <>
                   <div className="w-12 h-12 rounded-full flex items-center justify-center transition-all bg-[#1A2232]">
@@ -192,8 +192,8 @@ export function UploadModal({ onClose, onUpload, missionsList }: UploadModalProp
                   className="w-full px-3 pr-8 py-2 rounded-lg bg-[#0E141B] border border-[#1E2733] text-sm text-[#E6EAF0] focus:outline-none focus:border-mc-accent/50 transition-colors appearance-none disabled:opacity-40 disabled:cursor-not-allowed"
                 >
                   <option value="">
-                    {selectedMission 
-                      ? (loadingDrones ? "Loading drones…" : availableDrones.length ? "Select drone…" : "No drones assigned") 
+                    {selectedMission
+                      ? (loadingDrones ? "Loading drones…" : availableDrones.length ? "Select drone…" : "No drones assigned")
                       : "Select mission first"}
                   </option>
                   {availableDrones.map((d) => (

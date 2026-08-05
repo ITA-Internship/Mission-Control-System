@@ -3,12 +3,12 @@ import { Film, X, Download, Trash2, ExternalLink } from "lucide-react";
 import type { Video } from "../types/mediaTypes";
 import { StatusPill } from "./ui/Pills";
 
-export function VideoPlayerModal({ 
-  video, 
+export function VideoPlayerModal({
+  video,
   onClose,
   onDelete
-}: { 
-  video: Video; 
+}: {
+  video: Video;
   onClose: () => void;
   onDelete?: (id: string) => Promise<void>;
 }) {
@@ -43,10 +43,10 @@ export function VideoPlayerModal({
             {/* Video area */}
             <div className="relative w-full aspect-video flex items-center justify-center">
               {video.url && video.status === "ready" ? (
-                <video 
-                  src={video.url} 
-                  controls 
-                  autoPlay 
+                <video
+                  src={video.url}
+                  controls
+                  autoPlay
                   className="w-full h-full object-contain"
                 >
                   Your browser does not support the video tag.
@@ -136,7 +136,7 @@ export function VideoPlayerModal({
 
             {/* Actions */}
             <div className="p-4 border-t border-[#1E2733] space-y-1.5">
-              <a 
+              <a
                 href={video.url}
                 download={video.title}
                 className="w-full flex items-center justify-center gap-2.5 px-3 py-2 rounded-lg bg-mc-accent/10 hover:bg-mc-accent/15 text-mc-accent text-sm font-medium transition-colors"
@@ -144,7 +144,7 @@ export function VideoPlayerModal({
                 <Download size={14} /> Download Video
               </a>
               {onDelete && (
-                <button 
+                <button
                   onClick={() => {
                     if (window.confirm("Are you sure you want to delete this video?")) {
                       onDelete(video.id).then(() => {

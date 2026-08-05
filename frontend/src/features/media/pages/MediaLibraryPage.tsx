@@ -166,10 +166,10 @@ export function MediaLibraryPage() {
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           {[
             { label: "Total Videos", value: videos.length.toString(), sub: `across ${uniqueMissions.length} missions` },
-            { 
-              label: "Storage Used", 
-              value: stats ? formatBytes(stats.total_used_bytes) : "...", 
-              sub: stats ? `of ${formatBytes(stats.allotted_bytes)} allotted` : "calculating..." 
+            {
+              label: "Storage Used",
+              value: stats ? formatBytes(stats.total_used_bytes) : "...",
+              sub: stats ? `of ${formatBytes(stats.allotted_bytes)} allotted` : "calculating..."
             },
             { label: "Uploading", value: videos.filter(v => v.status === "uploading").length.toString(), sub: "in progress", accent: true },
             { label: "Failed", value: videos.filter(v => v.status === "failed").length.toString(), sub: "requires retry", warn: true },
@@ -253,18 +253,18 @@ export function MediaLibraryPage() {
 
       {/* Modals */}
       {selectedVideo && (
-        <VideoPlayerModal 
-          video={selectedVideo} 
-          onClose={() => setSelectedVideo(null)} 
+        <VideoPlayerModal
+          video={selectedVideo}
+          onClose={() => setSelectedVideo(null)}
           onDelete={deleteVideo}
         />
       )}
       {showUpload && (
-        <UploadModal 
-          onClose={() => setShowUpload(false)} 
+        <UploadModal
+          onClose={() => setShowUpload(false)}
           onUpload={(file, metadata) => {
             uploadVideo(file, metadata);
-          }} 
+          }}
           missionsList={missionsList}
         />
       )}

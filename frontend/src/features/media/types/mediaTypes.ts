@@ -97,4 +97,3 @@ export interface MediaStats {
   total_used_bytes: number;
   allotted_bytes: number;
 }
-

@@ -58,9 +58,9 @@ export function useMediaLibrary() {
         status: raw.status as VideoStatus,
         duration: raw.duration_seconds != null ? formatDuration(raw.duration_seconds) : "--:--",
         missionId: String(raw.mission),
-        missionName: `Mission ${raw.mission}`, 
+        missionName: `Mission ${raw.mission}`,
         droneId: String(raw.drone),
-        droneName: `Drone ${raw.drone}`, 
+        droneName: `Drone ${raw.drone}`,
         uploadedBy: raw.uploaded_by_username || "Unknown",
         uploadedAt: new Date(raw.created_at).toLocaleString(),
         fileSize: formatBytes(raw.file_size),
@@ -83,10 +83,10 @@ export function useMediaLibrary() {
       const response = await mediaApi.fetchAuditLogs();
       const mappedLogs: AuditEntry[] = response.results.map((raw) => {
         const actionStr = raw.action.charAt(0).toUpperCase() + raw.action.slice(1);
-        
+
         let targetMedia = "Unknown Media";
         let targetId = "N/A";
-        
+
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const changes: any = raw.changes || {};
 
@@ -128,7 +128,7 @@ export function useMediaLibrary() {
   useEffect(() => {
     let intervalId: ReturnType<typeof setInterval>;
     const hasUploading = videos.some((v) => v.status === "uploading");
-    
+
     if (hasUploading) {
       intervalId = setInterval(() => {
         void fetchVideos();
@@ -136,7 +136,7 @@ export function useMediaLibrary() {
         void fetchAuditLogs();
       }, 3000);
     }
-    
+
     return () => {
       if (intervalId) clearInterval(intervalId);
     };
@@ -172,12 +172,12 @@ export function useMediaLibrary() {
     const progressInterval = setInterval(() => {
       currentProgress += Math.floor(Math.random() * 8) + 4; // Add 4-11% every 300ms
       if (currentProgress > 95) currentProgress = 95;
-      
+
       setActiveUploads((prev) => {
         if (!prev[tempId]) return prev;
         return { ...prev, [tempId]: { ...prev[tempId], progress: currentProgress } };
       });
-      
+
       if (currentProgress === 95) {
         clearInterval(progressInterval);
       }

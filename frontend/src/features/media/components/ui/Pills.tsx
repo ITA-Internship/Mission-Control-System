@@ -7,7 +7,7 @@ export function StatusPill({ status }: { status: VideoStatus }) {
     uploading: { label: "Uploading", dot: "bg-mc-accent", wrap: "bg-mc-accent/10 text-mc-accent border-mc-accent/20" },
     failed: { label: "Failed", dot: "bg-red-400", wrap: "bg-red-500/10 text-red-400 border-red-500/20" },
   }[status];
-  
+
   if (!map) return null;
 
   return (
