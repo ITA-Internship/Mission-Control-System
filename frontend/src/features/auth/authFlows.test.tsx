@@ -3,8 +3,10 @@ import type {
 } from "react";
 
 import {
+  act,
   render,
   screen,
+  waitFor,
 } from "@testing-library/react";
 
 import userEvent from "@testing-library/user-event";
@@ -627,6 +629,113 @@ describe("required password change", () => {
     is_active: true,
     must_change_password: true,
   };
+
+  it("prevents Back and Forward navigation from bypassing a required password change", async () => {
+    mockJsonResponse(requiredUser);
+
+    const router = createMemoryRouter(
+      [
+        {
+          path: "/my-profile",
+          element: (
+            <RequireSessionAuth>
+              {() => (
+                <div>
+                  Protected profile
+                </div>
+              )}
+            </RequireSessionAuth>
+          ),
+        },
+        {
+          path:
+            "/change-password/required",
+          element: (
+            <RequireSessionAuth
+              requirePasswordChange
+            >
+              {() => (
+                <div>
+                  Password change required
+                </div>
+              )}
+            </RequireSessionAuth>
+          ),
+        },
+        {
+          path: "/login",
+          element: <div>Login page</div>,
+        },
+      ],
+      {
+        initialEntries: [
+          "/change-password/required",
+          "/my-profile",
+        ],
+        initialIndex: 1,
+      },
+    );
+
+    render(
+      <AuthProvider>
+        <RouterProvider router={router} />
+      </AuthProvider>,
+    );
+
+    expect(
+      await screen.findByText(
+        "Password change required",
+      ),
+    ).toBeInTheDocument();
+
+    expect(
+      screen.queryByText(
+        "Protected profile",
+      ),
+    ).not.toBeInTheDocument();
+
+    expect(
+      router.state.location.pathname,
+    ).toBe(
+      "/change-password/required",
+    );
+
+    await act(async () => {
+      await router.navigate(-1);
+    });
+
+    await waitFor(() => {
+      expect(
+        router.state.location.pathname,
+      ).toBe(
+        "/change-password/required",
+      );
+    });
+
+    expect(
+      screen.queryByText(
+        "Protected profile",
+      ),
+    ).not.toBeInTheDocument();
+
+    await act(async () => {
+      await router.navigate(1);
+    });
+
+    await waitFor(() => {
+      expect(
+        router.state.location.pathname,
+      ).toBe(
+        "/change-password/required",
+      );
+    });
+
+    expect(
+      screen.queryByText(
+        "Protected profile",
+      ),
+    ).not.toBeInTheDocument();
+  });
 
   it("redirects users without a session to login", async () => {
     mockJsonResponse(

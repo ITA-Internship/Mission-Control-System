@@ -49,6 +49,7 @@ from .api_details import (
     audit_log_retrieve_schema,
     audit_log_view_schema,
     change_password_schema,
+    logout_schema,
     password_reset_confirm_schema,
     password_reset_schema,
     profile_picture_get_schema,
@@ -188,6 +189,7 @@ class LogoutView(APIView):
 
     permission_classes = [permissions.IsAuthenticated]
 
+    @logout_schema
     def post(self, request):
         """Flush the session and emit Django's logout signal."""
         logout(request)

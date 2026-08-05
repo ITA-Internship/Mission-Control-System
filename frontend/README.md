@@ -230,6 +230,96 @@ the configured `X-CSRFToken` header.
 
 ---
 
+## Session Authentication
+
+`AuthProvider` is mounted above the router and owns the shared
+authentication state:
+
+- `status: "loading" | "authenticated" | "unauthenticated"`;
+- `currentUser`;
+- `refreshCurrentUser()`;
+- `logout()`.
+
+On startup, the provider requests `GET /api/accounts/users/me/`. A
+successful response restores the authenticated user after a browser
+refresh. An expired or invalid session clears stale authentication
+state. Protected pages do not issue independent current-user
+requests.
+
+`RequireSessionAuth` consumes the shared state. It redirects
+unauthenticated users to `/login` and enforces
+`/change-password/required` whenever `must_change_password` is true.
+The same behavior applies to direct URLs, page refreshes, and browser
+Back/Forward navigation.
+
+### Safe `returnTo` Navigation
+
+A requested protected route is preserved as:
+
+```text
+/login?returnTo=/requested-route
+```
+
+Only validated internal destinations are accepted. External URLs,
+protocol-relative URLs, malformed URLs, backslash-based navigation,
+and authentication routes that could create redirect loops are
+rejected. The fallback destination is `/my-profile`.
+
+When a password change is required, the validated destination is
+preserved through `/change-password/required`. After a successful
+password update, `refreshCurrentUser()` runs,
+`must_change_password=false` is verified, and the shared
+authentication state is updated before navigation.
+
+### Logout Behavior
+
+Logout is available from My Profile and the required password-change
+page. Shared authentication state is cleared only after
+`POST /api/accounts/logout/` succeeds.
+
+When logout fails, the user remains authenticated, no redirect occurs,
+and a safe error message is displayed.
+
+### Authentication Error Handling
+
+- Session-related `401` and `403` responses clear stale authentication
+  state and redirect to `/login` while preserving a safe internal
+  destination.
+- Authorization-related `403` responses display an access-denied
+  message without clearing the current session.
+- A CSRF failure refreshes the CSRF cookie and retries an unsafe
+  request exactly once.
+- A repeated CSRF failure is returned to the page and displayed as a
+  safe security-session error.
+- A `429` response displays a retry-later message.
+- Network and server failures display generic safe messages without
+  exposing backend implementation details.
+
+Session requests use `credentials: "include"`. Unsafe requests read
+the Django CSRF cookie and send it in the configured CSRF header.
+Authentication state and session identifiers are not persisted in
+`localStorage` or `sessionStorage`.
+
+### Local End-to-End Authentication Check
+
+1. Open `/my-profile` without an authenticated session and confirm the
+   redirect to `/login`.
+2. Sign in using a seeded user.
+3. Confirm that users with `must_change_password=true` are redirected
+   to `/change-password/required`.
+4. Confirm that `/my-profile` remains inaccessible before the required
+   password change is completed.
+5. Change the password.
+6. Confirm that `GET /api/accounts/users/me/` runs again before the
+   redirect.
+7. Confirm navigation to `/my-profile` or the preserved `returnTo`
+   destination.
+8. Refresh the browser and confirm that the session is restored.
+9. Sign out.
+10. Confirm that protected routes redirect to `/login`.
+11. Confirm that `GET /api/accounts/users/me/` is rejected after
+    logout.
+
 ## Authentication routes
 
 The frontend provides the following routes:

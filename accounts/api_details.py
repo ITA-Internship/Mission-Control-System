@@ -1,6 +1,12 @@
 from drf_spectacular.types import OpenApiTypes
-from drf_spectacular.utils import OpenApiExample, OpenApiParameter, OpenApiResponse
-from rest_framework import status
+from drf_spectacular.utils import (
+    OpenApiExample,
+    OpenApiParameter,
+    OpenApiResponse,
+    extend_schema,
+    inline_serializer,
+)
+from rest_framework import serializers, status
 
 from common.api_description_schema import description_schema
 from config.settings import MAX_EXPORT_LIMIT
@@ -448,6 +454,65 @@ change_password_schema = description_schema(
             },
         )
     ],
+)
+
+logout_response_serializer = inline_serializer(
+    name="LogoutResponse",
+    fields={
+        "detail": serializers.CharField(),
+    },
+)
+
+
+logout_schema = extend_schema(
+    tags=["accounts"],
+    auth=[{"cookieAuth": []}],
+    operation_id="accounts_logout",
+    summary="Log out of the current session",
+    description=(
+        "Ends only the current authenticated session. "
+        "The endpoint uses session authentication and "
+        "requires a valid CSRF cookie and X-CSRFToken "
+        "header for the POST request."
+    ),
+    request=None,
+    responses={
+        status.HTTP_200_OK: OpenApiResponse(
+            response=logout_response_serializer,
+            description=("The current session was ended " "successfully."),
+            examples=[
+                OpenApiExample(
+                    "Logout successful",
+                    value={
+                        "detail": ("Signed out successfully."),
+                    },
+                    response_only=True,
+                ),
+            ],
+        ),
+        status.HTTP_403_FORBIDDEN: OpenApiResponse(
+            response=logout_response_serializer,
+            description=(
+                "The request is unauthenticated or " "CSRF verification failed."
+            ),
+            examples=[
+                OpenApiExample(
+                    "Unauthenticated request",
+                    value={
+                        "detail": ("Authentication credentials " "were not provided."),
+                    },
+                    response_only=True,
+                ),
+                OpenApiExample(
+                    "CSRF failure",
+                    value={
+                        "detail": ("CSRF Failed: CSRF token " "missing."),
+                    },
+                    response_only=True,
+                ),
+            ],
+        ),
+    },
 )
 
 password_reset_schema = description_schema(

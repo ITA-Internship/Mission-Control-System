@@ -22,6 +22,7 @@ from django.urls import reverse
 from django.utils import timezone
 from django.utils.encoding import force_bytes
 from django.utils.http import urlsafe_base64_encode
+from drf_spectacular.generators import SchemaGenerator
 from PIL import Image
 from rest_framework import status
 from rest_framework.test import APIClient, APIRequestFactory, APITestCase
@@ -836,6 +837,43 @@ class LoginViewTests(APITestCase):
         self.assertIn("csrftoken", self.client.cookies)
         return self.client.cookies["csrftoken"].value
 
+    def _login_client(self, client):
+        """Log the test user in with CSRF enforcement."""
+        bootstrap_response = client.get(self.url)
+        self.assertEqual(
+            bootstrap_response.status_code,
+            status.HTTP_200_OK,
+            bootstrap_response.data,
+        )
+        self.assertIn(
+            "csrftoken",
+            client.cookies,
+        )
+
+        csrf_token = client.cookies["csrftoken"].value
+
+        login_response = client.post(
+            self.url,
+            {
+                "identifier": self.user.email,
+                "password": self.password,
+            },
+            format="json",
+            HTTP_X_CSRFTOKEN=csrf_token,
+        )
+
+        self.assertEqual(
+            login_response.status_code,
+            status.HTTP_200_OK,
+            login_response.data,
+        )
+
+        session_key = client.session.session_key
+
+        self.assertIsNotNone(session_key)
+
+        return session_key
+
     def test_login_get_issues_csrf_cookie(self):
         """Verify the login bootstrap request returns a CSRF cookie."""
         response = self.client.get(self.url)
@@ -1058,6 +1096,178 @@ class LoginViewTests(APITestCase):
         self.assertFalse(Session.objects.filter(session_key=session_key).exists())
         self.assertFalse(UserSession.objects.filter(session_key=session_key).exists())
         self.assertNotIn(SESSION_KEY, self.client.session)
+
+    def test_logout_preserves_other_active_sessions(
+        self,
+    ):
+        """End only the session that logs out."""
+        first_client = APIClient(enforce_csrf_checks=True)
+        second_client = APIClient(enforce_csrf_checks=True)
+
+        first_session_key = self._login_client(first_client)
+        second_session_key = self._login_client(second_client)
+
+        logout_response = first_client.post(
+            self.logout_url,
+            {},
+            format="json",
+            HTTP_X_CSRFTOKEN=(first_client.cookies["csrftoken"].value),
+        )
+
+        self.assertEqual(
+            logout_response.status_code,
+            status.HTTP_200_OK,
+            logout_response.data,
+        )
+
+        self.assertFalse(
+            Session.objects.filter(
+                session_key=first_session_key,
+            ).exists()
+        )
+        self.assertFalse(
+            UserSession.objects.filter(
+                user=self.user,
+                session_key=first_session_key,
+            ).exists()
+        )
+
+        self.assertTrue(
+            Session.objects.filter(
+                session_key=second_session_key,
+            ).exists()
+        )
+        self.assertTrue(
+            UserSession.objects.filter(
+                user=self.user,
+                session_key=second_session_key,
+            ).exists()
+        )
+
+        me_response = second_client.get(self.me_url)
+
+        self.assertEqual(
+            me_response.status_code,
+            status.HTTP_200_OK,
+            me_response.data,
+        )
+
+    def test_logout_creates_audit_record(
+        self,
+    ):
+        """Create the successful logout audit record."""
+        self._login_client(self.client)
+
+        logout_response = self.client.post(
+            self.logout_url,
+            {},
+            format="json",
+            HTTP_X_CSRFTOKEN=(self.client.cookies["csrftoken"].value),
+        )
+
+        self.assertEqual(
+            logout_response.status_code,
+            status.HTTP_200_OK,
+            logout_response.data,
+        )
+
+        logout_log = AuditLog.objects.get(
+            actor=self.user,
+            target_user=self.user,
+            action_type=(AuditLog.ActionType.LOGOUT),
+            result=(AuditLog.ResultStatus.SUCCESS),
+        )
+
+        self.assertEqual(
+            logout_log.description,
+            "User logged out successfully",
+        )
+
+    def test_current_user_endpoint_is_rejected_after_logout(
+        self,
+    ):
+        """Reject current-user access after logout."""
+        self._login_client(self.client)
+
+        logout_response = self.client.post(
+            self.logout_url,
+            {},
+            format="json",
+            HTTP_X_CSRFTOKEN=(self.client.cookies["csrftoken"].value),
+        )
+
+        self.assertEqual(
+            logout_response.status_code,
+            status.HTTP_200_OK,
+            logout_response.data,
+        )
+
+        me_response = self.client.get(self.me_url)
+
+        self.assertEqual(
+            me_response.status_code,
+            status.HTTP_403_FORBIDDEN,
+            me_response.data,
+        )
+
+    def test_logout_endpoint_is_present_in_openapi_schema(
+        self,
+    ):
+        """Expose logout in the generated OpenAPI schema."""
+        schema = SchemaGenerator().get_schema(
+            request=None,
+            public=True,
+        )
+
+        logout_operation = schema["paths"]["/api/accounts/logout/"]["post"]
+
+        self.assertEqual(
+            logout_operation["operationId"],
+            "accounts_logout",
+        )
+
+        self.assertNotIn(
+            "requestBody",
+            logout_operation,
+        )
+
+        self.assertIn(
+            {"cookieAuth": []},
+            logout_operation["security"],
+        )
+
+        self.assertIn(
+            "200",
+            logout_operation["responses"],
+        )
+        self.assertIn(
+            "403",
+            logout_operation["responses"],
+        )
+
+        description = logout_operation["description"].lower()
+
+        self.assertIn(
+            "session authentication",
+            description,
+        )
+        self.assertIn(
+            "csrf",
+            description,
+        )
+
+        forbidden_description = logout_operation["responses"]["403"][
+            "description"
+        ].lower()
+
+        self.assertIn(
+            "unauthenticated",
+            forbidden_description,
+        )
+        self.assertIn(
+            "csrf",
+            forbidden_description,
+        )
 
 
 class PasswordResetConfirmViewTests(APITestCase):

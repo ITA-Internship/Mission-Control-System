@@ -40,8 +40,6 @@ paths:
               $ref: '#/components/schemas/AccountActivation'
         required: true
       security:
-      - cookieAuth: []
-      - basicAuth: []
       - {}
       responses:
         '200':
@@ -138,9 +136,6 @@ paths:
           type: integer
       tags:
       - accounts
-      security:
-      - cookieAuth: []
-      - basicAuth: []
       responses:
         '200':
           content:
@@ -186,9 +181,6 @@ paths:
         required: true
       tags:
       - accounts
-      security:
-      - cookieAuth: []
-      - basicAuth: []
       responses:
         '200':
           content:
@@ -225,9 +217,6 @@ paths:
       summary: Export audit logs to CSV
       tags:
       - accounts
-      security:
-      - cookieAuth: []
-      - basicAuth: []
       responses:
         '200':
           description: A CSV file containing audit logs generated successfully.
@@ -235,6 +224,65 @@ paths:
           description: Forbidden. User does not have permission to perform this action.
         '429':
           description: Export rate limit exceeded.
+  /api/accounts/login/:
+    get:
+      operationId: accounts_login_retrieve
+      description: Issue a CSRF cookie for the upcoming login request.
+      tags:
+      - accounts
+      security:
+      - {}
+      responses:
+        '200':
+          description: No response body
+    post:
+      operationId: accounts_login_create
+      description: Authenticate the submitted credentials and start a Django session.
+      tags:
+      - accounts
+      security:
+      - {}
+      responses:
+        '200':
+          description: No response body
+  /api/accounts/logout/:
+    post:
+      operationId: accounts_logout
+      description: Ends only the current authenticated session. The endpoint uses
+        session authentication and requires a valid CSRF cookie and X-CSRFToken header
+        for the POST request.
+      summary: Log out of the current session
+      tags:
+      - accounts
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LogoutResponse'
+              examples:
+                LogoutSuccessful:
+                  value:
+                    detail: Signed out successfully.
+                  summary: Logout successful
+          description: The current session was ended successfully.
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LogoutResponse'
+              examples:
+                UnauthenticatedRequest:
+                  value:
+                    detail: Authentication credentials were not provided.
+                  summary: Unauthenticated request
+                CSRFFailure:
+                  value:
+                    detail: 'CSRF Failed: CSRF token missing.'
+                  summary: CSRF failure
+          description: The request is unauthenticated or CSRF verification failed.
   /api/accounts/users/:
     post:
       operationId: accounts_users_create
@@ -269,9 +317,6 @@ paths:
             schema:
               $ref: '#/components/schemas/UserRegistration'
         required: true
-      security:
-      - cookieAuth: []
-      - basicAuth: []
       responses:
         '201':
           content:
@@ -346,9 +391,6 @@ paths:
           multipart/form-data:
             schema:
               $ref: '#/components/schemas/PatchedUserStatusUpdate'
-      security:
-      - cookieAuth: []
-      - basicAuth: []
       responses:
         '200':
           description: User status updated successfully.
@@ -379,9 +421,6 @@ paths:
         required: true
       tags:
       - accounts
-      security:
-      - cookieAuth: []
-      - basicAuth: []
       responses:
         '200':
           content:
@@ -429,9 +468,6 @@ paths:
           multipart/form-data:
             schema:
               $ref: '#/components/schemas/PatchedUserRoleUpdate'
-      security:
-      - cookieAuth: []
-      - basicAuth: []
       responses:
         '200':
           content:
@@ -477,9 +513,6 @@ paths:
       summary: Retrieve current user profile
       tags:
       - accounts
-      security:
-      - cookieAuth: []
-      - basicAuth: []
       responses:
         '200':
           content:
@@ -532,9 +565,6 @@ paths:
           multipart/form-data:
             schema:
               $ref: '#/components/schemas/UserMe'
-      security:
-      - cookieAuth: []
-      - basicAuth: []
       responses:
         '200':
           content:
@@ -589,9 +619,6 @@ paths:
           multipart/form-data:
             schema:
               $ref: '#/components/schemas/PatchedUserMe'
-      security:
-      - cookieAuth: []
-      - basicAuth: []
       responses:
         '200':
           content:
@@ -646,9 +673,6 @@ paths:
             schema:
               $ref: '#/components/schemas/ChangePassword'
         required: true
-      security:
-      - cookieAuth: []
-      - basicAuth: []
       responses:
         '200':
           description: Password changed successfully. Active sessions have been invalidated.
@@ -679,8 +703,6 @@ paths:
               $ref: '#/components/schemas/PasswordResetRequest'
         required: true
       security:
-      - cookieAuth: []
-      - basicAuth: []
       - {}
       responses:
         '200':
@@ -728,8 +750,6 @@ paths:
               $ref: '#/components/schemas/PasswordResetConfirm'
         required: true
       security:
-      - cookieAuth: []
-      - basicAuth: []
       - {}
       responses:
         '200':
@@ -898,9 +918,6 @@ paths:
           - WRITTEN_OFF
       tags:
       - drones
-      security:
-      - cookieAuth: []
-      - basicAuth: []
       responses:
         '200':
           content:
@@ -1004,9 +1021,6 @@ paths:
             schema:
               $ref: '#/components/schemas/Drone'
         required: true
-      security:
-      - cookieAuth: []
-      - basicAuth: []
       responses:
         '201':
           content:
@@ -1196,9 +1210,6 @@ paths:
           format: date
       tags:
       - drones
-      security:
-      - cookieAuth: []
-      - basicAuth: []
       responses:
         '200':
           content:
@@ -1247,9 +1258,6 @@ paths:
         required: true
       tags:
       - drones
-      security:
-      - cookieAuth: []
-      - basicAuth: []
       responses:
         '200':
           content:
@@ -1342,9 +1350,6 @@ paths:
           multipart/form-data:
             schema:
               $ref: '#/components/schemas/PatchedDroneUpdate'
-      security:
-      - cookieAuth: []
-      - basicAuth: []
       responses:
         '200':
           content:
@@ -1453,9 +1458,6 @@ paths:
           type: integer
       tags:
       - drones
-      security:
-      - cookieAuth: []
-      - basicAuth: []
       responses:
         '200':
           content:
@@ -1515,9 +1517,6 @@ paths:
           type: integer
       tags:
       - drones
-      security:
-      - cookieAuth: []
-      - basicAuth: []
       responses:
         '200':
           content:
@@ -1697,9 +1696,6 @@ paths:
           - WRITTEN_OFF
       tags:
       - drones
-      security:
-      - cookieAuth: []
-      - basicAuth: []
       responses:
         '200':
           description: A CSV file containing drone data generated successfully.
@@ -1730,9 +1726,6 @@ paths:
             schema:
               $ref: '#/components/schemas/DroneImport'
         required: true
-      security:
-      - cookieAuth: []
-      - basicAuth: []
       responses:
         '200':
           description: Import processing completed.
@@ -1763,9 +1756,6 @@ paths:
           type: integer
       tags:
       - drones
-      security:
-      - cookieAuth: []
-      - basicAuth: []
       responses:
         '200':
           content:
@@ -1825,9 +1815,6 @@ paths:
             schema:
               $ref: '#/components/schemas/DroneModel'
         required: true
-      security:
-      - cookieAuth: []
-      - basicAuth: []
       responses:
         '200':
           content:
@@ -1881,9 +1868,6 @@ paths:
       summary: List write-off records
       tags:
       - drones
-      security:
-      - cookieAuth: []
-      - basicAuth: []
       responses:
         '200':
           content:
@@ -1942,9 +1926,6 @@ paths:
             schema:
               $ref: '#/components/schemas/WriteOffRecordCreate'
         required: true
-      security:
-      - cookieAuth: []
-      - basicAuth: []
       responses:
         '201':
           content:
@@ -2062,9 +2043,6 @@ paths:
           format: date
       tags:
       - drones
-      security:
-      - cookieAuth: []
-      - basicAuth: []
       responses:
         '200':
           content:
@@ -2149,9 +2127,6 @@ paths:
         description: Filter by the ID of the acting user.
       tags:
       - media
-      security:
-      - cookieAuth: []
-      - basicAuth: []
       responses:
         '200':
           content:
@@ -2197,9 +2172,6 @@ paths:
         required: true
       tags:
       - media
-      security:
-      - cookieAuth: []
-      - basicAuth: []
       responses:
         '200':
           content:
@@ -2230,7 +2202,7 @@ paths:
     get:
       operationId: media_videos_list
       description: |-
-        Retrieves a paginated list of video metadata records. Supports filtering by mission, drone, uploader, status, and creation/recording date ranges.
+        Retrieves a paginated list of video metadata records. Supports filtering by mission, drone, uploader, status, and creation/recording date ranges. Mission-derived media access is scoped by mission visibility rules: viewers may only access video records for missions belonging to their own unit, and technicians may only access video records for missions tied to repair or write-off workflow.
 
         Required permission: `PERMISSION_MEDIA_VIEW`.
       summary: List video metadata records
@@ -2289,9 +2261,6 @@ paths:
         description: 'Filter by uploader user ID (alias: `uploaded_by`).'
       tags:
       - media
-      security:
-      - cookieAuth: []
-      - basicAuth: []
       responses:
         '200':
           content:
@@ -2344,10 +2313,12 @@ paths:
     post:
       operationId: media_videos_create
       description: "Uploads a new video file and creates its metadata record. The
-        uploaded_by is set to the authenticated user and the record starts in the `uploading`
-        status while the duration is extracted asynchronously.\n\nValidation: \n-
-        The selected drone must be assigned to the selected mission.\n\nRequired permission:
-        `PERMISSION_MEDIA_UPLOAD`."
+        uploader is set to the authenticated user and the record starts in the `uploading`
+        status while the duration is extracted asynchronously.\n\nMission access is
+        enforced: the user must be authorized to access the target mission. Returns
+        400 if the user does not have mission access.\n\nValidation: \n- The user
+        must have access to the target mission.\n- The selected drone must be assigned
+        to the selected mission.\n\nRequired permission: `PERMISSION_MEDIA_UPLOAD`."
       summary: Upload a video metadata record
       tags:
       - media
@@ -2372,9 +2343,6 @@ paths:
                   checksum: 9f2c1a4b8e5d6f70a1b2c3d4e5f60718
                 summary: Valid Request
         required: true
-      security:
-      - cookieAuth: []
-      - basicAuth: []
       responses:
         '201':
           content:
@@ -2410,7 +2378,7 @@ paths:
     get:
       operationId: media_videos_retrieve
       description: |-
-        Retrieves detailed information about a specific video metadata record by its ID.
+        Retrieves detailed information about a specific video metadata record by its ID. Mission-derived media access is scoped by mission visibility rules: viewers may only access video records for missions belonging to their own unit, and technicians may only access video records for missions tied to repair or write-off workflow.
 
         Required permission: `PERMISSION_MEDIA_VIEW`.
       summary: Retrieve a video metadata record
@@ -2423,9 +2391,6 @@ paths:
         required: true
       tags:
       - media
-      security:
-      - cookieAuth: []
-      - basicAuth: []
       responses:
         '200':
           content:
@@ -2494,10 +2459,6 @@ paths:
                   recorded_at: '2026-06-02T02:28:43Z'
                   checksum: 9f2c1a4b8e5d6f70a1b2c3d4e5f60718
                 summary: Valid Request
-        required: true
-      security:
-      - cookieAuth: []
-      - basicAuth: []
       responses:
         '200':
           content:
@@ -2565,9 +2526,6 @@ paths:
                 value:
                   recorded_at: '2026-06-02T02:28:43Z'
                 summary: Valid Request
-      security:
-      - cookieAuth: []
-      - basicAuth: []
       responses:
         '200':
           content:
@@ -2617,9 +2575,6 @@ paths:
         required: true
       tags:
       - media
-      security:
-      - cookieAuth: []
-      - basicAuth: []
       responses:
         '204':
           description: Video metadata record successfully deleted. No content.
@@ -2643,7 +2598,7 @@ paths:
     get:
       operationId: missions_list
       description: |-
-        Retrieves a paginated and filtered by status list of missions, assigned to the currently authenticated user.
+        Retrieves a paginated mission list with optional filters. Operators only see missions they are assigned to; viewers only see missions belonging to their own unit.
 
         Required permission: `PERMISSION_MISSIONS_VIEW`.
       summary: List missions
@@ -2680,9 +2635,6 @@ paths:
         description: Filter missions by their current state.
       tags:
       - missions
-      security:
-      - cookieAuth: []
-      - basicAuth: []
       responses:
         '200':
           content:
@@ -2706,6 +2658,10 @@ paths:
                           id: 27
                           username: commander.south
                           email: commander.south@example.com
+                        unit:
+                          id: 7
+                          name: Attack Wing South
+                          code: ATK-02
                         status: planned
                         result: null
                         location_description: Secondary fallback route south-west
@@ -2731,10 +2687,11 @@ paths:
     post:
       operationId: missions_create
       description: "Creates a new mission. The logged-in user is automatically assigned
-        as the creator (`created_by`).\n\nValidation: \n- Title of the mission must
-        be at least 3 character long. \n- User assigned as a commander must have a
-        Commander role. \n- Either location or latitude and longitude must be provided.
-        \n- Assigned drones and operators cannot already be assigned to another mission.\n\nRequired
+        as the creator (`created_by`).\n\nValidation: \n- `unit_id` is required and
+        must reference an existing military unit. \n- Title of the mission must be
+        at least 3 character long. \n- User assigned as a commander must have a Commander
+        role. \n- Either location or latitude and longitude must be provided. \n-
+        Assigned drones and operators cannot already be assigned to another mission.\n\nRequired
         permission: `PERMISSION_MISSIONS_CREATE`."
       summary: Create a new mission
       tags:
@@ -2748,7 +2705,7 @@ paths:
               ValidRequest:
                 value:
                   title: Fallback Route Mapping
-                  status: planned
+                  unit_id: 7
                   location_description: Secondary fallback route south-west of artillery
                     support line.
                   latitude: '48.619700'
@@ -2764,9 +2721,6 @@ paths:
             schema:
               $ref: '#/components/schemas/Mission'
         required: true
-      security:
-      - cookieAuth: []
-      - basicAuth: []
       responses:
         '200':
           content:
@@ -2779,6 +2733,10 @@ paths:
                     id: 33
                     title: Fallback Route Mapping
                     commander: null
+                    unit:
+                      id: 7
+                      name: Attack Wing South
+                      code: ATK-02
                     status: planned
                     result: null
                     location_description: Secondary fallback route south-west of artillery
@@ -2806,7 +2764,7 @@ paths:
     get:
       operationId: missions_artifacts_list
       description: |-
-        Retrieves a paginated list of artifacts associated with a given mission.
+        Retrieves a paginated list of artifacts associated with a given mission. Mission-derived media access is scoped by mission visibility rules: viewers may only access artifacts for missions belonging to their own unit, and technicians may only access artifacts for missions tied to repair or write-off workflow.
 
         Required permission: `PERMISSION_MEDIA_VIEW`.
       summary: List all artifacts for a specific mission
@@ -2831,9 +2789,6 @@ paths:
           type: integer
       tags:
       - media
-      security:
-      - cookieAuth: []
-      - basicAuth: []
       responses:
         '200':
           content:
@@ -2871,9 +2826,12 @@ paths:
     post:
       operationId: missions_artifacts_create
       description: "Uploads a media file or document as an artifact for a specific
-        mission. \n\nValidation: \n- File must have one of the following formats:\n\t-
-        image: .jpg, .jpeg, .png\n\t- data: .csv, .json\n- File size cannot be empty
-        or exceed 50MB.\n\nRequired permission: `PERMISSION_MEDIA_UPLOAD`."
+        mission. \n\nMission access is enforced: users may only upload artifacts to
+        missions they are authorized to access. Returns 404 if the mission does not
+        exist or is not accessible to the current user.\n\nValidation: \n- File must
+        have one of the following formats:\n\t- image: .jpg, .jpeg, .png\n\t- data:
+        .csv, .json\n- File size cannot be empty or exceed 50MB.\n\nRequired permission:
+        `PERMISSION_MEDIA_UPLOAD`."
       summary: Upload a new artifact to a mission
       parameters:
       - in: path
@@ -2893,9 +2851,6 @@ paths:
             schema:
               $ref: '#/components/schemas/MissionArtifactUpload'
         required: true
-      security:
-      - cookieAuth: []
-      - basicAuth: []
       responses:
         '201':
           content:
@@ -2951,7 +2906,7 @@ paths:
     get:
       operationId: missions_artifacts_retrieve
       description: |-
-        Retrieves detailed information for a single mission artifact by its ID.
+        Retrieves detailed information for a single mission artifact by its ID. Mission-derived media access is scoped by mission visibility rules: viewers may only access artifacts for missions belonging to their own unit, and technicians may only access artifacts for missions tied to repair or write-off workflow.
 
         Required permission: `PERMISSION_MEDIA_VIEW`.
       summary: Retrieve specific artifact details
@@ -2970,9 +2925,6 @@ paths:
         required: true
       tags:
       - media
-      security:
-      - cookieAuth: []
-      - basicAuth: []
       responses:
         '200':
           content:
@@ -3025,9 +2977,6 @@ paths:
         required: true
       tags:
       - media
-      security:
-      - cookieAuth: []
-      - basicAuth: []
       responses:
         '204':
           description: Artifact successfully deleted. No content returned.
@@ -3039,7 +2988,7 @@ paths:
     get:
       operationId: missions_artifacts_download_retrieve
       description: |-
-        Returns the binary file for a mission artifact as an attachment. In production the file is delivered through a protected `X-Accel-Redirect` internal redirect; in debug mode the file is streamed directly. Access is restricted to administrators, the uploader, or users belonging to the artifact mission's unit.
+        Returns the binary file for a mission artifact as an attachment. In production the file is delivered through a protected `X-Accel-Redirect` internal redirect; in debug mode the file is streamed directly. Access follows mission visibility rules: administrators and uploaders may always access the file, while other users must be allowed to view the underlying mission resource. For example, viewers are limited to their own unit's missions, and technicians are limited to repair- or write-off-related missions.
 
         Returns 404 if the artifact does not exist or the stored file is missing from the server.
 
@@ -3060,9 +3009,6 @@ paths:
         required: true
       tags:
       - media
-      security:
-      - cookieAuth: []
-      - basicAuth: []
       responses:
         '200':
           content:
@@ -3105,9 +3051,6 @@ paths:
           type: integer
       tags:
       - mission assignments
-      security:
-      - cookieAuth: []
-      - basicAuth: []
       responses:
         '200':
           content:
@@ -3204,9 +3147,6 @@ paths:
             schema:
               $ref: '#/components/schemas/MissionDrone'
         required: true
-      security:
-      - cookieAuth: []
-      - basicAuth: []
       responses:
         '201':
           content:
@@ -3270,9 +3210,6 @@ paths:
         required: true
       tags:
       - mission assignments
-      security:
-      - cookieAuth: []
-      - basicAuth: []
       responses:
         '204':
           description: Assignment successfully deleted. No content is returned.
@@ -3286,7 +3223,7 @@ paths:
     get:
       operationId: missions_retrieve
       description: |-
-        Retrieves detailed information about a single mission by its ID.
+        Retrieves detailed information about a single mission by its ID. Operators may only retrieve assigned missions; viewers may only retrieve missions belonging to their own unit.
 
         Required permission: `PERMISSION_MISSIONS_VIEW`.
       summary: Retrieve mission details
@@ -3299,9 +3236,6 @@ paths:
         required: true
       tags:
       - missions
-      security:
-      - cookieAuth: []
-      - basicAuth: []
       responses:
         '200':
           content:
@@ -3317,6 +3251,10 @@ paths:
                       id: 27
                       username: commander.south
                       email: commander.south@example.com
+                    unit:
+                      id: 7
+                      name: Attack Wing South
+                      code: ATK-02
                     status: planned
                     result: null
                     location_description: Secondary fallback route south-west of artillery
@@ -3386,9 +3324,6 @@ paths:
           multipart/form-data:
             schema:
               $ref: '#/components/schemas/PatchedMissionDroneCondition'
-      security:
-      - cookieAuth: []
-      - basicAuth: []
       responses:
         '200':
           content:
@@ -3465,9 +3400,6 @@ paths:
           multipart/form-data:
             schema:
               $ref: '#/components/schemas/PatchedMissionOutcome'
-      security:
-      - cookieAuth: []
-      - basicAuth: []
       responses:
         '200':
           content:
@@ -3527,9 +3459,6 @@ paths:
         required: true
       tags:
       - missions
-      security:
-      - cookieAuth: []
-      - basicAuth: []
       responses:
         '200':
           content:
@@ -3580,9 +3509,6 @@ paths:
           multipart/form-data:
             schema:
               $ref: '#/components/schemas/MissionStatusUpdate'
-      security:
-      - cookieAuth: []
-      - basicAuth: []
       responses:
         '200':
           content:
@@ -3645,9 +3571,6 @@ paths:
           multipart/form-data:
             schema:
               $ref: '#/components/schemas/PatchedMissionStatusUpdate'
-      security:
-      - cookieAuth: []
-      - basicAuth: []
       responses:
         '200':
           content:
@@ -3735,11 +3658,26 @@ paths:
           - HIGH
           - LOW
           - MEDIUM
+      - in: query
+        name: status
+        schema:
+          type: string
+          enum:
+          - FIXED
+          - IN_PROGRESS
+          - REPORTED
+          - VERIFIED
+      - in: query
+        name: status__in
+        schema:
+          type: array
+          items:
+            type: string
+        description: Multiple values may be separated by commas.
+        explode: false
+        style: form
       tags:
       - repairs
-      security:
-      - cookieAuth: []
-      - basicAuth: []
       responses:
         '200':
           content:
@@ -3793,9 +3731,6 @@ paths:
             schema:
               $ref: '#/components/schemas/DefectReport'
         required: true
-      security:
-      - cookieAuth: []
-      - basicAuth: []
       responses:
         '201':
           content:
@@ -3838,9 +3773,6 @@ paths:
         required: true
       tags:
       - repairs
-      security:
-      - cookieAuth: []
-      - basicAuth: []
       responses:
         '200':
           content:
@@ -3895,9 +3827,6 @@ paths:
           type: integer
       tags:
       - repairs
-      security:
-      - cookieAuth: []
-      - basicAuth: []
       responses:
         '200':
           content:
@@ -3961,9 +3890,6 @@ paths:
             schema:
               $ref: '#/components/schemas/DefectStatusUpdate'
         required: true
-      security:
-      - cookieAuth: []
-      - basicAuth: []
       responses:
         '200':
           content:
@@ -4042,9 +3968,6 @@ paths:
           `status_change`, `repair`, `replacement`).
       tags:
       - repairs
-      security:
-      - cookieAuth: []
-      - basicAuth: []
       responses:
         '200':
           content:
@@ -4117,9 +4040,6 @@ paths:
           `status_change`, `repair`, `replacement`).
       tags:
       - repairs
-      security:
-      - cookieAuth: []
-      - basicAuth: []
       responses:
         '200':
           description: A CSV file containing the drone repair history generated successfully.
@@ -4200,9 +4120,6 @@ paths:
           - PENDING
       tags:
       - repairs
-      security:
-      - cookieAuth: []
-      - basicAuth: []
       responses:
         '200':
           content:
@@ -4256,9 +4173,6 @@ paths:
             schema:
               $ref: '#/components/schemas/RepairOrderCreate'
         required: true
-      security:
-      - cookieAuth: []
-      - basicAuth: []
       responses:
         '201':
           content:
@@ -4306,9 +4220,6 @@ paths:
         required: true
       tags:
       - repairs
-      security:
-      - cookieAuth: []
-      - basicAuth: []
       responses:
         '200':
           content:
@@ -4370,9 +4281,6 @@ paths:
           multipart/form-data:
             schema:
               $ref: '#/components/schemas/PatchedRepairOrderStatusUpdate'
-      security:
-      - cookieAuth: []
-      - basicAuth: []
       responses:
         '200':
           content:
@@ -4454,9 +4362,6 @@ paths:
             schema:
               $ref: '#/components/schemas/RepairOrderReplacement'
         required: true
-      security:
-      - cookieAuth: []
-      - basicAuth: []
       responses:
         '201':
           content:
@@ -4562,9 +4467,6 @@ paths:
           format: date-time
       tags:
       - repairs
-      security:
-      - cookieAuth: []
-      - basicAuth: []
       responses:
         '200':
           content:
@@ -4622,9 +4524,6 @@ paths:
             schema:
               $ref: '#/components/schemas/ComponentReplacement'
         required: true
-      security:
-      - cookieAuth: []
-      - basicAuth: []
       responses:
         '201':
           content:
@@ -4669,9 +4568,6 @@ paths:
         required: true
       tags:
       - repairs
-      security:
-      - cookieAuth: []
-      - basicAuth: []
       responses:
         '200':
           content:
@@ -4709,9 +4605,6 @@ paths:
       summary: Export component replacement data to CSV
       tags:
       - repairs
-      security:
-      - cookieAuth: []
-      - basicAuth: []
       responses:
         '200':
           description: A CSV file generated successfully.
@@ -5554,6 +5447,13 @@ components:
       - image
       - data
       type: string
+    LogoutResponse:
+      type: object
+      properties:
+        detail:
+          type: string
+      required:
+      - detail
     MediaAuditLog:
       type: object
       description: Serialize read-only media audit log data for list responses.
@@ -5597,6 +5497,22 @@ components:
       - ip_address
       - mission
       - user
+    MilitaryUnitBrief:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        name:
+          type: string
+          readOnly: true
+        code:
+          type: string
+          readOnly: true
+      required:
+      - code
+      - id
+      - name
     Mission:
       type: object
       description: |-
@@ -5621,6 +5537,13 @@ components:
           type: integer
           writeOnly: true
           nullable: true
+        unit:
+          allOf:
+          - $ref: '#/components/schemas/MilitaryUnitBrief'
+          readOnly: true
+        unit_id:
+          type: integer
+          writeOnly: true
         status:
           allOf:
           - $ref: '#/components/schemas/MissionStatus'
@@ -5682,6 +5605,8 @@ components:
       - result
       - status
       - title
+      - unit
+      - unit_id
       - updated_at
     MissionArtifact:
       type: object
@@ -6422,8 +6347,10 @@ components:
           maxLength: 150
         rank:
           type: string
+          maxLength: 100
         contact:
           type: string
+          maxLength: 255
         profile_picture:
           type: string
           format: uri
@@ -6432,10 +6359,22 @@ components:
           type: integer
           readOnly: true
           nullable: true
+        role_name:
+          type: string
+          readOnly: true
+        role_code:
+          type: string
+          readOnly: true
         unit:
           type: integer
           readOnly: true
           nullable: true
+        unit_name:
+          type: string
+          readOnly: true
+        unit_code:
+          type: string
+          readOnly: true
         is_active:
           type: boolean
           readOnly: true
@@ -6444,6 +6383,18 @@ components:
             this instead of deleting accounts.
         must_change_password:
           type: boolean
+          readOnly: true
+        last_login:
+          type: string
+          format: date-time
+          readOnly: true
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        created_by_username:
+          type: string
           readOnly: true
     PatchedUserRoleUpdate:
       type: object
@@ -6470,9 +6421,11 @@ components:
           readOnly: true
         mission:
           type: integer
+          readOnly: true
           description: Mission associated with this video
         drone:
           type: integer
+          readOnly: true
           description: Drone used to capture this video
         uploaded_by:
           type: integer
@@ -6810,8 +6763,10 @@ components:
           maxLength: 150
         rank:
           type: string
+          maxLength: 100
         contact:
           type: string
+          maxLength: 255
         profile_picture:
           type: string
           format: uri
@@ -6820,10 +6775,22 @@ components:
           type: integer
           readOnly: true
           nullable: true
+        role_name:
+          type: string
+          readOnly: true
+        role_code:
+          type: string
+          readOnly: true
         unit:
           type: integer
           readOnly: true
           nullable: true
+        unit_name:
+          type: string
+          readOnly: true
+        unit_code:
+          type: string
+          readOnly: true
         is_active:
           type: boolean
           readOnly: true
@@ -6833,13 +6800,32 @@ components:
         must_change_password:
           type: boolean
           readOnly: true
+        last_login:
+          type: string
+          format: date-time
+          readOnly: true
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        created_by_username:
+          type: string
+          readOnly: true
       required:
+      - created_at
+      - created_by_username
       - email
       - id
       - is_active
+      - last_login
       - must_change_password
       - role
+      - role_code
+      - role_name
       - unit
+      - unit_code
+      - unit_name
       - username
     UserRegistration:
       type: object
@@ -6919,9 +6905,11 @@ components:
           readOnly: true
         mission:
           type: integer
+          readOnly: true
           description: Mission associated with this video
         drone:
           type: integer
+          readOnly: true
           description: Drone used to capture this video
         uploaded_by:
           type: integer
@@ -7194,11 +7182,3 @@ components:
       - drone
       - id
       - reason
-  securitySchemes:
-    basicAuth:
-      type: http
-      scheme: basic
-    cookieAuth:
-      type: apiKey
-      in: cookie
-      name: sessionid
