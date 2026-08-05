@@ -224,6 +224,36 @@ paths:
           description: Forbidden. User does not have permission to perform this action.
         '429':
           description: Export rate limit exceeded.
+  /api/accounts/login/:
+    get:
+      operationId: accounts_login_retrieve
+      description: Issue a CSRF cookie for the upcoming login request.
+      tags:
+      - accounts
+      security:
+      - {}
+      responses:
+        '200':
+          description: No response body
+    post:
+      operationId: accounts_login_create
+      description: Authenticate the submitted credentials and start a Django session.
+      tags:
+      - accounts
+      security:
+      - {}
+      responses:
+        '200':
+          description: No response body
+  /api/accounts/logout/:
+    post:
+      operationId: accounts_logout_create
+      description: Flush the session and emit Django's logout signal.
+      tags:
+      - accounts
+      responses:
+        '200':
+          description: No response body
   /api/accounts/military-units/:
     get:
       operationId: accounts_military_units_list
@@ -2418,6 +2448,26 @@ paths:
           description: Forbidden. User does not have permission to perform this action.
         '404':
           description: Not Found.
+  /api/media/stats/:
+    get:
+      operationId: media_stats_retrieve
+      description: Calculates total storage used by all videos and artifacts, and
+        returns the maximum allotted storage.
+      summary: Get media storage statistics
+      tags:
+      - media
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  total_used_bytes:
+                    type: integer
+                  allotted_bytes:
+                    type: integer
+          description: ''
   /api/media/videos/:
     get:
       operationId: media_videos_list

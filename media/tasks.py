@@ -57,9 +57,17 @@ def extract_video_duration_task(video_id):
         probe_data = json.loads(result.stdout)
         duration = float(probe_data["format"]["duration"])
 
+        import hashlib
+
+        sha256_hash = hashlib.sha256()
+        with open(instance.file.path, "rb") as f:
+            for byte_block in iter(lambda: f.read(4096 * 1024), b""):
+                sha256_hash.update(byte_block)
+
         instance.duration_seconds = int(duration)
         instance.status = VideoMetadata.Status.READY
-        instance.save(update_fields=["duration_seconds", "status"])
+        instance.checksum = sha256_hash.hexdigest()
+        instance.save(update_fields=["duration_seconds", "status", "checksum"])
 
     except Exception:
         VideoMetadata.objects.filter(id=video_id).update(
