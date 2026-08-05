@@ -7,11 +7,11 @@ security policies based on user roles and a defined permission matrix.
 import logging
 
 from django.core.exceptions import ImproperlyConfigured
-from rest_framework.permissions import BasePermission
+from rest_framework.permissions import SAFE_METHODS, BasePermission
 
 from roles.models import ADMIN_CODE
 
-from .rbac import ROLE_PERMISSION_MATRIX
+from .rbac import PERMISSION_UNITS_MANAGE, PERMISSION_UNITS_VIEW, ROLE_PERMISSION_MATRIX
 
 logger = logging.getLogger(__name__)
 
@@ -105,6 +105,23 @@ class HasRBACPermission(BasePermission):
             )
 
         return allowed
+
+
+class MilitaryUnitPermission(BasePermission):
+    """Enforce RBAC rules for military unit listing and management.
+
+    Safe methods require unit view permission, while creating or updating a
+    unit requires unit management permission.
+    """
+
+    message = "You do not have permission to perform this action."
+
+    def has_permission(self, request, view):
+        """Map read requests to view permission and writes to manage permission."""
+        if request.method in SAFE_METHODS:
+            return user_has_permission(request.user, PERMISSION_UNITS_VIEW)
+
+        return user_has_permission(request.user, PERMISSION_UNITS_MANAGE)
 
 
 class HasAnyRBACPermission(BasePermission):

@@ -13,6 +13,14 @@ from roles.models import (
 PERMISSION_USERS_MANAGE_ROLES = "users.manage_roles"
 PERMISSION_USERS_CREATE = "users.create"
 PERMISSION_USERS_ACTIVATE_DEACTIVATE = "users.activate_deactivate"
+PERMISSION_USERS_VIEW = "users.view"
+
+# Military units
+PERMISSION_UNITS_VIEW = "units.view"
+PERMISSION_UNITS_MANAGE = "units.manage"
+
+# Roles
+PERMISSION_ROLES_VIEW = "roles.view"
 
 # Drones
 PERMISSION_DRONES_CREATE = "drones.create"
@@ -89,6 +97,10 @@ def admin_permissions():
         PERMISSION_USERS_MANAGE_ROLES,
         PERMISSION_USERS_CREATE,
         PERMISSION_USERS_ACTIVATE_DEACTIVATE,
+        PERMISSION_USERS_VIEW,
+        PERMISSION_UNITS_VIEW,
+        PERMISSION_UNITS_MANAGE,
+        PERMISSION_ROLES_VIEW,
         PERMISSION_DRONES_CREATE,
         PERMISSION_DRONES_UPDATE,
         PERMISSION_DRONES_DECOMMISSION,

@@ -9,24 +9,13 @@ Documentation for Mission-Control-System
 |-----|-------------|
 
 
-# Authentication
-
-
-
-## Security Schemes
-
-| Name              | Type              | Description              | Scheme              | Bearer Format             |
-|-------------------|-------------------|--------------------------|---------------------|---------------------------|
-| basicAuth | http |  | basic |  |
-| cookieAuth | apiKey |  |  |  |
-
 # APIs
 
 ## POST /api/accounts/activate/{user_id}/{token}/
 
 Activate user account
 
-Validates the activation token provided via the URL parameters. If the token is valid, it sets the user's new password and creates an audit log entry.
+Validates the activation token provided via the URL parameters. If the token is valid and the account is still pending activation, it validates the submitted password against the password-strength policy, sets it as the user's password, activates the account, and creates an audit log entry.
 
 Required permission: `AllowAny`.
 
@@ -37,6 +26,28 @@ Required permission: `AllowAny`.
 |------|------|----------|-------------|
 | token | string | True | The one-time activation token generated for the user. |
 | user_id | integer | True | ID of the user activating the account. |
+
+
+### Request Body
+
+[AccountActivation](#accountactivation)
+
+
+
+
+
+[AccountActivation](#accountactivation)
+
+
+
+
+
+[AccountActivation](#accountactivation)
+
+
+
+
+
 
 
 ### Responses
@@ -79,7 +90,29 @@ Examples
 
 ```json
 {
-  "password": "This field is required."
+  "detail": "This account has already been activated."
+}
+```
+
+
+
+
+```json
+{
+  "password": [
+    "This field is required."
+  ]
+}
+```
+
+
+
+
+```json
+{
+  "password": [
+    "This password is too short. It must contain at least 8 characters."
+  ]
 }
 ```
 
@@ -276,6 +309,425 @@ Forbidden. User does not have permission to perform this action.
 
 
 Export rate limit exceeded.
+
+
+
+
+## GET /api/accounts/military-units/
+
+List military units
+
+Retrieves a paginated list of military units, each including the number of assigned drones (`drone_count`) and users (`user_count`). Supports search across `name` and `code` via the `search` query parameter and filtering by `is_active`.
+
+Required permission: `PERMISSION_UNITS_VIEW`.
+
+
+### Parameters
+
+| Name | Type | Required | Description |
+|------|------|----------|-------------|
+| is_active | boolean |  |  |
+| ordering | string | False | Which field to use when ordering the results. |
+| page | integer | False | A page number within the paginated result set. |
+| page_size | integer | False | Number of results to return per page. |
+| search | string | False | A search term. |
+
+
+### Responses
+
+#### 200
+
+
+Successfully retrieved the list of military units.
+
+
+[PaginatedMilitaryUnitList](#paginatedmilitaryunitlist)
+
+
+
+
+
+
+Examples
+
+
+
+
+
+```json
+{
+  "count": 123,
+  "next": "http://api.example.org/accounts/?page=4",
+  "previous": "http://api.example.org/accounts/?page=2",
+  "results": [
+    {
+      "id": 7,
+      "name": "1st Assault Battalion",
+      "code": "1AB",
+      "description": "Primary assault formation.",
+      "is_active": true,
+      "drone_count": 12,
+      "user_count": 5,
+      "created_at": "2026-06-25T14:44:49.068836Z",
+      "updated_at": "2026-06-25T14:44:49.068836Z"
+    }
+  ]
+}
+```
+
+
+
+#### 403
+
+
+Forbidden. User does not have permission to perform this action.
+
+
+
+
+## POST /api/accounts/military-units/
+
+Create a military unit
+
+Creates a new military unit.
+
+Validation:
+- The unit code must be unique (case-insensitive).
+
+Required permission: `PERMISSION_UNITS_MANAGE`.
+
+
+
+
+### Request Body
+
+[MilitaryUnit](#militaryunit)
+
+
+
+
+
+
+Examples
+
+
+
+
+
+```json
+{
+  "name": "1st Assault Battalion",
+  "code": "1AB",
+  "description": "Primary assault formation."
+}
+```
+
+[MilitaryUnit](#militaryunit)
+
+
+
+
+
+[MilitaryUnit](#militaryunit)
+
+
+
+
+
+
+
+### Responses
+
+#### 201
+
+
+Military unit successfully created.
+
+
+[MilitaryUnit](#militaryunit)
+
+
+
+
+
+
+
+#### 400
+
+
+Bad Request
+
+
+[MilitaryUnit](#militaryunit)
+
+
+
+
+
+
+Examples
+
+
+
+
+
+```json
+{
+  "code": "A military unit with that code already exists."
+}
+```
+
+
+
+#### 403
+
+
+Forbidden. User does not have permission to perform this action.
+
+
+
+
+## GET /api/accounts/military-units/{id}/
+
+Retrieve a military unit
+
+Retrieves a single military unit by its ID, including the number of assigned drones (`drone_count`) and users (`user_count`).
+
+Required permission: `PERMISSION_UNITS_VIEW`.
+
+
+### Parameters
+
+| Name | Type | Required | Description |
+|------|------|----------|-------------|
+| id | integer | True | ID of the military unit. |
+
+
+### Responses
+
+#### 200
+
+
+Military unit details successfully retrieved.
+
+
+[MilitaryUnit](#militaryunit)
+
+
+
+
+
+
+
+#### 403
+
+
+Forbidden. User does not have permission to perform this action.
+
+
+
+
+#### 404
+
+
+Not Found.
+
+
+
+
+## PATCH /api/accounts/military-units/{id}/
+
+Update a military unit
+
+Partially updates a military unit, including its active status (`is_active`).
+
+Validation:
+- The unit code must remain unique (case-insensitive).
+
+Required permission: `PERMISSION_UNITS_MANAGE`.
+
+
+### Parameters
+
+| Name | Type | Required | Description |
+|------|------|----------|-------------|
+| id | integer | True | ID of the military unit being updated. |
+
+
+### Request Body
+
+[PatchedMilitaryUnit](#patchedmilitaryunit)
+
+
+
+
+
+
+Examples
+
+
+
+
+
+```json
+{
+  "is_active": false
+}
+```
+
+[PatchedMilitaryUnit](#patchedmilitaryunit)
+
+
+
+
+
+[PatchedMilitaryUnit](#patchedmilitaryunit)
+
+
+
+
+
+
+
+### Responses
+
+#### 200
+
+
+Military unit successfully updated.
+
+
+[MilitaryUnit](#militaryunit)
+
+
+
+
+
+
+
+#### 400
+
+
+Bad Request
+
+
+[MilitaryUnit](#militaryunit)
+
+
+
+
+
+
+Examples
+
+
+
+
+
+```json
+{
+  "code": "A military unit with that code already exists."
+}
+```
+
+
+
+#### 403
+
+
+Forbidden. User does not have permission to perform this action.
+
+
+
+
+#### 404
+
+
+Not Found.
+
+
+
+
+## GET /api/accounts/users/
+
+List users
+
+Retrieves a paginated list of user accounts.
+
+Supports full-text search across username, email, first name, and last name via the `search` query parameter, and filtering by `role`, `role_code`, `unit`, `unit_code`, and `is_active`. Results can be ordered by `username`, `email`, `last_login`, `created_at`, or `is_active`.
+
+Required permission: `PERMISSION_USERS_VIEW`.
+
+
+### Parameters
+
+| Name | Type | Required | Description |
+|------|------|----------|-------------|
+| is_active | boolean |  |  |
+| ordering | string | False | Which field to use when ordering the results. |
+| page | integer | False | A page number within the paginated result set. |
+| page_size | integer | False | Number of results to return per page. |
+| role | integer |  |  |
+| role_code | string |  |  |
+| search | string | False | A search term. |
+| unit | integer |  |  |
+| unit_code | string |  |  |
+
+
+### Responses
+
+#### 200
+
+
+Successfully retrieved the list of users.
+
+
+[PaginatedUserListList](#paginateduserlistlist)
+
+
+
+
+
+
+Examples
+
+
+
+
+
+```json
+{
+  "count": 123,
+  "next": "http://api.example.org/accounts/?page=4",
+  "previous": "http://api.example.org/accounts/?page=2",
+  "results": [
+    {
+      "id": 24,
+      "username": "oleksandr.koval",
+      "email": "oleksandr.koval@example.com",
+      "first_name": "Oleksandr",
+      "last_name": "Koval",
+      "role": 1,
+      "role_name": "Admin",
+      "role_code": "ADMIN",
+      "unit": 7,
+      "unit_name": "1st Assault Battalion",
+      "unit_code": "1AB",
+      "is_active": true,
+      "last_login": "2026-08-01T09:12:04.512000Z",
+      "created_at": "2026-06-25T14:44:49.068836Z",
+      "created_by_username": "root.admin"
+    }
+  ]
+}
+```
+
+
+
+#### 403
+
+
+Forbidden. User does not have permission to perform this action.
 
 
 
@@ -513,11 +965,11 @@ Retrieve a user's profile picture
 Returns the profile picture image file of the specified user, served inline. In production the file is delivered through a protected `X-Accel-Redirect` internal redirect; in debug mode the file is streamed directly.
 
 Access rules:
-- Any authenticated user may retrieve their own profile picture.
-- Only staff users may retrieve another user's profile picture.
+- Users need `PERMISSION_PROFILE_VIEW_OWN` to retrieve their own profile picture.
+- Retrieving another user's profile picture also requires `PERMISSION_PROFILE_VIEW_ANY`.
 - Returns 404 if the target user has no profile picture, or if the stored file is missing from the server.
 
-Required permission: `IsAuthenticated`.
+Required permission: `PERMISSION_PROFILE_VIEW_OWN`.
 
 
 ### Parameters
@@ -2846,25 +3298,25 @@ Not Found.
 
 List video metadata records
 
-Retrieves a paginated list of video metadata records. Supports filtering by mission, drone, uploader, status, and creation/recording date ranges.
+Retrieves a paginated list of video metadata records. Supports filtering by mission, drone, uploader, status, and creation/recording date ranges. Mission-derived media access is scoped by mission visibility rules: viewers may only access video records for missions belonging to their own unit, and technicians may only access video records for missions tied to repair or write-off workflow.
 
 Required permission: `PERMISSION_MEDIA_VIEW`.
 
 
 ### Parameters
 
-| Name            | Type | Required | Description                                               |
-|-----------------|------|----------|-----------------------------------------------------------|
-| created_after   | string |  | Filter by creation date lower bound (format YYYY-MM-DD).  |
-| created_before  | string |  | Filter by creation date upper bound (format YYYY-MM-DD).  |
-| drone_id        | integer |  | Filter by drone ID (alias: `drone`).                      |
-| mission_id      | integer |  | Filter by mission ID (alias: `mission`).                  |
-| page            | integer | False | A page number within the paginated result set.            |
-| page_size       | integer | False | Number of results to return per page.                     |
-| recorded_after  | string |  | Filter by recording date lower bound (format YYYY-MM-DD). |
+| Name | Type | Required | Description |
+|------|------|----------|-------------|
+| created_after | string |  | Filter by creation date lower bound (format YYYY-MM-DD). |
+| created_before | string |  | Filter by creation date upper bound (format YYYY-MM-DD). |
+| drone_id | integer |  | Filter by drone ID (alias: `drone`). |
+| mission_id | integer |  | Filter by mission ID (alias: `mission`). |
+| page | integer | False | A page number within the paginated result set. |
+| page_size | integer | False | Number of results to return per page. |
+| recorded_after | string |  | Filter by recording date lower bound (format YYYY-MM-DD). |
 | recorded_before | string |  | Filter by recording date upper bound (format YYYY-MM-DD). |
-| status          | string |  | Filter by status (`uploading`, `ready`, `failed`).        |
-| uploaded_by_id     | integer |  | Filter by uploader user ID (alias: `uploaded_by`).        |
+| status | string |  | Filter by status (`uploading`, `ready`, `failed`). |
+| uploaded_by_id | integer |  | Filter by uploader user ID (alias: `uploaded_by`). |
 
 
 ### Responses
@@ -2966,9 +3418,12 @@ Forbidden. User does not have permission to perform this action.
 
 Upload a video metadata record
 
-Uploads a new video file and creates its metadata record. The uploaded_by is set to the authenticated user and the record starts in the `uploading` status while the duration is extracted asynchronously.
+Uploads a new video file and creates its metadata record. The uploader is set to the authenticated user and the record starts in the `uploading` status while the duration is extracted asynchronously.
+
+Mission access is enforced: the user must be authorized to access the target mission. Returns 400 if the user does not have mission access.
 
 Validation:
+- The user must have access to the target mission.
 - The selected drone must be assigned to the selected mission.
 
 Required permission: `PERMISSION_MEDIA_UPLOAD`.
@@ -3088,7 +3543,7 @@ Forbidden. User does not have permission to perform this action.
 
 Retrieve a video metadata record
 
-Retrieves detailed information about a specific video metadata record by its ID.
+Retrieves detailed information about a specific video metadata record by its ID. Mission-derived media access is scoped by mission visibility rules: viewers may only access video records for missions belonging to their own unit, and technicians may only access video records for missions tied to repair or write-off workflow.
 
 Required permission: `PERMISSION_MEDIA_VIEW`.
 
@@ -3478,7 +3933,7 @@ Not Found.
 
 List missions
 
-Retrieves a paginated and filtered by status list of missions, assigned to the currently authenticated user.
+Retrieves a paginated mission list with optional filters. Operators only see missions they are assigned to; viewers only see missions belonging to their own unit.
 
 Required permission: `PERMISSION_MISSIONS_VIEW`.
 
@@ -3533,6 +3988,11 @@ Examples
             "username": "commander.south",
             "email": "commander.south@example.com"
           },
+          "unit": {
+            "id": 7,
+            "name": "Attack Wing South",
+            "code": "ATK-02"
+          },
           "status": "planned",
           "result": null,
           "location_description": "Secondary fallback route south-west of artillery support line.",
@@ -3574,6 +4034,7 @@ Create a new mission
 Creates a new mission. The logged-in user is automatically assigned as the creator (`created_by`).
 
 Validation:
+- `unit_id` is required and must reference an existing military unit.
 - Title of the mission must be at least 3 character long.
 - User assigned as a commander must have a Commander role.
 - Either location or latitude and longitude must be provided.
@@ -3602,7 +4063,7 @@ Examples
 ```json
 {
   "title": "Fallback Route Mapping",
-  "status": "planned",
+  "unit_id": 7,
   "location_description": "Secondary fallback route south-west of artillery support line.",
   "latitude": "48.619700",
   "longitude": "22.287900",
@@ -3652,6 +4113,11 @@ Examples
   "id": 33,
   "title": "Fallback Route Mapping",
   "commander": null,
+  "unit": {
+    "id": 7,
+    "name": "Attack Wing South",
+    "code": "ATK-02"
+  },
   "status": "planned",
   "result": null,
   "location_description": "Secondary fallback route south-west of artillery support line.",
@@ -3694,7 +4160,7 @@ Forbidden. User does not have permission to perform this action.
 
 List all artifacts for a specific mission
 
-Retrieves a paginated list of artifacts associated with a given mission.
+Retrieves a paginated list of artifacts associated with a given mission. Mission-derived media access is scoped by mission visibility rules: viewers may only access artifacts for missions belonging to their own unit, and technicians may only access artifacts for missions tied to repair or write-off workflow.
 
 Required permission: `PERMISSION_MEDIA_VIEW`.
 
@@ -3780,6 +4246,8 @@ Not Found.
 Upload a new artifact to a mission
 
 Uploads a media file or document as an artifact for a specific mission.
+
+Mission access is enforced: users may only upload artifacts to missions they are authorized to access. Returns 404 if the mission does not exist or is not accessible to the current user.
 
 Validation:
 - File must have one of the following formats:
@@ -3922,7 +4390,7 @@ Not Found.
 
 Retrieve specific artifact details
 
-Retrieves detailed information for a single mission artifact by its ID.
+Retrieves detailed information for a single mission artifact by its ID. Mission-derived media access is scoped by mission visibility rules: viewers may only access artifacts for missions belonging to their own unit, and technicians may only access artifacts for missions tied to repair or write-off workflow.
 
 Required permission: `PERMISSION_MEDIA_VIEW`.
 
@@ -4042,7 +4510,7 @@ Not Found.
 
 Download a mission artifact file
 
-Returns the binary file for a mission artifact as an attachment. In production the file is delivered through a protected `X-Accel-Redirect` internal redirect; in debug mode the file is streamed directly. Access is restricted to administrators, the uploader, or users belonging to the artifact mission's unit.
+Returns the binary file for a mission artifact as an attachment. In production the file is delivered through a protected `X-Accel-Redirect` internal redirect; in debug mode the file is streamed directly. Access follows mission visibility rules: administrators and uploaders may always access the file, while other users must be allowed to view the underlying mission resource. For example, viewers are limited to their own unit's missions, and technicians are limited to repair- or write-off-related missions.
 
 Returns 404 if the artifact does not exist or the stored file is missing from the server.
 
@@ -4394,7 +4862,7 @@ Not Found.
 
 Retrieve mission details
 
-Retrieves detailed information about a single mission by its ID.
+Retrieves detailed information about a single mission by its ID. Operators may only retrieve assigned missions; viewers may only retrieve missions belonging to their own unit.
 
 Required permission: `PERMISSION_MISSIONS_VIEW`.
 
@@ -4435,6 +4903,11 @@ Examples
     "id": 27,
     "username": "commander.south",
     "email": "commander.south@example.com"
+  },
+  "unit": {
+    "id": 7,
+    "name": "Attack Wing South",
+    "code": "ATK-02"
   },
   "status": "planned",
   "result": null,
@@ -5114,6 +5587,8 @@ Required permission: `PERMISSION_REPAIRS_VIEW`.
 | page_size | integer | False | Number of results to return per page. |
 | reporter | integer |  |  |
 | severity | string |  |  |
+| status | string |  |  |
+| status__in | array |  | Multiple values may be separated by commas. |
 
 
 ### Responses
@@ -6600,8 +7075,71 @@ Forbidden. User does not have permission to perform this action.
 
 
 
+## GET /api/roles/
+
+List roles
+
+Retrieves the full list of roles available in the system. Intended to populate role filters and the create-user / change-role selection controls. This endpoint is not paginated.
+
+Required permission: `PERMISSION_ROLES_VIEW`.
+
+
+
+
+### Responses
+
+#### 200
+
+
+Successfully retrieved the list of roles.
+
+
+array
+
+
+
+
+
+
+Examples
+
+
+
+
+
+```json
+[
+  {
+    "id": 1,
+    "code": "ADMIN",
+    "name": "Admin"
+  }
+]
+```
+
+
+
+#### 403
+
+
+Forbidden. User does not have permission to perform this action.
+
+
+
+
 # Components
 
+
+
+## AccountActivation
+
+
+Serialize account activation requests that set the initial password.
+
+
+| Field | Type | Description |
+|-------|------|-------------|
+| password | string |  |
 
 
 ## ActionEnum
@@ -6662,6 +7200,12 @@ Serialize requests to change the user's password.
 
 
 ## ClassificationEnum
+
+
+
+
+
+## CodeEnum
 
 
 
@@ -6785,22 +7329,22 @@ initial DroneSpecChangeLog are created consistently in one workflow.
 | Field | Type | Description |
 |-------|------|-------------|
 | id | integer |  |
+| serial_number | string |  |
+| inventory_number | string |  |
+| name | string |  |
+| drone_model | integer | Drone Model |
+| classification |  |  |
+| status |  |  |
+| military_unit | integer |  |
+| acquired_at | string |  |
+| notes | string |  |
+| created_at | string |  |
+| updated_at | string |  |
 | spec |  |  |
 | writeoff_record |  |  |
 | status_label | string |  |
 | status_indicator | string |  |
 | status_category | string |  |
-| serial_number | string |  |
-| inventory_number | string |  |
-| name | string |  |
-| classification |  |  |
-| status |  |  |
-| acquired_at | string |  |
-| notes | string |  |
-| created_at | string |  |
-| updated_at | string |  |
-| drone_model | integer | Drone Model |
-| military_unit | integer |  |
 
 
 ## DroneBrief
@@ -7004,6 +7548,8 @@ changes caused by missions, repairs, write-offs, or manual updates.
 ## MediaAuditLog
 
 
+Serialize read-only media audit log data for list responses.
+
 
 | Field | Type | Description |
 |-------|------|-------------|
@@ -7015,6 +7561,42 @@ changes caused by missions, repairs, write-offs, or manual updates.
 | changes |  |  |
 | ip_address | string |  |
 | created_at | string |  |
+
+
+## MilitaryUnit
+
+
+Serialize military units with cheap drone and user counts.
+
+
+| Field | Type | Description |
+|-------|------|-------------|
+| id | integer |  |
+| name | string |  |
+| code | string |  |
+| description | string |  |
+| is_active | boolean |  |
+| drone_count | integer | Return the number of drones assigned to the unit.
+
+Prefers the annotated value from the list queryset and falls back to a
+single count query for freshly created or retrieved instances. |
+| user_count | integer | Return the number of users belonging to the unit.
+
+Prefers the annotated value from the list queryset and falls back to a
+single count query for freshly created or retrieved instances. |
+| created_at | string |  |
+| updated_at | string |  |
+
+
+## MilitaryUnitBrief
+
+
+
+| Field | Type | Description |
+|-------|------|-------------|
+| id | integer |  |
+| name | string |  |
+| code | string |  |
 
 
 ## Mission
@@ -7034,6 +7616,8 @@ instead.
 | title | string |  |
 | commander |  |  |
 | commander_id | integer |  |
+| unit |  |  |
+| unit_id | integer |  |
 | status |  |  |
 | result |  |  |
 | location_description | string |  |
@@ -7051,6 +7635,8 @@ instead.
 
 ## MissionArtifact
 
+
+Serialize artifact data for list responses.
 
 
 | Field | Type | Description |
@@ -7071,6 +7657,8 @@ instead.
 
 ## MissionArtifactUpload
 
+
+Serialize mission artifact record.
 
 
 | Field | Type | Description |
@@ -7281,6 +7869,18 @@ cascades the assigned drones' statuses.
 | results | array |  |
 
 
+## PaginatedMilitaryUnitList
+
+
+
+| Field | Type | Description |
+|-------|------|-------------|
+| count | integer |  |
+| next | string |  |
+| previous | string |  |
+| results | array |  |
+
+
 ## PaginatedMissionArtifactList
 
 
@@ -7342,6 +7942,18 @@ cascades the assigned drones' statuses.
 
 
 ## PaginatedRepairOrderListList
+
+
+
+| Field | Type | Description |
+|-------|------|-------------|
+| count | integer |  |
+| next | string |  |
+| previous | string |  |
+| results | array |  |
+
+
+## PaginatedUserListList
 
 
 
@@ -7428,6 +8040,31 @@ create an immutable WriteOffRecord and link it to DroneStatusHistory.
 | related_mission_id | integer |  |
 
 
+## PatchedMilitaryUnit
+
+
+Serialize military units with cheap drone and user counts.
+
+
+| Field | Type | Description |
+|-------|------|-------------|
+| id | integer |  |
+| name | string |  |
+| code | string |  |
+| description | string |  |
+| is_active | boolean |  |
+| drone_count | integer | Return the number of drones assigned to the unit.
+
+Prefers the annotated value from the list queryset and falls back to a
+single count query for freshly created or retrieved instances. |
+| user_count | integer | Return the number of users belonging to the unit.
+
+Prefers the annotated value from the list queryset and falls back to a
+single count query for freshly created or retrieved instances. |
+| created_at | string |  |
+| updated_at | string |  |
+
+
 ## PatchedMissionDroneCondition
 
 
@@ -7504,9 +8141,16 @@ Serialize the authenticated user's data along with their profile information.
 | contact | string |  |
 | profile_picture | string |  |
 | role | integer |  |
+| role_name | string |  |
+| role_code | string |  |
 | unit | integer |  |
+| unit_name | string |  |
+| unit_code | string |  |
 | is_active | boolean | Designates whether this user should be treated as active. Unselect this instead of deleting accounts. |
 | must_change_password | boolean |  |
+| last_login | string |  |
+| created_at | string |  |
+| created_by_username | string |  |
 
 
 ## PatchedUserRoleUpdate
@@ -7535,25 +8179,27 @@ Serialize user status update requests.
 ## PatchedVideoMetadata
 
 
+Serialize video metadata record for listing and updating.
 
-| Field                  | Type | Description |
-|------------------------|------|-------------|
-| id                     | integer |  |
-| mission                | integer | Mission associated with this video |
-| drone                  | integer | Drone used to capture this video |
-| uploaded_by            | integer | User who uploaded the file |
+
+| Field | Type | Description |
+|-------|------|-------------|
+| id | integer |  |
+| mission | integer | Mission associated with this video |
+| drone | integer | Drone used to capture this video |
+| uploaded_by | integer | User who uploaded the file |
 | uploaded_by_username | string |  |
-| file                   | string |  |
-| file_name              | string |  |
-| file_size              | integer | File size in bytes |
-| content_type           | string |  |
-| status                 |  |  |
-| checksum               | string | Optional SHA-256 checksum of the file |
-| duration_seconds       | integer |  |
-| recorded_at            | string | Video recording timestamp from drone metadata |
-| created_at             | string |  |
-| updated_at             | string |  |
-| url                    | string |  |
+| file | string |  |
+| file_name | string |  |
+| file_size | integer | File size in bytes |
+| content_type | string |  |
+| status |  |  |
+| checksum | string | Optional SHA-256 checksum of the file |
+| duration_seconds | integer |  |
+| recorded_at | string | Video recording timestamp from drone metadata |
+| created_at | string |  |
+| updated_at | string |  |
+| url | string | Return video file URL. |
 
 
 ## RepairEvent
@@ -7660,6 +8306,19 @@ Serialize hardware replacements explicitly linked to a repair order.
 | updated_at | string |  |
 
 
+## Role
+
+
+Serialize roles for role filters and selection controls.
+
+
+| Field | Type | Description |
+|-------|------|-------------|
+| id | integer |  |
+| code |  |  |
+| name | string |  |
+
+
 ## SeverityEnum
 
 
@@ -7689,6 +8348,31 @@ Serialize hardware replacements explicitly linked to a repair order.
 | email | string |  |
 
 
+## UserList
+
+
+Serialize compact user rows for the paginated user list.
+
+
+| Field | Type | Description |
+|-------|------|-------------|
+| id | integer |  |
+| username | string | Required. 150 characters or fewer. Letters, digits and @/./+/-/_ only. |
+| email | string |  |
+| first_name | string |  |
+| last_name | string |  |
+| role | integer |  |
+| role_name | string |  |
+| role_code | string |  |
+| unit | integer |  |
+| unit_name | string |  |
+| unit_code | string |  |
+| is_active | boolean | Designates whether this user should be treated as active. Unselect this instead of deleting accounts. |
+| last_login | string |  |
+| created_at | string |  |
+| created_by_username | string |  |
+
+
 ## UserMe
 
 
@@ -7706,9 +8390,16 @@ Serialize the authenticated user's data along with their profile information.
 | contact | string |  |
 | profile_picture | string |  |
 | role | integer |  |
+| role_name | string |  |
+| role_code | string |  |
 | unit | integer |  |
+| unit_name | string |  |
+| unit_code | string |  |
 | is_active | boolean | Designates whether this user should be treated as active. Unselect this instead of deleting accounts. |
 | must_change_password | boolean |  |
+| last_login | string |  |
+| created_at | string |  |
+| created_by_username | string |  |
 
 
 ## UserRegistration
@@ -7748,25 +8439,27 @@ Serialize user role update responses.
 ## VideoMetadata
 
 
+Serialize video metadata record for listing and updating.
 
-| Field              | Type | Description |
-|--------------------|------|-------------|
-| id                 | integer |  |
-| mission            | integer | Mission associated with this video |
-| drone              | integer | Drone used to capture this video |
-| uploaded_by        | integer | User who uploaded the file |
-| upload_by_username | string |  |
-| file               | string |  |
-| file_name          | string |  |
-| file_size          | integer | File size in bytes |
-| content_type       | string |  |
-| status             |  |  |
-| checksum           | string | Optional SHA-256 checksum of the file |
-| duration_seconds   | integer |  |
-| recorded_at        | string | Video recording timestamp from drone metadata |
-| created_at         | string |  |
-| updated_at         | string |  |
-| url                | string |  |
+
+| Field | Type | Description |
+|-------|------|-------------|
+| id | integer |  |
+| mission | integer | Mission associated with this video |
+| drone | integer | Drone used to capture this video |
+| uploaded_by | integer | User who uploaded the file |
+| uploaded_by_username | string |  |
+| file | string |  |
+| file_name | string |  |
+| file_size | integer | File size in bytes |
+| content_type | string |  |
+| status |  |  |
+| checksum | string | Optional SHA-256 checksum of the file |
+| duration_seconds | integer |  |
+| recorded_at | string | Video recording timestamp from drone metadata |
+| created_at | string |  |
+| updated_at | string |  |
+| url | string | Return video file URL. |
 
 
 ## VideoMetadataStatusEnum
@@ -7777,6 +8470,10 @@ Serialize user role update responses.
 
 ## VideoUpload
 
+
+Serialize video metadata record.
+
+Validates that the provided drone is actively assigned to the target mission.
 
 
 | Field | Type | Description |

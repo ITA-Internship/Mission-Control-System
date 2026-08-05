@@ -43,7 +43,7 @@ import {
 import {
   getApiFieldError,
   getFormError,
-} from "../utils/authErrors";
+} from "../../../shared/utils/apiErrors";
 import {
   validateEmail,
 } from "../validation/authValidation";
