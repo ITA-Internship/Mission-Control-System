@@ -27,7 +27,12 @@ from rest_framework import status
 from rest_framework.test import APIClient, APIRequestFactory, APITestCase
 
 from common.authentication import RequiredPasswordChangeBasicAuthentication
-from drones.factories import AdminUserFactory
+from drones.factories import (
+    AdminUserFactory,
+    DroneFactory,
+    MilitaryUnitFactory,
+    ViewerUserFactory,
+)
 from roles.models import ADMIN_CODE, OPERATOR_CODE, Role
 from seed_data.users import seed_users
 
@@ -1622,6 +1627,215 @@ class ProtectedProfilePictureRBACTests(APITestCase):
             response.status_code,
             status.HTTP_403_FORBIDDEN,
         )
+
+
+class UserListViewTests(APITestCase):
+    """Test the paginated user list endpoint."""
+
+    def setUp(self):
+        """Set up the URL, an admin viewer, and users to list and filter."""
+        self.url = reverse("accounts:user-create")
+        self.admin_role = Role.objects.get(code=ADMIN_CODE)
+        self.operator_role = Role.objects.get(code=OPERATOR_CODE)
+        self.unit = MilitaryUnitFactory(name="Alpha Company", code="ALPHA")
+
+        self.admin_user = AdminUserFactory()
+        self.viewer_user = ViewerUserFactory()
+
+        self.operator = User.objects.create_user(
+            username="petro.melnyk",
+            email="petro.melnyk@example.com",
+            password="StrongPassword123!",
+            first_name="Petro",
+            last_name="Melnyk",
+            role=self.operator_role,
+            unit=self.unit,
+            is_active=True,
+            created_by=self.admin_user,
+        )
+        self.inactive_user = User.objects.create_user(
+            username="inactive.ivan",
+            email="inactive.ivan@example.com",
+            password="StrongPassword123!",
+            first_name="Ivan",
+            last_name="Shevchenko",
+            role=self.operator_role,
+            is_active=False,
+        )
+
+    def test_admin_can_list_users_with_expected_row_fields(self):
+        """Admins receive a paginated list where each row carries the row data."""
+        self.client.force_authenticate(user=self.admin_user)
+
+        response = self.client.get(self.url)
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertIn("results", response.data)
+
+        row = next(
+            item
+            for item in response.data["results"]
+            if item["username"] == "petro.melnyk"
+        )
+        self.assertEqual(row["role"], self.operator_role.id)
+        self.assertEqual(row["role_code"], OPERATOR_CODE)
+        self.assertEqual(row["unit"], self.unit.id)
+        self.assertEqual(row["unit_name"], "Alpha Company")
+        self.assertTrue(row["is_active"])
+        self.assertEqual(row["created_by_username"], self.admin_user.username)
+        self.assertIn("last_login", row)
+
+    def test_search_matches_name_and_email(self):
+        """The search query filters users by name and email fragments."""
+        self.client.force_authenticate(user=self.admin_user)
+
+        response = self.client.get(self.url, {"search": "petro.melnyk@example.com"})
+
+        usernames = [row["username"] for row in response.data["results"]]
+        self.assertEqual(usernames, ["petro.melnyk"])
+
+    def test_filter_by_role(self):
+        """The role filter narrows results to users with the given role id."""
+        self.client.force_authenticate(user=self.admin_user)
+
+        response = self.client.get(self.url, {"role": self.operator_role.id})
+
+        returned_roles = {row["role"] for row in response.data["results"]}
+        self.assertEqual(returned_roles, {self.operator_role.id})
+
+    def test_filter_by_unit_and_active_status(self):
+        """The unit and is_active filters can be combined."""
+        self.client.force_authenticate(user=self.admin_user)
+
+        response = self.client.get(
+            self.url, {"unit": self.unit.id, "is_active": "true"}
+        )
+
+        usernames = [row["username"] for row in response.data["results"]]
+        self.assertEqual(usernames, ["petro.melnyk"])
+
+    def test_filter_inactive_users(self):
+        """Filtering by is_active=false returns only deactivated users."""
+        self.client.force_authenticate(user=self.admin_user)
+
+        response = self.client.get(self.url, {"is_active": "false"})
+
+        usernames = [row["username"] for row in response.data["results"]]
+        self.assertIn("inactive.ivan", usernames)
+        self.assertNotIn("petro.melnyk", usernames)
+
+    def test_user_without_view_permission_is_forbidden(self):
+        """Users without the users view permission cannot list users."""
+        self.client.force_authenticate(user=self.viewer_user)
+
+        response = self.client.get(self.url)
+
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+
+class MilitaryUnitViewTests(APITestCase):
+    """Test the military unit list, create, and update endpoints."""
+
+    def setUp(self):
+        """Set up URLs, an admin manager, and a viewer without unit permissions."""
+        self.list_url = reverse("accounts:military-unit-list")
+        self.admin_user = AdminUserFactory()
+        self.viewer_user = ViewerUserFactory()
+        self.unit = MilitaryUnitFactory(name="Bravo Company", code="BRAVO")
+
+    def _detail_url(self, unit):
+        """Return the detail URL for the supplied unit."""
+        return reverse("accounts:military-unit-detail", kwargs={"pk": unit.pk})
+
+    def test_admin_can_list_units_with_counts(self):
+        """The list response includes drone_count and user_count per unit."""
+        DroneFactory(military_unit=self.unit)
+        DroneFactory(military_unit=self.unit)
+        ViewerUserFactory(unit=self.unit)
+        self.client.force_authenticate(user=self.admin_user)
+
+        response = self.client.get(self.list_url)
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        row = next(item for item in response.data["results"] if item["code"] == "BRAVO")
+        self.assertEqual(row["drone_count"], 2)
+        self.assertEqual(row["user_count"], 1)
+
+    def test_search_by_code(self):
+        """Units can be searched by code."""
+        MilitaryUnitFactory(name="Charlie Company", code="CHARLIE")
+        self.client.force_authenticate(user=self.admin_user)
+
+        response = self.client.get(self.list_url, {"search": "BRAVO"})
+
+        codes = [row["code"] for row in response.data["results"]]
+        self.assertEqual(codes, ["BRAVO"])
+
+    def test_admin_can_create_unit(self):
+        """Admins can create a military unit."""
+        self.client.force_authenticate(user=self.admin_user)
+
+        response = self.client.post(
+            self.list_url,
+            {
+                "name": "Delta Company",
+                "code": "DELTA",
+                "description": "Reserve formation.",
+            },
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertTrue(MilitaryUnit.objects.filter(code="DELTA").exists())
+        self.assertEqual(response.data["drone_count"], 0)
+        self.assertEqual(response.data["user_count"], 0)
+
+    def test_create_rejects_duplicate_code_case_insensitively(self):
+        """Creating a unit with an existing code (any case) is rejected."""
+        self.client.force_authenticate(user=self.admin_user)
+
+        response = self.client.post(
+            self.list_url,
+            {"name": "Bravo Clone", "code": "bravo"},
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("code", response.data)
+
+    def test_viewer_cannot_create_unit(self):
+        """Users without the units manage permission cannot create units."""
+        self.client.force_authenticate(user=self.viewer_user)
+
+        response = self.client.post(
+            self.list_url,
+            {"name": "Echo Company", "code": "ECHO"},
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_admin_can_patch_is_active(self):
+        """Admins can deactivate a unit via PATCH."""
+        self.client.force_authenticate(user=self.admin_user)
+
+        response = self.client.patch(
+            self._detail_url(self.unit),
+            {"is_active": False},
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertFalse(response.data["is_active"])
+        self.unit.refresh_from_db()
+        self.assertFalse(self.unit.is_active)
+
+    def test_viewer_cannot_patch_unit(self):
+        """Users without the units manage permission cannot update units."""
+        self.client.force_authenticate(user=self.viewer_user)
+
+        response = self.client.patch(
+            self._detail_url(self.unit),
+            {"is_active": False},
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
 
 
 class AuditLogRBACTests(APITestCase):
