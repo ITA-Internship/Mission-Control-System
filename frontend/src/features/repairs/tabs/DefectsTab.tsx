@@ -185,7 +185,6 @@ export function DefectsTab({
               setDroneFilter(value),
             )
           }
-          className="w-28"
         />
 
         <FilterSelect

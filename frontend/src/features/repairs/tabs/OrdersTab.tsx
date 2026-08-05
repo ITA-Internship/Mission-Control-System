@@ -157,7 +157,6 @@ export function OrdersTab({
               setDroneFilter(value),
             )
           }
-          className="w-28"
         />
 
         <FilterSelect
