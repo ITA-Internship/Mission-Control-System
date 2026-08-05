@@ -1,6 +1,10 @@
 from django.test import SimpleTestCase
+from django.urls import reverse
+from rest_framework import status
+from rest_framework.test import APITestCase
 
 from accounts import rbac
+from drones.factories import AdminUserFactory, ViewerUserFactory
 from roles.models import (
     ADMIN_CODE,
     COMMANDER_CODE,
@@ -8,6 +12,7 @@ from roles.models import (
     OPERATOR_CODE,
     TECHNICIAN_CODE,
     VIEWER_CODE,
+    Role,
 )
 
 
@@ -39,6 +44,10 @@ class RolePermissionMatrixTests(SimpleTestCase):
             rbac.PERMISSION_USERS_MANAGE_ROLES,
             rbac.PERMISSION_USERS_CREATE,
             rbac.PERMISSION_USERS_ACTIVATE_DEACTIVATE,
+            rbac.PERMISSION_USERS_VIEW,
+            rbac.PERMISSION_UNITS_VIEW,
+            rbac.PERMISSION_UNITS_MANAGE,
+            rbac.PERMISSION_ROLES_VIEW,
             rbac.PERMISSION_DRONES_CREATE,
             rbac.PERMISSION_DRONES_UPDATE,
             rbac.PERMISSION_DRONES_DECOMMISSION,
@@ -202,3 +211,48 @@ class RolePermissionMatrixTests(SimpleTestCase):
         }
 
         self.assertEqual(viewer_perms, expected_permissions)
+
+
+class RoleListViewTests(APITestCase):
+    """Test the read-only role list endpoint."""
+
+    def setUp(self):
+        """Set up the URL and users with and without the roles view permission."""
+        self.url = reverse("roles:role-list")
+        self.admin_user = AdminUserFactory()
+        self.viewer_user = ViewerUserFactory()
+
+    def test_admin_can_list_roles(self):
+        """Admins can retrieve the full role catalog with id, code, and name."""
+        self.client.force_authenticate(user=self.admin_user)
+
+        response = self.client.get(self.url)
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data), Role.objects.count())
+        self.assertEqual(set(response.data[0].keys()), {"id", "code", "name"})
+
+    def test_response_is_not_paginated(self):
+        """The role list returns a plain list rather than a paginated envelope."""
+        self.client.force_authenticate(user=self.admin_user)
+
+        response = self.client.get(self.url)
+
+        self.assertIsInstance(response.data, list)
+
+    def test_user_without_permission_is_forbidden(self):
+        """Users without the roles view permission receive a 403 response."""
+        self.client.force_authenticate(user=self.viewer_user)
+
+        response = self.client.get(self.url)
+
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_unauthenticated_request_is_rejected(self):
+        """Anonymous requests are not allowed to list roles."""
+        response = self.client.get(self.url)
+
+        self.assertIn(
+            response.status_code,
+            (status.HTTP_401_UNAUTHORIZED, status.HTTP_403_FORBIDDEN),
+        )

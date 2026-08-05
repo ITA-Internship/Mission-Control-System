@@ -3,6 +3,7 @@ import {
   redirect,
 } from "react-router";
 
+import { AdministrationPage } from "../features/admin/pages/AdministrationPage";
 import { RequireSessionAuth } from "../features/auth/components/RequireSessionAuth";
 import { ActivateAccountPage } from "../features/auth/pages/ActivateAccountPage";
 import { ForgotPasswordPage } from "../features/auth/pages/ForgotPasswordPage";
@@ -45,7 +46,7 @@ export const router = createBrowserRouter([
       },
       {
         path: "/administration",
-        Component: PlaceholderPage,
+        Component: AdministrationPage,
       },
     ],
   },
