@@ -4,6 +4,18 @@ export type DefectSeverity =
   | "HIGH"
   | "CRITICAL";
 
+export type DefectTransitionStatus =
+  | "REPORTED"
+  | "IN_PROGRESS"
+  | "FIXED"
+  | "VERIFIED";
+
+export type OrderStatus =
+  | "PENDING"
+  | "IN_PROGRESS"
+  | "COMPLETED"
+  | "CANCELLED";
+
 /* Mirrors `repairs.serializers.DefectReportListSerializer`. The list endpoint
  * exposes `drone` as an id only (no name) and has no `status` field/filter. */
 export interface DefectListItem {
