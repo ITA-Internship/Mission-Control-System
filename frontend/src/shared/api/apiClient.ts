@@ -335,3 +335,54 @@ export async function apiDownload(
     ),
   };
 }
+
+export function apiUpload<T>(
+  path: string,
+  formData: FormData,
+  onProgress?: (progress: number) => void
+): Promise<T> {
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    const url = buildApiUrl(path);
+
+    if (onProgress) {
+      xhr.upload.onprogress = (e) => {
+        if (e.lengthComputable) {
+          const percentComplete = (e.loaded / e.total) * 100;
+          onProgress(percentComplete);
+        }
+      };
+    }
+
+    xhr.open("POST", url, true);
+    xhr.withCredentials = true;
+
+    xhr.setRequestHeader("Accept", "application/json");
+
+    const csrfToken = getCookie(CSRF_COOKIE_NAME);
+    if (csrfToken) {
+      xhr.setRequestHeader(CSRF_HEADER_NAME, csrfToken);
+    }
+
+    xhr.onload = () => {
+      let responseBody;
+      try {
+        responseBody = JSON.parse(xhr.responseText);
+      } catch {
+        responseBody = xhr.responseText;
+      }
+
+      if (xhr.status >= 200 && xhr.status < 300) {
+        resolve(responseBody as T);
+      } else {
+        reject(new ApiError(xhr.status, responseBody));
+      }
+    };
+
+    xhr.onerror = () => {
+      reject(new NetworkError());
+    };
+
+    xhr.send(formData);
+  });
+}
