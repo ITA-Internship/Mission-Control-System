@@ -11,7 +11,7 @@ import { LoginPage } from "../features/auth/pages/LoginPage";
 import { RequiredPasswordChangePage } from "../features/auth/pages/RequiredPasswordChangePage";
 import { ResetPasswordPage } from "../features/auth/pages/ResetPasswordPage";
 import { DashboardPage } from "../features/dashboard/pages/DashboardPage";
-import { MyProfilePage } from "../features/profile/pages/MyProfilePage";
+import { MyProfileRoute } from "../features/profile/pages/MyProfileRoute";
 import { PlaceholderPage } from "../shared/pages/PlaceholderPage";
 import { ProtectedRoute } from "./ProtectedRoute";
 
@@ -47,6 +47,10 @@ export const router = createBrowserRouter([
         path: "/administration",
         Component: AdministrationPage,
       },
+      {
+        path: "/my-profile",
+        Component: MyProfileRoute,
+      },
     ],
   },
   {
@@ -79,20 +83,6 @@ export const router = createBrowserRouter([
       <RequireSessionAuth requirePasswordChange>
         {() => (
           <RequiredPasswordChangePage />
-        )}
-      </RequireSessionAuth>
-    ),
-  },
-  {
-    /* Profile brings its own workspace chrome, so it guards the session itself
-     * rather than rendering inside the dashboard shell. */
-    path: "/my-profile",
-    element: (
-      <RequireSessionAuth>
-        {(user) => (
-          <MyProfilePage
-            initialUser={user}
-          />
         )}
       </RequireSessionAuth>
     ),

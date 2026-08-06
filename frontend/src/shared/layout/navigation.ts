@@ -113,8 +113,23 @@ export function visibleNavItems(role: RoleCode | null): NavItem[] {
   );
 }
 
+/*
+ * Routes that render inside the shell but are not sidebar destinations — they
+ * are reached from the account menu instead. They still need a shell title.
+ */
+const AUXILIARY_TITLES: Record<string, string> = {
+  "/my-profile": "My Profile",
+};
+
 /* Label of the nav entry owning `pathname`, for the shell page title. */
 export function navTitleFor(pathname: string): string {
+  const auxiliary = Object.entries(AUXILIARY_TITLES).find(
+    ([path]) => pathname.startsWith(path),
+  );
+  if (auxiliary) {
+    return auxiliary[1];
+  }
+
   const match = NAV_ITEMS.find((item) =>
     pathname.startsWith(item.path),
   );

@@ -5,9 +5,11 @@ import {
   LogOut,
   Menu,
   Search,
+  User,
 } from "lucide-react";
 import { useNavigate } from "react-router";
 
+import { signOut } from "../../features/auth/api/authApi";
 import type { CurrentUser, RoleCode } from "../types/accounts";
 import { cn } from "../utils/cn";
 import {
@@ -41,6 +43,7 @@ export function TopBar({
 }: TopBarProps) {
   const navigate = useNavigate();
   const [menuOpen, setMenuOpen] = useState(false);
+  const [signingOut, setSigningOut] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
   const role = toRoleCode(user.role_code);
@@ -62,11 +65,32 @@ export function TopBar({
     return () => document.removeEventListener("keydown", onKeyDown);
   }, [menuOpen]);
 
-  function handleSignOut() {
-    // No backend logout endpoint exists yet; clear client route state and
-    // return to the sign-in screen. See the plan's "Open flags".
+  function handleOpenProfile() {
     setMenuOpen(false);
-    navigate("/login", { replace: true });
+    navigate("/my-profile");
+  }
+
+  /*
+   * Ends the Django session before leaving. The redirect runs even when the
+   * request fails so a user who clicks sign out is never left sitting on an
+   * authenticated screen; the guard on the next protected route re-checks.
+   */
+  async function handleSignOut() {
+    if (signingOut) {
+      return;
+    }
+
+    setSigningOut(true);
+    setMenuOpen(false);
+
+    try {
+      await signOut();
+    } catch {
+      // Session may already be gone server-side — fall through to the redirect.
+    } finally {
+      setSigningOut(false);
+      navigate("/login", { replace: true });
+    }
   }
 
   return (
@@ -124,6 +148,7 @@ export function TopBar({
             onClick={() => setMenuOpen((open) => !open)}
             aria-haspopup="menu"
             aria-expanded={menuOpen}
+            aria-label="Open account menu"
             className={cn(
               "flex items-center gap-2.5 rounded-lg border px-2.5 py-1.5 transition-colors",
               menuOpen
@@ -181,11 +206,22 @@ export function TopBar({
                   <button
                     type="button"
                     role="menuitem"
+                    onClick={handleOpenProfile}
+                    className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] text-mc-text transition-colors hover:bg-white/5"
+                  >
+                    <User className="h-3.5 w-3.5 text-mc-accent" />
+                    My profile
+                  </button>
+                  <div className="my-1 border-t border-mc-border" />
+                  <button
+                    type="button"
+                    role="menuitem"
                     onClick={handleSignOut}
-                    className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] text-mc-error transition-colors hover:bg-mc-error/10"
+                    disabled={signingOut}
+                    className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] text-mc-error transition-colors hover:bg-mc-error/10 disabled:opacity-60"
                   >
                     <LogOut className="h-3.5 w-3.5" />
-                    Sign out
+                    {signingOut ? "Signing out..." : "Sign out"}
                   </button>
                 </div>
               </div>
