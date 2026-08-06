@@ -59,7 +59,7 @@ if not SECRET_KEY:
     raise RuntimeError("Django secret key is required!")
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = os.getenv("DEBUG", "False") == "True"
+DEBUG = env_bool("DEBUG")
 
 ALLOWED_HOSTS = [
     host.strip()
@@ -216,6 +216,7 @@ REST_FRAMEWORK = {
         "rest_framework.throttling.ScopedRateThrottle",
     ],
     "DEFAULT_THROTTLE_RATES": {
+        "login": os.getenv("THROTTLE_LOGIN", "5/min"),
         "account_activation": os.getenv("THROTTLE_ACCOUNT_ACTIVATION", "5/hour"),
         "password_reset_request": os.getenv(
             "THROTTLE_PASSWORD_RESET_REQUEST",

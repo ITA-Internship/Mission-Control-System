@@ -21,14 +21,17 @@ import os
 import posixpath
 
 from django.conf import settings
-from django.contrib.auth import update_session_auth_hash
+from django.contrib.auth import authenticate, login, logout, update_session_auth_hash
 from django.contrib.auth.tokens import default_token_generator
 from django.core.exceptions import ValidationError as DjangoValidationError
-from django.db.models import Count
+from django.db.models import Count, Q
 from django.http import FileResponse, Http404, HttpResponse, StreamingHttpResponse
+from django.middleware.csrf import get_token
 from django.shortcuts import get_object_or_404
+from django.utils.decorators import method_decorator
 from django.utils.encoding import escape_uri_path, force_bytes, force_str
 from django.utils.http import urlsafe_base64_decode, urlsafe_base64_encode
+from django.views.decorators.csrf import csrf_protect
 from django_filters import rest_framework as filters
 from django_filters.rest_framework import DjangoFilterBackend
 from drf_spectacular.utils import extend_schema_view
@@ -88,6 +91,7 @@ from .serializers import (
     AccountActivationSerializer,
     AuditLogSerializer,
     ChangePasswordSerializer,
+    LoginSerializer,
     MilitaryUnitSerializer,
     PasswordResetConfirmSerializer,
     PasswordResetRequestSerializer,
@@ -102,6 +106,7 @@ from .services import create_audit_log, set_user_password, update_user_role
 from .tasks import send_email_task
 from .throttles import (
     AccountActivationThrottle,
+    LoginThrottle,
     PasswordResetConfirmThrottle,
     PasswordResetRequestThrottle,
 )
@@ -190,6 +195,98 @@ class MilitaryUnitDetailView(generics.RetrieveUpdateAPIView):
         return MilitaryUnit.objects.annotate(
             drone_count=Count("drones", distinct=True),
             user_count=Count("users", distinct=True),
+        )
+
+
+@method_decorator(csrf_protect, name="dispatch")
+class LoginView(APIView):
+    """Create a session for a user authenticated by email or username."""
+
+    permission_classes = [AllowAny]
+    throttle_classes = [LoginThrottle]
+
+    def get(self, request):
+        """Issue a CSRF cookie for the upcoming login request."""
+        get_token(request)
+        return Response(
+            {"detail": "CSRF cookie set."},
+            status=status.HTTP_200_OK,
+        )
+
+    def post(self, request):
+        """Authenticate the submitted credentials and start a Django session."""
+        raw_identifier = None
+        if hasattr(request, "data") and hasattr(request.data, "get"):
+            raw_identifier = request.data.get("identifier")
+        if isinstance(raw_identifier, str) and not raw_identifier.strip():
+            return Response(
+                {"detail": "Identifier is required."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        serializer = LoginSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        identifier = serializer.validated_data["identifier"].strip()
+        if not identifier:
+            return Response(
+                {"detail": "Identifier is required."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        identifier_normalized = identifier.lower()
+        password = serializer.validated_data["password"]
+
+        username = identifier
+        # Resolve either username or email case-insensitively before handing off
+        # to Django auth. This keeps lookup behavior consistent while preserving
+        # the generic invalid-credentials response.
+        matched_user = (
+            User.objects.filter(
+                Q(username__iexact=identifier_normalized)
+                | Q(email__iexact=identifier_normalized)
+            )
+            .only("username")
+            .order_by("id")
+            .first()
+        )
+        if matched_user is not None:
+            username = matched_user.username
+
+        user = authenticate(
+            request,
+            username=username,
+            password=password,
+        )
+
+        if user is None or not getattr(user, "is_active", True):
+            return Response(
+                {"detail": "Invalid credentials."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # Django rotates the session key during login to defend against
+        # session fixation; the test suite asserts this behavior.
+        login(request, user)
+        get_token(request)
+
+        return Response(
+            UserMeSerializer(user).data,
+            status=status.HTTP_200_OK,
+        )
+
+
+class LogoutView(APIView):
+    """End the authenticated user's current Django session."""
+
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request):
+        """Flush the session and emit Django's logout signal."""
+        logout(request)
+        return Response(
+            {"detail": "Signed out successfully."},
+            status=status.HTTP_200_OK,
         )
 
 
@@ -652,49 +749,51 @@ class PasswordResetConfirmView(APIView):
 
         token_is_valid = bool(user and default_token_generator.check_token(user, token))
 
+        if not token_is_valid:
+            if user:
+                create_audit_log(
+                    actor=None,
+                    action_type=AuditLog.ActionType.PASSWORD_CHANGED,
+                    result=AuditLog.ResultStatus.FAILED,
+                    target_user=user,
+                    description=(
+                        "Failed attempt to reset password (invalid/expired token)."
+                    ),
+                    request=request,
+                )
+
+            return Response(
+                {"detail": "The reset link is invalid or has expired."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
         serializer = PasswordResetConfirmSerializer(
             data=request.data,
-            context={"user": user if token_is_valid else None},
+            context={"user": user},
         )
         serializer.is_valid(raise_exception=True)
 
-        if token_is_valid:
-            set_user_password(user, serializer.validated_data["new_password"])
-            invalidate_user_sessions(user)
+        set_user_password(user, serializer.validated_data["new_password"])
+        invalidate_user_sessions(user)
 
-            send_email_task.delay(
-                subject="Password Successfully Reset",
-                message="Your password has been reset successfully.",
-                recipient_list=[user.email],
-            )
+        send_email_task.delay(
+            subject="Password Successfully Reset",
+            message="Your password has been reset successfully.",
+            recipient_list=[user.email],
+        )
 
-            create_audit_log(
-                actor=user,
-                action_type=AuditLog.ActionType.PASSWORD_CHANGED,
-                result=AuditLog.ResultStatus.SUCCESS,
-                target_user=user,
-                description="Password reset completed via emailed link.",
-                request=request,
-            )
-
-            return Response(
-                {"detail": "Password has been reset successfully."},
-                status=status.HTTP_200_OK,
-            )
-
-        if user:
-            create_audit_log(
-                actor=None,
-                action_type=AuditLog.ActionType.PASSWORD_CHANGED,
-                result=AuditLog.ResultStatus.FAILED,
-                target_user=user,
-                description="Failed attempt to reset password (invalid/expired token).",
-                request=request,
-            )
+        create_audit_log(
+            actor=user,
+            action_type=AuditLog.ActionType.PASSWORD_CHANGED,
+            result=AuditLog.ResultStatus.SUCCESS,
+            target_user=user,
+            description="Password reset completed via emailed link.",
+            request=request,
+        )
 
         return Response(
-            {"detail": "The reset link is invalid or has expired."},
-            status=status.HTTP_400_BAD_REQUEST,
+            {"detail": "Password has been reset successfully."},
+            status=status.HTTP_200_OK,
         )
 
 

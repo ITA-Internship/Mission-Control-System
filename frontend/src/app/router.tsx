@@ -75,7 +75,13 @@ export const router = createBrowserRouter([
   },
   {
     path: "/change-password/required",
-    Component: RequiredPasswordChangePage,
+    element: (
+      <RequireSessionAuth requirePasswordChange>
+        {() => (
+          <RequiredPasswordChangePage />
+        )}
+      </RequireSessionAuth>
+    ),
   },
   {
     /* Profile brings its own workspace chrome, so it guards the session itself

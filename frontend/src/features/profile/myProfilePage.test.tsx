@@ -434,6 +434,46 @@ describe("MyProfilePage", () => {
     ).not.toBeInTheDocument();
   });
 
+  it("keeps pending avatar actions visible after drag leave", async () => {
+    const user = userEvent.setup();
+    const avatar = new File(
+      ["avatar"],
+      "avatar.png",
+      { type: "image/png" },
+    );
+
+    mockJsonResponse(currentUserResponse);
+    renderPage();
+
+    await screen.findByText(
+      "Major Sarah Chen",
+    );
+    await user.upload(
+      screen.getByLabelText(
+        "Choose profile avatar",
+      ),
+      avatar,
+    );
+
+    const dropZone = screen.getByRole(
+      "button",
+      {
+        name: "Upload profile avatar",
+      },
+    );
+    fireEvent.dragOver(dropZone);
+    fireEvent.dragLeave(dropZone);
+
+    expect(
+      screen.getByText("Ready to save"),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", {
+        name: "Save all changes",
+      }),
+    ).toBeEnabled();
+  });
+
   it("clears a pending avatar when the next selected file is invalid", async () => {
     const user = userEvent.setup();
     const validAvatar = new File(
@@ -654,7 +694,7 @@ describe("MyProfilePage", () => {
       await screen.findAllByText(
         "Incorrect old password.",
       ),
-    ).not.toHaveLength(0);
+    ).toHaveLength(1);
 
     await waitFor(() => {
       expect(
@@ -819,6 +859,115 @@ describe("MyProfilePage", () => {
     expect(
       await screen.findByText("Login page"),
     ).toBeInTheDocument();
+  });
+
+  it("signs out from the account menu", async () => {
+    const user = userEvent.setup();
+    mockJsonResponse(currentUserResponse);
+    mockJsonResponse({
+      detail: "Signed out successfully.",
+    });
+
+    renderPage();
+
+    await screen.findByText(
+      "Major Sarah Chen",
+    );
+    await user.click(
+      screen.getByRole("button", {
+        name: "Open account menu",
+      }),
+    );
+    await user.click(
+      screen.getByRole("button", {
+        name: "Sign Out",
+      }),
+    );
+
+    expect(
+      await screen.findByText("Login page"),
+    ).toBeInTheDocument();
+    expect(
+      vi.mocked(globalThis.fetch)
+        .mock.calls[1]?.[0],
+    ).toBe("/api/accounts/logout/");
+    expect(
+      vi.mocked(globalThis.fetch)
+        .mock.calls[1]?.[1]?.method,
+    ).toBe("POST");
+  });
+
+  it("opens profile sections from the workspace navigation", async () => {
+    const user = userEvent.setup();
+    mockJsonResponse(currentUserResponse);
+
+    renderPage();
+
+    await screen.findByText(
+      "Major Sarah Chen",
+    );
+    await user.click(
+      screen.getByRole("button", {
+        name: "Open profile settings from navigation",
+      }),
+    );
+
+    expect(
+      screen.getByRole("button", {
+        name: "Account & Security",
+      }),
+    ).toHaveAttribute("aria-current", "page");
+
+    await user.click(
+      screen.getByRole("button", {
+        name: "Open my profile from sidebar",
+      }),
+    );
+
+    expect(
+      screen.getByRole("button", {
+        name: "Profile Details",
+      }),
+    ).toHaveAttribute("aria-current", "page");
+
+    await user.click(
+      screen.getByRole("button", {
+        name: "Open account menu",
+      }),
+    );
+    await user.click(
+      screen.getByRole("button", {
+        name: "Open my profile",
+      }),
+    );
+
+    expect(
+      screen.getByRole("button", {
+        name: "Profile Details",
+      }),
+    ).toHaveAttribute("aria-current", "page");
+    expect(
+      screen.queryByRole("button", {
+        name: "Open my profile",
+      }),
+    ).not.toBeInTheDocument();
+
+    await user.click(
+      screen.getByRole("button", {
+        name: "Open account menu",
+      }),
+    );
+    await user.click(
+      screen.getByRole("button", {
+        name: "Open profile settings",
+      }),
+    );
+
+    expect(
+      screen.getByRole("button", {
+        name: "Account & Security",
+      }),
+    ).toHaveAttribute("aria-current", "page");
   });
 
   it("redirects unauthenticated users to login from the protected route", async () => {

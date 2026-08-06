@@ -84,3 +84,12 @@ def log_user_logout(sender, request, user, **kwargs):
         description="User logged out successfully",
         request=request,
     )
+
+    session_key = getattr(getattr(request, "session", None), "session_key", None)
+    if user is not None and session_key:
+        from .models import UserSession
+
+        UserSession.objects.filter(
+            user=user,
+            session_key=session_key,
+        ).delete()
