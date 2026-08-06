@@ -1,16 +1,11 @@
-import {
-  AlertCircle,
-  CheckCircle,
-  Shield,
-  X,
-} from "lucide-react";
-import {
-  useState,
-} from "react";
+import { Shield } from "lucide-react";
+import { useState } from "react";
 import type {
   ReactNode,
   RefObject,
 } from "react";
+
+import { cn } from "../../../shared/utils/cn";
 
 export function ProfileAvatarImage({
   source,
@@ -45,14 +40,7 @@ export function RoleBadge({
   role: string;
 }) {
   return (
-    <span
-      className="inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold tracking-wide"
-      style={{
-        color: "#4C8DFF",
-        background: "rgba(76,141,255,.13)",
-        borderColor: "rgba(76,141,255,.3)",
-      }}
-    >
+    <span className="inline-flex items-center rounded-full border border-mc-info/30 bg-mc-info/[0.13] px-2.5 py-0.5 text-xs font-semibold tracking-wide text-mc-info">
       {role}
     </span>
   );
@@ -64,16 +52,7 @@ export function UnitChip({
   unit: string;
 }) {
   return (
-    <span
-      className="inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-xs font-medium"
-      style={{
-        color: "#8A94A6",
-        background:
-          "rgba(138,148,166,.08)",
-        borderColor:
-          "rgba(138,148,166,.2)",
-      }}
-    >
+    <span className="inline-flex items-center gap-1.5 rounded-full border border-mc-muted/20 bg-mc-muted/[0.08] px-2.5 py-0.5 text-xs font-medium text-mc-muted">
       <Shield size={10} />
       {unit}
     </span>
@@ -88,83 +67,18 @@ export function FieldLabel({
   htmlFor?: string;
 }) {
   const className =
-    "text-xs font-semibold tracking-widest uppercase";
-  const style = {
-    color: "#8A94A6",
-  };
+    "text-xs font-semibold uppercase tracking-widest text-mc-muted";
 
   if (!htmlFor) {
     return (
-      <span className={className} style={style}>
-        {children}
-      </span>
+      <span className={className}>{children}</span>
     );
   }
 
   return (
-    <label
-      htmlFor={htmlFor}
-      className={className}
-      style={style}
-    >
+    <label htmlFor={htmlFor} className={className}>
       {children}
     </label>
-  );
-}
-
-export function Card({
-  id,
-  title,
-  children,
-  accent = false,
-}: {
-  id?: string;
-  title: string;
-  children: ReactNode;
-  accent?: boolean;
-}) {
-  return (
-    <div
-      id={id}
-      className="overflow-hidden rounded-xl border"
-      style={{
-        background: "#161D26",
-        borderColor: accent
-          ? "rgba(200,162,74,.18)"
-          : "rgba(255,255,255,.07)",
-      }}
-    >
-      {accent ? (
-        <div
-          className="h-px"
-          style={{
-            background:
-              "linear-gradient(90deg, #C8A24A 0%, transparent 55%)",
-          }}
-        />
-      ) : null}
-
-      <div
-        className="flex items-center gap-3 border-b px-6 py-4"
-        style={{
-          borderColor:
-            "rgba(255,255,255,.07)",
-        }}
-      >
-        <h2
-          className="text-sm font-semibold tracking-wide"
-          style={{
-            color: "#E6EAF0",
-          }}
-        >
-          {title}
-        </h2>
-      </div>
-
-      <div className="px-6 py-5">
-        {children}
-      </div>
-    </div>
   );
 }
 
@@ -181,25 +95,20 @@ export function PrimaryButton({
   disabled?: boolean;
   type?: "button" | "submit";
 }) {
-  const isDisabled =
-    disabled || loading;
+  const isDisabled = disabled || loading;
 
   return (
     <button
       type={type}
       onClick={onClick}
       disabled={isDisabled}
-      className="inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-semibold transition-all"
-      style={{
-        background: isDisabled
-          ? "rgba(200,162,74,.35)"
-          : "#C8A24A",
-        color: "#0B0F14",
-        cursor: isDisabled
-          ? "not-allowed"
-          : "pointer",
-        opacity: isDisabled ? 0.7 : 1,
-      }}
+      aria-busy={loading}
+      className={cn(
+        "inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-semibold text-mc-bg transition-colors",
+        "bg-mc-accent hover:bg-mc-accent-hover active:bg-mc-accent-active",
+        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mc-accent/40",
+        "disabled:cursor-not-allowed disabled:bg-mc-accent/35 disabled:opacity-70 disabled:hover:bg-mc-accent/35",
+      )}
     >
       {loading ? (
         <svg
@@ -241,14 +150,11 @@ export function SecondaryButton({
     <button
       type={type}
       onClick={onClick}
-      className="inline-flex items-center gap-2 rounded-lg border px-4 py-2 text-sm font-medium transition-all"
-      style={{
-        background:
-          "rgba(255,255,255,.05)",
-        color: "#E6EAF0",
-        borderColor:
-          "rgba(255,255,255,.1)",
-      }}
+      className={cn(
+        "inline-flex items-center gap-2 rounded-lg border border-white/10 bg-white/5 px-4 py-2 text-sm font-medium text-mc-text transition-colors",
+        "hover:bg-white/10",
+        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mc-accent/40",
+      )}
     >
       {children}
     </button>
@@ -282,9 +188,6 @@ export function FormTextInput({
   autoComplete?: string;
   maxLength?: number;
 }) {
-  const [focused, setFocused] =
-    useState(false);
-
   return (
     <div className="flex flex-col gap-1.5">
       <div className="relative">
@@ -300,31 +203,16 @@ export function FormTextInput({
           disabled={disabled}
           autoComplete={autoComplete}
           maxLength={maxLength}
-          onFocus={() => setFocused(true)}
-          onBlur={() => setFocused(false)}
-          className="w-full rounded-lg px-3 py-2.5 text-sm outline-none transition-all"
-          style={{
-            background: disabled
-              ? "rgba(15,22,32,.5)"
-              : "#0F1620",
-            color: disabled
-              ? "#8A94A6"
-              : "#E6EAF0",
-            border: `1px solid ${
-              error
-                ? "#E5484D"
-                : focused
-                  ? "#C8A24A"
-                  : "rgba(255,255,255,.1)"
-            }`,
-            paddingRight: rightElement
-              ? "2.75rem"
-              : undefined,
-            boxShadow:
-              focused && !error
-                ? "0 0 0 2px rgba(200,162,74,.12)"
-                : undefined,
-          }}
+          className={cn(
+            "w-full rounded-lg border bg-mc-panel px-3 py-2.5 text-sm text-mc-text transition-colors",
+            "placeholder:text-mc-subtle",
+            "focus:outline-none",
+            "disabled:bg-mc-panel/50 disabled:text-mc-muted",
+            rightElement ? "pr-11" : "",
+            error
+              ? "border-mc-error focus:border-mc-error"
+              : "border-white/10 focus:border-mc-accent focus:ring-2 focus:ring-mc-accent/[0.12]",
+          )}
           aria-invalid={Boolean(error)}
           aria-label={ariaLabel}
           aria-describedby={
@@ -342,96 +230,11 @@ export function FormTextInput({
       {error ? (
         <p
           id={`${id}-error`}
-          className="text-xs"
-          style={{
-            color: "#E5484D",
-          }}
+          className="text-xs text-mc-error"
           role="alert"
         >
           {error}
         </p>
-      ) : null}
-    </div>
-  );
-}
-
-export function AlertBanner({
-  type,
-  message,
-  onClose,
-}: {
-  type: "error" | "success" | "info";
-  message: string;
-  onClose?: () => void;
-}) {
-  const config = {
-    error: {
-      bg: "rgba(229,72,77,.1)",
-      border: "rgba(229,72,77,.3)",
-      color: "#E5484D",
-      Icon: AlertCircle,
-    },
-    success: {
-      bg: "rgba(63,185,80,.1)",
-      border: "rgba(63,185,80,.3)",
-      color: "#3FB950",
-      Icon: CheckCircle,
-    },
-    info: {
-      bg: "rgba(138,148,166,.1)",
-      border: "rgba(138,148,166,.3)",
-      color: "#8A94A6",
-      Icon: AlertCircle,
-    },
-  }[type];
-
-  const Icon = config.Icon;
-
-  return (
-    <div
-      className="flex items-start gap-3 rounded-lg border p-3 text-sm"
-      style={{
-        background: config.bg,
-        borderColor: config.border,
-      }}
-      role={type === "error" ? "alert" : "status"}
-      aria-live={
-        type === "error"
-          ? "assertive"
-          : "polite"
-      }
-    >
-      <Icon
-        size={15}
-        style={{
-          color: config.color,
-          flexShrink: 0,
-          marginTop: 1,
-        }}
-        aria-hidden="true"
-      />
-
-      <span
-        className="flex-1 text-sm"
-        style={{
-          color: config.color,
-        }}
-      >
-        {message}
-      </span>
-
-      {onClose ? (
-        <button
-          type="button"
-          onClick={onClose}
-          style={{
-            color: config.color,
-            flexShrink: 0,
-          }}
-          aria-label="Dismiss message"
-        >
-          <X size={14} />
-        </button>
       ) : null}
     </div>
   );

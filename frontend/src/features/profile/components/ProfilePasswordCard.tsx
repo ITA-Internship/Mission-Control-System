@@ -9,6 +9,9 @@ import type {
   RefObject,
 } from "react";
 
+import { Alert } from "../../../shared/components/Alert";
+import { Panel } from "../../../shared/components/Panel";
+import { cn } from "../../../shared/utils/cn";
 import type {
   PasswordFormState,
   PasswordRequirement,
@@ -17,8 +20,6 @@ import type {
   StatusBanner,
 } from "../types/profile";
 import {
-  AlertBanner,
-  Card,
   FieldLabel,
   FormTextInput,
   PrimaryButton,
@@ -40,9 +41,7 @@ function PasswordToggleButton({
           ? "Hide password"
           : "Show password"
       }
-      style={{
-        color: "#8A94A6",
-      }}
+      className="text-mc-muted transition-colors hover:text-mc-accent"
     >
       {isVisible ? (
         <EyeOff size={15} />
@@ -91,7 +90,7 @@ export function ProfilePasswordCard({
   ) => void;
 }) {
   return (
-    <Card
+    <Panel
       id="password"
       title="Change Password"
     >
@@ -100,11 +99,12 @@ export function ProfilePasswordCard({
         onSubmit={onSubmit}
       >
         {passwordBanner ? (
-          <AlertBanner
-            type={passwordBanner.type}
-            message={passwordBanner.message}
+          <Alert
+            variant={passwordBanner.type}
             onClose={onDismissBanner}
-          />
+          >
+            {passwordBanner.message}
+          </Alert>
         ) : null}
 
         <div className="grid gap-4">
@@ -186,22 +186,9 @@ export function ProfilePasswordCard({
           </div>
 
           {passwordForm.newPassword ? (
-            <div
-              className="rounded-lg border p-3"
-              style={{
-                borderColor:
-                  "rgba(255,255,255,.07)",
-                background:
-                  "rgba(255,255,255,.02)",
-              }}
-            >
+            <div className="rounded-lg border border-mc-border bg-white/[0.02] p-3">
               <div className="mb-2 flex items-center justify-between gap-3">
-                <span
-                  className="text-xs font-semibold uppercase tracking-widest"
-                  style={{
-                    color: "#8A94A6",
-                  }}
-                >
+                <span className="text-xs font-semibold uppercase tracking-widest text-mc-muted">
                   Password Strength
                 </span>
                 <span
@@ -219,13 +206,19 @@ export function ProfilePasswordCard({
                   (index) => (
                     <span
                       key={index}
-                      className="h-1.5 flex-1 rounded-full"
+                      className={cn(
+                        "h-1.5 flex-1 rounded-full",
+                        index <=
+                          passwordStrength.score
+                          ? ""
+                          : "bg-white/8",
+                      )}
                       style={{
                         background:
                           index <=
                           passwordStrength.score
                             ? passwordStrength.color
-                            : "rgba(255,255,255,.08)",
+                            : undefined,
                       }}
                     />
                   ),
@@ -236,13 +229,12 @@ export function ProfilePasswordCard({
                   (requirement) => (
                     <li
                       key={requirement.label}
-                      className="flex items-center gap-2"
-                      style={{
-                        color:
-                          requirement.ok
-                            ? "#3FB950"
-                            : "#8A94A6",
-                      }}
+                      className={cn(
+                        "flex items-center gap-2",
+                        requirement.ok
+                          ? "text-mc-success"
+                          : "text-mc-muted",
+                      )}
                     >
                       {requirement.ok ? (
                         <CheckCircle
@@ -302,13 +294,7 @@ export function ProfilePasswordCard({
           </div>
         </div>
 
-        <div
-          className="border-t pt-4"
-          style={{
-            borderColor:
-              "rgba(255,255,255,.07)",
-          }}
-        >
+        <div className="border-t border-mc-border pt-4">
           <PrimaryButton
             type="submit"
             loading={
@@ -324,6 +310,6 @@ export function ProfilePasswordCard({
           </PrimaryButton>
         </div>
       </form>
-    </Card>
+    </Panel>
   );
 }

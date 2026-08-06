@@ -571,10 +571,12 @@ describe("MyProfilePage", () => {
     await screen.findByText(
       "Major Sarah Chen",
     );
+    // Hero + avatar card. The shell's topbar avatar lives in `AppShell` and is
+    // no longer rendered by this page.
     const avatarImages = screen.getAllByRole(
       "img",
     );
-    expect(avatarImages).toHaveLength(3);
+    expect(avatarImages).toHaveLength(2);
 
     avatarImages.forEach((image) => {
       fireEvent.error(image);
@@ -861,43 +863,12 @@ describe("MyProfilePage", () => {
     ).toBeInTheDocument();
   });
 
-  it("signs out from the account menu", async () => {
-    const user = userEvent.setup();
-    mockJsonResponse(currentUserResponse);
-    mockJsonResponse({
-      detail: "Signed out successfully.",
-    });
-
-    renderPage();
-
-    await screen.findByText(
-      "Major Sarah Chen",
-    );
-    await user.click(
-      screen.getByRole("button", {
-        name: "Open account menu",
-      }),
-    );
-    await user.click(
-      screen.getByRole("button", {
-        name: "Sign Out",
-      }),
-    );
-
-    expect(
-      await screen.findByText("Login page"),
-    ).toBeInTheDocument();
-    expect(
-      vi.mocked(globalThis.fetch)
-        .mock.calls[1]?.[0],
-    ).toBe("/api/accounts/logout/");
-    expect(
-      vi.mocked(globalThis.fetch)
-        .mock.calls[1]?.[1]?.method,
-    ).toBe("POST");
-  });
-
-  it("opens profile sections from the workspace navigation", async () => {
+  /*
+   * Account-menu navigation and sign out now belong to the shared app shell —
+   * see `shared/layout/appShell.test.tsx`. What remains page-local is the
+   * sections sidebar, which tracks the active section.
+   */
+  it("tracks the active section from the sections sidebar", async () => {
     const user = userEvent.setup();
     mockJsonResponse(currentUserResponse);
 
@@ -905,23 +876,6 @@ describe("MyProfilePage", () => {
 
     await screen.findByText(
       "Major Sarah Chen",
-    );
-    await user.click(
-      screen.getByRole("button", {
-        name: "Open profile settings from navigation",
-      }),
-    );
-
-    expect(
-      screen.getByRole("button", {
-        name: "Account & Security",
-      }),
-    ).toHaveAttribute("aria-current", "page");
-
-    await user.click(
-      screen.getByRole("button", {
-        name: "Open my profile from sidebar",
-      }),
     );
 
     expect(
@@ -932,34 +886,7 @@ describe("MyProfilePage", () => {
 
     await user.click(
       screen.getByRole("button", {
-        name: "Open account menu",
-      }),
-    );
-    await user.click(
-      screen.getByRole("button", {
-        name: "Open my profile",
-      }),
-    );
-
-    expect(
-      screen.getByRole("button", {
-        name: "Profile Details",
-      }),
-    ).toHaveAttribute("aria-current", "page");
-    expect(
-      screen.queryByRole("button", {
-        name: "Open my profile",
-      }),
-    ).not.toBeInTheDocument();
-
-    await user.click(
-      screen.getByRole("button", {
-        name: "Open account menu",
-      }),
-    );
-    await user.click(
-      screen.getByRole("button", {
-        name: "Open profile settings",
+        name: "Account & Security",
       }),
     );
 
@@ -968,6 +895,11 @@ describe("MyProfilePage", () => {
         name: "Account & Security",
       }),
     ).toHaveAttribute("aria-current", "page");
+    expect(
+      screen.getByRole("button", {
+        name: "Profile Details",
+      }),
+    ).not.toHaveAttribute("aria-current");
   });
 
   it("redirects unauthenticated users to login from the protected route", async () => {

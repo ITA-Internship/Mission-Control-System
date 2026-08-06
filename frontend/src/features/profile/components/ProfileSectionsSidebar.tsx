@@ -2,6 +2,7 @@ import {
   Shield,
 } from "lucide-react";
 
+import { cn } from "../../../shared/utils/cn";
 import type { ActiveSection } from "../types/profile";
 
 export function ProfileSectionsSidebar({
@@ -20,27 +21,9 @@ export function ProfileSectionsSidebar({
 }) {
   return (
     <div className="sticky top-6 hidden w-44 flex-shrink-0 md:block">
-      <div
-        className="overflow-hidden rounded-xl border"
-        style={{
-          background: "#161D26",
-          borderColor:
-            "rgba(255,255,255,.07)",
-        }}
-      >
-        <div
-          className="border-b px-4 py-3"
-          style={{
-            borderColor:
-              "rgba(255,255,255,.07)",
-          }}
-        >
-          <span
-            className="text-[10px] font-semibold uppercase tracking-widest"
-            style={{
-              color: "#8A94A6",
-            }}
-          >
+      <div className="overflow-hidden rounded-xl border border-mc-border bg-mc-card">
+        <div className="border-b border-mc-border px-4 py-3">
+          <span className="text-[10px] font-semibold uppercase tracking-widest text-mc-muted">
             Sections
           </span>
         </div>
@@ -60,24 +43,12 @@ export function ProfileSectionsSidebar({
                 aria-current={
                   isActive ? "page" : undefined
                 }
-                className="mb-0.5 w-full rounded-lg px-3 py-2 text-left text-xs font-medium transition-all"
-                style={{
-                  color: isActive
-                    ? "#C8A24A"
-                    : "#8A94A6",
-                  background:
-                    isActive
-                      ? "rgba(200,162,74,.1)"
-                      : "transparent",
-                  borderLeft: `2px solid ${
-                    isActive
-                      ? "#C8A24A"
-                      : "transparent"
-                  }`,
-                  paddingLeft: isActive
-                    ? "10px"
-                    : "12px",
-                }}
+                className={cn(
+                  "mb-0.5 w-full rounded-lg border-l-2 py-2 pr-3 text-left text-xs font-medium transition-colors",
+                  isActive
+                    ? "border-mc-accent bg-mc-accent/10 pl-2.5 text-mc-accent"
+                    : "border-transparent pl-3 text-mc-muted hover:text-mc-text",
+                )}
               >
                 {section.label}
               </button>
@@ -86,28 +57,12 @@ export function ProfileSectionsSidebar({
         </nav>
       </div>
 
-      <div
-        className="mt-4 rounded-xl border p-4"
-        style={{
-          background:
-            "rgba(200,162,74,.04)",
-          borderColor:
-            "rgba(200,162,74,.12)",
-        }}
-      >
+      <div className="mt-4 rounded-xl border border-mc-accent/[0.12] bg-mc-accent/[0.04] p-4">
         <Shield
           size={14}
-          style={{
-            color: "#C8A24A",
-          }}
-          className="mb-2"
+          className="mb-2 text-mc-accent"
         />
-        <p
-          className="text-[11px] leading-relaxed"
-          style={{
-            color: "#8A94A6",
-          }}
-        >
+        <p className="text-[11px] leading-relaxed text-mc-muted">
           Changes to email, unit, and role require administrator authorization.
         </p>
       </div>

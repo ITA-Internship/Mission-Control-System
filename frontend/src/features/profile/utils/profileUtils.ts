@@ -131,7 +131,7 @@ export function getStrength(
     return {
       score,
       label: "Weak",
-      color: "#E5484D",
+      color: "var(--color-mc-error)",
     };
   }
 
@@ -139,14 +139,14 @@ export function getStrength(
     return {
       score,
       label: "Moderate",
-      color: "#C8A24A",
+      color: "var(--color-mc-accent)",
     };
   }
 
   return {
     score,
     label: "Strong",
-    color: "#3FB950",
+    color: "var(--color-mc-success)",
   };
 }
 

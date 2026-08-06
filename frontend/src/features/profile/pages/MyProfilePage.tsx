@@ -20,9 +20,8 @@ import {
 import {
   changePassword,
   getCurrentUser,
-  signOut,
 } from "../../auth/api/authApi";
-import { AuthAlert } from "../../auth/components/AuthAlert";
+import { Alert } from "../../../shared/components/Alert";
 import {
   getApiFieldError,
   getFormError,
@@ -37,7 +36,6 @@ import { ProfilePasswordCard } from "../components/ProfilePasswordCard";
 import { ProfileSectionsSidebar } from "../components/ProfileSectionsSidebar";
 import { ProfileSecurityCard } from "../components/ProfileSecurityCard";
 import { ProfileSummaryHero } from "../components/ProfileSummaryHero";
-import { ProfileWorkspaceLayout } from "../components/ProfileWorkspaceLayout";
 import type {
   ActiveSection,
   AvatarState,
@@ -91,10 +89,6 @@ export function MyProfilePage({
     useState<string | null>(null);
   const [activeSection, setActiveSection] =
     useState<ActiveSection>("profile");
-  const [sidebarOpen, setSidebarOpen] =
-    useState(false);
-  const [userMenuOpen, setUserMenuOpen] =
-    useState(false);
   const [avatarState, setAvatarState] =
     useState<AvatarState>("idle");
   const [avatarError, setAvatarError] =
@@ -134,8 +128,6 @@ export function MyProfilePage({
     useState<StatusBanner | null>(null);
   const [passwordStatus, setPasswordStatus] =
     useState<"idle" | "saving">("idle");
-  const [signingOut, setSigningOut] =
-    useState(false);
   const [passwordVisibility, setPasswordVisibility] =
     useState<
       Record<PasswordVisibilityKey, boolean>
@@ -145,8 +137,6 @@ export function MyProfilePage({
       confirm: false,
     });
 
-  const menuRef =
-    useRef<HTMLDivElement>(null);
   const fileInputRef =
     useRef<HTMLInputElement>(null);
   const firstEditableFieldRef =
@@ -159,37 +149,6 @@ export function MyProfilePage({
     useRef<Exclude<AvatarState, "dragging">>(
       "idle",
     );
-
-  useEffect(() => {
-    if (!userMenuOpen) {
-      return undefined;
-    }
-
-    function handleOutsideClick(
-      event: MouseEvent,
-    ) {
-      if (
-        menuRef.current &&
-        !menuRef.current.contains(
-          event.target as Node,
-        )
-      ) {
-        setUserMenuOpen(false);
-      }
-    }
-
-    document.addEventListener(
-      "mousedown",
-      handleOutsideClick,
-    );
-
-    return () => {
-      document.removeEventListener(
-        "mousedown",
-        handleOutsideClick,
-      );
-    };
-  }, [userMenuOpen]);
 
   useEffect(() => {
     if (initialUser) {
@@ -338,23 +297,12 @@ export function MyProfilePage({
     section: ActiveSection,
   ) {
     setActiveSection(section);
-    setSidebarOpen(false);
     document
       .getElementById(section)
       ?.scrollIntoView?.({
         behavior: "smooth",
         block: "start",
       });
-  }
-
-  function openProfileSection() {
-    setUserMenuOpen(false);
-    scrollToSection("profile");
-  }
-
-  function openSettingsSection() {
-    setUserMenuOpen(false);
-    scrollToSection("security");
   }
 
   function enterProfileEditMode() {
@@ -741,37 +689,6 @@ export function MyProfilePage({
     setProfileBanner(null);
   }
 
-  async function handleSignOut() {
-    if (signingOut) {
-      return;
-    }
-
-    setSigningOut(true);
-    setUserMenuOpen(false);
-
-    try {
-      await signOut();
-      navigate("/login", {
-        replace: true,
-      });
-    } catch (error) {
-      if (redirectExpiredSession(error)) {
-        return;
-      }
-
-      setProfileBanner({
-        type: "error",
-        message: getFormError(
-          error,
-          "We could not sign you out. Please try again.",
-        ),
-      });
-      scrollToSection("profile");
-    } finally {
-      setSigningOut(false);
-    }
-  }
-
   function handleAvatarDrop(
     event: DragEvent<HTMLDivElement>,
   ) {
@@ -823,54 +740,28 @@ export function MyProfilePage({
 
   if (loading) {
     return (
-      <div
-        className="flex min-h-screen items-center justify-center"
-        style={{
-          background: "#0B0F14",
-          color: "#E6EAF0",
-        }}
-      >
+      <div className="flex min-h-64 items-center justify-center">
         <div
-          className="rounded-xl border px-6 py-4 text-sm"
-          style={{
-            background: "#161D26",
-            borderColor:
-              "rgba(255,255,255,.08)",
-          }}
-        >
-          Loading profile...
-        </div>
+          className="h-6 w-6 animate-spin rounded-full border-2 border-mc-border border-t-mc-accent"
+          role="status"
+          aria-label="Loading profile"
+        />
       </div>
     );
   }
 
   if (!currentUser || loadError) {
     return (
-      <div
-        className="flex min-h-screen items-center justify-center px-6"
-        style={{
-          background: "#0B0F14",
-        }}
-      >
-        <div
-          className="flex max-w-md flex-col gap-4 rounded-xl border p-6"
-          style={{
-            background: "#161D26",
-            borderColor:
-              "rgba(255,255,255,.08)",
-          }}
-        >
-          <AuthAlert variant="error">
+      <div className="flex min-h-64 items-center justify-center">
+        <div className="flex max-w-md flex-col gap-4 rounded-xl border border-white/8 bg-mc-card p-6">
+          <Alert variant="error">
             {loadError ??
               "Profile data is unavailable."}
-          </AuthAlert>
+          </Alert>
 
           <Link
             to="/login"
-            className="text-sm font-medium"
-            style={{
-              color: "#C8A24A",
-            }}
+            className="text-sm font-medium text-mc-accent"
           >
             Return to sign in
           </Link>
@@ -880,42 +771,12 @@ export function MyProfilePage({
   }
 
   return (
-    <ProfileWorkspaceLayout
-      currentUser={currentUser}
-      avatarDisplay={avatarDisplay}
-      sidebarOpen={sidebarOpen}
-      userMenuOpen={userMenuOpen}
-      menuRef={menuRef}
-      onToggleSidebar={() =>
-        setSidebarOpen((current) => !current)
-      }
-      onCloseSidebar={() =>
-        setSidebarOpen(false)
-      }
-      onToggleUserMenu={() =>
-        setUserMenuOpen((current) => !current)
-      }
-      onOpenProfile={openProfileSection}
-      onOpenSettings={openSettingsSection}
-      onSignOut={handleSignOut}
-      signingOut={signingOut}
-    >
-      <div className="mx-auto max-w-240 px-6 py-8">
+    <div className="mx-auto max-w-240">
         <div className="mb-7">
-          <h1
-            className="text-2xl font-semibold"
-            style={{
-              color: "#E6EAF0",
-            }}
-          >
+          <h1 className="text-2xl font-semibold text-mc-text">
             My Profile
           </h1>
-          <p
-            className="mt-1 text-sm"
-            style={{
-              color: "#8A94A6",
-            }}
-          >
+          <p className="mt-1 text-sm text-mc-muted">
             Manage your personal information and account security settings.
           </p>
         </div>
@@ -1053,7 +914,6 @@ export function MyProfilePage({
             />
           </div>
         </div>
-      </div>
-    </ProfileWorkspaceLayout>
+    </div>
   );
 }

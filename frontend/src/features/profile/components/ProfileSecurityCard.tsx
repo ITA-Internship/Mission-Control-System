@@ -4,12 +4,10 @@ import {
   Lock,
 } from "lucide-react";
 
+import { Panel } from "../../../shared/components/Panel";
 import type { CurrentUser } from "../../../shared/types/accounts";
 import { getUserIdentifier } from "../utils/profileUtils";
-import {
-  Card,
-  FieldLabel,
-} from "./ProfilePrimitives";
+import { FieldLabel } from "./ProfilePrimitives";
 
 export function ProfileSecurityCard({
   currentUser,
@@ -21,7 +19,7 @@ export function ProfileSecurityCard({
   lastLoginLabel: string | null;
 }) {
   return (
-    <Card
+    <Panel
       id="security"
       title="Account & Security"
     >
@@ -30,22 +28,8 @@ export function ProfileSecurityCard({
           <FieldLabel>
             Account Status
           </FieldLabel>
-          <span
-            className="inline-flex w-fit items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-semibold"
-            style={{
-              color: "#3FB950",
-              background:
-                "rgba(63,185,80,.1)",
-              borderColor:
-                "rgba(63,185,80,.25)",
-            }}
-          >
-            <span
-              className="inline-block h-1.5 w-1.5 animate-pulse rounded-full"
-              style={{
-                background: "#3FB950",
-              }}
-            />
+          <span className="inline-flex w-fit items-center gap-1.5 rounded-full border border-mc-success/25 bg-mc-success/10 px-2.5 py-1 text-xs font-semibold text-mc-success">
+            <span className="inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-mc-success" />
             {currentUser.is_active
               ? "Active"
               : "Inactive"}
@@ -54,12 +38,7 @@ export function ProfileSecurityCard({
 
         <div className="flex flex-col gap-1.5">
           <FieldLabel>Account ID</FieldLabel>
-          <span
-            className="text-sm font-mono"
-            style={{
-              color: "#8A94A6",
-            }}
-          >
+          <span className="font-mono text-sm text-mc-muted">
             {getUserIdentifier(currentUser)}
           </span>
         </div>
@@ -72,16 +51,9 @@ export function ProfileSecurityCard({
             <div className="flex items-center gap-2">
               <Clock
                 size={13}
-                style={{
-                  color: "#8A94A6",
-                }}
+                className="text-mc-muted"
               />
-              <span
-                className="text-sm font-mono"
-                style={{
-                  color: "#8A94A6",
-                }}
-              >
+              <span className="font-mono text-sm text-mc-muted">
                 {createdAtLabel}
               </span>
             </div>
@@ -93,12 +65,7 @@ export function ProfileSecurityCard({
             <FieldLabel>
               Account Created By
             </FieldLabel>
-            <span
-              className="text-sm"
-              style={{
-                color: "#8A94A6",
-              }}
-            >
+            <span className="text-sm text-mc-muted">
               {currentUser.created_by_username}
             </span>
           </div>
@@ -112,16 +79,9 @@ export function ProfileSecurityCard({
             <div className="flex items-center gap-2">
               <Activity
                 size={13}
-                style={{
-                  color: "#8A94A6",
-                }}
+                className="text-mc-muted"
               />
-              <span
-                className="text-sm font-mono"
-                style={{
-                  color: "#8A94A6",
-                }}
-              >
+              <span className="font-mono text-sm text-mc-muted">
                 {lastLoginLabel}
               </span>
             </div>
@@ -135,30 +95,18 @@ export function ProfileSecurityCard({
           <div className="flex items-center gap-2">
             <Lock
               size={13}
-              style={{
-                color: "#8A94A6",
-              }}
+              className="text-mc-muted"
             />
-            <span
-              className="text-sm"
-              style={{
-                color: "#8A94A6",
-              }}
-            >
+            <span className="text-sm text-mc-muted">
               Password
             </span>
           </div>
         </div>
       </div>
 
-      <p
-        className="mt-5 text-xs"
-        style={{
-          color: "#4A5568",
-        }}
-      >
+      <p className="mt-5 text-xs text-mc-subtle">
         Account status, role, and unit are administrator-managed. Contact your system admin for changes.
       </p>
-    </Card>
+    </Panel>
   );
 }
